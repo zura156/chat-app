@@ -1,8 +1,12 @@
 <mat-toolbar color="primary">
-  <span>GetStream Chat</span>
+  <span>Chat App</span>
+  <span style="font-size: x-small; margin-left: 0.5rem">GET_STREAM_IO</span>
   <span class="header-spacer"></span>
   <ng-container *ngIf="auth.user.value !== null; else authButtons">
-    <span>User {{ auth.user.value.email }} is logged in</span>
+    <span style="font-size: small"
+      >User {{ auth.user.value.email }} is logged in</span
+    >
+    <button mat-button (click)="logOut()">Log out</button>
   </ng-container>
 </mat-toolbar>
 <main class="content mat-app-background">

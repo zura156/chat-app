@@ -21,4 +21,8 @@ import { MatButtonModule } from '@angular/material/button';
 export class AppComponent {
   title = 'chat-app';
   constructor(public auth: AuthService) {}
+
+  logOut(): void {
+    this.auth.logout();
+  }
 }

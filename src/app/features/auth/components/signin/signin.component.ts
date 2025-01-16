@@ -3,6 +3,9 @@ import {
   Component,
   inject,
   OnInit,
+  signal,
+  ViewChild,
+  WritableSignal,
 } from '@angular/core';
 import {
   FormControl,
@@ -16,6 +19,13 @@ import { CommonModule } from '@angular/common';
 import { MatError, MatLabel, MatFormField } from '@angular/material/form-field';
 import { MatInput } from '@angular/material/input';
 import { MatButtonModule } from '@angular/material/button';
+import { PlaceholderDirective } from '../../../../shared/directives/placeholder/placeholder.directive';
+import { Subscription } from 'rxjs';
+import { AlertComponent } from '../../../../shared/components/alert/alert.component';
+import { AuthRequestI } from '../../interfaces/auth-request.interface';
+import { Router } from '@angular/router';
+import { HttpErrorResponse } from '@angular/common/http';
+import { LoadingSpinnerComponent } from "../../../../shared/components/loading-spinner/loading-spinner.component";
 
 @Component({
   selector: 'app-signin',
@@ -30,17 +40,26 @@ import { MatButtonModule } from '@angular/material/button';
     CommonModule,
     ReactiveFormsModule,
     FormContainerComponent,
+    PlaceholderDirective,
     MatInput,
     MatError,
     MatLabel,
     MatFormField,
     MatButtonModule,
-  ],
+    LoadingSpinnerComponent
+],
 })
 export class SigninComponent implements OnInit {
   authService = inject(AuthService);
+  router = inject(Router);
 
   form!: FormGroup;
+
+  isLoading: WritableSignal<boolean> = signal(false);
+
+  @ViewChild(PlaceholderDirective, { static: false })
+  alertHost!: PlaceholderDirective;
+  private closeSub!: Subscription;
 
   ngOnInit(): void {
     this.form = new FormGroup({
@@ -50,7 +69,39 @@ export class SigninComponent implements OnInit {
   }
 
   signIn() {
-    console.log('signin with: ', this.form.value);
-    // this.authService.signIn(this.form.value);
+    if (this.form.valid) {
+      this.isLoading.set(true);
+      const credentials: AuthRequestI = this.form.getRawValue();
+
+      this.authService.login(credentials).subscribe({
+        next: () => {
+          this.isLoading.set(false);
+          this.router.navigateByUrl('chat');
+        },
+        error: (err: HttpErrorResponse) => {
+          this.isLoading.set(false);
+          this.showErrorAlert(err.error.message);
+        },
+      });
+    }
+  }
+
+  ngOnDestroy(): void {
+    if (this.closeSub) {
+      this.closeSub.unsubscribe();
+    }
+  }
+
+  private showErrorAlert(message: string) {
+    const hostViewContainerRef = this.alertHost.viewContainerRef;
+    hostViewContainerRef.clear();
+
+    const componentRef = hostViewContainerRef.createComponent(AlertComponent);
+
+    componentRef.instance.message = message;
+    this.closeSub = componentRef.instance.close.subscribe(() => {
+      this.closeSub.unsubscribe();
+      hostViewContainerRef.clear();
+    });
   }
 }

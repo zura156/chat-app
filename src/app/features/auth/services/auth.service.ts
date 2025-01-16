@@ -6,6 +6,7 @@ import { throwError, BehaviorSubject } from 'rxjs';
 import { User } from '../models/user.model';
 import { AuthResponseI } from '../interfaces/auth-response.interface';
 import { environment } from '../../../../environments/environment';
+import { AuthRequestI } from '../interfaces/auth-request.interface';
 
 @Injectable({ providedIn: 'root' })
 export class AuthService {
@@ -19,13 +20,16 @@ export class AuthService {
     'https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key=' +
     environment.firebaseAPIKey;
 
-  constructor(private http: HttpClient, private router: Router) {}
+  constructor(private http: HttpClient, private router: Router) {
+    const userData: User | null = JSON.parse(localStorage.getItem('userData')!);
+    this.user.next(userData);
+  }
 
-  signup(email: string, password: string) {
+  signup(credentials: AuthRequestI) {
     return this.http
       .post<AuthResponseI>(this.SIGNUP_URL, {
-        email: email,
-        password: password,
+        email: credentials.email,
+        password: credentials.password,
         returnSecureToken: true,
       })
       .pipe(
@@ -41,11 +45,11 @@ export class AuthService {
       );
   }
 
-  login(email: string, password: string) {
+  login(credentials: AuthRequestI) {
     return this.http
       .post<AuthResponseI>(this.LOGIN_URL, {
-        email: email,
-        password: password,
+        email: credentials.email,
+        password: credentials.password,
         returnSecureToken: true,
       })
       .pipe(
@@ -92,7 +96,7 @@ export class AuthService {
 
   logout() {
     this.user.next(null);
-    this.router.navigate(['/auth']);
+    this.router.navigate(['/signin']);
     localStorage.removeItem('userData');
     if (this.tokenExpirationTimer) {
       clearTimeout(this.tokenExpirationTimer);

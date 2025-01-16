@@ -1,18 +1,6 @@
 <app-form-container title="Create Account">
   <form [formGroup]="form" class="form" (submit)="signUp()">
     <mat-form-field class="form-field">
-      <mat-label>Display Name</mat-label>
-      <input
-        type="text"
-        matInput
-        formControlName="displayName"
-        placeholder="Display Name"
-      />
-      <mat-error *ngIf="form.controls['displayName'].hasError('minlength')"
-        >Name is too short</mat-error
-      >
-    </mat-form-field>
-    <mat-form-field class="form-field">
       <mat-label>Email</mat-label>
       <input
         type="email"
@@ -44,3 +32,6 @@
     >
   </form>
 </app-form-container>
+
+<ng-template appPlaceholder></ng-template>
+<app-loading-spinner *ngIf="isLoading()"></app-loading-spinner>
