@@ -1,8 +1,8 @@
 <mat-toolbar color="primary">
   <span>GetStream Chat</span>
   <span class="header-spacer"></span>
-  <ng-container *ngIf="auth.isLoggedIn$ | async as user; else authButtons">
-    <span>User {{ $any(user)?.email }} is logged in</span>
+  <ng-container *ngIf="auth.user.value !== null; else authButtons">
+    <span>User {{ auth.user.value.email }} is logged in</span>
   </ng-container>
 </mat-toolbar>
 <main class="content mat-app-background">

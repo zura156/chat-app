@@ -5,10 +5,11 @@ import { catchError, tap } from 'rxjs/operators';
 import { throwError, BehaviorSubject } from 'rxjs';
 import { User } from '../models/user.model';
 import { AuthResponseI } from '../interfaces/auth-response.interface';
+import { environment } from '../../../../environments/environment';
 
 @Injectable({ providedIn: 'root' })
 export class AuthService {
-  user = new BehaviorSubject<User>(null);
+  user = new BehaviorSubject<User | null>(null);
   private tokenExpirationTimer: any;
 
   SIGNUP_URL: string =
@@ -61,29 +62,31 @@ export class AuthService {
   }
 
   autoLogin() {
-    const userData: {
-      email: string;
-      id: string;
-      _token: string;
-      _tokenExpirationDate: string;
-    } = JSON.parse(localStorage.getItem('userData'));
-    if (!userData) {
+    const storageData = localStorage.getItem('userData');
+    if (storageData) {
+      const userData: {
+        email: string;
+        id: string;
+        _token: string;
+        _tokenExpirationDate: string;
+      } = JSON.parse(storageData);
+
+      const loadedUser = new User(
+        userData.email,
+        userData.id,
+        userData._token,
+        new Date(userData._tokenExpirationDate)
+      );
+
+      if (loadedUser.token) {
+        this.user.next(loadedUser);
+        const expirationDuration =
+          new Date(userData._tokenExpirationDate).getTime() -
+          new Date().getTime();
+        this.autoLogout(expirationDuration);
+      }
+    } else {
       return;
-    }
-
-    const loadedUser = new User(
-      userData.email,
-      userData.id,
-      userData._token,
-      new Date(userData._tokenExpirationDate)
-    );
-
-    if (loadedUser.token) {
-      this.user.next(loadedUser);
-      const expirationDuration =
-        new Date(userData._tokenExpirationDate).getTime() -
-        new Date().getTime();
-      this.autoLogout(expirationDuration);
     }
   }
 

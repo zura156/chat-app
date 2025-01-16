@@ -61,6 +61,6 @@ export class SignupComponent implements OnInit {
 
   signUp() {
     console.log('signup with: ', this.form.value);
-    this.authService.signUp(this.form.value);
+    // this.authService.signUp(this.form.value);
   }
 }
