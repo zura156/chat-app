@@ -20,6 +20,7 @@ import {
   MatLabel,
 } from '@angular/material/input';
 import { MatButtonModule } from '@angular/material/button';
+import { RouterLink } from '@angular/router';
 
 @Component({
   selector: 'app-signup',
@@ -36,6 +37,7 @@ import { MatButtonModule } from '@angular/material/button';
   imports: [
     CommonModule,
     ReactiveFormsModule,
+    RouterLink,
     FormContainerComponent,
     MatInput,
     MatError,
