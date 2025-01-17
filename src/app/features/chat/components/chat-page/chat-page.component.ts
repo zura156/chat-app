@@ -1,67 +1,31 @@
 import { Component, OnInit, ChangeDetectionStrategy } from '@angular/core';
-import { TranslateModule } from '@ngx-translate/core';
-import { User } from 'stream-chat';
-import {
-  ChannelService,
-  ChatClientService,
-  StreamAutocompleteTextareaModule,
-  StreamChatModule,
-  StreamI18nService,
-} from 'stream-chat-angular';
-import { environment } from '../../../../../environments/environment';
-import { AuthService } from '../../../auth/services/auth.service';
+
+import Talk from 'talkjs';
 
 @Component({
   selector: 'app-chat-page',
   templateUrl: './chat-page.component.html',
-  imports: [
-    TranslateModule,
-    StreamAutocompleteTextareaModule,
-    StreamChatModule,
-  ],
+  standalone: true,
+  imports: [],
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
-export class ChatPageComponent implements OnInit {
-  constructor(
-    private chatService: ChatClientService,
-    private channelService: ChannelService,
-    private streamI18nService: StreamI18nService,
-    private authService: AuthService
-  ) {
-    const apiKey = environment.streamAPIKey;
-    const userId = this.authService.user.value?.id;
-    const userToken = this.authService.user.value?.token;
-    const userName = this.authService.user.value?.email;
+export class ChatPageComponent {
+  constructor() {
+    Talk.ready.then((): void => {
+      const me = new Talk.User('sample_user_alice');
+      const session = new Talk.Session({
+        appId: 'tqQzukjd',
+        me: me,
+      });
 
-    if (!userId || !userToken || !userName) {
-      throw new Error('User data is incomplete. Ensure the user is logged in.');
-    }
+      const conversation = session.getOrCreateConversation(
+        'sample_conversation'
+      );
+      conversation.setParticipant(me);
 
-    const user: User = {
-      id: userId,
-      name: userName,
-      image: `https://getstream.io/random_png/?name=${userName}`,
-    };
-
-    this.chatService.init(apiKey, user, userToken);
-    this.streamI18nService.setTranslation();
-  }
-
-  async ngOnInit() {
-    const channel = this.chatService.chatClient.channel(
-      'messaging',
-      'talking-about-angular',
-      {
-        // add as many custom fields as you'd like
-        image:
-          'https://upload.wikimedia.org/wikipedia/commons/thumb/c/cf/Angular_full_color_logo.svg/2048px-Angular_full_color_logo.svg.png',
-        name: 'Talking about Angular',
-      }
-    );
-    await channel.create();
-    this.channelService.init({
-      type: 'messaging',
-      id: { $eq: 'talking-about-angular' },
+      const chatbox = session.createChatbox();
+      chatbox.select(conversation);
+      chatbox.mount(document.getElementById('talkjs-container'));
     });
   }
 }
