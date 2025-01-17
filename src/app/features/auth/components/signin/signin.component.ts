@@ -25,7 +25,7 @@ import { AlertComponent } from '../../../../shared/components/alert/alert.compon
 import { AuthRequestI } from '../../interfaces/auth-request.interface';
 import { Router } from '@angular/router';
 import { HttpErrorResponse } from '@angular/common/http';
-import { LoadingSpinnerComponent } from "../../../../shared/components/loading-spinner/loading-spinner.component";
+import { LoadingSpinnerComponent } from '../../../../shared/components/loading-spinner/loading-spinner.component';
 
 @Component({
   selector: 'app-signin',
@@ -46,8 +46,8 @@ import { LoadingSpinnerComponent } from "../../../../shared/components/loading-s
     MatLabel,
     MatFormField,
     MatButtonModule,
-    LoadingSpinnerComponent
-],
+    LoadingSpinnerComponent,
+  ],
 })
 export class SigninComponent implements OnInit {
   authService = inject(AuthService);
@@ -78,9 +78,9 @@ export class SigninComponent implements OnInit {
           this.isLoading.set(false);
           this.router.navigateByUrl('chat');
         },
-        error: (err: HttpErrorResponse) => {
+        error: (err) => {
           this.isLoading.set(false);
-          this.showErrorAlert(err.error.message);
+          this.showErrorAlert(err);
         },
       });
     }

@@ -30,7 +30,7 @@ import { PlaceholderDirective } from '../../../../shared/directives/placeholder/
 import { AlertComponent } from '../../../../shared/components/alert/alert.component';
 import { AuthRequestI } from '../../interfaces/auth-request.interface';
 import { HttpErrorResponse } from '@angular/common/http';
-import { LoadingSpinnerComponent } from "../../../../shared/components/loading-spinner/loading-spinner.component";
+import { LoadingSpinnerComponent } from '../../../../shared/components/loading-spinner/loading-spinner.component';
 
 @Component({
   selector: 'app-signup',
@@ -55,8 +55,8 @@ import { LoadingSpinnerComponent } from "../../../../shared/components/loading-s
     MatLabel,
     MatFormField,
     MatButtonModule,
-    LoadingSpinnerComponent
-],
+    LoadingSpinnerComponent,
+  ],
 })
 export class SignupComponent implements OnInit, OnDestroy {
   authService = inject(AuthService);
@@ -87,9 +87,9 @@ export class SignupComponent implements OnInit, OnDestroy {
           this.isLoading.set(false);
           this.router.navigateByUrl('signin');
         },
-        error: (err: HttpErrorResponse) => {
+        error: (err) => {
           this.isLoading.set(false);
-          this.showErrorAlert(err.error.message);
+          this.showErrorAlert(err);
         },
       });
     }
