@@ -25,7 +25,7 @@
         <div class="row pt-2">
           <div class="col-6">
             <div class="alert alert-primary d-inline-block" role="alert">
-              {{ "Foreigner text." }}
+              <!-- {{ "Foreigner text." }} -->
             </div>
           </div>
           <div class="col-6"></div>
@@ -43,7 +43,12 @@
         </div>
       </div>
 
-      <form [formGroup]="form" (ngSubmit)="onSubmit()" id="reply" class="p-3 w-100">
+      <form
+        [formGroup]="form"
+        (ngSubmit)="onSubmit()"
+        id="reply"
+        class="p-3 w-100"
+      >
         <div class="input-group">
           <input
             type="text"
