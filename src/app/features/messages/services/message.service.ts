@@ -1,11 +1,9 @@
 import { Injectable } from '@angular/core';
 import { Observable, tap } from 'rxjs';
 import { webSocket, WebSocketSubject } from 'rxjs/webSocket';
-import { environment } from '../../environments/environment';
+import { environment } from '../../../../environments/environment';
 
-@Injectable({
-  providedIn: 'root',
-})
+@Injectable()
 export class MessageService {
   private socket$: WebSocketSubject<any> = webSocket(environment.wsUrl);
 
