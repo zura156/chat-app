@@ -5,7 +5,7 @@ import { NewPasswordDto } from '../dtos/set-new-password.dto';
 
 export class AuthService {
   public static async register(credentials: RegisterDto) {
-    console.log('Registering a new user');
+    console.log('Registering a new user: ' + credentials);
   }
 
   public static async login(credentials: LoginDto) {

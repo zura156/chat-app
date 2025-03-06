@@ -1,8 +1,9 @@
-import express, { Request, Response, Application } from 'express';
+import express, { Request, Response, Application, NextFunction } from 'express';
 import { WebSocket, WebSocketServer } from 'ws';
 import dotenv from 'dotenv';
 import cors from 'cors';
 import { authRouter } from './auth/routers/auth.router';
+import { errorMiddleware } from './middlewares/error.middleware';
 
 dotenv.config();
 
@@ -18,10 +19,6 @@ app.use(cors());
 
 app.use('/auth', authRouter);
 
-app.get('/', (req: Request, res: Response) => {
-  res.send('Hello World');
-});
-
 ws.on('connection', (ws: WebSocket) => {
   ws.on('message', (message: Buffer) => {
     const messageText = message.toString();
@@ -30,6 +27,10 @@ ws.on('connection', (ws: WebSocket) => {
     console.log(`Received message: ${messageText}`);
     ws.send(messageText);
   });
+});
+
+app.use((err: Error, req: Request, res: Response, next: NextFunction) => {
+  errorMiddleware(err, req, res, next);
 });
 
 app.listen(port, () => {
