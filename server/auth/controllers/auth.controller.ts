@@ -5,6 +5,13 @@ import { ResetPasswordDto } from '../dtos/reset-password.dto';
 import { NewPasswordDto } from '../dtos/set-new-password.dto';
 import { AuthService } from '../services/auth.service';
 
+declare module 'express-session' {
+  interface SessionData {
+    userId: string;
+    username: string;
+  }
+}
+
 export class AuthController {
   static async register(
     req: Request,
