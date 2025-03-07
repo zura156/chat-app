@@ -10,12 +10,12 @@ export const messagesRoutes: Routes = [
     path: ':id',
     component: MessagesLayoutComponent,
     children: [
-      {
-        path: 'settings', // settings for specific chats. (e.g. mute, delete, theme, etc.)
-      },
+      // {
+      //   path: 'settings', // settings for specific chats. (e.g. mute, delete, theme, etc.)
+      // },
     ],
   },
-  {
-    path: 'new-chat', // create new chat
-  },
+  // {
+  //   path: 'new-chat', // create new chat
+  // },
 ];

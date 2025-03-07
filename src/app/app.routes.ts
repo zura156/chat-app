@@ -1,6 +1,7 @@
 import { Routes } from '@angular/router';
-import { LoginComponent } from './features/login/components/login.component';
+import { LoginComponent } from './features/auth/login/login.component';
 import { MessageService } from './features/messages/services/message.service';
+import { RegisterComponent } from './features/auth/register/register.component';
 
 export const routes: Routes = [
   {
@@ -14,8 +15,13 @@ export const routes: Routes = [
     // canActivate: [!authGuard],
   },
   {
-    path: 'profile', // profile preference settings for the user (e.g. display name, profile picture, etc.)
+    path: 'register',
+    component: RegisterComponent,
+    // canActivate: [!authGuard],
   },
+  // {
+  //   path: 'profile', // profile preference settings for the user (e.g. display name, profile picture, etc.)
+  // },
   {
     path: 'messages',
     loadChildren: () =>
