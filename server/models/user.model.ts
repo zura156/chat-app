@@ -5,6 +5,7 @@ export interface IUser extends Document {
   username: string;
   email: string;
   password: string;
+  roles: string[];
   comparePassword(candidatePassword: string): Promise<boolean>;
 }
 
@@ -24,6 +25,10 @@ const UserSchema = new Schema<IUser>(
       type: String,
       required: true,
     },
+    roles: {
+      type: [String],
+      default: ['user'],
+    },
   },
   { timestamps: true }
 );
@@ -41,7 +46,7 @@ UserSchema.pre<IUser>('save', async function (next) {
   }
 });
 
-// Comparing passwords
+// Method to compare passwords
 UserSchema.methods.comparePassword = async function (
   candidatePassword: string
 ): Promise<boolean> {

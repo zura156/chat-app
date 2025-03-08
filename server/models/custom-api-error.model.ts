@@ -8,3 +8,7 @@ export class CustomAPIError extends Error {
     Object.setPrototypeOf(this, CustomAPIError.prototype);
   }
 }
+
+export const createCustomError = (msg: string, statusCode: number) => {
+  return new CustomAPIError(msg, statusCode);
+};

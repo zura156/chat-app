@@ -1,10 +1,20 @@
-import express from 'express';
-import { AuthController } from '../controllers/auth.controller';
+import { Router } from 'express';
+import {
+  registerUser,
+  loginUser,
+  getCurrentUser,
+  refreshToken,
+} from '../controllers/auth.controller';
+import { authenticate, authorize } from '../../middlewares/auth.middleware';
 
-export const authRouter = express.Router();
+const router = Router();
 
-authRouter.post('/register', AuthController.register);
-authRouter.post('/login', AuthController.login);
-authRouter.post('/logout', AuthController.logout);
-authRouter.post('/reset-password', AuthController.resetPassword);
-authRouter.post('/set-new-password', AuthController.setNewPassword);
+// Public routes
+router.post('/register', registerUser);
+router.post('/login', loginUser);
+
+// Protected routes
+router.get('/me', authenticate, getCurrentUser);
+router.post('/refresh-token', authenticate, refreshToken);
+
+export default router;
