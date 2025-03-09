@@ -23,10 +23,6 @@ app.use(
   })
 );
 
-app.get('/health', (req, res) => {
-  res.status(200).json({ status: 'Auth service is running' });
-});
-
 app.use('/auth', authRouter);
 
 ws.on('connection', (ws: WebSocket) => {
