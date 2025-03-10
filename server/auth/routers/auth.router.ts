@@ -14,7 +14,7 @@ router.post('/register', registerUser);
 router.post('/login', loginUser);
 
 // Protected routes
-router.get('/me', authenticate, getCurrentUser);
+router.get('/profile', authenticate, getCurrentUser);
 router.post('/refresh-token', authenticate, refreshToken);
 
 export default router;

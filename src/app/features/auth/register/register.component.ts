@@ -1,4 +1,4 @@
-import { Component } from '@angular/core';
+import { Component, inject } from '@angular/core';
 import {
   FormControl,
   FormGroup,
@@ -7,6 +7,7 @@ import {
 } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { repeatPasswordValidator } from '../validators/repeat-password.validator';
+import { AuthService } from '../services/auth.service';
 
 @Component({
   selector: 'app-register',
@@ -14,6 +15,8 @@ import { repeatPasswordValidator } from '../validators/repeat-password.validator
   templateUrl: './register.component.html',
 })
 export class RegisterComponent {
+  authService = inject(AuthService);
+
   form: FormGroup = new FormGroup(
     {
       firstName: new FormControl('', [
@@ -41,6 +44,15 @@ export class RegisterComponent {
   );
 
   onSubmit(): void {
-    console.log('submitted');
+    if (this.form.invalid) {
+      return;
+    }
+    const credentials = {
+      username: this.form.value.username,
+      email: this.form.value.email,
+      password: this.form.value.password,
+    };
+    this.authService.register(credentials).subscribe();
+    console.log(credentials)
   }
 }
