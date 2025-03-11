@@ -2,9 +2,8 @@ import express, { Request, Response, Application, NextFunction } from 'express';
 import { WebSocket, WebSocketServer } from 'ws';
 import cors from 'cors';
 import authRouter from './auth/routers/auth.router';
+import userRouter from './user/routers/user.router';
 import { errorMiddleware } from './middlewares/error.middleware';
-import session from 'express-session';
-import MongoStore from 'connect-mongo';
 import { connectDB } from './config/db';
 import config from './config/config';
 
@@ -24,6 +23,7 @@ app.use(
 );
 
 app.use('/auth', authRouter);
+app.use('/user', userRouter);
 
 ws.on('connection', (ws: WebSocket) => {
   ws.on('message', (message: Buffer) => {

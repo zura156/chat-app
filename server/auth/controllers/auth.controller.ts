@@ -5,6 +5,7 @@ import { generateToken } from '../../services/jwt.service';
 import { createCustomError } from '../../models/custom-api-error.model';
 import jwt from 'jsonwebtoken';
 import config from '../../config/config';
+import { MongoError } from 'mongodb';
 
 export const registerUser = async (
   req: Request,
@@ -12,7 +13,7 @@ export const registerUser = async (
   next: NextFunction
 ): Promise<void> => {
   try {
-    const { username, email, password } = req.body;
+    const { first_name, last_name, username, email, password } = req.body;
 
     // Check if user already exists
     const existingUser = await User.findOne({
@@ -31,6 +32,8 @@ export const registerUser = async (
 
     // Create new user
     const newUser = new User({
+      first_name,
+      last_name,
       username,
       email,
       password,
@@ -46,23 +49,36 @@ export const registerUser = async (
       token,
       user: {
         id: newUser._id,
+        first_name: newUser.first_name,
+        last_name: newUser.last_name,
         username: newUser.username,
         email: newUser.email,
         roles: newUser.roles,
       },
     });
-  } catch (error) {
-    console.error('Registration error:', error);
-    next(createCustomError('Server error during registration', 500));
+  } catch (error: any) {
+    if (error.message) {
+      next(createCustomError(error.message, 400));
+    }
+    next(createCustomError('Server error during registration!', 500));
   }
 };
 
-export const loginUser = async (req: Request, res: Response): Promise<void> => {
+export const loginUser = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> => {
   try {
-    const { username, password } = req.body;
+    const { username, email, password } = req.body;
+
+    if (!username || !email || !password) {
+      next(createCustomError('Some fields might be empty!', 400));
+      return;
+    }
 
     // Find user
-    const user = await User.findOne({ username });
+    const user = await User.findOne({ username, email });
     if (!user) {
       res.status(400).json({ message: 'Invalid credentials' });
       return;
@@ -83,41 +99,26 @@ export const loginUser = async (req: Request, res: Response): Promise<void> => {
       token,
       user: {
         id: user._id,
+        first_name: user.first_name,
+        last_name: user.last_name,
         username: user.username,
         email: user.email,
         roles: user.roles,
       },
     });
-  } catch (error) {
-    console.error('Login error:', error);
-    res.status(500).json({ message: 'Server error during login' });
+  } catch (error: any) {
+    if (error.message) {
+      next(createCustomError(error.message, 400));
+    }
+    next(createCustomError('Server error during login', 500));
   }
 };
 
-export const getCurrentUser = async (
+export const refreshToken = (
   req: AuthRequest,
-  res: Response
-): Promise<void> => {
-  try {
-    if (!req.user) {
-      res.status(401).json({ message: 'Not authenticated' });
-      return;
-    }
-
-    const user = await User.findById(req.user.userId).select('-password');
-    if (!user) {
-      res.status(404).json({ message: 'User not found' });
-      return;
-    }
-
-    res.status(200).json({ user });
-  } catch (error) {
-    console.error('Get current user error:', error);
-    res.status(500).json({ message: 'Server error' });
-  }
-};
-
-export const refreshToken = (req: AuthRequest, res: Response): void => {
+  res: Response,
+  next: NextFunction
+): void => {
   try {
     if (!req.user) {
       res.status(401).json({ message: 'Not authenticated' });
@@ -137,8 +138,10 @@ export const refreshToken = (req: AuthRequest, res: Response): void => {
     );
 
     res.status(200).json({ token: newToken });
-  } catch (error) {
-    console.error('Token refresh error:', error);
-    res.status(500).json({ message: 'Server error during token refresh' });
+  } catch (error: any) {
+    if (error.message) {
+      next(createCustomError(error.message, 400));
+    }
+    next(createCustomError('Server error during token refresh', 500));
   }
 };

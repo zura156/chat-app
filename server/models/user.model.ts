@@ -1,7 +1,11 @@
 import mongoose, { Document, Schema } from 'mongoose';
 import bcrypt from 'bcrypt';
+import validator from 'validator';
+import { createCustomError } from './custom-api-error.model';
 
 export interface IUser extends Document {
+  first_name: string;
+  last_name: string;
   username: string;
   email: string;
   password: string;
@@ -11,19 +15,36 @@ export interface IUser extends Document {
 
 const UserSchema = new Schema<IUser>(
   {
+    first_name: {
+      type: String,
+      required: [true, 'First name is required! \n'],
+      unique: false,
+    },
+    last_name: {
+      type: String,
+      required: [true, 'Last name is required! \n'],
+      unique: false,
+    },
     username: {
       type: String,
-      required: true,
+      required: [true, 'Username is required! \n'],
       unique: true,
     },
     email: {
       type: String,
-      required: true,
+      required: [true, 'Email is required! \n'],
+      validate: [validator.isEmail, 'Invalid email! \n'],
+      createIndexes: { unique: true },
       unique: true,
     },
     password: {
       type: String,
-      required: true,
+      validate: [
+        validator.isStrongPassword,
+        'Password is not strong enough! \n It must be at least 8 characters, containing: uppercase and lowercase letters, symbols and numbers.',
+      ],
+      required: [true, 'Password is required! \n'],
+      select: false,
     },
     roles: {
       type: [String],
@@ -42,7 +63,7 @@ UserSchema.pre<IUser>('save', async function (next) {
     this.password = await bcrypt.hash(this.password, salt);
     next();
   } catch (error: any) {
-    next(error);
+    next(createCustomError(error.message, error.statusCode || 500));
   }
 });
 

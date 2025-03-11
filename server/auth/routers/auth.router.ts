@@ -2,10 +2,9 @@ import { Router } from 'express';
 import {
   registerUser,
   loginUser,
-  getCurrentUser,
   refreshToken,
 } from '../controllers/auth.controller';
-import { authenticate, authorize } from '../../middlewares/auth.middleware';
+import { authenticate } from '../../middlewares/auth.middleware';
 
 const router = Router();
 
@@ -14,7 +13,6 @@ router.post('/register', registerUser);
 router.post('/login', loginUser);
 
 // Protected routes
-router.get('/profile', authenticate, getCurrentUser);
 router.post('/refresh-token', authenticate, refreshToken);
 
 export default router;
