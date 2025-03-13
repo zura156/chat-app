@@ -5,6 +5,8 @@ import { generateToken } from '../../services/jwt.service';
 import { createCustomError } from '../../models/custom-api-error.model';
 import jwt from 'jsonwebtoken';
 import config from '../../config/config';
+import { LoginDto } from '../dtos/login.dto';
+import { RegisterDto } from '../dtos/register.dto';
 
 export const registerUser = async (
   req: Request,
@@ -12,7 +14,7 @@ export const registerUser = async (
   next: NextFunction
 ): Promise<void> => {
   try {
-    const { first_name, last_name, username, email, password } = req.body;
+    const { first_name, last_name, username, email, password }: RegisterDto = req.body;
 
     // Check if user already exists
     const existingUser = await User.findOne({
@@ -69,7 +71,7 @@ export const loginUser = async (
   next: NextFunction
 ): Promise<void> => {
   try {
-    const { email, password } = req.body;
+    const { email, password }: LoginDto = req.body;
 
     if (!email || !password) {
       next(createCustomError('Some fields might be empty!', 400));
