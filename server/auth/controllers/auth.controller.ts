@@ -5,7 +5,6 @@ import { generateToken } from '../../services/jwt.service';
 import { createCustomError } from '../../models/custom-api-error.model';
 import jwt from 'jsonwebtoken';
 import config from '../../config/config';
-import { MongoError } from 'mongodb';
 
 export const registerUser = async (
   req: Request,
@@ -70,17 +69,18 @@ export const loginUser = async (
   next: NextFunction
 ): Promise<void> => {
   try {
-    const { username, email, password } = req.body;
+    const { email, password } = req.body;
 
-    if (!username || !email || !password) {
+    if (!email || !password) {
       next(createCustomError('Some fields might be empty!', 400));
       return;
     }
 
     // Find user
-    const user = await User.findOne({ username, email });
+    const user = await User.findOne({ email });
+
     if (!user) {
-      res.status(400).json({ message: 'Invalid credentials' });
+      res.status(404).json({ message: 'User not found!' });
       return;
     }
 

@@ -1,4 +1,4 @@
-import { Component } from '@angular/core';
+import { Component, inject } from '@angular/core';
 import {
   FormControl,
   FormGroup,
@@ -6,6 +6,7 @@ import {
   Validators,
 } from '@angular/forms';
 import { RouterLink } from '@angular/router';
+import { AuthService } from '../services/auth.service';
 
 @Component({
   selector: 'app-login',
@@ -13,12 +14,18 @@ import { RouterLink } from '@angular/router';
   templateUrl: './login.component.html',
 })
 export class LoginComponent {
+  authService = inject(AuthService);
+
   form: FormGroup = new FormGroup({
     email: new FormControl('', [Validators.required, Validators.email]),
     password: new FormControl('', [Validators.required]),
   });
 
   onSubmit(): void {
-    console.log('submitted');
+    const credentials = {
+      email: this.form.value.email,
+      password: this.form.value.password,
+    };
+    this.authService.login(credentials).subscribe((res) => console.log(res));
   }
 }

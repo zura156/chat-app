@@ -44,7 +44,7 @@ const UserSchema = new Schema<IUser>(
         'Password is not strong enough! \n It must be at least 8 characters, containing: uppercase and lowercase letters, symbols and numbers.',
       ],
       required: [true, 'Password is required! \n'],
-      select: false,
+      // select: false,
     },
     roles: {
       type: [String],

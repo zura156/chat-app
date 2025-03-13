@@ -1,4 +1,4 @@
-import { Component, inject } from '@angular/core';
+import { Component, inject, signal } from '@angular/core';
 import {
   FormControl,
   FormGroup,
@@ -16,6 +16,8 @@ import { AuthService } from '../services/auth.service';
 })
 export class RegisterComponent {
   authService = inject(AuthService);
+
+  showPass = signal<boolean>(false);
 
   form: FormGroup = new FormGroup(
     {
@@ -43,16 +45,22 @@ export class RegisterComponent {
     }
   );
 
+  togglePasswordVisibility(): void {
+    this.showPass.update((val) => !val);
+  }
+
   onSubmit(): void {
     if (this.form.invalid) {
       return;
     }
     const credentials = {
+      first_name: this.form.value.firstName,
+      last_name: this.form.value.lastName,
       username: this.form.value.username,
       email: this.form.value.email,
       password: this.form.value.password,
     };
     this.authService.register(credentials).subscribe();
-    console.log(credentials)
+    console.log(credentials);
   }
 }
