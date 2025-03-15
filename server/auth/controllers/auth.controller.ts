@@ -54,7 +54,6 @@ export const registerUser = async (
         last_name: newUser.last_name,
         username: newUser.username,
         email: newUser.email,
-        roles: newUser.roles,
       },
     });
   } catch (error: any) {
@@ -105,7 +104,6 @@ export const loginUser = async (
         last_name: user.last_name,
         username: user.username,
         email: user.email,
-        roles: user.roles,
       },
     });
   } catch (error: any) {

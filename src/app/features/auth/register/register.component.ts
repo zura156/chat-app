@@ -8,6 +8,7 @@ import {
 import { RouterLink } from '@angular/router';
 import { repeatPasswordValidator } from '../validators/repeat-password.validator';
 import { AuthService } from '../services/auth.service';
+import { RegisterCredentialsI } from '../interfaces/register-credentials.interface';
 
 @Component({
   selector: 'app-register',
@@ -53,7 +54,7 @@ export class RegisterComponent {
     if (this.form.invalid) {
       return;
     }
-    const credentials = {
+    const credentials: RegisterCredentialsI = {
       first_name: this.form.value.firstName,
       last_name: this.form.value.lastName,
       username: this.form.value.username,

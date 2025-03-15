@@ -7,6 +7,7 @@ import {
 } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { AuthService } from '../services/auth.service';
+import { LoginCredentialsI } from '../interfaces/login-credentials.interface';
 
 @Component({
   selector: 'app-login',
@@ -22,7 +23,7 @@ export class LoginComponent {
   });
 
   onSubmit(): void {
-    const credentials = {
+    const credentials: LoginCredentialsI = {
       email: this.form.value.email,
       password: this.form.value.password,
     };

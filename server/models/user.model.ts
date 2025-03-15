@@ -46,10 +46,6 @@ const UserSchema = new Schema<IUser>(
       required: [true, 'Password is required! \n'],
       // select: false,
     },
-    roles: {
-      type: [String],
-      default: ['user'],
-    },
   },
   { timestamps: true }
 );

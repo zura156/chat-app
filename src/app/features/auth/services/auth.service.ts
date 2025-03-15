@@ -1,7 +1,16 @@
 import { inject, Injectable } from '@angular/core';
 import { environment } from '../../../../environments/environment';
-import { BehaviorSubject, Observable, throwError } from 'rxjs';
-import { HttpClient, HttpErrorResponse } from '@angular/common/http';
+import { BehaviorSubject, Observable, tap, throwError } from 'rxjs';
+import {
+  HttpClient,
+  HttpErrorResponse,
+  HttpHeaders,
+} from '@angular/common/http';
+import { LoginResponseI } from '../interfaces/login-response.interface';
+import { RegisterResponseI } from '../interfaces/register-response.interface';
+import { RefreshTokenResponseI } from '../interfaces/refresh-token-response.interface';
+import { RegisterCredentialsI } from '../interfaces/register-credentials.interface';
+import { LoginCredentialsI } from '../interfaces/login-credentials.interface';
 
 @Injectable({
   providedIn: 'root',
@@ -17,6 +26,7 @@ export class AuthService {
    */
   private readonly _LOGIN_URL = `${environment.apiUrl}/auth/login`;
   private readonly _REGISTER_URL = `${environment.apiUrl}/auth/register`;
+  private readonly _REFRESH_TOKEN_URL = `${environment.apiUrl}/auth/refresh-token`;
 
   /*
    * states for auto-logout
@@ -34,7 +44,6 @@ export class AuthService {
   accessToken$ = new BehaviorSubject<string | null>(
     localStorage.getItem('accessToken')
   );
-
 
   /*
    * Setting state for authorization and .
@@ -75,7 +84,7 @@ export class AuthService {
    * Saving user info to local storage.
    */
   private handleStorage() {
-    const { accessToken$} = this;
+    const { accessToken$ } = this;
 
     if (accessToken$.value) {
       const tokenData: any = JSON.parse(atob(accessToken$.value.split('.')[1]));
@@ -108,19 +117,41 @@ export class AuthService {
   /*
    * Registering new users
    */
-  register(credentials: { username: string; email: string; password: string }) {
-    return this.http.post(this._REGISTER_URL, credentials);
+  register(credentials: RegisterCredentialsI): Observable<RegisterResponseI> {
+    return this.http.post<RegisterResponseI>(this._REGISTER_URL, credentials);
   }
 
   /*
    *user authentication
    */
-  login(credentials: {
-    username?: string;
-    email?: string;
-    password: string;
-  }): Observable<any> {
-    return this.http.post(this._LOGIN_URL, credentials);
+  login(credentials: LoginCredentialsI): Observable<LoginResponseI> {
+    return this.http.post<LoginResponseI>(this._LOGIN_URL, credentials);
+  }
+
+  /*
+   * Refresh token request
+   */
+
+  refreshAccessToken(): Observable<RefreshTokenResponseI> {
+    const headers = new HttpHeaders({
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${this.accessToken}`,
+    });
+
+    return this.http
+      .post<RefreshTokenResponseI>(this._REFRESH_TOKEN_URL, {}, { headers })
+      .pipe(
+        tap((res: any) => {
+          const newToken = res.token;
+
+          if (newToken) {
+            this.accessToken$.next(newToken);
+            localStorage.setItem('accessToken', newToken);
+          } else {
+            this.clearMemory();
+          }
+        })
+      );
   }
 
   /*
