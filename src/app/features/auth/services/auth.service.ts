@@ -1,6 +1,6 @@
 import { inject, Injectable } from '@angular/core';
 import { environment } from '../../../../environments/environment';
-import { BehaviorSubject, Observable, tap, throwError } from 'rxjs';
+import { BehaviorSubject, catchError, Observable, tap, throwError } from 'rxjs';
 import {
   HttpClient,
   HttpErrorResponse,
@@ -118,14 +118,21 @@ export class AuthService {
    * Registering new users
    */
   register(credentials: RegisterCredentialsI): Observable<RegisterResponseI> {
-    return this.http.post<RegisterResponseI>(this._REGISTER_URL, credentials);
+    return this.http
+      .post<RegisterResponseI>(this._REGISTER_URL, credentials)
+      .pipe(catchError(this.handleError));
   }
 
   /*
    *user authentication
    */
   login(credentials: LoginCredentialsI): Observable<LoginResponseI> {
-    return this.http.post<LoginResponseI>(this._LOGIN_URL, credentials);
+    return this.http.post<LoginResponseI>(this._LOGIN_URL, credentials).pipe(
+      tap((res) => {
+        this.handleAuthentication(res.token);
+      }),
+      catchError(this.handleError)
+    );
   }
 
   /*
@@ -150,7 +157,8 @@ export class AuthService {
           } else {
             this.clearMemory();
           }
-        })
+        }),
+        catchError(this.handleError)
       );
   }
 
@@ -174,5 +182,13 @@ export class AuthService {
     }
 
     return throwError(() => new Error(errorMessage));
+  }
+
+  private handleAuthentication(token: string): void {
+    this.accessToken$.next(token);
+    localStorage.setItem('accessToken', token);
+    this.signedIn$.next(true);
+
+    this.handleStorage();
   }
 }
