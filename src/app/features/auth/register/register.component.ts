@@ -30,6 +30,8 @@ export class RegisterComponent {
   authService = inject(AuthService);
 
   showPass = signal<boolean>(false);
+  showRepeatPass = signal<boolean>(false);
+
 
   form: FormGroup = new FormGroup(
     {
@@ -59,6 +61,10 @@ export class RegisterComponent {
 
   togglePasswordVisibility(): void {
     this.showPass.update((val) => !val);
+  }
+
+  toggleRepeatPasswordVisibility(): void {
+    this.showRepeatPass.update((val) => !val);
   }
 
   onSubmit(): void {

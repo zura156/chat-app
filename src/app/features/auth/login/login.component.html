@@ -24,7 +24,7 @@
             id="email"
             autocomplete="email"
             required
-            class="w-full"
+            class="w-full text-gray-100"
             hlmInput
             type="email"
             placeholder="Email"
@@ -33,33 +33,36 @@
       </fieldset>
       <fieldset>
         <label hlmLabel for="password" class="text-gray-300">Password</label>
-        <div class="text-sm">
-          <!-- <a
-          href="#"
-          class="font-semibold text-indigo-600 hover:text-indigo-500"
-          >Forgot password?</a
-          > -->
+        <div class="text-sm"></div>
+        <div class="relative">
+          <hlm-form-field>
+            <input
+              [type]="showPass() ? 'text' : 'password'"
+              name="password"
+              formControlName="password"
+              id="password"
+              class="w-full text-gray-100"
+              placeholder="Password"
+              autocomplete="current-password"
+              required
+              hlmInput
+            />
+            <p class="text-end text-sm/6 text-gray-500">
+              <a
+                [routerLink]="['/forgot-password']"
+                class="font-semibold text-[#fff]"
+                >Forgot password?</a
+              >
+            </p>
+          </hlm-form-field>
+          <button
+            type="button"
+            class="absolute top-0 right-0 rounded-r-md hover:bg-[#fff] duration-300 text-[#fff] hover:text-black h-10 px-2.5 border"
+            (click)="togglePasswordVisibility()"
+          >
+            {{ showPass() ? "Hide" : "Show" }}
+          </button>
         </div>
-        <hlm-form-field>
-          <input
-            type="password"
-            name="password"
-            formControlName="password"
-            id="password"
-            class="w-full"
-            placeholder="Password"
-            autocomplete="current-password"
-            required
-            hlmInput
-          />
-          <p class="text-end text-sm/6 text-gray-500">
-            <a
-              [routerLink]="['/forgot-password']"
-              class="font-semibold text-[#fff]"
-              >Forgot password?</a
-            >
-          </p>
-        </hlm-form-field>
       </fieldset>
 
       <fieldset>

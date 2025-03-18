@@ -1,4 +1,4 @@
-import { Component, inject } from '@angular/core';
+import { Component, inject, signal } from '@angular/core';
 import {
   FormControl,
   FormGroup,
@@ -29,6 +29,8 @@ import { HlmButtonDirective } from '@spartan-ng/ui-button-helm';
 export class LoginComponent {
   authService = inject(AuthService);
 
+  showPass = signal<boolean>(false);
+
   form: FormGroup = new FormGroup({
     email: new FormControl('', [Validators.required, Validators.email]),
     password: new FormControl('', [Validators.required]),
@@ -40,5 +42,9 @@ export class LoginComponent {
       password: this.form.value.password,
     };
     this.authService.login(credentials).subscribe((res) => console.log(res));
+  }
+
+  togglePasswordVisibility(): void {
+    this.showPass.update((val) => !val);
   }
 }

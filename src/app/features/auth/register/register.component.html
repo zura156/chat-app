@@ -105,19 +105,28 @@
           class="block text-sm/6 font-medium text-gray-300"
           >Password</label
         >
-        <hlm-form-field>
-          <input
-            class="w-full text-gray-100"
-            hlmInput
-            type="password"
-            name="password"
-            formControlName="password"
-            id="password"
-            placeholder="Password"
-            autocomplete="password"
-            required
-          />
-        </hlm-form-field>
+        <div class="relative">
+          <hlm-form-field>
+            <input
+              class="w-full text-gray-100"
+              hlmInput
+              [type]="showPass() ? 'text' : 'password'"
+              name="password"
+              formControlName="password"
+              id="password"
+              placeholder="Password"
+              autocomplete="password"
+              required
+            />
+          </hlm-form-field>
+          <button
+            type="button"
+            class="absolute top-0 right-0 rounded-r-md hover:bg-[#fff] duration-300 text-[#fff] hover:text-black h-10 px-2.5 border"
+            (click)="togglePasswordVisibility()"
+          >
+            {{ showPass() ? "Hide" : "Show" }}
+          </button>
+        </div>
       </fieldset>
       <fieldset>
         <label
@@ -131,7 +140,7 @@
             <input
               class="w-full text-gray-100"
               hlmInput
-              type="password"
+              [type]="showRepeatPass() ? 'text' : 'password'"
               name="repeatPassword"
               formControlName="repeatPassword"
               id="repeatPassword"
@@ -143,9 +152,9 @@
           <button
             type="button"
             class="absolute top-0 right-0 rounded-r-md hover:bg-[#fff] duration-300 text-[#fff] hover:text-black h-10 px-2.5 border"
-            (click)="togglePasswordVisibility()"
+            (click)="toggleRepeatPasswordVisibility()"
           >
-            {{ showPass() ? "Hide" : "Show" }}
+            {{ showRepeatPass() ? "Hide" : "Show" }}
           </button>
         </div>
       </fieldset>
