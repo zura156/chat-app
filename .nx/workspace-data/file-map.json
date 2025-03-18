@@ -1,0 +1,434 @@
+{
+  "version": "6.0",
+  "nxVersion": "20.6.0",
+  "pathMappings": {
+    "@spartan-ng/ui-input-helm": [
+      ".\\libs/ui/ui-input-helm/src/index.ts"
+    ],
+    "@spartan-ng/ui-formfield-helm": [
+      ".\\libs/ui/ui-formfield-helm/src/index.ts"
+    ],
+    "@spartan-ng/ui-label-helm": [
+      ".\\libs/ui/ui-label-helm/src/index.ts"
+    ]
+  },
+  "nxJsonPlugins": [],
+  "fileMap": {
+    "projectFileMap": {
+      "chat-app": [
+        {
+          "file": ".editorconfig",
+          "hash": "8037249353422744134"
+        },
+        {
+          "file": ".gitignore",
+          "hash": "10175894702052279752"
+        },
+        {
+          "file": ".vscode/extensions.json",
+          "hash": "11934160580685414355"
+        },
+        {
+          "file": ".vscode/launch.json",
+          "hash": "17406702432687230417"
+        },
+        {
+          "file": ".vscode/tasks.json",
+          "hash": "10093397977228577162"
+        },
+        {
+          "file": "README.md",
+          "hash": "1812417227029656979"
+        },
+        {
+          "file": "angular.json",
+          "hash": "13811278095961530446"
+        },
+        {
+          "file": "components.json",
+          "hash": "3089158842223537119"
+        },
+        {
+          "file": "libs/ui/ui-formfield-helm/src/index.ts",
+          "hash": "1379682831294187538"
+        },
+        {
+          "file": "libs/ui/ui-formfield-helm/src/lib/form-field.spec.ts",
+          "hash": "9247239904589969713"
+        },
+        {
+          "file": "libs/ui/ui-formfield-helm/src/lib/hlm-error.directive.ts",
+          "hash": "8559813530759281347"
+        },
+        {
+          "file": "libs/ui/ui-formfield-helm/src/lib/hlm-form-field.component.ts",
+          "hash": "10263304905217156553"
+        },
+        {
+          "file": "libs/ui/ui-formfield-helm/src/lib/hlm-hint.directive.ts",
+          "hash": "6215421755390582281"
+        },
+        {
+          "file": "libs/ui/ui-input-helm/src/index.ts",
+          "hash": "487913567356772959"
+        },
+        {
+          "file": "libs/ui/ui-input-helm/src/lib/hlm-input-error.directive.ts",
+          "hash": "13040471592513364896"
+        },
+        {
+          "file": "libs/ui/ui-input-helm/src/lib/hlm-input.directive.ts",
+          "hash": "1809643114653750158"
+        },
+        {
+          "file": "libs/ui/ui-label-helm/src/index.ts",
+          "hash": "11520514252818889827"
+        },
+        {
+          "file": "libs/ui/ui-label-helm/src/lib/hlm-label.directive.ts",
+          "hash": "9552035975350433381"
+        },
+        {
+          "file": "package-lock.json",
+          "hash": "16861563149844126868"
+        },
+        {
+          "file": "package.json",
+          "hash": "12461078915732657268",
+          "deps": [
+            "npm:@angular-devkit/build-angular",
+            "npm:@angular/cli",
+            "npm:@angular/compiler-cli",
+            "npm:@spartan-ng/cli",
+            "npm:@types/jasmine",
+            "npm:autoprefixer",
+            "npm:jasmine-core",
+            "npm:karma",
+            "npm:karma-chrome-launcher",
+            "npm:karma-coverage",
+            "npm:karma-jasmine",
+            "npm:karma-jasmine-html-reporter",
+            "npm:postcss",
+            "npm:tailwind-merge",
+            "npm:tailwindcss",
+            "npm:tailwindcss-animate",
+            "npm:typescript",
+            "npm:@angular/animations",
+            "npm:@angular/cdk",
+            "npm:@angular/common",
+            "npm:@angular/compiler",
+            "npm:@angular/core",
+            "npm:@angular/forms",
+            "npm:@angular/material",
+            "npm:@angular/platform-browser",
+            "npm:@angular/platform-browser-dynamic",
+            "npm:@angular/router",
+            "npm:@ng-icons/core",
+            "npm:@ng-icons/lucide",
+            "npm:@ngrx/store",
+            "npm:@ngx-translate/core",
+            "npm:@spartan-ng/brain",
+            "npm:@tailwindcss/postcss",
+            "npm:bootstrap",
+            "npm:class-variance-authority",
+            "npm:clsx",
+            "npm:firebase",
+            "npm:ngx-float-ui",
+            "npm:rxjs",
+            "npm:socket.io-client",
+            "npm:stream-chat",
+            "npm:stream-chat-angular",
+            "npm:talkjs",
+            "npm:tslib",
+            "npm:zone.js"
+          ]
+        },
+        {
+          "file": "public/favicon.ico",
+          "hash": "3988961587069885523"
+        },
+        {
+          "file": "public/fonts/SF-Pro/SFPRODISPLAYBLACKITALIC.OTF",
+          "hash": "5011934777030205931"
+        },
+        {
+          "file": "public/fonts/SF-Pro/SFPRODISPLAYBOLD.OTF",
+          "hash": "8781791351173785764"
+        },
+        {
+          "file": "public/fonts/SF-Pro/SFPRODISPLAYHEAVYITALIC.OTF",
+          "hash": "16227589833257055213"
+        },
+        {
+          "file": "public/fonts/SF-Pro/SFPRODISPLAYLIGHTITALIC.OTF",
+          "hash": "6784129500880584997"
+        },
+        {
+          "file": "public/fonts/SF-Pro/SFPRODISPLAYMEDIUM.OTF",
+          "hash": "15011035519873496786"
+        },
+        {
+          "file": "public/fonts/SF-Pro/SFPRODISPLAYREGULAR.OTF",
+          "hash": "14744032129511194565"
+        },
+        {
+          "file": "public/fonts/SF-Pro/SFPRODISPLAYSEMIBOLDITALIC.OTF",
+          "hash": "1560983009727410915"
+        },
+        {
+          "file": "public/fonts/SF-Pro/SFPRODISPLAYTHINITALIC.OTF",
+          "hash": "4848726710910538507"
+        },
+        {
+          "file": "public/fonts/SF-Pro/SFPRODISPLAYULTRALIGHTITALIC.OTF",
+          "hash": "16159950186442774341"
+        },
+        {
+          "file": "server/.gitignore",
+          "hash": "12646538288865032838"
+        },
+        {
+          "file": "server/auth/controllers/auth.controller.ts",
+          "hash": "3068513501997380551"
+        },
+        {
+          "file": "server/auth/dtos/login.dto.ts",
+          "hash": "9923003374694208367"
+        },
+        {
+          "file": "server/auth/dtos/register.dto.ts",
+          "hash": "14234189808747148511"
+        },
+        {
+          "file": "server/auth/dtos/reset-password.dto.ts",
+          "hash": "15909872665084306616"
+        },
+        {
+          "file": "server/auth/dtos/set-new-password.dto.ts",
+          "hash": "8709385915802272834"
+        },
+        {
+          "file": "server/auth/routers/auth.router.ts",
+          "hash": "17503047516130000402"
+        },
+        {
+          "file": "server/config/config.ts",
+          "hash": "7369212192295115418"
+        },
+        {
+          "file": "server/config/db.ts",
+          "hash": "4600579728952598081"
+        },
+        {
+          "file": "server/index.ts",
+          "hash": "1389927530659749394"
+        },
+        {
+          "file": "server/middlewares/auth.middleware.ts",
+          "hash": "17922107251227372035"
+        },
+        {
+          "file": "server/middlewares/error.middleware.ts",
+          "hash": "1970623655563138486"
+        },
+        {
+          "file": "server/models/custom-api-error.model.ts",
+          "hash": "4908517877491331814"
+        },
+        {
+          "file": "server/models/user.model.ts",
+          "hash": "17305042286790141202"
+        },
+        {
+          "file": "server/package-lock.json",
+          "hash": "5219033000514737665"
+        },
+        {
+          "file": "server/package.json",
+          "hash": "8646904663197178366"
+        },
+        {
+          "file": "server/services/jwt.service.ts",
+          "hash": "16695862907856306993"
+        },
+        {
+          "file": "server/tsconfig.json",
+          "hash": "10846476937355101314"
+        },
+        {
+          "file": "server/user/controllers/user.controller.ts",
+          "hash": "8065754829139282111"
+        },
+        {
+          "file": "server/user/routers/user.router.ts",
+          "hash": "9668273374407603864"
+        },
+        {
+          "file": "server/user/services/user.service.ts",
+          "hash": "3244421341483603138"
+        },
+        {
+          "file": "src/app/app.component.css",
+          "hash": "3244421341483603138"
+        },
+        {
+          "file": "src/app/app.component.html",
+          "hash": "17385897758380840601"
+        },
+        {
+          "file": "src/app/app.component.ts",
+          "hash": "12063457652589426446"
+        },
+        {
+          "file": "src/app/app.config.ts",
+          "hash": "5988014918558681084"
+        },
+        {
+          "file": "src/app/app.routes.ts",
+          "hash": "9460318309047445302"
+        },
+        {
+          "file": "src/app/features/auth/interceptors/auth.interceptor.ts",
+          "hash": "4050887334196625000"
+        },
+        {
+          "file": "src/app/features/auth/interfaces/login-credentials.interface.ts",
+          "hash": "4152804416169734655"
+        },
+        {
+          "file": "src/app/features/auth/interfaces/login-response.interface.ts",
+          "hash": "7596936767411684443"
+        },
+        {
+          "file": "src/app/features/auth/interfaces/refresh-token-response.interface.ts",
+          "hash": "7508199198503952157"
+        },
+        {
+          "file": "src/app/features/auth/interfaces/register-credentials.interface.ts",
+          "hash": "13027665762560747697"
+        },
+        {
+          "file": "src/app/features/auth/interfaces/register-response.interface.ts",
+          "hash": "15291842793670197612"
+        },
+        {
+          "file": "src/app/features/auth/login/login.component.html",
+          "hash": "4694735261755126336"
+        },
+        {
+          "file": "src/app/features/auth/login/login.component.ts",
+          "hash": "9562154441455214980"
+        },
+        {
+          "file": "src/app/features/auth/register/register.component.html",
+          "hash": "15907661185281036699"
+        },
+        {
+          "file": "src/app/features/auth/register/register.component.ts",
+          "hash": "12395706884717136170"
+        },
+        {
+          "file": "src/app/features/auth/services/auth.service.ts",
+          "hash": "1787251241713214300"
+        },
+        {
+          "file": "src/app/features/auth/validators/repeat-password.validator.ts",
+          "hash": "7574753967439671582"
+        },
+        {
+          "file": "src/app/features/messages/card/message-card.component.html",
+          "hash": "3244421341483603138"
+        },
+        {
+          "file": "src/app/features/messages/card/message-card.component.ts",
+          "hash": "16623577320014202244"
+        },
+        {
+          "file": "src/app/features/messages/chatbox/chatbox.component.html",
+          "hash": "3244421341483603138"
+        },
+        {
+          "file": "src/app/features/messages/chatbox/chatbox.component.ts",
+          "hash": "17844354016133385901"
+        },
+        {
+          "file": "src/app/features/messages/layout/messages-layout.component.html",
+          "hash": "12677771603483138613"
+        },
+        {
+          "file": "src/app/features/messages/layout/messages-layout.component.ts",
+          "hash": "4568581632544821955"
+        },
+        {
+          "file": "src/app/features/messages/list/messages-list.component.html",
+          "hash": "3244421341483603138"
+        },
+        {
+          "file": "src/app/features/messages/list/messages-list.component.ts",
+          "hash": "224295566446275084"
+        },
+        {
+          "file": "src/app/features/messages/messages.routes.ts",
+          "hash": "10595751401942460714"
+        },
+        {
+          "file": "src/app/features/messages/services/message.service.ts",
+          "hash": "14122741210486258753"
+        },
+        {
+          "file": "src/app/features/messages/start/messages-start.compoent.html",
+          "hash": "1055798448201380219"
+        },
+        {
+          "file": "src/app/features/messages/start/messages-start.compoent.ts",
+          "hash": "17830388600914787613"
+        },
+        {
+          "file": "src/app/shared/interfaces/user.interface.ts",
+          "hash": "11695295983835740481"
+        },
+        {
+          "file": "src/environments/environment.development.ts",
+          "hash": "3499048924720934694"
+        },
+        {
+          "file": "src/environments/environment.ts",
+          "hash": "8389002445991754953"
+        },
+        {
+          "file": "src/fonts.css",
+          "hash": "8624679083183183365"
+        },
+        {
+          "file": "src/index.html",
+          "hash": "3764733349328995209"
+        },
+        {
+          "file": "src/main.ts",
+          "hash": "875041330523952236"
+        },
+        {
+          "file": "src/styles.css",
+          "hash": "7652929683796963065"
+        },
+        {
+          "file": "tailwind.config.js",
+          "hash": "7607807366239562310"
+        },
+        {
+          "file": "tsconfig.app.json",
+          "hash": "14560978611694835822"
+        },
+        {
+          "file": "tsconfig.json",
+          "hash": "15843104567938747711"
+        },
+        {
+          "file": "tsconfig.spec.json",
+          "hash": "11023685540591620072"
+        }
+      ]
+    },
+    "nonProjectFiles": []
+  }
+}

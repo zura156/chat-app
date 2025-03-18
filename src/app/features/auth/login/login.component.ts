@@ -9,9 +9,21 @@ import { RouterLink } from '@angular/router';
 import { AuthService } from '../services/auth.service';
 import { LoginCredentialsI } from '../interfaces/login-credentials.interface';
 
+import { HlmFormFieldModule } from '@spartan-ng/ui-formfield-helm';
+import { HlmInputDirective } from '@spartan-ng/ui-input-helm';
+import { HlmLabelDirective } from '@spartan-ng/ui-label-helm';
+import { HlmButtonDirective } from '@spartan-ng/ui-button-helm';
+
 @Component({
   selector: 'app-login',
-  imports: [RouterLink, ReactiveFormsModule],
+  imports: [
+    RouterLink,
+    ReactiveFormsModule,
+    HlmFormFieldModule,
+    HlmInputDirective,
+    HlmLabelDirective,
+    HlmButtonDirective,
+  ],
   templateUrl: './login.component.html',
 })
 export class LoginComponent {

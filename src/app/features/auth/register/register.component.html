@@ -6,135 +6,167 @@
         alt="Your Company"
       /> -->
     <h2
-      class="mt-10 text-center text-2xl/9 font-bold tracking-tight text-gray-900"
+      class="mt-10 text-center text-2xl/9 font-medium tracking-tight text-gray-300"
     >
       Register a new account
     </h2>
   </div>
 
   <div class="mt-10 sm:mx-auto sm:w-full sm:max-w-sm">
-    <form [formGroup]="form" (ngSubmit)="onSubmit()" class="space-y-6">
+    <form [formGroup]="form" (ngSubmit)="onSubmit()" class="space-y-2.5">
       <fieldset>
         <label
+          hlmLabel
           for="first_name"
-          class="block text-sm/6 font-medium text-gray-900"
+          class="block text-sm/6 font-medium text-gray-300"
           >First name</label
         >
-        <div class="mb-2">
+        <hlm-form-field>
           <input
+            class="w-full text-gray-100"
+            hlmInput
             type="text"
             name="firstName"
             formControlName="firstName"
+            placeholder="First name"
             id="first_name"
             autocomplete="off"
             required
-            class="block w-full rounded-md bg-white px-3 py-1.5 text-base text-gray-900 outline-1 -outline-offset-1 outline-gray-300 placeholder:text-gray-400 focus:outline-2 focus:-outline-offset-2 focus:outline-indigo-600 sm:text-sm/6"
           />
-        </div>
+        </hlm-form-field>
       </fieldset>
       <fieldset>
-        <label for="last_name" class="block text-sm/6 font-medium text-gray-900"
-          >Last Name</label
+        <label
+          hlmLabel
+          for="last_name"
+          class="block text-sm/6 font-medium text-gray-300"
+          >Last name</label
         >
-        <div class="mb-2">
+        <hlm-form-field>
           <input
+            class="w-full text-gray-100"
+            hlmInput
             type="text"
             name="lastName"
             formControlName="lastName"
+            placeholder="Last name"
             id="last_name"
             autocomplete="off"
             required
-            class="block w-full rounded-md bg-white px-3 py-1.5 text-base text-gray-900 outline-1 -outline-offset-1 outline-gray-300 placeholder:text-gray-400 focus:outline-2 focus:-outline-offset-2 focus:outline-indigo-600 sm:text-sm/6"
           />
-        </div>
+        </hlm-form-field>
       </fieldset>
       <fieldset>
-        <label for="username" class="block text-sm/6 font-medium text-gray-900"
+        <label
+          hlmLabel
+          for="username"
+          class="block text-sm/6 font-medium text-gray-300"
           >Username</label
         >
-        <div class="mb-2">
+        <hlm-form-field>
           <input
+            class="w-full text-gray-100"
+            hlmInput
             type="text"
             name="username"
             formControlName="username"
             id="username"
+            placeholder="Username"
             autocomplete="username"
             required
-            class="block w-full rounded-md bg-white px-3 py-1.5 text-base text-gray-900 outline-1 -outline-offset-1 outline-gray-300 placeholder:text-gray-400 focus:outline-2 focus:-outline-offset-2 focus:outline-indigo-600 sm:text-sm/6"
           />
-        </div>
+        </hlm-form-field>
       </fieldset>
       <fieldset>
-        <label for="email" class="block text-sm/6 font-medium text-gray-900"
+        <label
+          hlmLabel
+          for="email"
+          class="block text-sm/6 font-medium text-gray-300"
           >Email address</label
         >
-        <div class="mb-2">
+        <hlm-form-field>
           <input
+            class="w-full text-gray-100"
+            hlmInput
             type="email"
             name="email"
             formControlName="email"
             id="email"
+            placeholder="Email"
             autocomplete="email"
             required
-            class="block w-full rounded-md bg-white px-3 py-1.5 text-base text-gray-900 outline-1 -outline-offset-1 outline-gray-300 placeholder:text-gray-400 focus:outline-2 focus:-outline-offset-2 focus:outline-indigo-600 sm:text-sm/6"
           />
-        </div>
+        </hlm-form-field>
       </fieldset>
-
       <fieldset>
-        <label for="password" class="block text-sm/6 font-medium text-gray-900"
+        <label
+          hlmLabel
+          for="password"
+          class="block text-sm/6 font-medium text-gray-300"
           >Password</label
         >
-        <div class="mb-2">
+        <hlm-form-field>
           <input
+            class="w-full text-gray-100"
+            hlmInput
             type="password"
             name="password"
             formControlName="password"
             id="password"
-            autocomplete="current-password"
+            placeholder="Password"
+            autocomplete="password"
             required
-            class="block w-full rounded-md bg-white px-3 py-1.5 text-base text-gray-900 outline-1 -outline-offset-1 outline-gray-300 placeholder:text-gray-400 focus:outline-2 focus:-outline-offset-2 focus:outline-indigo-600 sm:text-sm/6"
           />
+        </hlm-form-field>
+      </fieldset>
+      <fieldset>
+        <label
+          hlmLabel
+          for="repeatPassword"
+          class="block text-sm/6 font-medium text-gray-300"
+          >Repeat password</label
+        >
+        <div class="relative">
+          <hlm-form-field>
+            <input
+              class="w-full text-gray-100"
+              hlmInput
+              type="password"
+              name="repeatPassword"
+              formControlName="repeatPassword"
+              id="repeatPassword"
+              placeholder="Repeat password"
+              autocomplete="repeatPassword"
+              required
+            />
+          </hlm-form-field>
+          <button
+            type="button"
+            class="absolute top-0 right-0 rounded-r-md hover:bg-[#fff] duration-300 text-[#fff] hover:text-black h-10 px-2.5 border"
+            (click)="togglePasswordVisibility()"
+          >
+            {{ showPass() ? "Hide" : "Show" }}
+          </button>
         </div>
       </fieldset>
 
       <fieldset>
-          <label
-            for="repeat_password"
-            class="block text-sm/6 font-medium text-gray-900"
-            >Repeat Password</label
-          >
-          <div class="mb-2">
-            <input
-              [type]="showPass() ? 'text' : 'password'"
-              name="repeat_password"
-              formControlName="repeatPassword"
-              id="repeat_password"
-              autocomplete="off"
-              required
-              class="block w-full rounded-md bg-white px-3 py-1.5 text-base text-gray-900 outline-1 -outline-offset-1 outline-gray-300 placeholder:text-gray-400 focus:outline-2 focus:-outline-offset-2 focus:outline-indigo-600 sm:text-sm/6"
-            />
-            <button type="button" (click)="togglePasswordVisibility()">
-              {{ showPass() ? "Hide" : "Show" }}
-            </button>
-          </div>
-      </fieldset>
-
-      <fieldset>
         <button
+          hlmBtn
+          variant="outline"
+          class="text-[#fff] w-full"
           type="submit"
-          class="flex w-full justify-center rounded-md bg-indigo-600 px-3 py-1.5 text-sm/6 font-semibold text-white shadow-xs hover:bg-indigo-500 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600"
         >
           Sign in
         </button>
       </fieldset>
     </form>
 
-    <p class="mt-10 text-center text-sm/6 text-gray-500">
+    <p class="mt-2 text-center text-sm/6 text-gray-500">
       Already have an account?
       <a
         [routerLink]="['/login']"
-        class="font-semibold text-indigo-600 hover:text-indigo-500"
+        class="font-semibold text-[#fff] hover:text-gray-300"
         >Login now!</a
       >
     </p>

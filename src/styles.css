@@ -1,7 +1,96 @@
 @import "@spartan-ng/brain/hlm-tailwind-preset.css";
-@import "tailwindcss";
+@import "./fonts.css";
 
-@custom-variant dark (&:where([data-theme=dark], [data-theme=dark] *));
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  /* Default theme (light) */
+  --background: 0 0% 100%; /* Pure white */
+  --foreground: 0 0% 0%; /* Pure black */
+
+  --muted: 0 0% 96%; /* Very light gray */
+  --muted-foreground: 0 0% 45%; /* Medium gray */
+
+  --card: 0 0% 100%; /* Pure white */
+  --card-foreground: 0 0% 0%; /* Pure black */
+
+  --popover: 0 0% 100%; /* Pure white */
+  --popover-foreground: 0 0% 0%; /* Pure black */
+
+  --border: 0 0% 89%; /* Light gray */
+  --input: 0 0% 89%; /* Light gray */
+
+  /* Vercel blue as primary */
+  --primary: 210 100% 52%; /* Vercel blue (#0070f3) */
+  --primary-foreground: 0 0% 100%; /* White */
+
+  --secondary: 0 0% 96%; /* Very light gray */
+  --secondary-foreground: 0 0% 0%; /* Pure black */
+
+  --accent: 210 100% 98%; /* Very light blue */
+  --accent-foreground: 210 100% 42%; /* Darker blue */
+
+  --destructive: 0 84% 60%; /* Bright red */
+  --destructive-foreground: 0 0% 100%; /* White */
+
+  /* Status colors */
+  --success: 145 63% 42%; /* Green (#0ABB5E) */
+  --success-foreground: 0 0% 100%; /* White */
+
+  --warning: 38 92% 50%; /* Amber (#F5A623) */
+  --warning-foreground: 0 0% 0%; /* Black */
+
+  --info: 210 100% 52%; /* Same as primary - Vercel blue */
+  --info-foreground: 0 0% 100%; /* White */
+
+  --ring: 210 100% 52%; /* Match primary - Vercel blue */
+  --radius: 0.5rem; /* Slightly rounded corners */
+}
+
+/* Dark theme */
+.dark {
+  --background: 0 0% 9%; /* Near black (#171717) */
+  --foreground: 0 0% 100%; /* Pure white */
+
+  --muted: 0 0% 15%; /* Dark gray (#262626) */
+  --muted-foreground: 0 0% 65%; /* Light gray */
+
+  --card: 0 0% 9%; /* Near black (#171717) */
+  --card-foreground: 0 0% 100%; /* Pure white */
+
+  --popover: 0 0% 9%; /* Near black (#171717) */
+  --popover-foreground: 0 0% 100%; /* Pure white */
+
+  --border: 0 0% 20%; /* Dark gray (#333333) */
+  --input: 0 0% 20%; /* Dark gray (#333333) */
+
+  /* Vercel blue as primary - brighter in dark mode */
+  --primary: 210 100% 60%; /* Slightly brighter blue (#1482FF) */
+  --primary-foreground: 0 0% 100%; /* White */
+
+  --secondary: 0 0% 15%; /* Dark gray (#262626) */
+  --secondary-foreground: 0 0% 100%; /* White */
+
+  --accent: 210 100% 15%; /* Very dark blue */
+  --accent-foreground: 210 100% 70%; /* Light blue */
+
+  --destructive: 0 84% 65%; /* Slightly brighter red */
+  --destructive-foreground: 0 0% 100%; /* White */
+
+  /* Status colors - adjusted for dark mode */
+  --success: 145 63% 50%; /* Brighter green */
+  --success-foreground: 0 0% 100%; /* White */
+
+  --warning: 38 92% 60%; /* Brighter amber */
+  --warning-foreground: 0 0% 0%; /* Black */
+
+  --info: 210 100% 60%; /* Same as primary - brighter blue */
+  --info-foreground: 0 0% 100%; /* White */
+
+  --ring: 210 100% 60%; /* Match primary */
+}
 
 html,
 body {
@@ -9,5 +98,5 @@ body {
 }
 body {
   margin: 0;
-  font-family: Roboto, "Helvetica Neue", sans-serif;
+  font-family: SF Pro, "Helvetica Neue";
 }

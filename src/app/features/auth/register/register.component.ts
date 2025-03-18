@@ -9,10 +9,21 @@ import { RouterLink } from '@angular/router';
 import { repeatPasswordValidator } from '../validators/repeat-password.validator';
 import { AuthService } from '../services/auth.service';
 import { RegisterCredentialsI } from '../interfaces/register-credentials.interface';
+import { HlmButtonDirective } from '@spartan-ng/ui-button-helm';
+import { HlmFormFieldModule } from '@spartan-ng/ui-formfield-helm';
+import { HlmInputDirective } from '@spartan-ng/ui-input-helm';
+import { HlmLabelDirective } from '@spartan-ng/ui-label-helm';
 
 @Component({
   selector: 'app-register',
-  imports: [RouterLink, ReactiveFormsModule],
+  imports: [
+    RouterLink,
+    ReactiveFormsModule,
+    HlmFormFieldModule,
+    HlmInputDirective,
+    HlmLabelDirective,
+    HlmButtonDirective,
+  ],
   templateUrl: './register.component.html',
 })
 export class RegisterComponent {
