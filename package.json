@@ -27,6 +27,7 @@
     "@spartan-ng/brain": "^0.0.1-alpha.422",
     "@tailwindcss/postcss": "^4.0.11",
     "bootstrap": "^5.3.3",
+    "class-variance-authority": "^0.7.0",
     "clsx": "^2.1.1",
     "firebase": "^11.2.0",
     "ngx-float-ui": "^19.0.0",
