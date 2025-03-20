@@ -2,9 +2,9 @@
 @import "@angular/cdk/overlay-prebuilt.css";
 @import "@spartan-ng/brain/hlm-tailwind-preset.css";
 
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import "tailwindcss";
+
+@custom-variant dark (&:where(.dark, .dark *));
 
 :root {
   --background: 0 0% 100%;
