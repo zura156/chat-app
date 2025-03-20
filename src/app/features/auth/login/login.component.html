@@ -6,16 +6,18 @@
       alt="Your Company"
     /> -->
     <h2
-      class="mt-10 text-center text-2xl/9 font-medium tracking-tight text-gray-200"
+      class="mt-10 text-center text-2xl/9 font-medium tracking-tight text-black dark:text-gray-200"
     >
       Sign in to your account
     </h2>
   </div>
 
   <div class="mt-10 sm:mx-auto sm:w-full sm:max-w-sm">
-    <form [formGroup]="form" (ngSubmit)="onSubmit()" class="space-y-2.5">
-      <fieldset>
-        <label hlmLabel for="email" class="text-gray-300">Email address</label>
+    <form [formGroup]="form" (ngSubmit)="onSubmit()">
+      <fieldset class="mb-2">
+        <label hlmLabel for="email" class="text-gray-800 dark:text-gray-300"
+          >Email address</label
+        >
         <hlm-form-field>
           <input
             type="email"
@@ -29,10 +31,16 @@
             type="email"
             placeholder="Email"
           />
+          <hlm-error class="flex items-center gap-x-1 mt-2"
+            ><ng-icon hlm size="sm" name="lucideCircleAlert"></ng-icon> Email
+            required!</hlm-error
+          >
         </hlm-form-field>
       </fieldset>
-      <fieldset>
-        <label hlmLabel for="password" class="text-gray-300">Password</label>
+      <fieldset class="mb-2">
+        <label hlmLabel for="password" class="text-gray-800 dark:text-gray-300"
+          >Password</label
+        >
         <div class="text-sm"></div>
         <div class="relative">
           <hlm-form-field>
@@ -41,23 +49,29 @@
               name="password"
               formControlName="password"
               id="password"
-              class="w-full text-gray-100"
+              class="w-full text-gray-100 rounded-r-[calc(var(--radius))]"
               placeholder="Password"
               autocomplete="current-password"
               required
               hlmInput
             />
-            <p class="text-end text-sm/6 text-gray-500">
-              <a
-                [routerLink]="['/forgot-password']"
-                class="font-semibold text-[#fff]"
-                >Forgot password?</a
-              >
-            </p>
+            <hlm-error class="flex items-center gap-x-1 mt-2 mb-px"
+              ><ng-icon hlm size="sm" name="lucideCircleAlert"></ng-icon>
+              Password required!</hlm-error
+            >
           </hlm-form-field>
+          <p class="text-end text-sm/6 text-gray-500">
+            <a
+              [routerLink]="['/forgot-password']"
+              class="font-medium text-black dark:text-white"
+              >Forgot password?</a
+            >
+          </p>
           <button
             type="button"
-            class="absolute top-0 right-0 rounded-r-md hover:bg-[#fff] duration-300 text-[#fff] hover:text-black h-10 px-2.5 border"
+            hlmBtn
+            variant="secondary"
+            class="absolute top-0 right-0 rounded-l-none duration-300 min-h-10 min-w-16 cursor-pointer"
             (click)="togglePasswordVisibility()"
           >
             {{ showPass() ? "Hide" : "Show" }}
@@ -66,7 +80,12 @@
       </fieldset>
 
       <fieldset class="dark">
-        <button type="submit" hlmBtn variant="outline" class="w-full">
+        <button
+          type="submit"
+          hlmBtn
+          variant="default"
+          class="w-full cursor-pointer"
+        >
           Sign in
         </button>
       </fieldset>
@@ -74,8 +93,10 @@
 
     <p class="mt-2 text-center text-sm/6 text-gray-500">
       Not a member?
-      <a [routerLink]="['/register']" class="font-semibold text-[#fff]"
-        >Register now!</a
+      <a
+        [routerLink]="['/register']"
+        class="font-semibold text-black dark:text-white"
+        >Register now</a
       >
     </p>
   </div>

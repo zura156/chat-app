@@ -13,6 +13,9 @@ import { HlmFormFieldModule } from '@spartan-ng/ui-formfield-helm';
 import { HlmInputDirective } from '@spartan-ng/ui-input-helm';
 import { HlmLabelDirective } from '@spartan-ng/ui-label-helm';
 import { HlmButtonDirective } from '@spartan-ng/ui-button-helm';
+import { HlmIconDirective } from '@spartan-ng/ui-icon-helm';
+import { NgIcon, provideIcons } from '@ng-icons/core';
+import { lucideCircleAlert } from '@ng-icons/lucide';
 
 @Component({
   selector: 'app-login',
@@ -23,7 +26,10 @@ import { HlmButtonDirective } from '@spartan-ng/ui-button-helm';
     HlmInputDirective,
     HlmLabelDirective,
     HlmButtonDirective,
+    HlmIconDirective,
+    NgIcon,
   ],
+  providers: [provideIcons({ lucideCircleAlert })],
   templateUrl: './login.component.html',
 })
 export class LoginComponent {
