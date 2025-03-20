@@ -11,6 +11,7 @@ import { RegisterResponseI } from '../interfaces/register-response.interface';
 import { RefreshTokenResponseI } from '../interfaces/refresh-token-response.interface';
 import { RegisterCredentialsI } from '../interfaces/register-credentials.interface';
 import { LoginCredentialsI } from '../interfaces/login-credentials.interface';
+import { TokenDataI } from '../interfaces/token-data.interface';
 
 @Injectable({
   providedIn: 'root',
@@ -87,7 +88,9 @@ export class AuthService {
     const { accessToken$ } = this;
 
     if (accessToken$.value) {
-      const tokenData: any = JSON.parse(atob(accessToken$.value.split('.')[1]));
+      const tokenData: TokenDataI = JSON.parse(
+        atob(accessToken$.value.split('.')[1])
+      );
       console.log(tokenData);
 
       this.signedIn$.next(true);
