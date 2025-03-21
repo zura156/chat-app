@@ -2,33 +2,28 @@ import { AbstractControl, ValidationErrors, ValidatorFn } from '@angular/forms';
 
 export const passwordValidator = (): ValidatorFn => {
   return (control: AbstractControl): ValidationErrors | null => {
-    const value: string = control.value;
-
-    if (!value) {
-      return { required: true };
+    if (!control.value) {
+      return null;
     }
 
-    // Check for at least 8 characters
-    if (value.length < 8) {
-      return { minLength: true };
+    const hasLength = control.value.length >= 8;
+    const hasUppercase = /[A-Z]/.test(control.value);
+    const hasNumeric = /[0-9]/.test(control.value);
+    const hasSpecial = /[!@#$%^&*(),.?":{}|<>]/.test(control.value);
+
+    const isValid = hasLength && hasUppercase && hasNumeric && hasSpecial;
+
+    if (!isValid) {
+      return {
+        passwordStrength: {
+          hasLength: hasLength,
+          hasUppercase: hasUppercase,
+          hasNumeric: hasNumeric,
+          hasSpecial: hasSpecial,
+        },
+      };
     }
 
-    // Check for at least 1 uppercase letter
-    if (!/[A-Z]/.test(value)) {
-      return { uppercase: true };
-    }
-
-    // Check for at least 1 numeric digit
-    if (!/\d/.test(value)) {
-      return { numeric: true };
-    }
-
-    // Check for at least 1 special character
-    if (!/[!@#$%^&*(),.?":{}|<>]/.test(value)) {
-      return { specialCharacter: true };
-    }
-
-    // All requirements met
     return null;
   };
-};
+}

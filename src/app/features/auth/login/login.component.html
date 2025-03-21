@@ -69,18 +69,32 @@
               Password required!</hlm-error
             >
             <hlm-error
-              *ngIf="
-                form.controls['password'].hasError('minLength') ||
-                form.controls['password'].hasError('maxLength') ||
-                form.controls['password'].hasError('pattern') ||
-                form.controls['password'].hasError('numeric') ||
-                form.controls['password'].hasError('lowercase') ||
-                form.controls['password'].hasError('uppercase') ||
-                form.controls['password'].hasError('specialCharacter')
-              "
               class="flex items-center gap-x-1 mt-2 mb-px"
-              ><ng-icon hlm size="sm" name="lucideCircleAlert"></ng-icon>
-              Password invalid!</hlm-error
+              *ngIf="!form.get('password')?.errors?.['passwordStrength']?.hasLength"
+            >
+              <ng-icon hlm size="sm" name="lucideCircleAlert"></ng-icon>
+              Password must be at least 8 characters long.</hlm-error
+            >
+            <hlm-error
+              class="flex items-center gap-x-1 mt-2 mb-px"
+              *ngIf="!form.get('password')?.errors?.['passwordStrength']?.hasUppercase"
+            >
+              <ng-icon hlm size="sm" name="lucideCircleAlert"></ng-icon>
+              Password must contain at least one uppercase letter.</hlm-error
+            >
+            <hlm-error
+              class="flex items-center gap-x-1 mt-2 mb-px"
+              *ngIf="!form.get('password')?.errors?.['passwordStrength']?.hasNumeric"
+            >
+              <ng-icon hlm size="sm" name="lucideCircleAlert"></ng-icon>
+              Password must contain at least one number.</hlm-error
+            >
+            <hlm-error
+              class="flex items-center gap-x-1 mt-2 mb-px"
+              *ngIf="!form.get('password')?.errors?.['passwordStrength']?.hasSpecial"
+            >
+              <ng-icon hlm size="sm" name="lucideCircleAlert"></ng-icon>
+              Password must contain at least one special character.</hlm-error
             >
           </hlm-form-field>
           <p class="text-end text-sm/6 text-gray-500">

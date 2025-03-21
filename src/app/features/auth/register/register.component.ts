@@ -6,7 +6,7 @@ import {
   Validators,
 } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
-import { matchPassword } from '../validators/password-match.validator';
+import { repeatPasswordValidator } from '../validators/repeat-password.validator';
 import { AuthService } from '../services/auth.service';
 import { RegisterCredentialsI } from '../interfaces/register-credentials.interface';
 import { HlmButtonDirective } from '@spartan-ng/ui-button-helm';
@@ -23,6 +23,7 @@ import {
   HlmAlertDirective,
   HlmAlertIconDirective,
 } from '@spartan-ng/ui-alert-helm';
+import { passwordValidator } from '../validators/password.validator';
 
 @Component({
   selector: 'app-register',
@@ -70,11 +71,11 @@ export class RegisterComponent {
         Validators.maxLength(32),
       ]),
       email: new FormControl('', [Validators.required, Validators.email]),
-      password: new FormControl('', [Validators.required]),
+      password: new FormControl('', [Validators.required, passwordValidator()]),
       repeat_password: new FormControl('', [Validators.required]),
     },
     {
-      validators: matchPassword,
+      validators: repeatPasswordValidator('password', 'repeat_password'),
     }
   );
 
