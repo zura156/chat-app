@@ -26,15 +26,23 @@
             id="email"
             autocomplete="email"
             required
-            class="w-full text-gray-100"
+            class="w-full"
             hlmInput
             type="email"
             placeholder="Email"
           />
-          <hlm-error class="flex items-center gap-x-1 mt-2"
+          <hlm-error
+            *ngIf="form.controls['email'].hasError('required')"
+            class="flex items-center gap-x-1"
             ><ng-icon hlm size="sm" name="lucideCircleAlert"></ng-icon> Email
             required!</hlm-error
           >
+          <hlm-error
+            *ngIf="form.controls['email'].hasError('email')"
+            class="flex items-center gap-x-1"
+            ><ng-icon hlm size="sm" name="lucideCircleAlert"></ng-icon> Email
+            invalid!
+          </hlm-error>
         </hlm-form-field>
       </fieldset>
       <fieldset class="mb-2">
@@ -49,15 +57,23 @@
               name="password"
               formControlName="password"
               id="password"
-              class="w-full text-gray-100 rounded-r-[calc(var(--radius))]"
+              class="w-full rounded-r-[calc(var(--radius))]"
               placeholder="Password"
               autocomplete="current-password"
               required
               hlmInput
             />
-            <hlm-error class="flex items-center gap-x-1 mt-2 mb-px"
+            <hlm-error
+              *ngIf="form.controls['password'].hasError('required')"
+              class="flex items-center gap-x-1 mt-2 mb-px"
               ><ng-icon hlm size="sm" name="lucideCircleAlert"></ng-icon>
               Password required!</hlm-error
+            >
+            <hlm-error
+              *ngIf="form.controls['password'].hasError('minlength')"
+              class="flex items-center gap-x-1 mt-2 mb-px"
+              ><ng-icon hlm size="sm" name="lucideCircleAlert"></ng-icon>
+              Password invalid!</hlm-error
             >
           </hlm-form-field>
           <p class="text-end text-sm/6 text-gray-500">

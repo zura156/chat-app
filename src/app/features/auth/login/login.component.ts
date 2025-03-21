@@ -16,10 +16,13 @@ import { HlmButtonDirective } from '@spartan-ng/ui-button-helm';
 import { HlmIconDirective } from '@spartan-ng/ui-icon-helm';
 import { NgIcon, provideIcons } from '@ng-icons/core';
 import { lucideCircleAlert } from '@ng-icons/lucide';
+import { JsonPipe, NgIf } from '@angular/common';
+import { passwordValidator } from '../validators/password.validator';
 
 @Component({
   selector: 'app-login',
   imports: [
+    NgIf,
     RouterLink,
     ReactiveFormsModule,
     HlmFormFieldModule,
@@ -39,7 +42,7 @@ export class LoginComponent {
 
   form: FormGroup = new FormGroup({
     email: new FormControl('', [Validators.required, Validators.email]),
-    password: new FormControl('', [Validators.required]),
+    password: new FormControl('', [Validators.required, passwordValidator()]),
   });
 
   onSubmit(): void {
