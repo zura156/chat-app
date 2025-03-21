@@ -70,7 +70,15 @@
               Password required!</hlm-error
             >
             <hlm-error
-              *ngIf="form.controls['password'].hasError('minLength')"
+              *ngIf="
+                form.controls['password'].hasError('minLength') ||
+                form.controls['password'].hasError('maxLength') ||
+                form.controls['password'].hasError('pattern') ||
+                form.controls['password'].hasError('numeric') ||
+                form.controls['password'].hasError('lowercase') ||
+                form.controls['password'].hasError('uppercase') ||
+                form.controls['password'].hasError('specialCharacter')
+              "
               class="flex items-center gap-x-1 mt-2 mb-px"
               ><ng-icon hlm size="sm" name="lucideCircleAlert"></ng-icon>
               Password invalid!</hlm-error
