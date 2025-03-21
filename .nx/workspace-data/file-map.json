@@ -10,6 +10,12 @@
     ],
     "@spartan-ng/ui-label-helm": [
       ".\\libs/ui/ui-label-helm/src/index.ts"
+    ],
+    "@spartan-ng/ui-button-helm": [
+      ".\\libs/ui/ui-button-helm/src/index.ts"
+    ],
+    "@spartan-ng/ui-icon-helm": [
+      ".\\libs/ui/ui-icon-helm/src/index.ts"
     ]
   },
   "nxJsonPlugins": [],
@@ -25,6 +31,10 @@
           "hash": "10175894702052279752"
         },
         {
+          "file": ".postcssrc.json",
+          "hash": "1501725249085844272"
+        },
+        {
           "file": ".vscode/extensions.json",
           "hash": "11934160580685414355"
         },
@@ -38,15 +48,27 @@
         },
         {
           "file": "README.md",
-          "hash": "1812417227029656979"
+          "hash": "2531382266121778435"
         },
         {
           "file": "angular.json",
-          "hash": "13811278095961530446"
+          "hash": "9801273194219735954"
         },
         {
           "file": "components.json",
           "hash": "3089158842223537119"
+        },
+        {
+          "file": "libs/ui/ui-button-helm/src/index.ts",
+          "hash": "17251273102492170138"
+        },
+        {
+          "file": "libs/ui/ui-button-helm/src/lib/hlm-button.directive.ts",
+          "hash": "6537402785357776048"
+        },
+        {
+          "file": "libs/ui/ui-button-helm/src/lib/hlm-button.token.ts",
+          "hash": "1923133344940122630"
         },
         {
           "file": "libs/ui/ui-formfield-helm/src/index.ts",
@@ -67,6 +89,22 @@
         {
           "file": "libs/ui/ui-formfield-helm/src/lib/hlm-hint.directive.ts",
           "hash": "6215421755390582281"
+        },
+        {
+          "file": "libs/ui/ui-icon-helm/src/index.ts",
+          "hash": "13072002477516072914"
+        },
+        {
+          "file": "libs/ui/ui-icon-helm/src/lib/hlm-icon.directive.spec.ts",
+          "hash": "9511563528933246212"
+        },
+        {
+          "file": "libs/ui/ui-icon-helm/src/lib/hlm-icon.directive.ts",
+          "hash": "1190767095705292823"
+        },
+        {
+          "file": "libs/ui/ui-icon-helm/src/lib/hlm-icon.token.ts",
+          "hash": "1780499468245078594"
         },
         {
           "file": "libs/ui/ui-input-helm/src/index.ts",
@@ -90,27 +128,24 @@
         },
         {
           "file": "package-lock.json",
-          "hash": "16861563149844126868"
+          "hash": "10254138652994995750"
         },
         {
           "file": "package.json",
-          "hash": "12461078915732657268",
+          "hash": "1241903216524485808",
           "deps": [
             "npm:@angular-devkit/build-angular",
             "npm:@angular/cli",
             "npm:@angular/compiler-cli",
             "npm:@spartan-ng/cli",
             "npm:@types/jasmine",
-            "npm:autoprefixer",
             "npm:jasmine-core",
             "npm:karma",
             "npm:karma-chrome-launcher",
             "npm:karma-coverage",
             "npm:karma-jasmine",
             "npm:karma-jasmine-html-reporter",
-            "npm:postcss",
             "npm:tailwind-merge",
-            "npm:tailwindcss",
             "npm:tailwindcss-animate",
             "npm:typescript",
             "npm:@angular/animations",
@@ -129,15 +164,16 @@
             "npm:@ngx-translate/core",
             "npm:@spartan-ng/brain",
             "npm:@tailwindcss/postcss",
-            "npm:bootstrap",
             "npm:class-variance-authority",
             "npm:clsx",
             "npm:firebase",
             "npm:ngx-float-ui",
+            "npm:postcss",
             "npm:rxjs",
             "npm:socket.io-client",
             "npm:stream-chat",
             "npm:stream-chat-angular",
+            "npm:tailwindcss",
             "npm:talkjs",
             "npm:tslib",
             "npm:zone.js"
@@ -273,11 +309,11 @@
         },
         {
           "file": "src/app/app.component.html",
-          "hash": "17385897758380840601"
+          "hash": "16673857981554709383"
         },
         {
           "file": "src/app/app.component.ts",
-          "hash": "12063457652589426446"
+          "hash": "2902525596939787182"
         },
         {
           "file": "src/app/app.config.ts",
@@ -312,24 +348,32 @@
           "hash": "15291842793670197612"
         },
         {
+          "file": "src/app/features/auth/interfaces/token-data.interface.ts",
+          "hash": "17058268392516023269"
+        },
+        {
           "file": "src/app/features/auth/login/login.component.html",
-          "hash": "4694735261755126336"
+          "hash": "11827553091428346518"
         },
         {
           "file": "src/app/features/auth/login/login.component.ts",
-          "hash": "9562154441455214980"
+          "hash": "10018211967267043038"
         },
         {
           "file": "src/app/features/auth/register/register.component.html",
-          "hash": "15907661185281036699"
+          "hash": "6691706325187009057"
         },
         {
           "file": "src/app/features/auth/register/register.component.ts",
-          "hash": "12395706884717136170"
+          "hash": "8651756275532016497"
         },
         {
           "file": "src/app/features/auth/services/auth.service.ts",
-          "hash": "1787251241713214300"
+          "hash": "1709425721534330427"
+        },
+        {
+          "file": "src/app/features/auth/validators/password.validator.ts",
+          "hash": "4339081861524490564"
         },
         {
           "file": "src/app/features/auth/validators/repeat-password.validator.ts",
@@ -388,6 +432,18 @@
           "hash": "11695295983835740481"
         },
         {
+          "file": "src/app/shared/layout/components/header.component.html",
+          "hash": "15550567236548833565"
+        },
+        {
+          "file": "src/app/shared/layout/components/header.component.ts",
+          "hash": "1197459094714176243"
+        },
+        {
+          "file": "src/app/shared/services/theme.service.ts",
+          "hash": "266987097337199118"
+        },
+        {
           "file": "src/environments/environment.development.ts",
           "hash": "3499048924720934694"
         },
@@ -401,7 +457,7 @@
         },
         {
           "file": "src/index.html",
-          "hash": "3764733349328995209"
+          "hash": "9874300206601864986"
         },
         {
           "file": "src/main.ts",
@@ -409,11 +465,7 @@
         },
         {
           "file": "src/styles.css",
-          "hash": "7652929683796963065"
-        },
-        {
-          "file": "tailwind.config.js",
-          "hash": "7607807366239562310"
+          "hash": "9079137387839194119"
         },
         {
           "file": "tsconfig.app.json",
@@ -421,7 +473,7 @@
         },
         {
           "file": "tsconfig.json",
-          "hash": "15843104567938747711"
+          "hash": "10599608598145304908"
         },
         {
           "file": "tsconfig.spec.json",
