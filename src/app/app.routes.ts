@@ -2,6 +2,8 @@ import { Routes } from '@angular/router';
 import { LoginComponent } from './features/auth/login/login.component';
 import { MessageService } from './features/messages/services/message.service';
 import { RegisterComponent } from './features/auth/register/register.component';
+import { authGuard } from './features/auth/guards/auth.guard';
+import { unauthenticatedGuard } from './features/auth/guards/unauthenticated.guard';
 
 export const routes: Routes = [
   {
@@ -12,12 +14,12 @@ export const routes: Routes = [
   {
     path: 'login',
     component: LoginComponent,
-    // canActivate: [!authGuard],
+    canActivate: [unauthenticatedGuard],
   },
   {
     path: 'register',
     component: RegisterComponent,
-    // canActivate: [!authGuard],
+    canActivate: [unauthenticatedGuard],
   },
   // {
   //   path: 'profile', // profile preference settings for the user (e.g. display name, profile picture, etc.)
@@ -29,7 +31,7 @@ export const routes: Routes = [
         (m) => m.messagesRoutes
       ),
     providers: [MessageService],
-    // canActivate: [authGuard],
+    canActivate: [authGuard],
   },
   {
     path: '**',

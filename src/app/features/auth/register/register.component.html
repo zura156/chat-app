@@ -12,12 +12,26 @@
     </h2>
   </div>
 
-  <ng-container *ngIf="error()">
-    <div class="mx-auto w-full max-w-sm cursor-pointer" (click)="clearError()">
+  <ng-template #errorAlert>
+    <div
+      *ngIf="error()"
+      class="mx-auto w-full max-w-sm cursor-pointer"
+      (click)="clearError()"
+    >
       <div hlmAlert variant="destructive">
         <ng-icon hlm hlmAlertIcon name="lucideTriangleAlert" />
         <h4 hlmAlertTitle>Unexpected Error</h4>
         <p hlmAlertDesc>{{ error() }}</p>
+      </div>
+    </div>
+  </ng-template>
+
+  <ng-container *ngIf="isLoading(); else errorAlert">
+    <div class="mx-auto w-full max-w-sm">
+      <div hlmAlert>
+        <ng-icon hlm hlmAlertIcon name="lucideLoader" />
+        <h4 hlmAlertTitle>Processing</h4>
+        <p hlmAlertDesc>Please wait...</p>
       </div>
     </div>
   </ng-container>
@@ -184,39 +198,44 @@
               hlmInput
             />
             <hlm-error
-              *ngIf="form.controls['password'].hasError('required')"
+              *ngIf="
+                form.controls['password'].hasError('required');
+                else passwordStrengthErrors
+              "
               class="flex items-center gap-x-1 mt-2 mb-px"
               ><ng-icon hlm size="sm" name="lucideCircleAlert"></ng-icon>
               Password required!</hlm-error
             >
-            <hlm-error
-              class="flex items-center gap-x-1 mt-2 mb-px"
-              *ngIf="!form.get('password')?.errors?.['passwordStrength']?.hasLength"
-            >
-              <ng-icon hlm size="sm" name="lucideCircleAlert"></ng-icon>
-              Password must be at least 8 characters long.</hlm-error
-            >
-            <hlm-error
-              class="flex items-center gap-x-1 mt-2 mb-px"
-              *ngIf="!form.get('password')?.errors?.['passwordStrength']?.hasUppercase"
-            >
-              <ng-icon hlm size="sm" name="lucideCircleAlert"></ng-icon>
-              Password must contain at least one uppercase letter.</hlm-error
-            >
-            <hlm-error
-              class="flex items-center gap-x-1 mt-2 mb-px"
-              *ngIf="!form.get('password')?.errors?.['passwordStrength']?.hasNumeric"
-            >
-              <ng-icon hlm size="sm" name="lucideCircleAlert"></ng-icon>
-              Password must contain at least one number.</hlm-error
-            >
-            <hlm-error
-              class="flex items-center gap-x-1 mt-2 mb-px"
-              *ngIf="!form.get('password')?.errors?.['passwordStrength']?.hasSpecial"
-            >
-              <ng-icon hlm size="sm" name="lucideCircleAlert"></ng-icon>
-              Password must contain at least one special character.</hlm-error
-            >
+            <ng-template #passwordStrengthErrors>
+              <hlm-error
+                class="flex items-center gap-x-1 mt-2 mb-px"
+                *ngIf="!form.get('password')?.errors?.['passwordStrength']?.hasLength"
+              >
+                <ng-icon hlm size="sm" name="lucideCircleAlert"></ng-icon>
+                Password must be at least 8 characters long.</hlm-error
+              >
+              <hlm-error
+                class="flex items-center gap-x-1 mt-2 mb-px"
+                *ngIf="!form.get('password')?.errors?.['passwordStrength']?.hasUppercase"
+              >
+                <ng-icon hlm size="sm" name="lucideCircleAlert"></ng-icon>
+                Password must contain at least one uppercase letter.</hlm-error
+              >
+              <hlm-error
+                class="flex items-center gap-x-1 mt-2 mb-px"
+                *ngIf="!form.get('password')?.errors?.['passwordStrength']?.hasNumeric"
+              >
+                <ng-icon hlm size="sm" name="lucideCircleAlert"></ng-icon>
+                Password must contain at least one number.</hlm-error
+              >
+              <hlm-error
+                class="flex items-center gap-x-1 mt-2 mb-px"
+                *ngIf="!form.get('password')?.errors?.['passwordStrength']?.hasSpecial"
+              >
+                <ng-icon hlm size="sm" name="lucideCircleAlert"></ng-icon>
+                Password must contain at least one special character.</hlm-error
+              >
+            </ng-template>
           </hlm-form-field>
 
           <button

@@ -5,7 +5,7 @@ import {
 } from '@angular/common/http';
 import { AuthService } from '../services/auth.service';
 import { inject } from '@angular/core';
-import { catchError, EMPTY, switchMap, tap } from 'rxjs';
+import { catchError, switchMap } from 'rxjs';
 import { environment } from '../../../../environments/environment';
 
 export const credentialsInterceptor: HttpInterceptorFn = (req, next) => {

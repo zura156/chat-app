@@ -16,7 +16,11 @@ import { HlmLabelDirective } from '@spartan-ng/ui-label-helm';
 import { NgIf } from '@angular/common';
 import { HlmIconDirective } from '@spartan-ng/ui-icon-helm';
 import { NgIcon, provideIcons } from '@ng-icons/core';
-import { lucideCircleAlert, lucideTriangleAlert } from '@ng-icons/lucide';
+import {
+  lucideCircleAlert,
+  lucideLoader,
+  lucideTriangleAlert,
+} from '@ng-icons/lucide';
 import { catchError, tap, throwError } from 'rxjs';
 import {
   HlmAlertDescriptionDirective,
@@ -28,20 +32,22 @@ import { passwordValidator } from '../validators/password.validator';
 @Component({
   selector: 'app-register',
   imports: [
+    NgIf,
     RouterLink,
     ReactiveFormsModule,
     HlmFormFieldModule,
     HlmInputDirective,
     HlmLabelDirective,
     HlmButtonDirective,
-    NgIf,
     HlmIconDirective,
     NgIcon,
-    HlmAlertDirective,
     HlmAlertDescriptionDirective,
+    HlmAlertDirective,
     HlmAlertIconDirective,
   ],
-  providers: [provideIcons({ lucideCircleAlert, lucideTriangleAlert })],
+  providers: [
+    provideIcons({ lucideCircleAlert, lucideTriangleAlert, lucideLoader }),
+  ],
   templateUrl: './register.component.html',
 })
 export class RegisterComponent {
@@ -50,8 +56,8 @@ export class RegisterComponent {
 
   showPass = signal<boolean>(false);
   showRepeatPass = signal<boolean>(false);
-
   error = signal<string>('');
+  isLoading = signal<boolean>(false);
 
   form: FormGroup = new FormGroup(
     {
@@ -92,7 +98,10 @@ export class RegisterComponent {
   }
 
   onSubmit(): void {
+    this.isLoading.set(true);
+
     if (this.form.invalid) {
+      this.isLoading.set(false);
       this.error.set('Please fill in all fields correctly.');
       return;
     }
@@ -103,15 +112,18 @@ export class RegisterComponent {
       email: this.form.value.email,
       password: this.form.value.password,
     };
+
     this.authService
       .register(credentials)
       .pipe(
         tap(() => {
           this.clearError();
-          this.router.navigate(['/login']);
+          this.isLoading.set(false);
+          this.router.navigateByUrl('/login');
         }),
         catchError((err) => {
           this.error.set(err.error.message);
+          this.isLoading.set(false);
           return throwError(() => err);
         })
       )

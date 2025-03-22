@@ -26,4 +26,4 @@ export const passwordValidator = (): ValidatorFn => {
 
     return null;
   };
-}
+};
