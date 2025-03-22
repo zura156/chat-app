@@ -1,12 +1,13 @@
 import { NextFunction, Request, Response } from 'express';
 import { User } from '../../models/user.model';
 import { AuthRequest } from '../../middlewares/auth.middleware';
-import { generateToken } from '../../services/jwt.service';
+import { generateTokens, TokenPayload } from '../../services/jwt.service';
 import { createCustomError } from '../../models/custom-api-error.model';
 import jwt from 'jsonwebtoken';
 import config from '../../config/config';
 import { LoginDto } from '../dtos/login.dto';
 import { RegisterDto } from '../dtos/register.dto';
+import { RefreshTokenDto } from '../dtos/refresh-token.dto';
 
 export const registerUser = async (
   req: Request,
@@ -14,7 +15,8 @@ export const registerUser = async (
   next: NextFunction
 ): Promise<void> => {
   try {
-    const { first_name, last_name, username, email, password }: RegisterDto = req.body;
+    const { first_name, last_name, username, email, password }: RegisterDto =
+      req.body;
 
     // Check if user already exists
     const existingUser = await User.findOne({
@@ -43,7 +45,7 @@ export const registerUser = async (
     await newUser.save();
 
     // Generate JWT token
-    const token = generateToken(newUser);
+    const token = generateTokens(newUser);
 
     res.status(201).json({
       message: 'User registered successfully',
@@ -93,7 +95,7 @@ export const loginUser = async (
     }
 
     // Generate JWT token
-    const token = generateToken(user);
+    const token = generateTokens(user);
 
     res.status(200).json({
       message: 'Login successful',
@@ -115,7 +117,7 @@ export const loginUser = async (
 };
 
 export const refreshToken = (
-  req: AuthRequest,
+  req: RefreshTokenDto,
   res: Response,
   next: NextFunction
 ): void => {
@@ -125,16 +127,29 @@ export const refreshToken = (
       return;
     }
 
-    // Generate new token with existing user data
-    const newToken = jwt.sign(
-      {
-        userId: req.user.userId,
-        username: req.user.username,
-        email: req.user.email,
-        roles: req.user.roles,
-      },
+    const currentToken = req.headers.authorization?.split(' ')[1];
+    const refreshToken = req.headers['refresh-token'];
+
+    if (!currentToken || !refreshToken) {
+      res.status(400).json({ message: 'No token provided' });
+      return;
+    }
+
+    jwt.verify(
+      refreshToken!,
       config.jwtSecret,
-      { expiresIn: config.jwtExpiresIn }
+      async (err: any, decoded: TokenPayload) => {
+        if (err) {
+          res.status(403).json({ message: 'Invalid refresh token' });
+          return;
+        }
+
+        const user = await User.findById(decoded.userId);
+        if (!user || user.refreshToken !== refreshToken) {
+          res.status(403).json({ message: 'Invalid refresh token' });
+          return;
+        }
+      }
     );
 
     res.status(200).json({ token: newToken });

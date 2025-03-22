@@ -11,6 +11,7 @@ export interface IUser extends Document {
   password: string;
   roles: string[];
   comparePassword(candidatePassword: string): Promise<boolean>;
+  refreshToken?: string;
 }
 
 const UserSchema = new Schema<IUser>(
@@ -37,6 +38,11 @@ const UserSchema = new Schema<IUser>(
       createIndexes: { unique: true },
       unique: true,
     },
+    roles: {
+      type: [String],
+      default: ['user'],
+      enum: ['user', 'admin'],
+    },
     password: {
       type: String,
       validate: [
@@ -44,8 +50,8 @@ const UserSchema = new Schema<IUser>(
         'Password is not strong enough! \n It must be at least 8 characters, containing: uppercase and lowercase letters, symbols and numbers.',
       ],
       required: [true, 'Password is required! \n'],
-      // select: false,
     },
+    refreshToken: { type: String },
   },
   { timestamps: true }
 );

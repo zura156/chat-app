@@ -20,6 +20,7 @@ export class AuthService {
   /*
    * Dependency injections.
    */
+
   http = inject(HttpClient);
 
   /*
@@ -50,6 +51,10 @@ export class AuthService {
    * Setting state for authorization and .
    */
   constructor() {
+    this.http
+      .get('http://localhost:3000/user/profile')
+      .subscribe((res) => console.log(res));
+
     this.signedIn$.next(!!this.accessToken);
     this.setupUnloadListener();
   }

@@ -1,6 +1,7 @@
 import jwt from 'jsonwebtoken';
 import config from '../config/config';
 import { IUser } from '../models/user.model';
+import { access } from 'fs';
 
 export interface TokenPayload {
   userId: string;
@@ -11,7 +12,7 @@ export interface TokenPayload {
   roles: string[];
 }
 
-export const generateToken = (user: IUser): string => {
+export const generateTokens = (user: IUser) => {
   const payload: TokenPayload = {
     userId: user._id?.toString() || 'no-id',
     first_name: user.first_name,
@@ -21,9 +22,15 @@ export const generateToken = (user: IUser): string => {
     roles: user.roles,
   };
 
-  return jwt.sign(payload, config.jwtSecret, {
+  const accessToken = jwt.sign(payload, config.jwtSecret, {
     expiresIn: config.jwtExpiresIn,
   });
+
+  const refreshToken = jwt.sign({ userId: user._id }, config.jwtSecret, {
+    expiresIn: config.jwtRefreshTokenExpiresIn,
+  });
+
+  return { accessToken, refreshToken };
 };
 
 export const verifyToken = (token: string): TokenPayload | null => {
