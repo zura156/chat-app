@@ -95,11 +95,16 @@ export const loginUser = async (
     }
 
     // Generate JWT token
-    const token = generateTokens(user);
+    const tokens: { accessToken: string; refreshToken: string } =
+      generateTokens(user);
+
+    user.refreshToken = tokens.refreshToken;
+    await user.save();
 
     res.status(200).json({
       message: 'Login successful',
-      token,
+      accessToken: tokens.accessToken,
+      refreshToken: tokens.refreshToken,
       user: {
         id: user._id,
         first_name: user.first_name,
@@ -116,43 +121,38 @@ export const loginUser = async (
   }
 };
 
-export const refreshToken = (
+export const refreshToken = async (
   req: RefreshTokenDto,
   res: Response,
   next: NextFunction
-): void => {
+): Promise<void> => {
   try {
     if (!req.user) {
       res.status(401).json({ message: 'Not authenticated' });
       return;
     }
 
-    const currentToken = req.headers.authorization?.split(' ')[1];
-    const refreshToken = req.headers['refresh-token'];
+    const token = req.headers['refresh-token'];
 
-    if (!currentToken || !refreshToken) {
+    if (!token) {
       res.status(400).json({ message: 'No token provided' });
       return;
     }
 
-    jwt.verify(
-      refreshToken!,
-      config.jwtSecret,
-      async (err: any, decoded: TokenPayload) => {
-        if (err) {
-          res.status(403).json({ message: 'Invalid refresh token' });
-          return;
-        }
+    const payload = jwt.verify(token, config.jwtSecret) as TokenPayload;
+    const user = await User.findById(payload.userId);
 
-        const user = await User.findById(decoded.userId);
-        if (!user || user.refreshToken !== refreshToken) {
-          res.status(403).json({ message: 'Invalid refresh token' });
-          return;
-        }
-      }
-    );
+    if (!user || user.refreshToken !== token) {
+      res.status(403).json({ message: 'Invalid refresh token' });
+      return;
+    }
 
-    res.status(200).json({ token: newToken });
+    const { accessToken, refreshToken } = generateTokens(user.id);
+    user.refreshToken = refreshToken;
+
+    await user.save();
+
+    res.status(200).json({ accessToken, refreshToken });
   } catch (error: any) {
     if (error.message) {
       next(createCustomError(error.message, 400));

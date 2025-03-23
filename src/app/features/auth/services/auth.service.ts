@@ -43,18 +43,18 @@ export class AuthService {
   signedIn$ = new BehaviorSubject<boolean>(
     !!localStorage.getItem('accessToken')
   );
+
   accessToken$ = new BehaviorSubject<string | null>(
     localStorage.getItem('accessToken')
+  );
+  refreshToken$ = new BehaviorSubject<string | null>(
+    localStorage.getItem('refreshToken')
   );
 
   /*
    * Setting state for authorization and .
    */
   constructor() {
-    this.http
-      .get('http://localhost:3000/user/profile')
-      .subscribe((res) => console.log(res));
-
     this.signedIn$.next(!!this.accessToken);
     this.setupUnloadListener();
   }
@@ -71,6 +71,11 @@ export class AuthService {
     return accessToken;
   }
 
+  get refreshToken(): string | null {
+    const refreshToken = localStorage.getItem('refreshToken');
+    return refreshToken;
+  }
+
   /*
   ? Small security feature.
   * it checks before unload, if user info is deleted.
@@ -80,8 +85,13 @@ export class AuthService {
     window.addEventListener('beforeunload', this.handleBeforeUnload.bind(this));
   }
   private handleBeforeUnload(): void {
-    const { accessToken } = this;
-    if (!accessToken || this.accessToken$.value !== accessToken) {
+    const { accessToken, refreshToken } = this;
+    if (
+      !accessToken ||
+      !refreshToken ||
+      this.refreshToken$.value !== refreshToken ||
+      this.accessToken$.value !== accessToken
+    ) {
       this.handleStorage();
     }
   }
@@ -90,17 +100,17 @@ export class AuthService {
    * Saving user info to local storage.
    */
   private handleStorage() {
-    const { accessToken$ } = this;
+    const { accessToken$, refreshToken$ } = this;
 
-    if (accessToken$.value) {
-      const tokenData: TokenDataI = JSON.parse(
-        atob(accessToken$.value.split('.')[1])
-      );
-      console.log(tokenData);
+    if (accessToken$.value && refreshToken$.value) {
+      // const tokenData: TokenDataI = JSON.parse(
+      //   atob(accessToken$.value.split('.')[1])
+      // );
 
       this.signedIn$.next(true);
 
       localStorage.setItem('accessToken', accessToken$.value);
+      localStorage.setItem('refreshToken', refreshToken$.value);
     }
   }
 
@@ -137,7 +147,11 @@ export class AuthService {
   login(credentials: LoginCredentialsI): Observable<LoginResponseI> {
     return this.http.post<LoginResponseI>(this._LOGIN_URL, credentials).pipe(
       tap((res) => {
-        this.handleAuthentication(res.token);
+        const tokens = {
+          accessToken: res.accessToken,
+          refreshToken: res.refreshToken,
+        };
+        this.handleAuthentication(tokens);
       }),
       catchError(this.handleError)
     );
@@ -151,6 +165,7 @@ export class AuthService {
     const headers = new HttpHeaders({
       'Content-Type': 'application/json',
       Authorization: `Bearer ${this.accessToken}`,
+      'refresh-token': this.refreshToken ?? 'UNDEFINED',
     });
 
     return this.http
@@ -192,9 +207,14 @@ export class AuthService {
     return throwError(() => new Error(errorMessage));
   }
 
-  private handleAuthentication(token: string): void {
-    this.accessToken$.next(token);
-    localStorage.setItem('accessToken', token);
+  private handleAuthentication(token: {
+    accessToken: string;
+    refreshToken: string;
+  }): void {
+    this.accessToken$.next(token.accessToken);
+    localStorage.setItem('accessToken', token.accessToken);
+    this.refreshToken$.next(token.refreshToken);
+    localStorage.setItem('refreshToken', token.refreshToken);
     this.signedIn$.next(true);
 
     this.handleStorage();
