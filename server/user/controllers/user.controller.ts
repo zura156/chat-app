@@ -12,7 +12,11 @@ export const getCurrentUser = async (
       return;
     }
 
-    const user = await User.findById(req.user.userId).select('-password');
+    const user = await User.findById(req.user.userId).select([
+      '-password',
+      '-refreshToken',
+    ]);
+
     if (!user) {
       res.status(404).json({ message: 'User not found' });
       return;
