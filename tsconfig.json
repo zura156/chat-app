@@ -33,6 +33,15 @@
       ],
       "@spartan-ng/ui-alert-helm": [
         ".\\libs/ui/ui-alert-helm/src/index.ts"
+      ],
+      "@spartan-ng/ui-separator-helm": [
+        ".\\libs/ui/ui-separator-helm/src/index.ts"
+      ],
+      "@spartan-ng/ui-card-helm": [
+        ".\\libs/ui/ui-card-helm/src/index.ts"
+      ],
+      "@spartan-ng/ui-avatar-helm": [
+        ".\\libs/ui/ui-avatar-helm/src/index.ts"
       ]
     }
   },

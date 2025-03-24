@@ -1,63 +1,9 @@
-<div class="container-fluid">
-  <div class="row">
-    <div class="col-4">
-      <div
-        class="d-flex flex-column align-items-stretch flex-shrink-0 bg-body-tertiary"
-      >
-        <div class="list-group list-group-flush border-bottom scrollarea">
-          <a href="#" class="list-group-item list-group-item-action py-3 lh-sm">
-            <div
-              class="d-flex w-100 align-items-center justify-content-between"
-            >
-              <strong class="mb-1">{{ "John Doe" }}</strong>
-              <small>{{ "Wed" }}</small>
-            </div>
-            <div class="col-10 mb-1 small">{{ "Last Message" }}</div>
-          </a>
-        </div>
-      </div>
-    </div>
-    <div class="col-8 border">
-      <div id="head" class="py-3 lh-sm border-bottom">
-        <strong class="mb-1">Members: {{ "Members" }}</strong>
-      </div>
-      <div id="conversation">
-        <div class="row pt-2">
-          <div class="col-6">
-            <div class="alert alert-primary d-inline-block" role="alert">
-              <!-- {{ "Foreigner text." }} -->
-            </div>
-          </div>
-          <div class="col-6"></div>
-        </div>
-        <div class="row pt-2 px-2">
-          <div class="col-6"></div>
-          <div class="col-6">
-            <div
-              class="alert alert-success d-inline-block float-end"
-              role="alert"
-            >
-              {{ "Client text." }}
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <form
-        [formGroup]="form"
-        (ngSubmit)="onSubmit()"
-        id="reply"
-        class="p-3 w-100"
-      >
-        <div class="input-group">
-          <input
-            type="text"
-            class="form-control"
-            formControlName="message"
-            placeholder="Type a message"
-          />
-        </div>
-      </form>
-    </div>
-  </div>
-</div>
+<main class="flex space-x-4 h-full w-full">
+  <section class="w-2/5 mx-0">
+    <app-messages-list></app-messages-list>
+  </section>
+  <brn-separator decorative hlmSeparator orientation="vertical" />
+  <section class="w-3/5">
+    <app-chatbox></app-chatbox>
+  </section>
+</main>

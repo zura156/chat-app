@@ -1,10 +1,20 @@
 import { Component, inject, OnInit } from '@angular/core';
 import { MessageService } from '../services/message.service';
 import { FormControl, FormGroup, ReactiveFormsModule } from '@angular/forms';
+import { MessageListComponent } from '../list/messages-list.component';
+import { ChatboxComponent } from '../chatbox/chatbox.component';
+import { HlmSeparatorDirective } from '@spartan-ng/ui-separator-helm';
+import { BrnSeparatorComponent } from '@spartan-ng/brain/separator';
 
 @Component({
   selector: 'app-messages',
-  imports: [ReactiveFormsModule],
+  imports: [
+    ReactiveFormsModule,
+    MessageListComponent,
+    ChatboxComponent,
+    HlmSeparatorDirective,
+    BrnSeparatorComponent,
+  ],
   templateUrl: './messages-layout.component.html',
 })
 export class MessagesLayoutComponent implements OnInit {
@@ -18,7 +28,7 @@ export class MessagesLayoutComponent implements OnInit {
 
   ngOnInit(): void {
     this.messageService.getMessages().subscribe();
-    console.log('helo')
+    console.log('helo');
   }
 
   onSubmit(): void {

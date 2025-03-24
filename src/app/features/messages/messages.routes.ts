@@ -4,10 +4,6 @@ import { MessagesStartComponent } from './start/messages-start.compoent';
 export const messagesRoutes: Routes = [
   {
     path: '',
-    component: MessagesStartComponent,
-  },
-  {
-    path: ':id',
     component: MessagesLayoutComponent,
     children: [
       // {
