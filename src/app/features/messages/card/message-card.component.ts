@@ -1,4 +1,5 @@
 import { Component } from '@angular/core';
+import { RouterLink } from '@angular/router';
 import {
   HlmAvatarComponent,
   HlmAvatarFallbackDirective,
@@ -12,6 +13,7 @@ import { HlmCardDirective } from '@spartan-ng/ui-card-helm';
     HlmAvatarComponent,
     HlmAvatarFallbackDirective,
     HlmCardDirective,
+    // RouterLink
   ],
   templateUrl: './message-card.component.html',
 })

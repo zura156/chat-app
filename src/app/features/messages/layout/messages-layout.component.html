@@ -1,9 +1,26 @@
-<main class="flex space-x-4 h-full w-full">
-  <section class="w-2/5 mx-0">
-    <app-messages-list></app-messages-list>
-  </section>
-  <brn-separator decorative hlmSeparator orientation="vertical" />
-  <section class="w-3/5">
-    <app-chatbox></app-chatbox>
-  </section>
-</main>
+<ng-container *ngIf="isMobile(); else desktopLayout">
+  <main>
+    <ng-container *ngTemplateOutlet="leftSide"></ng-container>
+    <ng-container *ngTemplateOutlet="rightSide"></ng-container>
+  </main>
+</ng-container>
+
+<ng-template #desktopLayout>
+  <main class="flex space-x-4 h-full w-full">
+    <section class="w-2/5 mx-0">
+      <ng-container *ngTemplateOutlet="leftSide"></ng-container>
+    </section>
+    <brn-separator decorative hlmSeparator orientation="vertical" />
+    <section class="w-3/5">
+      <ng-container *ngTemplateOutlet="rightSide"></ng-container>
+    </section>
+  </main>
+</ng-template>
+
+<ng-template #leftSide>
+  <router-outlet name="left"></router-outlet>
+</ng-template>
+
+<ng-template #rightSide>
+  <router-outlet name="right"></router-outlet>
+</ng-template>
