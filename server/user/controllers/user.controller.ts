@@ -1,6 +1,7 @@
 import { AuthRequest } from '../../middlewares/auth.middleware';
-import { Response } from 'express';
-import { User } from '../../models/user.model';
+import { NextFunction, Response } from 'express';
+import { User } from '../../user/models/user.model';
+import { createCustomError } from '../../models/custom-api-error.model';
 
 export const getCurrentUser = async (
   req: AuthRequest,
@@ -22,7 +23,7 @@ export const getCurrentUser = async (
       return;
     }
 
-    res.status(200).json({ user });
+    res.status(200).json(user);
   } catch (error) {
     console.error('Get current user error:', error);
     res.status(500).json({ message: 'Server error' });
@@ -47,6 +48,33 @@ export const updateUserDetails = async (
     }
 
     res.status(200).json({ message: 'User updated' });
+  } catch (error) {
+    console.error('Update user error:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+};
+
+export const deleteUser = async (
+  req: AuthRequest,
+  res: Response,
+  next: NextFunction
+): Promise<void> => {
+  try {
+    if (!req.user) {
+      res.status(401).json({ message: 'Not authenticated' });
+      return;
+    }
+
+    const user = await User.findById(req.user.userId, req.body);
+
+    if (!user) {
+      next(createCustomError('User not found', 404));
+      return;
+    }
+
+    await user.deleteOne();
+
+    res.status(200).json({ message: 'User deleted successfully!' });
   } catch (error) {
     console.error('Update user error:', error);
     res.status(500).json({ message: 'Server error' });

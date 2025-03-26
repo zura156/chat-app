@@ -1,5 +1,5 @@
 import { NextFunction, Request, Response } from 'express';
-import { User } from '../../models/user.model';
+import { User } from '../../user/models/user.model';
 import { AuthRequest } from '../../middlewares/auth.middleware';
 import { generateTokens, TokenPayload } from '../../services/jwt.service';
 import { createCustomError } from '../../models/custom-api-error.model';

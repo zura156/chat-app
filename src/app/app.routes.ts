@@ -4,6 +4,7 @@ import { MessageService } from './features/messages/services/message.service';
 import { RegisterComponent } from './features/auth/register/register.component';
 import { authGuard } from './features/auth/guards/auth.guard';
 import { unauthenticatedGuard } from './features/auth/guards/unauthenticated.guard';
+import { ConversationService } from './features/messages/services/conversation.service';
 
 export const routes: Routes = [
   {
@@ -30,7 +31,7 @@ export const routes: Routes = [
       import('./features/messages/messages.routes').then(
         (m) => m.messagesRoutes
       ),
-    providers: [MessageService],
+    providers: [MessageService, ConversationService],
     canActivate: [authGuard],
   },
   {

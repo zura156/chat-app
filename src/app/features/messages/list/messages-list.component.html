@@ -15,7 +15,12 @@
 
   <brn-separator decorative hlmSeparator />
 
-  <section>
-    <app-message-card></app-message-card>
-  </section>
+  <ng-container *ngIf="conversations().length > 0">
+    <app-message-card
+      *ngFor="let conversation of conversations()"
+      class="conversation-item"
+      (click)="selectConversation(conversation)"
+    >
+    </app-message-card>
+  </ng-container>
 </main>

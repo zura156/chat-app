@@ -26,13 +26,8 @@ app.use('/auth', authRouter);
 app.use('/user', userRouter);
 
 ws.on('connection', (ws: WebSocket) => {
-  ws.on('message', (message: Buffer) => {
-    const messageText = message.toString();
-
-    console.log(`Received initial message: ${message}`);
-    console.log(`Received message: ${messageText}`);
-    ws.send(messageText);
-  });
+  ws.on('send-message', (message: Buffer) => {});
+  ws.send('Hello! Message from server!');
 });
 
 app.use((err: Error, req: Request, res: Response, next: NextFunction) => {
