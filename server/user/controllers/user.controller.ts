@@ -5,16 +5,18 @@ import { createCustomError } from '../../models/custom-api-error.model';
 
 export const getCurrentUser = async (
   req: AuthRequest,
-  res: Response
+  res: Response,
+  next: NextFunction
 ): Promise<void> => {
   try {
     if (!req.user) {
-      res.status(401).json({ message: 'Not authenticated' });
+      next(createCustomError('Not authenticated', 401));
       return;
     }
 
     const user = await User.findById(req.user.userId).select([
       '-password',
+      '-accessToken',
       '-refreshToken',
     ]);
 

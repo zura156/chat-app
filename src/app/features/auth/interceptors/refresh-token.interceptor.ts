@@ -20,35 +20,29 @@ export const refreshTokenInterceptor: HttpInterceptorFn = (
 
   return next(request).pipe(
     catchError((error: HttpErrorResponse) => {
-      if (error.status === 41) {
+      if (error.status === 401) {
         const refreshToken = localStorage.getItem('refreshToken');
         if (!refreshToken) {
           authService.logOut();
           return throwError(() => error);
         }
-        return authService.refreshAccessToken(refreshToken).pipe(
+        return authService.refreshAccessToken().pipe(
           switchMap((tokens) => {
-            // Save new tokens
-            localStorage.setItem('accessToken', tokens.accessToken);
-            localStorage.setItem('refreshToken', tokens.refreshToken);
-
-            // Clone the original request and replace the old token with new one
             const newRequest = request.clone({
               setHeaders: {
                 Authorization: `Bearer ${tokens.accessToken}`,
               },
             });
 
-            // Retry the request with the new token
             return next(newRequest);
           }),
           catchError((refreshError) => {
-            // If refresh fails, logout the user
-            authService.logout();
+            authService.logOut();
             return throwError(() => refreshError);
           })
         );
       }
+      return throwError(() => error);
     })
   );
 };

@@ -10,6 +10,7 @@ export const errorMiddleware = (
   if (err instanceof CustomAPIError) {
     return res.status(err.statusCode).json({ message: err.message });
   }
+  console.log('err', err.message);
   return res
     .status(500)
     .json({ message: 'Something went wrong! Please try again later...' });

@@ -55,6 +55,8 @@ export class AuthService {
    * Setting state for authorization and .
    */
   constructor() {
+    if (!this.accessToken) this.logOut();
+
     this.signedIn$.next(!!this.accessToken);
     this.setupUnloadListener();
   }
@@ -171,12 +173,12 @@ export class AuthService {
     return this.http
       .post<RefreshTokenResponseI>(this._REFRESH_TOKEN_URL, {}, { headers })
       .pipe(
-        tap((res: any) => {
-          const newToken = res.token;
-
-          if (newToken) {
-            this.accessToken$.next(newToken);
-            localStorage.setItem('accessToken', newToken);
+        tap((res) => {
+          if (res.accessToken && res.refreshToken) {
+            this.accessToken$.next(res.accessToken);
+            this.refreshToken$.next(res.refreshToken);
+            localStorage.setItem('accessToken', res.accessToken);
+            localStorage.setItem('refreshToken', res.refreshToken);
           } else {
             this.clearMemory();
           }

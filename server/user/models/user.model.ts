@@ -11,6 +11,7 @@ export interface IUser extends Document {
   password: string;
   roles: string[];
   comparePassword(candidatePassword: string): Promise<boolean>;
+  accessToken?: string;
   refreshToken?: string;
 }
 
@@ -51,6 +52,7 @@ const UserSchema = new Schema<IUser>(
       ],
       required: [true, 'Password is required! \n'],
     },
+    accessToken: { type: String },
     refreshToken: { type: String },
   },
   { timestamps: true }

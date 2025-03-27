@@ -1,3 +1,4 @@
 export interface RefreshTokenResponseI {
-  token: string;
+  accessToken: string;
+  refreshToken: string;
 }
