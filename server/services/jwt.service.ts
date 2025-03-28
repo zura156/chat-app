@@ -36,6 +36,6 @@ export const verifyToken = (token: string): TokenPayload | null => {
   try {
     return jwt.verify(token, config.jwtSecret) as TokenPayload;
   } catch (error) {
-    throw error;
+    return null;
   }
 };

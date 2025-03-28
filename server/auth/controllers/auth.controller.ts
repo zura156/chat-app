@@ -8,6 +8,7 @@ import config from '../../config/config';
 import { LoginDto } from '../dtos/login.dto';
 import { RegisterDto } from '../dtos/register.dto';
 import { RefreshTokenDto } from '../dtos/refresh-token.dto';
+import { TokenModel } from '../models/token.model';
 
 export const registerUser = async (
   req: Request,
@@ -98,13 +99,23 @@ export const loginUser = async (
     const tokens: { accessToken: string; refreshToken: string } =
       generateTokens(user);
 
-    user.refreshToken = tokens.refreshToken;
-    await user.save();
+    if (!tokens) {
+      next(createCustomError('Failed to generate tokens!', 500));
+      return;
+    }
+
+    await TokenModel.create({
+      access_token: tokens.accessToken,
+      refresh_token: tokens.refreshToken,
+      user_id: user._id,
+      access_expiry: new Date(Date.now() + 60 * 60 * 1000), // 1-hour expiration
+      refresh_expiry: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+    });
 
     res.status(200).json({
       message: 'Login successful',
-      accessToken: tokens.accessToken,
-      refreshToken: tokens.refreshToken,
+      access_token: tokens.accessToken,
+      refresh_token: tokens.refreshToken,
       user: {
         id: user._id,
         first_name: user.first_name,

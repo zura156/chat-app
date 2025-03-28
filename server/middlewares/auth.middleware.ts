@@ -1,5 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
 import { verifyToken, TokenPayload } from '../services/jwt.service';
+import { User } from '../user/models/user.model';
 
 export interface AuthRequest extends Request {
   user?: TokenPayload;
@@ -12,6 +13,7 @@ export const authenticate = (
 ): void => {
   // Get token from header
   const authHeader = req.headers.authorization;
+  
 
   if (!authHeader || !authHeader.startsWith('Bearer ')) {
     res.status(401).json({ message: 'Authorization token not found' });
