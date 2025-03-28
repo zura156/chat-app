@@ -1,7 +1,6 @@
 import jwt from 'jsonwebtoken';
 import config from '../config/config';
 import { IUser } from '../user/models/user.model';
-import { access } from 'fs';
 
 export interface TokenPayload {
   userId: string;

@@ -1,6 +1,5 @@
 import { NextFunction, Request, Response } from 'express';
 import { User } from '../../user/models/user.model';
-import { AuthRequest } from '../../middlewares/auth.middleware';
 import { generateTokens, TokenPayload } from '../../services/jwt.service';
 import { createCustomError } from '../../models/custom-api-error.model';
 import jwt from 'jsonwebtoken';
@@ -9,6 +8,20 @@ import { LoginDto } from '../dtos/login.dto';
 import { RegisterDto } from '../dtos/register.dto';
 import { RefreshTokenDto } from '../dtos/refresh-token.dto';
 import { TokenModel } from '../models/token.model';
+
+const parseExpiry = (time: string) => {
+  const duration = parseInt(time, 10);
+  if (time.endsWith('s')) {
+    return duration * 1000; // Convert seconds to milliseconds
+  } else if (time.endsWith('m')) {
+    return duration * 60 * 1000; // Convert minutes to milliseconds
+  } else if (time.endsWith('h')) {
+    return duration * 60 * 60 * 1000; // Convert hours to milliseconds
+  } else if (time.endsWith('d')) {
+    return duration * 24 * 60 * 60 * 1000; // Convert days to milliseconds
+  }
+  return duration; // Default case, assuming milliseconds
+};
 
 export const registerUser = async (
   req: Request,
@@ -103,13 +116,18 @@ export const loginUser = async (
       return;
     }
 
+    console.log(parseExpiry(config.jwtExpiresIn));
+    console.log(parseExpiry(config.jwtRefreshTokenExpiresIn));
+
     await TokenModel.findOneAndUpdate(
       { user_id: user._id }, // Find by user ID
       {
         access_token: tokens.accessToken,
         refresh_token: tokens.refreshToken,
-        access_expiry: new Date(Date.now() + 60 * 60 * 1000), // 1-hour expiration
-        refresh_expiry: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7-day expiration
+        access_expiry: new Date(Date.now() + parseExpiry(config.jwtExpiresIn)),
+        refresh_expiry: new Date(
+          Date.now() + parseExpiry(config.jwtRefreshTokenExpiresIn)
+        ),
       },
       { upsert: true, new: true } // Create if not found, return the updated doc
     );
@@ -147,8 +165,15 @@ export const refreshToken = async (
 
     const token = req.headers['refresh-token'];
 
+    const userTokenSchema = await TokenModel.findOne({ refresh_token: token });
+
     if (!token) {
       res.status(400).json({ message: 'No token provided' });
+      return;
+    }
+
+    if (!userTokenSchema || userTokenSchema.refresh_expiry.getTime()) {
+      next(createCustomError('User not authenticated!', 401));
       return;
     }
 
@@ -184,7 +209,6 @@ export const refreshToken = async (
 // ) => {
 //   try {
 //     await TokenModel.
-    
 
 //   } catch (err: any) {
 //     if (err.message) {
