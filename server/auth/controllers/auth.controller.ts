@@ -50,7 +50,6 @@ export const registerUser = async (
 
     res.status(201).json({
       message: 'User registered successfully',
-      token,
       user: {
         id: newUser._id,
         first_name: newUser.first_name,
@@ -104,13 +103,16 @@ export const loginUser = async (
       return;
     }
 
-    await TokenModel.create({
-      access_token: tokens.accessToken,
-      refresh_token: tokens.refreshToken,
-      user_id: user._id,
-      access_expiry: new Date(Date.now() + 60 * 60 * 1000), // 1-hour expiration
-      refresh_expiry: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
-    });
+    await TokenModel.findOneAndUpdate(
+      { user_id: user._id }, // Find by user ID
+      {
+        access_token: tokens.accessToken,
+        refresh_token: tokens.refreshToken,
+        access_expiry: new Date(Date.now() + 60 * 60 * 1000), // 1-hour expiration
+        refresh_expiry: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7-day expiration
+      },
+      { upsert: true, new: true } // Create if not found, return the updated doc
+    );
 
     res.status(200).json({
       message: 'Login successful',
@@ -163,7 +165,9 @@ export const refreshToken = async (
 
     await user.save();
 
-    res.status(200).json({ accessToken, refreshToken });
+    res
+      .status(200)
+      .json({ access_token: accessToken, refresh_token: refreshToken });
   } catch (error: any) {
     if (error.message) {
       next(createCustomError(error.message, 400));
@@ -171,3 +175,21 @@ export const refreshToken = async (
     next(createCustomError('Server error during token refresh', 500));
   }
 };
+
+// ! don't need it at current time.
+// export const logOut = async (
+//   req: Request,
+//   res: Response,
+//   next: NextFunction
+// ) => {
+//   try {
+//     await TokenModel.
+    
+
+//   } catch (err: any) {
+//     if (err.message) {
+//       next(createCustomError(err.message, 400));
+//     }
+//     next(createCustomError('Server error during logout', 500));
+//   }
+// };

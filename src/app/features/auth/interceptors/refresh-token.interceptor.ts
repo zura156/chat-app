@@ -30,7 +30,7 @@ export const refreshTokenInterceptor: HttpInterceptorFn = (
           switchMap((tokens) => {
             const newRequest = request.clone({
               setHeaders: {
-                Authorization: `Bearer ${tokens.accessToken}`,
+                Authorization: `Bearer ${tokens.access_token}`,
               },
             });
 

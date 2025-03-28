@@ -150,8 +150,8 @@ export class AuthService {
     return this.http.post<LoginResponseI>(this._LOGIN_URL, credentials).pipe(
       tap((res) => {
         const tokens = {
-          accessToken: res.accessToken,
-          refreshToken: res.refreshToken,
+          access_token: res.access_token,
+          refresh_token: res.refresh_token,
         };
         this.handleAuthentication(tokens);
       }),
@@ -174,11 +174,11 @@ export class AuthService {
       .post<RefreshTokenResponseI>(this._REFRESH_TOKEN_URL, {}, { headers })
       .pipe(
         tap((res) => {
-          if (res.accessToken && res.refreshToken) {
-            this.accessToken$.next(res.accessToken);
-            this.refreshToken$.next(res.refreshToken);
-            localStorage.setItem('accessToken', res.accessToken);
-            localStorage.setItem('refreshToken', res.refreshToken);
+          if (res.access_token && res.refresh_token) {
+            this.accessToken$.next(res.access_token);
+            this.refreshToken$.next(res.refresh_token);
+            localStorage.setItem('accessToken', res.access_token);
+            localStorage.setItem('refreshToken', res.refresh_token);
           } else {
             this.clearMemory();
           }
@@ -210,13 +210,13 @@ export class AuthService {
   }
 
   private handleAuthentication(token: {
-    accessToken: string;
-    refreshToken: string;
+    access_token: string;
+    refresh_token: string;
   }): void {
-    this.accessToken$.next(token.accessToken);
-    localStorage.setItem('accessToken', token.accessToken);
-    this.refreshToken$.next(token.refreshToken);
-    localStorage.setItem('refreshToken', token.refreshToken);
+    this.accessToken$.next(token.access_token);
+    localStorage.setItem('accessToken', token.access_token);
+    this.refreshToken$.next(token.refresh_token);
+    localStorage.setItem('refreshToken', token.refresh_token);
     this.signedIn$.next(true);
 
     this.handleStorage();
