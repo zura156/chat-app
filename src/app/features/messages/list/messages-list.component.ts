@@ -56,11 +56,11 @@ export class MessageListComponent implements OnInit {
 
   // Function to fetch conversations
   getConversations(): void {
-    this.conversationService
-      .getConversations(this.userService.currentUser()?._id ?? 'foo')
-      .subscribe((conversations: ConversationI[]) => {
-        this.conversations.set(conversations);
-      });
+    // this.conversationService
+    //   .getConversations(this.userService.currentUser()?._id ?? 'foo')
+    //   .subscribe((conversations: ConversationI[]) => {
+    //     this.conversations.set(conversations);
+    //   });
   }
 
   // Function to select a conversation

@@ -11,8 +11,6 @@ export interface IUser extends Document {
   password: string;
   roles: string[];
   comparePassword(candidatePassword: string): Promise<boolean>;
-  accessToken?: string;
-  refreshToken?: string;
 }
 
 const UserSchema = new Schema<IUser>(

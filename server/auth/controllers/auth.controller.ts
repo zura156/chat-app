@@ -116,17 +116,16 @@ export const loginUser = async (
       return;
     }
 
-    console.log(parseExpiry(config.jwtExpiresIn));
-    console.log(parseExpiry(config.jwtRefreshTokenExpiresIn));
+    const now = Date.now();
 
     await TokenModel.findOneAndUpdate(
       { user_id: user._id }, // Find by user ID
       {
         access_token: tokens.accessToken,
         refresh_token: tokens.refreshToken,
-        access_expiry: new Date(Date.now() + parseExpiry(config.jwtExpiresIn)),
+        access_expiry: new Date(now + parseExpiry(config.jwtExpiresIn)),
         refresh_expiry: new Date(
-          Date.now() + parseExpiry(config.jwtRefreshTokenExpiresIn)
+          now + parseExpiry(config.jwtRefreshTokenExpiresIn)
         ),
       },
       { upsert: true, new: true } // Create if not found, return the updated doc
@@ -158,12 +157,8 @@ export const refreshToken = async (
   next: NextFunction
 ): Promise<void> => {
   try {
-    if (!req.user) {
-      res.status(401).json({ message: 'Not authenticated' });
-      return;
-    }
-
     const token = req.headers['refresh-token'];
+    const now = Date.now();
 
     const userTokenSchema = await TokenModel.findOne({ refresh_token: token });
 
@@ -172,23 +167,37 @@ export const refreshToken = async (
       return;
     }
 
-    if (!userTokenSchema || userTokenSchema.refresh_expiry.getTime()) {
+    if (!userTokenSchema || userTokenSchema.refresh_expiry.getTime() < now) {
       next(createCustomError('User not authenticated!', 401));
       return;
     }
 
     const payload = jwt.verify(token, config.jwtSecret) as TokenPayload;
-    const user = await User.findById(payload.userId);
+    const tokenSchema = await TokenModel.findOne({ user_id: payload.userId });
 
-    if (!user || user.refreshToken !== token) {
+    if (!payload || !tokenSchema || tokenSchema.refresh_token !== token) {
       res.status(403).json({ message: 'Invalid refresh token' });
       return;
     }
+    const user = await User.findById(tokenSchema?.user_id);
 
-    const { accessToken, refreshToken } = generateTokens(user.id);
-    user.refreshToken = refreshToken;
+    if (!user) {
+      res.status(403).json({ message: 'Invalid user id' });
+      return;
+    }
 
-    await user.save();
+    const { accessToken, refreshToken } = generateTokens(user);
+
+    Object.assign(tokenSchema, {
+      access_token: accessToken,
+      refresh_token: refreshToken,
+      access_expiry: new Date(now + parseExpiry(config.jwtExpiresIn)),
+      refresh_expiry: new Date(
+        now + parseExpiry(config.jwtRefreshTokenExpiresIn)
+      ),
+    });
+
+    await tokenSchema.save(); // Ensure save is completed before proceeding
 
     res
       .status(200)
@@ -197,6 +206,7 @@ export const refreshToken = async (
     if (error.message) {
       next(createCustomError(error.message, 400));
     }
+    console.log(error);
     next(createCustomError('Server error during token refresh', 500));
   }
 };

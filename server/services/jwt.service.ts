@@ -4,11 +4,13 @@ import { IUser } from '../user/models/user.model';
 
 export interface TokenPayload {
   userId: string;
-  first_name: string;
-  last_name: string;
-  username: string;
-  email: string;
-  roles: string[];
+  first_name?: string;
+  last_name?: string;
+  username?: string;
+  email?: string;
+  roles?: string[];
+  iat?: number;
+  exp?: number;
 }
 
 export const generateTokens = (user: IUser) => {
@@ -21,21 +23,21 @@ export const generateTokens = (user: IUser) => {
     roles: user.roles,
   };
 
+  const refreshTokenPayload: TokenPayload = {
+    userId: payload.userId,
+  };
+
   const accessToken = jwt.sign(payload, config.jwtSecret, {
     expiresIn: config.jwtExpiresIn,
   });
 
-  const refreshToken = jwt.sign({ userId: user._id }, config.jwtSecret, {
+  const refreshToken = jwt.sign(refreshTokenPayload, config.jwtSecret, {
     expiresIn: config.jwtRefreshTokenExpiresIn,
   });
 
   return { accessToken, refreshToken };
 };
 
-export const verifyToken = (token: string): TokenPayload | null => {
-  try {
-    return jwt.verify(token, config.jwtSecret) as TokenPayload;
-  } catch (error) {
-    return null;
-  }
+export const verifyToken = (token: string): TokenPayload => {
+  return jwt.verify(token, config.jwtSecret) as TokenPayload;
 };
