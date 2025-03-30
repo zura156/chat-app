@@ -1,24 +1,26 @@
 import { Injectable } from '@angular/core';
-import { webSocket } from 'rxjs/webSocket';
+import { WebSocketSubject } from 'rxjs/webSocket';
 import { environment } from '../../../../environments/environment';
-import { Observable } from 'rxjs';
-import { MessageI } from '../interfaces/message.interface';
 
 @Injectable({
   providedIn: 'root',
 })
 export class WebSocketService {
-  private socket$ = webSocket(environment.wsUrl);
+  private socket$: WebSocketSubject<any>;
 
-  sendMessage(message: MessageI): void {
-    this.socket$.next(message);
+  constructor() {
+    this.socket$ = new WebSocketSubject(environment.wsUrl);
   }
 
-  getMessages(): Observable<MessageI[]> {
-    return this.socket$.asObservable() as Observable<MessageI[]>;
+  sendMessage(data: any) {
+    this.socket$.next(data);
   }
 
-  closeConnection(): void {
+  onMessage() {
+    return this.socket$;
+  }
+
+  close() {
     this.socket$.complete();
   }
 }

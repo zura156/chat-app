@@ -1,7 +1,7 @@
 import mongoose, { Document, Schema } from 'mongoose';
 import bcrypt from 'bcrypt';
 import validator from 'validator';
-import { createCustomError } from '../../models/custom-api-error.model';
+import { createCustomError } from '../../error-handling/models/custom-api-error.model';
 
 export interface IUser extends Document {
   first_name: string;

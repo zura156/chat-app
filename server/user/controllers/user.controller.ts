@@ -1,7 +1,7 @@
-import { AuthRequest } from '../../middlewares/auth.middleware';
+import { AuthRequest } from '../../auth/middlewares/auth.middleware';
 import { NextFunction, Response } from 'express';
 import { User } from '../../user/models/user.model';
-import { createCustomError } from '../../models/custom-api-error.model';
+import { createCustomError } from '../../error-handling/models/custom-api-error.model';
 
 export const getCurrentUser = async (
   req: AuthRequest,

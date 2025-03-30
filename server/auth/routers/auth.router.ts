@@ -4,7 +4,7 @@ import {
   loginUser,
   refreshToken,
 } from '../controllers/auth.controller';
-import { authenticate } from '../../middlewares/auth.middleware';
+import { authenticate } from '../middlewares/auth.middleware';
 
 const router = Router();
 

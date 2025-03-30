@@ -12,6 +12,7 @@ import { BrnSeparatorComponent } from '@spartan-ng/brain/separator';
 import { NgIf, NgTemplateOutlet } from '@angular/common';
 import { filter, Subject, takeUntil } from 'rxjs';
 import { NavigationEnd, Router, RouterOutlet } from '@angular/router';
+import { WebSocketService } from '../services/web-socket.service';
 
 @Component({
   selector: 'app-messages',
@@ -21,7 +22,7 @@ import { NavigationEnd, Router, RouterOutlet } from '@angular/router';
     ReactiveFormsModule,
     HlmSeparatorDirective,
     BrnSeparatorComponent,
-    NgTemplateOutlet
+    NgTemplateOutlet,
   ],
   templateUrl: './messages-layout.component.html',
 })
@@ -29,12 +30,15 @@ export class MessagesLayoutComponent implements OnInit, OnDestroy {
   isMobile = signal<boolean>(false);
   isChatView = signal<boolean>(false);
 
+  private webSocketSerice = inject(WebSocketService);
+
   private router = inject(Router);
 
   windowWidth: number = window.innerWidth;
   private destroy$ = new Subject<void>();
 
   ngOnInit(): void {
+    this.webSocketSerice.onMessage().subscribe((res) => console.log(res));
     this.checkScreenWidth();
     this.checkRoute();
     this.router.events

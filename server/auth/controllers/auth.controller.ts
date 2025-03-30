@@ -1,7 +1,7 @@
 import { NextFunction, Request, Response } from 'express';
 import { User } from '../../user/models/user.model';
-import { generateTokens, TokenPayload } from '../../services/jwt.service';
-import { createCustomError } from '../../models/custom-api-error.model';
+import { generateTokens, TokenPayload } from '../services/jwt.service';
+import { createCustomError } from '../../error-handling/models/custom-api-error.model';
 import jwt from 'jsonwebtoken';
 import config from '../../config/config';
 import { LoginDto } from '../dtos/login.dto';

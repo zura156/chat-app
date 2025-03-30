@@ -1,8 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
-import { verifyToken, TokenPayload } from '../services/jwt.service';
-import { TokenModel } from '../auth/models/token.model';
+import { TokenPayload } from '../../auth/services/jwt.service';
 import jwt from 'jsonwebtoken';
-import config from '../config/config';
+import config from '../../config/config';
 
 export interface AuthRequest extends Request {
   user?: TokenPayload;
