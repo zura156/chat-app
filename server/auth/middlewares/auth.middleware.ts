@@ -43,19 +43,12 @@ export const authenticate = async (
   }
 };
 
-export const authorize = (roles: string[] = []) => {
+export const authorize = () => {
   return (req: AuthRequest, res: Response, next: NextFunction): void => {
     if (!req.user) {
       res.status(401).json({ message: 'Unauthorized' });
       return;
     }
-
-    // Check if user has required role
-    if (roles.length && !req.user.roles?.some((role) => roles.includes(role))) {
-      res.status(403).json({ message: 'Forbidden: Insufficient permissions' });
-      return;
-    }
-
     next();
   };
 };

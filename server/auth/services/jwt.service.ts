@@ -8,7 +8,6 @@ export interface TokenPayload {
   last_name?: string;
   username?: string;
   email?: string;
-  roles?: string[];
   iat?: number;
   exp?: number;
 }
@@ -20,7 +19,6 @@ export const generateTokens = (user: IUser) => {
     last_name: user.last_name,
     username: user.username,
     email: user.email,
-    roles: user.roles,
   };
 
   const refreshTokenPayload: TokenPayload = {

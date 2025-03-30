@@ -1,4 +1,4 @@
-import mongoose, { Document, Schema } from 'mongoose';
+import mongoose, { Document, Schema, Types } from 'mongoose';
 import bcrypt from 'bcrypt';
 import validator from 'validator';
 import { createCustomError } from '../../error-handling/models/custom-api-error.model';
@@ -9,7 +9,10 @@ export interface IUser extends Document {
   username: string;
   email: string;
   password: string;
-  roles: string[];
+  profile_picture: string;
+  status: 'offline' | 'online' | 'away';
+  last_seen: Date;
+  blocked_users: Types.ObjectId[];
   comparePassword(candidatePassword: string): Promise<boolean>;
 }
 
@@ -37,11 +40,6 @@ const UserSchema = new Schema<IUser>(
       createIndexes: { unique: true },
       unique: true,
     },
-    roles: {
-      type: [String],
-      default: ['user'],
-      enum: ['user', 'admin'],
-    },
     password: {
       type: String,
       validate: [
@@ -50,6 +48,16 @@ const UserSchema = new Schema<IUser>(
       ],
       required: [true, 'Password is required! \n'],
     },
+    profile_picture: {
+      type: String,
+    },
+    status: {
+      type: String,
+      enum: ['offline', 'online', 'away'],
+      default: 'offline',
+    },
+    last_seen: { type: Date, default: Date.now },
+    blocked_users: [{ type: Schema.Types.ObjectId, ref: 'User' }],
   },
   { timestamps: true }
 );
