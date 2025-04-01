@@ -1,14 +1,27 @@
 import { Schema, model, Document, Types } from 'mongoose';
 
+export enum MessageType {
+  TEXT = 'text',
+  IMAGE = 'image',
+  VIDEO = 'video',
+  FILE = 'file',
+}
+
+export enum MessageStatus {
+  SENT = 'sent',
+  DELIVERED = 'delivered',
+  READ = 'read',
+}
+
 export interface IMessage extends Document {
   sender: Types.ObjectId;
   conversation: Types.ObjectId;
   content: string;
-  type: 'text' | 'image' | 'video' | 'file';
-  status: 'sent' | 'delivered' | 'read';
+  type: MessageType; // ✅ Using Enum
+  status: MessageStatus; // ✅ Using Enum
   readBy: Types.ObjectId[];
-  createdAt: Date;
-  updatedAt: Date;
+  createdAt?: Date;
+  updatedAt?: Date;
 }
 
 const MessageSchema = new Schema<IMessage>(
@@ -22,13 +35,13 @@ const MessageSchema = new Schema<IMessage>(
     content: { type: String, required: true },
     type: {
       type: String,
-      enum: ['text', 'image', 'video', 'file'],
-      default: 'text',
+      enum: Object.values(MessageType),
+      default: MessageType.TEXT,
     },
     status: {
       type: String,
-      enum: ['sent', 'delivered', 'read'],
-      default: 'sent',
+      enum: Object.values(MessageStatus),
+      default: MessageStatus.SENT,
     },
     readBy: [{ type: Schema.Types.ObjectId, ref: 'User' }],
   },
