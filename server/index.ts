@@ -7,6 +7,7 @@ import { connectDB } from './config/db';
 import config from './config/config';
 import { setupWebSocket } from './websocket/services/websocket.service';
 import { logger } from './utils/logger';
+import messageRouter from './messenger/message.router';
 
 const app: Application = express();
 const port: number | 3000 = parseInt(config.port.toString());
@@ -25,7 +26,7 @@ app.use(
 
 app.use('/auth', authRouter);
 app.use('/user', userRouter);
-// app.use('/messages', messageRouter);
+app.use('/message', messageRouter);
 
 app.use((err: Error, req: Request, res: Response, next: NextFunction) => {
   errorMiddleware(err, req, res, next);
