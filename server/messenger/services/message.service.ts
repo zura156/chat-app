@@ -1,40 +1,33 @@
+import { Types } from 'mongoose';
 import { MessageType } from '../interfaces/message.interface';
 import { Conversation } from '../models/conversation.model';
-import { Message } from '../models/message.model';
+import { IMessage, Message } from '../models/message.model';
 
 export const saveMessage = async (data: {
-  from: string;
-  to: string | null; // `null` for group chat
-  message: string;
+  sender: string;
+  conversation: string;
+  content: string;
   type: MessageType;
-  conversationId: string;
-  isGroup: boolean;
-}) => {
+}): Promise<IMessage | null> => {
   try {
-    // Find or create conversation
-    const conversation = await Conversation.findByIdAndUpdate(
-      data.conversationId,
-      { lastMessage: data.message },
-      { new: true }
-    );
+    const conversationObjectId = new Types.ObjectId(data.conversation);
 
-    if (!conversation) {
-      throw new Error('Failed to find conversation');
-    }
-
-    // Save the message
-    const newMessage = await Message.create({
-      sender: data.from,
-      conversation: data.conversationId,
-      content: data.message,
-      type: data.type,
-      status: 'sent',
-      readBy: data.isGroup ? [data.from] : [], // Group chat: Only sender initially
+    // Update last message in conversation
+    await Conversation.findByIdAndUpdate(conversationObjectId, {
+      last_message: data.content,
     });
 
-    return newMessage;
-  } catch (error) {
-    console.error('Error in saveMessage:', error);
-    throw new Error('Could not save message');
+    // Save message
+    const message = await Message.create({
+      sender: data.sender,
+      conversation: conversationObjectId,
+      content: data.content,
+      type: data.type,
+    });
+
+    return message;
+  } catch (e) {
+    console.error('Error while trying to save a message', e);
+    return null;
   }
 };

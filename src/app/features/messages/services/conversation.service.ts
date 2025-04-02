@@ -1,4 +1,4 @@
-import { inject, Injectable } from '@angular/core';
+import { inject, Injectable, signal } from '@angular/core';
 import { Observable } from 'rxjs';
 import { HttpClient } from '@angular/common/http';
 import { environment } from '../../../../environments/environment';
@@ -7,10 +7,16 @@ import { environment } from '../../../../environments/environment';
 export class ConversationService {
   private http = inject(HttpClient);
 
-  private apiUrl = `${environment.apiUrl}/messages/conversations`;
+  private apiUrl = `${environment.apiUrl}/message/conversation`;
 
-  getConversations(userId: string): Observable<any> {
-    return this.http.get(`${this.apiUrl}/user/${userId}`);
+  // #conversations = signal<ConversationI>(initialValue)
+
+  constructor() {
+    this.getConversations().subscribe();
+  }
+
+  getConversations(): Observable<any> {
+    return this.http.get(this.apiUrl);
   }
 
   createConversation(userId: string, recipientId: string): Observable<any> {

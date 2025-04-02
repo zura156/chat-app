@@ -9,7 +9,7 @@ export interface IUser extends Document {
   username: string;
   email: string;
   password: string;
-  profile_picture: string;
+  profile_picture?: string;
   status: 'offline' | 'online' | 'away';
   last_seen: Date;
   blocked_users: Types.ObjectId[];

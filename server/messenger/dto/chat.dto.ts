@@ -1,7 +1,7 @@
+import { AuthRequest } from '../../auth/middlewares/auth.middleware';
 import { ConversationI } from '../interfaces/conversation.interface';
-import { Request } from 'express';
 
-export interface CreateChatDto extends Request {
+export interface ChatDto extends AuthRequest {
   body: {
     conversation: ConversationI;
   };

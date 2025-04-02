@@ -1,8 +1,8 @@
-import { Request, Response, NextFunction } from 'express';
+import { Response, NextFunction } from 'express';
 import { SendMessageDto } from '../dto/send-message.dto';
 import { createCustomError } from '../../error-handling/models/custom-api-error.model';
-import { Conversation } from '../models/conversation.model';
 import { saveMessage } from '../services/message.service';
+import { createNotification } from '../services/notification.service';
 
 export const sendMessage = async (
   req: SendMessageDto,
@@ -12,28 +12,15 @@ export const sendMessage = async (
   try {
     const { sender, conversation, content, type } = req.body.message;
 
-    // Fetch the conversation from the database
-    const chat = await Conversation.findById(conversation);
+    const message = await saveMessage({ sender, conversation, content, type });
 
-    if (!chat) {
-      return next(createCustomError('Conversation not found', 404));
+    if (!message) {
+      next(createCustomError('Error saving message!', 500));
+      return;
     }
 
-    // If it's a group chat, send message to all participants
-    const isGroupChat = chat.is_group;
-
-    const message = await saveMessage({
-      from: sender,
-      to: isGroupChat
-        ? null
-        : chat.participants
-            .find((id) => id.toString() !== sender)
-            ?.toString() || null, // `null` for group chat
-      message: content,
-      type,
-      conversationId: conversation, // Include conversation ID explicitly
-      isGroup: isGroupChat, // Pass group chat flag
-    });
+    // Create notifications for all participants (except the sender)
+    await createNotification(sender, conversation, JSON.stringify(message._id));
 
     res.status(201).json(message);
   } catch (error: any) {
