@@ -1,26 +1,46 @@
 <main class="p-3 w-full">
-  <header class="pt-2 flex justify-between items-center">
-    <div>
-      <h1 class="text-2xl font-bold">Chats</h1>
-    </div>
-    <div class="space-x-2">
-      <button hlmBtn class="cursor-pointer rounded-full">
-        <ng-icon hlm size="sm" name="lucideMenu" />
-      </button>
-      <button hlmBtn class="cursor-pointer rounded-full">
-        <ng-icon hlm size="sm" name="lucidePencil" />
-      </button>
-    </div>
+  <header class="pt-2 flex flex-col gap-y-3">
+    <section class="flex justify-between items-center">
+      <div>
+        <h1 class="text-2xl font-bold">Chats</h1>
+      </div>
+      <div class="space-x-2">
+        <button hlmBtn class="cursor-pointer rounded-full">
+          <ng-icon hlm size="sm" name="lucideMenu" />
+        </button>
+        <button
+          [routerLink]="['new-chat']"
+          hlmBtn
+          class="cursor-pointer rounded-full"
+        >
+          <ng-icon hlm size="sm" name="lucidePencil" />
+        </button>
+      </div>
+    </section>
+
+    <input
+      hlmInput
+      type="search"
+      placeholder="Search for users..."
+      (click)="searchForUsers()"
+    />
   </header>
 
   <brn-separator decorative hlmSeparator />
+
+  @if(userListView()){
+  <ng-container *ngIf="users().length > 0">
+
+  </ng-container>
+  } @else {
 
   <ng-container *ngIf="conversations().length > 0">
     <app-message-card
       *ngFor="let conversation of conversations()"
       class="conversation-item"
-      (click)="selectConversation(conversation)"
+      [conversation]="conversation"
     >
     </app-message-card>
   </ng-container>
+  }
 </main>

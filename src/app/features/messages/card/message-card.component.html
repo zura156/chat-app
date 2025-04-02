@@ -1,11 +1,14 @@
 <main
+  (click)="switchView()"
+  [routerLink]="[conversation()._id]"
+  routerLinkActive="bg-active"
   hlmCard
   class="p-2 flex items-center gap-x-2 cursor-pointer hover:bg-accent"
 >
   <!-- AVATAR -->
   <hlm-avatar variant="large">
     <img
-      src="/assets/avatar.png"
+      [src]="imageUrl ?? '/assets/avatar.png'"
       alt="spartan logo. Resembling a spartanic shield"
       hlmAvatarImage
     />
@@ -14,11 +17,11 @@
 
   <section>
     <!-- Group title -->
-    <h1 class="font-medium">Title</h1>
+    <h1 class="font-medium">{{ conversation().group_name }}</h1>
     <!-- Last message -->
     <p class="text-sm">
-      <span> Author: </span>
-      message
+      <span> {{ conversation().last_message?.sender?.name + ":" }} </span>
+      {{ conversation().last_message?.content }}
     </p>
   </section>
 </main>

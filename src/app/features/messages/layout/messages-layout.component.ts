@@ -13,6 +13,8 @@ import { NgIf, NgTemplateOutlet } from '@angular/common';
 import { filter, Subject, takeUntil } from 'rxjs';
 import { NavigationEnd, Router, RouterOutlet } from '@angular/router';
 import { WebSocketService } from '../services/web-socket.service';
+import { MessageListComponent } from '../list/messages-list.component';
+import { LayoutService } from './layout.service';
 
 @Component({
   selector: 'app-messages',
@@ -23,12 +25,14 @@ import { WebSocketService } from '../services/web-socket.service';
     HlmSeparatorDirective,
     BrnSeparatorComponent,
     NgTemplateOutlet,
+    MessageListComponent,
   ],
   templateUrl: './messages-layout.component.html',
 })
 export class MessagesLayoutComponent implements OnInit, OnDestroy {
   isMobile = signal<boolean>(false);
-  isChatView = signal<boolean>(false);
+  layoutService = inject(LayoutService);
+  isChatView = this.layoutService.isRightView;
 
   private webSocketSerice = inject(WebSocketService);
 
@@ -38,17 +42,19 @@ export class MessagesLayoutComponent implements OnInit, OnDestroy {
   private destroy$ = new Subject<void>();
 
   ngOnInit(): void {
-    this.webSocketSerice.onMessage().subscribe((res) => console.log(res));
+    this.webSocketSerice
+      .onMessage()
+      .pipe(takeUntil(this.destroy$))
+      .subscribe((res) => console.log(res));
+
     this.checkScreenWidth();
-    this.checkRoute();
+
     this.router.events
       .pipe(
         filter((event) => event instanceof NavigationEnd),
         takeUntil(this.destroy$)
       )
-      .subscribe(() => {
-        this.checkRoute();
-      });
+      .subscribe();
   }
 
   ngOnDestroy(): void {
@@ -64,12 +70,5 @@ export class MessagesLayoutComponent implements OnInit, OnDestroy {
 
   private checkScreenWidth(): void {
     this.isMobile.set(this.windowWidth < 640);
-  }
-
-  private checkRoute(): void {
-    const currentRoute = this.router.url;
-    this.isChatView.set(
-      currentRoute.includes('/new-chat') || /^\/\d+$/.test(currentRoute)
-    );
   }
 }

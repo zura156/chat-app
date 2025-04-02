@@ -1,7 +1,8 @@
-import { inject, Injectable, signal } from '@angular/core';
-import { Observable } from 'rxjs';
+import { computed, inject, Injectable, signal } from '@angular/core';
+import { Observable, tap } from 'rxjs';
 import { HttpClient } from '@angular/common/http';
 import { environment } from '../../../../environments/environment';
+import { ConversationI } from '../interfaces/conversation.interface';
 
 @Injectable()
 export class ConversationService {
@@ -9,25 +10,20 @@ export class ConversationService {
 
   private apiUrl = `${environment.apiUrl}/message/conversation`;
 
-  // #conversations = signal<ConversationI>(initialValue)
+  #conversations = signal<ConversationI[]>([]);
+  conversations = computed<ConversationI[]>(this.#conversations);
 
-  constructor() {
-    this.getConversations().subscribe();
+  getConversations(): Observable<ConversationI[]> {
+    return this.http
+      .get<ConversationI[]>(this.apiUrl)
+      .pipe(tap((res) => this.#conversations.set(res)));
   }
 
-  getConversations(): Observable<any> {
-    return this.http.get(this.apiUrl);
+  createConversation(conversation: ConversationI): Observable<ConversationI> {
+    return this.http.post<ConversationI>(this.apiUrl, conversation);
   }
 
-  createConversation(userId: string, recipientId: string): Observable<any> {
-    return this.http.post(this.apiUrl, { userId, recipientId });
-  }
-
-  getMessages(conversationId: string): Observable<any> {
-    return this.http.get(`${this.apiUrl}/${conversationId}/messages`);
-  }
-
-  markAsRead(conversationId: string, userId: string): Observable<any> {
-    return this.http.post(`${this.apiUrl}/${conversationId}/read`, { userId });
+  updateConversation(conversation: ConversationI): Observable<ConversationI> {
+    return this.http.post<ConversationI>(this.apiUrl, conversation);
   }
 }

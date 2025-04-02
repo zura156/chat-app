@@ -4,7 +4,10 @@ import { ParticipantI } from './participant.interface';
 export interface ConversationI {
   _id: string;
   participants: ParticipantI[];
-  lastMessage?: MessageI;
-  createdAt: string;
-  updatedAt: string;
+  last_message?: MessageI;
+  createdAt?: string;
+  updatedAt?: string;
+  is_group: boolean;
+  group_name?: string;
+  group_picture?: string;
 }

@@ -2,6 +2,7 @@ import { AuthRequest } from '../../auth/middlewares/auth.middleware';
 import { NextFunction, Response } from 'express';
 import { User } from '../../user/models/user.model';
 import { createCustomError } from '../../error-handling/models/custom-api-error.model';
+import { create } from 'domain';
 
 export const getCurrentUser = async (
   req: AuthRequest,
@@ -80,5 +81,73 @@ export const deleteUser = async (
   } catch (error) {
     console.error('Update user error:', error);
     res.status(500).json({ message: 'Server error' });
+  }
+};
+
+export const getUsers = async (
+  req: AuthRequest,
+  res: Response,
+  next: NextFunction
+) => {
+  try {
+    const user = req.user;
+
+    if (!user) {
+      next(createCustomError('User must be authorized!', 401));
+      return;
+    }
+
+    const users = await User.find();
+
+    if (!users) {
+      next(createCustomError('Could not fetch users!', 502));
+      return;
+    }
+
+    res.status(200).json({ users });
+  } catch (err) {
+    console.error('Error getting users:', err);
+    res.status(500).json({ message: 'Server error getting users' });
+  }
+};
+
+export const searchUsers = async (
+  req: AuthRequest,
+  res: Response,
+  next: NextFunction
+) => {
+  try {
+    const searchQuery = req.query['q'];
+    const user = req.user;
+
+    if (!searchQuery) {
+      next(createCustomError('Search query is required', 400));
+      return;
+    }
+
+    if (!user) {
+      next(createCustomError('User must be authorized!', 401));
+      return;
+    }
+
+    const users = await User.find({
+      $or: [
+        {
+          first_name: { $regex: searchQuery, $options: 'i' },
+          last_name: { $regex: searchQuery, $options: 'i' },
+          username: { $regex: searchQuery, $options: 'i' },
+        },
+      ],
+    });
+
+    if (!users) {
+      next(createCustomError('Could not fetch users!', 502));
+      return;
+    }
+
+    res.status(200).json({ users });
+  } catch (err) {
+    console.error('Error getting users:', err);
+    res.status(500).json({ message: 'Server error getting users' });
   }
 };

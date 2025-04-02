@@ -1,5 +1,5 @@
 import { HttpClient } from '@angular/common/http';
-import { inject, Injectable, signal } from '@angular/core';
+import { computed, inject, Injectable, signal } from '@angular/core';
 import { environment } from '../../../../environments/environment';
 import { UserI } from '../../../shared/interfaces/user.interface';
 import { Observable, tap } from 'rxjs';
@@ -16,6 +16,9 @@ export class UserService {
 
   currentUser = signal<UserI | null>(null);
 
+  #users = signal<UserI[]>([]);
+  users = computed(this.#users);
+
   constructor() {
     this.getCurrentUser().subscribe();
   }
@@ -25,4 +28,8 @@ export class UserService {
       .get<UserI>(this._GET_CURRENT_USER_URL)
       .pipe(tap((res) => this.currentUser.set(res)));
   }
+
+  fetchUsers() {}
+
+  searchUser() {}
 }

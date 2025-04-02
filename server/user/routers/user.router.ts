@@ -3,13 +3,18 @@ import { authenticate } from '../../auth/middlewares/auth.middleware';
 import {
   deleteUser,
   getCurrentUser,
+  getUsers,
+  searchUsers,
   updateUserDetails,
 } from '../controllers/user.controller';
 
 const router = Router();
 
-router.get('/profile', authenticate, getCurrentUser);
+router.route('/profile').get(authenticate, getCurrentUser);
 router.patch('/profile/update', authenticate, updateUserDetails);
 router.delete('/profile/delete', authenticate, deleteUser);
+
+router.get('/users', authenticate, getUsers);
+router.get('/users/search', authenticate, searchUsers);
 
 export default router;
