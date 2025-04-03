@@ -13,12 +13,10 @@ export const messagesRoutes: Routes = [
       {
         path: ':id',
         component: ChatboxComponent,
-        outlet: 'right',
       },
       {
         path: 'new-chat',
         component: NewChatComponent,
-        outlet: 'right',
       },
       // { path: '', component: MessagesStartComponent, outlet: 'right' }, //Initial right side view.
       // {

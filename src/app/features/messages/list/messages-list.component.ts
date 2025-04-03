@@ -1,32 +1,38 @@
-import { Component, inject, OnInit, signal } from '@angular/core';
+import { Component, effect, inject, OnInit, signal } from '@angular/core';
 import { MessageCardComponent } from '../card/message-card.component';
 import { HlmSeparatorDirective } from '@spartan-ng/ui-separator-helm';
 import { BrnSeparatorComponent } from '@spartan-ng/brain/separator';
 import { HlmButtonDirective } from '@spartan-ng/ui-button-helm';
 import { NgIcon, provideIcons } from '@ng-icons/core';
-import { lucideMenu, lucidePencil } from '@ng-icons/lucide';
+import { lucideChevronLeft, lucideMenu, lucidePencil } from '@ng-icons/lucide';
 import { HlmIconDirective } from '@spartan-ng/ui-icon-helm';
 import { ConversationService } from '../services/conversation.service';
-import { NgFor, NgIf } from '@angular/common';
+import { NgClass, NgFor, NgIf } from '@angular/common';
 import { RouterLink } from '@angular/router';
 import { HlmInputDirective } from '@spartan-ng/ui-input-helm';
+import { HlmBadgeDirective } from '@spartan-ng/ui-badge-helm';
 import { UserService } from '../../user/services/user.service';
+import { UserCardComponent } from '../../user/components/card/user-card.component';
+import { ClickOutsideDirective } from '../../../shared/directives/click-outside.directive';
 
 @Component({
   selector: 'app-messages-list',
   imports: [
+    HlmBadgeDirective,
     MessageCardComponent,
     HlmSeparatorDirective,
     BrnSeparatorComponent,
     HlmInputDirective,
     HlmButtonDirective,
-    NgIcon,
+    UserCardComponent,
     HlmIconDirective,
+    NgIcon,
     NgIf,
     NgFor,
+    NgClass,
     RouterLink,
   ],
-  providers: [provideIcons({ lucidePencil, lucideMenu })],
+  providers: [provideIcons({ lucidePencil, lucideMenu, lucideChevronLeft })],
   templateUrl: './messages-list.component.html',
 })
 export class MessageListComponent implements OnInit {
@@ -38,7 +44,28 @@ export class MessageListComponent implements OnInit {
 
   userListView = signal<boolean>(false);
 
-  ngOnInit(): void {}
+  query = signal<string>('');
+
+  setQuery(value: any): void {
+    if (value as HTMLInputElement) {
+      this.query.set(value.target.value);
+    }
+    if (this.query().length > 0 && !this.userListView()) {
+      this.userListView.set(true);
+    }
+  }
+
+  constructor() {
+    effect(() => {
+      if (this.query()) {
+        this.searchUsers(this.query());
+      }
+    });
+  }
+
+  ngOnInit(): void {
+    this.fetchUsers();
+  }
 
   // Function to fetch conversations
   getConversations(): void {
@@ -49,7 +76,15 @@ export class MessageListComponent implements OnInit {
     this.userListView.set(true);
   }
 
-  fetchUser(): void {}
+  switchToConversationView(): void {
+    this.userListView.set(false);
+  }
 
-  searchUser(): void {}
+  fetchUsers(): void {
+    this.userService.fetchUsers().subscribe();
+  }
+
+  searchUsers(query: string): void {
+    this.userService.searchUser(query).subscribe();
+  }
 }

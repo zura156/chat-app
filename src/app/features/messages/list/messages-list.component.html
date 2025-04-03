@@ -1,16 +1,17 @@
-<main class="p-3 w-full">
+<main class="p-3 w-full min-h-screen">
   <header class="pt-2 flex flex-col gap-y-3">
     <section class="flex justify-between items-center">
       <div>
         <h1 class="text-2xl font-bold">Chats</h1>
       </div>
       <div class="space-x-2">
-        <button hlmBtn class="cursor-pointer rounded-full">
+        <button hlmBtn variant="secondary" class="cursor-pointer rounded-full">
           <ng-icon hlm size="sm" name="lucideMenu" />
         </button>
         <button
-          [routerLink]="['new-chat']"
+          [routerLink]="['/messages/new-chat']"
           hlmBtn
+          variant="secondary"
           class="cursor-pointer rounded-full"
         >
           <ng-icon hlm size="sm" name="lucidePencil" />
@@ -18,23 +19,56 @@
       </div>
     </section>
 
-    <input
-      hlmInput
-      type="search"
-      placeholder="Search for users..."
-      (click)="searchForUsers()"
-    />
+    <div class="w-full flex items-center justify-between">
+      <button
+        *ngIf="userListView()"
+        (click)="switchToConversationView()"
+        class="cursor-pointer w-1/4 xs:w-1/12 sm:w-2/12 flex justify-center items-center size-10 rounded-full bg-secondary text-primary"
+      >
+        <ng-icon hlm name="lucideChevronLeft" />
+      </button>
+
+      <div
+        [ngClass]="{
+          'pl-2 w-3/4 xs:w-11/12 sm:w-10/12': userListView(),
+          'w-full': !userListView()
+        }"
+      >
+        <input
+          hlmInput
+          id="userSearch"
+          type="search"
+          class="w-full"
+          placeholder="Search for users..."
+          [value]="query()"
+          (input)="setQuery($event)"
+        />
+      </div>
+    </div>
   </header>
 
   <brn-separator decorative hlmSeparator />
 
   @if(userListView()){
-  <ng-container *ngIf="users().length > 0">
-
+  <ng-container *ngIf="users().length > 0; else noUsers">
+    <main>
+      <section class="h-full w-full flex flex-col gap-y-2">
+        <app-user-card
+          *ngFor="let user of users()"
+          [user]="user"
+        ></app-user-card>
+      </section>
+    </main>
   </ng-container>
-  } @else {
 
-  <ng-container *ngIf="conversations().length > 0">
+  <ng-template #noUsers>
+    <div class="flex flex-col justify-center items-center pt-2 gap-y-2">
+      <p>Could not fetch users.</p>
+      <p class="text-sm">Try again later.</p>
+    </div>
+  </ng-template>
+  } @else {
+  <ng-container *ngIf="conversations().length > 0; else noConvos">
     <app-message-card
       *ngFor="let conversation of conversations()"
       class="conversation-item"
@@ -42,5 +76,13 @@
     >
     </app-message-card>
   </ng-container>
+  <ng-template #noConvos>
+    <div class="flex flex-col justify-center items-center pt-2 gap-y-2">
+      <p>You have no conversations going on.</p>
+      <a class="text-sm" [routerLink]="['/messages/new-chat']" hlmBadge>
+        Search for your acquaintances.
+      </a>
+    </div>
+  </ng-template>
   }
 </main>

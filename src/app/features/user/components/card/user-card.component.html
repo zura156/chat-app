@@ -1,0 +1,21 @@
+<main
+  (click)="startConversation()"
+  routerLinkActive="bg-active"
+  hlmCard
+  class="p-2 flex items-center gap-x-2 cursor-pointer hover:bg-accent"
+>
+  <!-- AVATAR -->
+  <hlm-avatar variant="medium">
+    <img
+      [src]="imageUrl ?? '/icons/avatar.svg'"
+      alt="spartan logo. Resembling a spartanic shield"
+      hlmAvatarImage
+    />
+    <span class="bg-blue-500 text-white text-sm" hlmAvatarFallback>LOGO</span>
+  </hlm-avatar>
+
+  <section>
+    <!-- Group title -->
+    <h1 class="font-medium text-sm">{{ user()?.username }}</h1>
+  </section>
+</main>

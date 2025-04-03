@@ -1,6 +1,6 @@
 <ng-container *ngIf="isMobile(); else desktopLayout">
   <main>
-    @if(isChatView()){
+    @if(!isChatView()){
     <ng-container *ngTemplateOutlet="leftSide"></ng-container>
     }@else {
     <ng-container *ngTemplateOutlet="rightSide"></ng-container>
@@ -25,5 +25,5 @@
 </ng-template>
 
 <ng-template #rightSide>
-  <router-outlet name="right"></router-outlet>
+  <router-outlet></router-outlet>
 </ng-template>

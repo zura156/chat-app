@@ -97,7 +97,7 @@ export const getUsers = async (
       return;
     }
 
-    const users = await User.find();
+    const users = await User.find({ _id: { $ne: user.userId } });
 
     if (!users) {
       next(createCustomError('Could not fetch users!', 502));
@@ -131,12 +131,11 @@ export const searchUsers = async (
     }
 
     const users = await User.find({
+      _id: { $ne: user.userId },
       $or: [
-        {
-          first_name: { $regex: searchQuery, $options: 'i' },
-          last_name: { $regex: searchQuery, $options: 'i' },
-          username: { $regex: searchQuery, $options: 'i' },
-        },
+        { first_name: { $regex: searchQuery, $options: 'i' } },
+        { last_name: { $regex: searchQuery, $options: 'i' } },
+        { username: { $regex: searchQuery, $options: 'i' } },
       ],
     });
 

@@ -30,23 +30,17 @@ import { LayoutService } from './layout.service';
   templateUrl: './messages-layout.component.html',
 })
 export class MessagesLayoutComponent implements OnInit, OnDestroy {
-  isMobile = signal<boolean>(false);
-  layoutService = inject(LayoutService);
-  isChatView = this.layoutService.isRightView;
-
-  private webSocketSerice = inject(WebSocketService);
-
+  private layoutService = inject(LayoutService);
   private router = inject(Router);
 
+  isMobile = signal<boolean>(false);
+  isChatView = this.layoutService.isRightView;
+
   windowWidth: number = window.innerWidth;
+
   private destroy$ = new Subject<void>();
 
   ngOnInit(): void {
-    this.webSocketSerice
-      .onMessage()
-      .pipe(takeUntil(this.destroy$))
-      .subscribe((res) => console.log(res));
-
     this.checkScreenWidth();
 
     this.router.events
