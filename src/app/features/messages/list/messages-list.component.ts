@@ -1,4 +1,4 @@
-import { Component, effect, inject, OnInit, signal } from '@angular/core';
+import { Component, effect, inject, signal } from '@angular/core';
 import { MessageCardComponent } from '../card/message-card.component';
 import { HlmSeparatorDirective } from '@spartan-ng/ui-separator-helm';
 import { BrnSeparatorComponent } from '@spartan-ng/brain/separator';
@@ -13,7 +13,23 @@ import { HlmInputDirective } from '@spartan-ng/ui-input-helm';
 import { HlmBadgeDirective } from '@spartan-ng/ui-badge-helm';
 import { UserService } from '../../user/services/user.service';
 import { UserCardComponent } from '../../user/components/card/user-card.component';
-import { ClickOutsideDirective } from '../../../shared/directives/click-outside.directive';
+import {
+  catchError,
+  debounceTime,
+  distinctUntilChanged,
+  EMPTY,
+  startWith,
+  Subject,
+  switchMap,
+  takeUntil,
+  tap,
+} from 'rxjs';
+import { FormControl, ReactiveFormsModule } from '@angular/forms';
+import {
+  getUsers,
+  searchUsers,
+} from '../../../../../server/user/controllers/user.controller';
+import { getConversations } from '../../../../../server/messenger/controllers/conversation.controller';
 
 @Component({
   selector: 'app-messages-list',
@@ -26,6 +42,7 @@ import { ClickOutsideDirective } from '../../../shared/directives/click-outside.
     HlmButtonDirective,
     UserCardComponent,
     HlmIconDirective,
+    ReactiveFormsModule,
     NgIcon,
     NgIf,
     NgFor,
@@ -35,7 +52,7 @@ import { ClickOutsideDirective } from '../../../shared/directives/click-outside.
   providers: [provideIcons({ lucidePencil, lucideMenu, lucideChevronLeft })],
   templateUrl: './messages-list.component.html',
 })
-export class MessageListComponent implements OnInit {
+export class MessageListComponent {
   conversationService = inject(ConversationService);
   userService = inject(UserService);
 
@@ -44,30 +61,16 @@ export class MessageListComponent implements OnInit {
 
   userListView = signal<boolean>(false);
 
-  query = signal<string>('');
+  // Signals for reactive state management
+  protected readonly isLoading = signal(true);
+  protected readonly searchControl = new FormControl<string>('');
 
-  setQuery(value: any): void {
-    if (value as HTMLInputElement) {
-      this.query.set(value.target.value);
-    }
-    if (this.query().length > 0 && !this.userListView()) {
-      this.userListView.set(true);
-    }
-  }
-
-  constructor() {
-    effect(() => {
-      if (this.query()) {
-        this.searchUsers(this.query());
-      }
-    });
-  }
+  private destroy$ = new Subject<void>();
 
   ngOnInit(): void {
-    this.fetchUsers();
+    this.configureConversationStream();
   }
 
-  // Function to fetch conversations
   getConversations(): void {
     this.conversationService.getConversations().subscribe();
   }
@@ -78,13 +81,53 @@ export class MessageListComponent implements OnInit {
 
   switchToConversationView(): void {
     this.userListView.set(false);
+    this.searchControl.reset();
   }
 
   fetchUsers(): void {
     this.userService.fetchUsers().subscribe();
   }
 
-  searchUsers(query: string): void {
-    this.userService.searchUser(query).subscribe();
+  private configureConversationStream(): void {
+    // Setting up observables for search and filter
+    const search$ = this.searchControl.valueChanges.pipe(
+      startWith(''), // Start with an empty query to fetch all recipes initially
+      debounceTime(300), // Wait for 300ms before processing the latest value
+      distinctUntilChanged(), // Only emit if the search term has changed
+      tap(() => this.isLoading.set(true))
+    );
+
+    this.isLoading.set(true);
+
+    search$
+      .pipe(
+        takeUntil(this.destroy$),
+        switchMap((query) => {
+          if (this.userListView()) {
+            return this.userService.searchUsers(query || '').pipe(
+              catchError(() => {
+                this.isLoading.set(false);
+                return EMPTY;
+              }),
+              tap(() => {
+                this.isLoading.set(false);
+              })
+            );
+          } else {
+            return this.conversationService
+              .searchConversations(query || '')
+              .pipe(
+                catchError(() => {
+                  this.isLoading.set(false);
+                  return EMPTY;
+                }),
+                tap(() => {
+                  this.isLoading.set(false);
+                })
+              );
+          }
+        })
+      )
+      .subscribe();
   }
 }

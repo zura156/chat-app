@@ -1,11 +1,11 @@
 import { model, Schema, Types, Document } from 'mongoose';
 
 export interface IConversation extends Document {
-  participants: Types.ObjectId[]; // ✅ Fixed: Array for multiple participants
-  last_message?: Types.ObjectId; // ✅ Fixed: Optional last message
+  participants: Types.ObjectId[];
+  last_message?: Types.ObjectId;
   is_group: boolean;
-  group_name?: string; // ✅ Fixed: Optional for group chats only
-  group_picture?: string; // ✅ Fixed: Optional for group chats only
+  group_name?: string;
+  group_picture?: string;
   createdAt?: Date;
   updatedAt?: Date;
 }

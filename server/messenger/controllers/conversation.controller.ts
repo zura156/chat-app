@@ -34,6 +34,43 @@ export const getConversations = async (
   }
 };
 
+export const searchConversations = async (
+  req: AuthRequest,
+  res: Response,
+  next: NextFunction
+): Promise<void> => {
+  try {
+    const query = req.query['q'];
+    const userId = req.user?.userId;
+
+    if (!userId) {
+      return next(createCustomError('User ID is required', 400));
+    }
+
+    const conversations = await Conversation.find({
+      participants: userId,
+      $or: [
+        {
+          group_name: { $regex: query, $options: 'i' },
+          participants: { $regex: query, $options: 'i' },
+        },
+      ],
+    })
+      .populate('participants', 'username profile_picture')
+      .populate({
+        path: 'last_message',
+        select: 'content sender createdAt',
+        populate: { path: 'sender', select: 'username profilePicture' },
+      })
+      .sort({ updatedAt: -1 });
+
+    res.status(200).json(conversations);
+  } catch (err) {
+    console.error('Error fetching user conversations:', err);
+    next(createCustomError('Failed to fetch conversations', 500));
+  }
+};
+
 export const getConversationById = async (
   req: AuthRequest,
   res: Response,

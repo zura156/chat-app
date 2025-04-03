@@ -19,6 +19,12 @@ export class ConversationService {
       .pipe(tap((res) => this.#conversations.set(res)));
   }
 
+  searchConversations(query: string): Observable<ConversationI[]> {
+    return this.http
+      .get<ConversationI[]>(`${this.apiUrl}/search?q=${query}`)
+      .pipe(tap((res) => this.#conversations.set(res)));
+  }
+
   createConversation(conversation: ConversationI): Observable<ConversationI> {
     return this.http.post<ConversationI>(this.apiUrl, conversation);
   }

@@ -38,7 +38,7 @@ export class UserService {
       .pipe(tap((res) => this.#users.set(res.users)));
   }
 
-  searchUser(query: string) {
+  searchUsers(query: string) {
     const url = `${this._SEARCH_USERS_URL}?q=${query}`;
     return this.http
       .get<UserList>(url)
