@@ -9,7 +9,7 @@
           <ng-icon hlm size="sm" name="lucideMenu" />
         </button>
         <button
-          [routerLink]="['/messages/new-chat']"
+          (click)="onNewConversation()"
           hlmBtn
           variant="secondary"
           class="cursor-pointer rounded-full"

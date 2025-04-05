@@ -8,7 +8,7 @@ import { lucideChevronLeft, lucideMenu, lucidePencil } from '@ng-icons/lucide';
 import { HlmIconDirective } from '@spartan-ng/ui-icon-helm';
 import { ConversationService } from '../services/conversation.service';
 import { NgClass, NgFor, NgIf } from '@angular/common';
-import { RouterLink } from '@angular/router';
+import { Router, RouterLink } from '@angular/router';
 import { HlmInputDirective } from '@spartan-ng/ui-input-helm';
 import { HlmBadgeDirective } from '@spartan-ng/ui-badge-helm';
 import { UserService } from '../../user/services/user.service';
@@ -50,6 +50,7 @@ import { FormControl, ReactiveFormsModule } from '@angular/forms';
 export class MessageListComponent {
   conversationService = inject(ConversationService);
   userService = inject(UserService);
+  router = inject(Router);
 
   conversations = this.conversationService.conversations;
   users = this.userService.users;
@@ -66,8 +67,16 @@ export class MessageListComponent {
     this.configureConversationStream();
   }
 
+  ngOnDestroy(): void {
+    this.destroy$.next();
+    this.destroy$.complete();
+  }
+
   getConversations(): void {
-    this.conversationService.getConversations().subscribe();
+    this.conversationService
+      .getConversations()
+      .pipe(takeUntil(this.destroy$))
+      .subscribe();
   }
 
   searchForUsers(): void {
@@ -84,11 +93,11 @@ export class MessageListComponent {
   }
 
   private configureConversationStream(): void {
-    // Setting up observables for search and filter
     const search$ = this.searchControl.valueChanges.pipe(
-      startWith(''), // Start with an empty query to fetch all recipes initially
-      debounceTime(300), // Wait for 300ms before processing the latest value
-      distinctUntilChanged(), // Only emit if the search term has changed
+      takeUntil(this.destroy$),
+      startWith(''),
+      debounceTime(300),
+      distinctUntilChanged(),
       tap(() => this.isLoading.set(true))
     );
 
@@ -96,10 +105,10 @@ export class MessageListComponent {
 
     search$
       .pipe(
-        takeUntil(this.destroy$),
         switchMap((query) => {
           if (this.userListView()) {
             return this.userService.searchUsers(query || '').pipe(
+              takeUntil(this.destroy$),
               catchError(() => {
                 this.isLoading.set(false);
                 return EMPTY;
@@ -112,6 +121,7 @@ export class MessageListComponent {
             return this.conversationService
               .searchConversations(query || '')
               .pipe(
+                takeUntil(this.destroy$),
                 catchError(() => {
                   this.isLoading.set(false);
                   return EMPTY;
@@ -124,5 +134,10 @@ export class MessageListComponent {
         })
       )
       .subscribe();
+  }
+
+  onNewConversation(): void {
+    this.router.navigate(['/messages/new']);
+    // this.conversationService.createMockConversation();
   }
 }
