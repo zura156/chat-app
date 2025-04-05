@@ -25,11 +25,6 @@ import {
   tap,
 } from 'rxjs';
 import { FormControl, ReactiveFormsModule } from '@angular/forms';
-import {
-  getUsers,
-  searchUsers,
-} from '../../../../../server/user/controllers/user.controller';
-import { getConversations } from '../../../../../server/messenger/controllers/conversation.controller';
 
 @Component({
   selector: 'app-messages-list',
