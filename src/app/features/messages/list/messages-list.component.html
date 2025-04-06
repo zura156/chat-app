@@ -41,7 +41,6 @@
           class="w-full"
           placeholder="Search..."
           [formControl]="searchControl"
-          (click)="switchToUsers()"
         />
       </div>
     </div>
@@ -49,51 +48,69 @@
 
   <brn-separator decorative hlmSeparator />
 
-  @if(activeView() === 'users') {
-  <ng-container *ngIf="users().length > 0; else noUsers">
-    <main>
-      <section class="h-full w-full flex flex-col gap-y-2">
-        <app-user-card
-          *ngFor="let user of users()"
-          [user]="user"
-        ></app-user-card>
-      </section>
-
-      @if(isLoading()){
-      <div class="flex justify-center items-center w-full h-full py-4">
-        <ng-icon hlm name="lucideLoader" size="lg" class="animate-spin" />
-      </div>
-      }
-    </main>
-  </ng-container>
-
-  <ng-template #noUsers>
-    <div class="flex flex-col justify-center items-center pt-2 gap-y-2">
-      <p>No users found.</p>
-      <p class="text-sm">Try different keywords.</p>
-    </div>
-  </ng-template>
-  } @else {
-  <ng-container *ngIf="conversations().length > 0; else noConvos">
-    <app-message-card
-      *ngFor="let conversation of conversations()"
-      class="conversation-item"
-      [conversation]="conversation"
+  <hlm-tabs tab="conversations">
+    <hlm-tabs-list
+      class="w-full grid grid-cols-2"
+      aria-label="switch between conversations and users"
     >
-    </app-message-card>
-    @if(isLoading()){
-    <div class="flex justify-center items-center w-full h-full py-4">
-      <ng-icon hlm name="lucideLoader" size="lg" class="animate-spin" />
-    </div>
-    }
-  </ng-container>
-  <ng-template #noConvos>
-    <div class="flex flex-col justify-center items-center pt-2 gap-y-2">
-      <p>You have no conversations going on.</p>
-      <a class="text-sm" [routerLink]="['/messages/new-chat']" hlmBadge>
-        Start messaging now!
-      </a>
-    </div>
-  </ng-template>
-  }
+      <button hlmTabsTrigger="conversations" class="cursor-pointer">
+        Conversations
+      </button>
+      <button
+        hlmTabsTrigger="users"
+        class="cursor-pointer"
+        (click)="switchToUsers()"
+      >
+        Users
+      </button>
+    </hlm-tabs-list>
+    <section hlmTabsContent="users">
+      <ng-container *ngIf="users().length > 0; else noUsers">
+        <main>
+          <section class="h-full w-full flex flex-col gap-y-2">
+            <app-user-card
+              *ngFor="let user of users()"
+              [user]="user"
+            ></app-user-card>
+          </section>
+
+          @if(isLoading()){
+          <div class="flex justify-center items-center w-full h-full py-4">
+            <ng-icon hlm name="lucideLoader" size="lg" class="animate-spin" />
+          </div>
+          }
+        </main>
+      </ng-container>
+
+      <ng-template #noUsers>
+        <div class="flex flex-col justify-center items-center pt-2 gap-y-2">
+          <p>No users found.</p>
+          <p class="text-sm">Try different keywords.</p>
+        </div>
+      </ng-template>
+    </section>
+    <section hlmTabsContent="conversations">
+      <ng-container *ngIf="conversations().length > 0; else noConvos">
+        <app-message-card
+          *ngFor="let conversation of conversations()"
+          class="conversation-item"
+          [conversation]="conversation"
+        >
+        </app-message-card>
+        @if(isLoading()){
+        <div class="flex justify-center items-center w-full h-full py-4">
+          <ng-icon hlm name="lucideLoader" size="lg" class="animate-spin" />
+        </div>
+        }
+      </ng-container>
+      <ng-template #noConvos>
+        <div class="flex flex-col justify-center items-center pt-2 gap-y-2">
+          <p>You have no conversations going on.</p>
+          <a class="text-sm" [routerLink]="['/messages/new-chat']" hlmBadge>
+            Start messaging now!
+          </a>
+        </div>
+      </ng-template>
+    </section>
+  </hlm-tabs>
 </main>

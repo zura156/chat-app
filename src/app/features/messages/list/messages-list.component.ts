@@ -32,10 +32,21 @@ import {
 import { FormControl, ReactiveFormsModule } from '@angular/forms';
 import { ConversationI } from '../interfaces/conversation.interface';
 import { UserI } from '../../../shared/interfaces/user.interface';
+import {
+  HlmTabsComponent,
+  HlmTabsListComponent,
+  HlmTabsTriggerDirective,
+  HlmTabsContentDirective,
+} from '@spartan-ng/ui-tabs-helm';
 
 @Component({
   selector: 'app-messages-list',
   imports: [
+    HlmTabsComponent,
+    HlmTabsListComponent,
+    HlmTabsTriggerDirective,
+    HlmTabsContentDirective,
+
     HlmBadgeDirective,
     MessageCardComponent,
     HlmSeparatorDirective,
