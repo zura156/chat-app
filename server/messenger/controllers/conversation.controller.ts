@@ -27,7 +27,7 @@ export const getConversations = async (
       })
       .sort({ updatedAt: -1 });
 
-    res.status(200).json(conversations);
+    res.status(200).json({ conversations, totalCount: conversations.length });
   } catch (err) {
     console.error('Error fetching user conversations:', err);
     next(createCustomError('Failed to fetch conversations', 500));

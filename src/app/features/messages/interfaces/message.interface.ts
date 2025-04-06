@@ -15,6 +15,7 @@ export enum MessageStatus {
 }
 
 export interface MessageI {
+  _id: string;
   sender: ParticipantI;
   conversation: ConversationI;
   content: string;
