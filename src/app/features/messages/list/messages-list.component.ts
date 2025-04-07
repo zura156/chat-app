@@ -59,7 +59,6 @@ import {
     NgIcon,
     NgIf,
     NgFor,
-    NgClass,
     RouterLink,
   ],
   providers: [
@@ -74,7 +73,7 @@ export class MessageListComponent {
   private router = inject(Router);
 
   // State signals
-  readonly activeView = signal<'conversations' | 'users'>('conversations');
+  readonly activeView = signal<'conversations' | 'users' | 'chatbox'>('conversations');
   readonly isLoading = signal<boolean>(false);
   readonly error = signal<string | null>(null);
   readonly searchQuery = signal<string>('');

@@ -20,20 +20,7 @@
     </section>
 
     <div class="w-full flex items-center justify-between">
-      <button
-        *ngIf="activeView() === 'users'"
-        (click)="switchToConversations()"
-        class="cursor-pointer w-1/4 xs:w-1/12 sm:w-2/12 flex justify-center items-center size-10 rounded-full bg-secondary text-primary"
-      >
-        <ng-icon hlm name="lucideChevronLeft" />
-      </button>
-
-      <div
-        [ngClass]="{
-          'pl-2 w-3/4 xs:w-11/12 sm:w-10/12': activeView() === 'users',
-          'w-full': activeView() === 'conversations'
-        }"
-      >
+      <div class="w-full">
         <input
           hlmInput
           id="userSearch"
@@ -71,6 +58,7 @@
             <app-user-card
               *ngFor="let user of users()"
               [user]="user"
+              (click)="selectUser(user)"
             ></app-user-card>
           </section>
 
