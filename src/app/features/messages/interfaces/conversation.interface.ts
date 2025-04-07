@@ -3,6 +3,7 @@ import { ParticipantI } from './participant.interface';
 
 export interface ConversationI {
   _id: string;
+  _v?: string;
   participants: ParticipantI[];
   last_message?: MessageI;
   createdAt?: string;

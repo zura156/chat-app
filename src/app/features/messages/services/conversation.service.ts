@@ -35,9 +35,7 @@ export class ConversationService {
   private readonly CACHE_DURATION = 5 * 60 * 1000;
 
   // Get a single conversation with messages
-  getConversationById(
-    id: string
-  ): Observable<{ conversation: ConversationI; messages: MessageI[] }> {
+  getConversationById(id: string): Observable<ConversationI> {
     const url = `${this.GET_CONVERSATION_URL}/${id}`;
     const cacheKey = `conversation_${id}`;
 
@@ -60,22 +58,20 @@ export class ConversationService {
     }
 
     // Make new request
-    const request$ = this.http
-      .get<{ conversation: ConversationI; messages: MessageI[] }>(url)
-      .pipe(
-        tap((data) => {
-          this.conversationCache.set(cacheKey, {
-            data,
-            timestamp: Date.now(),
-            request$: undefined,
-          });
-        }),
-        catchError((error) => {
-          this.conversationCache.delete(cacheKey);
-          throw error;
-        }),
-        shareReplay(1)
-      );
+    const request$ = this.http.get<ConversationI>(url).pipe(
+      tap((data) => {
+        this.conversationCache.set(cacheKey, {
+          data,
+          timestamp: Date.now(),
+          request$: undefined,
+        });
+      }),
+      catchError((error) => {
+        this.conversationCache.delete(cacheKey);
+        throw error;
+      }),
+      shareReplay(1)
+    );
 
     // Store the request in cache while it's in progress
     this.conversationCache.set(cacheKey, {
@@ -193,11 +189,17 @@ export class ConversationService {
     };
 
     return this.http
-      .post<ConversationI>(this.CREATE_CONVERSATION_URL, payload)
+      .post<ConversationI>(this.CREATE_CONVERSATION_URL, {
+        conversation: payload,
+      })
       .pipe(
         tap((newConversation) => {
-          // Invalidate the all conversations cache to ensure it's refreshed on next fetch
-          this.conversationCache.delete('all_conversations');
+          const cacheKey = 'conversation_' + newConversation._id;
+          this.conversationCache.set(cacheKey, {
+            data: newConversation,
+            timestamp: Date.now(),
+            request$: undefined,
+          });
         })
       );
   }

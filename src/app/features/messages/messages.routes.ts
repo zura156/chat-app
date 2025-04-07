@@ -11,12 +11,12 @@ export const messagesRoutes: Routes = [
     providers: [LayoutService],
     children: [
       {
-        path: ':id',
-        component: ChatboxComponent,
+        path: 'new',
+        component: NewChatComponent,
       },
       {
-        path: 'new-chat',
-        component: NewChatComponent,
+        path: ':id',
+        component: ChatboxComponent,
       },
       // { path: '', component: MessagesStartComponent, outlet: 'right' }, //Initial right side view.
       // {

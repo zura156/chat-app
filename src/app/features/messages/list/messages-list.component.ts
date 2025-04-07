@@ -1,5 +1,5 @@
 import { Component, computed, effect, inject, signal } from '@angular/core';
-import { MessageCardComponent } from '../card/message-card.component';
+import { ConversationCardComponent } from '../card/conversation-card.component';
 import { HlmSeparatorDirective } from '@spartan-ng/ui-separator-helm';
 import { BrnSeparatorComponent } from '@spartan-ng/brain/separator';
 import { HlmButtonDirective } from '@spartan-ng/ui-button-helm';
@@ -48,7 +48,7 @@ import {
     HlmTabsContentDirective,
 
     HlmBadgeDirective,
-    MessageCardComponent,
+    ConversationCardComponent,
     HlmSeparatorDirective,
     BrnSeparatorComponent,
     HlmInputDirective,

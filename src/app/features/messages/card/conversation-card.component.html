@@ -1,0 +1,34 @@
+<main
+  (click)="switchView()"
+  [routerLink]="[conversation()?._id]"
+  routerLinkActive="bg-active"
+  hlmCard
+  class="p-2 flex items-center gap-x-2 cursor-pointer hover:bg-accent"
+>
+  <!-- AVATAR -->
+  <div class="size-lg flex justify-center items-center border p-2 rounded-full">
+    <ng-icon hlm size="lg" name="lucideUsersRound" />
+  </div>
+
+  <section>
+    <!-- Group title -->
+    <h1 class="font-medium">{{ conversation()?.group_name }}</h1>
+    <!-- Last message -->
+    <p class="text-sm">
+      @if(conversation()?.is_group) {
+      <span *ngFor="let user of conversation()?.participants; let i = index">
+        {{
+          i + 1 === conversation()?.participants?.length
+            ? user.username + ""
+            : user.username + ","
+        }}
+      </span>
+      } @else {
+      <span>
+        {{ conversation()!.participants[1].username }}
+      </span>
+      }
+      {{ conversation()?.last_message?.content }}
+    </p>
+  </section>
+</main>

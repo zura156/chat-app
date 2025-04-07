@@ -1,15 +1,80 @@
-import { inject, Injectable } from '@angular/core';
+import { computed, inject, Injectable, signal } from '@angular/core';
 import { environment } from '../../../../environments/environment';
 import { HttpClient } from '@angular/common/http';
-import { Observable } from 'rxjs';
+import { catchError, Observable, tap, throwError } from 'rxjs';
+import { MessageI, MessageType } from '../interfaces/message.interface';
 
 @Injectable()
 export class MessageService {
   private http = inject(HttpClient);
 
-  private apiUrl = `${environment.apiUrl}/messages`;
+  private apiUrl = `${environment.apiUrl}/message`;
 
-  sendMessage(from: string, to: string, message: string): Observable<any> {
-    return this.http.post(`${this.apiUrl}/send`, { from, to, message });
+  private readonly SEND_MESSAGE_URL = `${this.apiUrl}`;
+  private readonly GET_MESSAGES_URL = `${this.apiUrl}/conversation`;
+
+  #activeMessages = signal<MessageI[]>([]);
+  activeMessages$ = computed(this.#activeMessages);
+
+  sendMessage(message: {
+    sender: string;
+    conversation: string;
+    content: string;
+    type: MessageType;
+  }): Observable<MessageI> {
+    return this.http.post<MessageI>(this.SEND_MESSAGE_URL, { message }).pipe(
+      tap((newMessage) => {
+        // Add new message to active messages
+        this.#activeMessages.update((messages) => [...messages, newMessage]);
+      }),
+      catchError((error) => {
+        console.error('Error sending message:', error);
+        return throwError(
+          () => new Error(error.message || 'Failed to send message')
+        );
+      })
+    );
+  }
+
+  // Get messages for a conversation
+  getMessagesByConversationId(conversationId: string): Observable<MessageI[]> {
+    const url = `${this.GET_MESSAGES_URL}/${conversationId}/messages`;
+
+    return this.http.get<MessageI[]>(url).pipe(
+      tap((messages) => {
+        // Update active messages
+        this.#activeMessages.set(messages);
+      }),
+      catchError((error) => {
+        console.error('Error fetching messages:', error);
+        return throwError(
+          () => new Error(error.message || 'Failed to fetch messages')
+        );
+      })
+    );
+  }
+
+  // Mark messages as read
+  markMessagesAsRead(conversationId: string): Observable<any> {
+    const url = `${this.GET_MESSAGES_URL}/${conversationId}/read`;
+
+    return this.http.post(url, {}).pipe(
+      catchError((error) => {
+        console.error('Error marking messages as read:', error);
+        return throwError(
+          () => new Error(error.message || 'Failed to mark messages as read')
+        );
+      })
+    );
+  }
+
+  // Add a single message to the active messages (useful for real-time updates)
+  addMessage(message: MessageI): void {
+    this.#activeMessages.update((messages) => [...messages, message]);
+  }
+
+  // Clear active messages (useful when changing conversations)
+  clearActiveMessages(): void {
+    this.#activeMessages.set([]);
   }
 }

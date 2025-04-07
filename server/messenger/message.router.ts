@@ -1,5 +1,8 @@
 import express from 'express';
-import { sendMessage } from './controllers/message.controller';
+import {
+  getMessagesByConversationId,
+  sendMessage,
+} from './controllers/message.controller';
 import {
   createConversation,
   deleteConversation,
@@ -8,10 +11,18 @@ import {
   updateConversation,
 } from './controllers/conversation.controller';
 import { authenticate } from '../auth/middlewares/auth.middleware';
+import { markNotificationsAsSeen } from './controllers/notifications.controller';
 
 const router = express.Router();
 
 router.post('/send', authenticate, sendMessage);
+router.post('/:conversationId/read', authenticate, markNotificationsAsSeen);
+router.get(
+  '/conversation/:conversationId/messages',
+  authenticate,
+  getMessagesByConversationId
+);
+
 router
   .route('/conversation')
   .get(authenticate, getConversations)

@@ -88,14 +88,14 @@ export const getConversationById = async (
     }
 
     const conversation = await Conversation.findOne({
-      id: conversationId,
+      _id: conversationId,
       participants: userId,
-    });
+    }).populate('participants', 'username profile_picture');
 
     res.status(200).json(conversation);
   } catch (e) {
     console.error('Error while fetching conversation by id!', e);
-    next;
+    next(createCustomError('Error while fetching conversation by id', 500));
   }
 };
 
@@ -114,28 +114,27 @@ export const createConversation = async (
       );
     }
 
-    let conversation;
+    // First check if the conversation exists
+    let conversation = await Conversation.findOne({
+      participants: { $all: participants },
+      $expr: { $eq: [{ $size: '$participants' }, participants.length] },
+    });
 
-    if (is_group) {
+    // If it doesn't exist, create it
+    if (!conversation) {
       conversation = await Conversation.create({
         participants,
-        is_group: true,
-        group_name,
-        group_picture,
+        is_group: false,
       });
-    } else {
-      conversation = await Conversation.findOneAndUpdate(
-        { participants: { $all: participants, $size: 2 } },
-        {},
-        { upsert: true, new: true }
-      );
     }
 
     res.status(201).json(conversation);
-  } catch (e) {
-    next(createCustomError('Failed to create conversation', 500));
+  } catch (e: any) {
+    console.error('Error creating conversation:', e);
+    next(createCustomError(`Failed to create conversation: ${e.message}`, 500));
   }
 };
+
 export const updateConversation = async (
   req: ChatDto,
   res: Response,
