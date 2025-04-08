@@ -1,4 +1,5 @@
 import {
+  ChangeDetectionStrategy,
   Component,
   computed,
   effect,
@@ -23,8 +24,15 @@ import { FormControl, ReactiveFormsModule } from '@angular/forms';
 import { BrnSeparatorComponent } from '@spartan-ng/brain/separator';
 import { HlmInputDirective } from '@spartan-ng/ui-input-helm';
 import { HlmSeparatorDirective } from '@spartan-ng/ui-separator-helm';
-import { LayoutService } from '../layout/layout.service';
 import { UserI } from '../../../shared/interfaces/user.interface';
+
+import {
+  MatChipEditedEvent,
+  MatChipInputEvent,
+  MatChipsModule,
+} from '@angular/material/chips';
+import { MatFormFieldModule } from '@angular/material/form-field';
+import { MatIconModule } from '@angular/material/icon';
 
 @Component({
   selector: 'app-new-chat',
@@ -33,8 +41,12 @@ import { UserI } from '../../../shared/interfaces/user.interface';
     BrnSeparatorComponent,
     HlmInputDirective,
     ReactiveFormsModule,
+    MatFormFieldModule,
+    MatChipsModule,
+    MatIconModule,
   ],
   templateUrl: './new-chat.component.html',
+  changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class NewChatComponent implements OnInit, OnDestroy {
   private readonly route = inject(ActivatedRoute);
