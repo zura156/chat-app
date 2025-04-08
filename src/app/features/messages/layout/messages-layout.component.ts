@@ -12,9 +12,12 @@ import { BrnSeparatorComponent } from '@spartan-ng/brain/separator';
 import { NgIf, NgTemplateOutlet } from '@angular/common';
 import { filter, Subject, takeUntil } from 'rxjs';
 import { NavigationEnd, Router, RouterOutlet } from '@angular/router';
-import { WebSocketService } from '../services/web-socket.service';
 import { MessageListComponent } from '../list/messages-list.component';
 import { LayoutService } from './layout.service';
+import { NgIcon, provideIcons } from '@ng-icons/core';
+import { HlmButtonDirective } from '@spartan-ng/ui-button-helm';
+import { HlmIconDirective } from '@spartan-ng/ui-icon-helm';
+import { lucideChevronLeft } from '@ng-icons/lucide';
 
 @Component({
   selector: 'app-messages',
@@ -25,7 +28,16 @@ import { LayoutService } from './layout.service';
     HlmSeparatorDirective,
     BrnSeparatorComponent,
     NgTemplateOutlet,
+    NgIcon,
+    HlmButtonDirective,
+    HlmIconDirective,
     MessageListComponent,
+  ],
+  providers: [
+    LayoutService,
+    provideIcons({
+      lucideChevronLeft,
+    }),
   ],
   templateUrl: './messages-layout.component.html',
 })
@@ -64,5 +76,11 @@ export class MessagesLayoutComponent implements OnInit, OnDestroy {
 
   private checkScreenWidth(): void {
     this.isMobile.set(this.windowWidth < 640);
+  }
+
+  goBack(): void {
+    this.layoutService.setActiveView('conversations');
+    this.layoutService.switchView();
+    this.router.navigate(['..']);
   }
 }

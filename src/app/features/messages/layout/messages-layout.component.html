@@ -25,5 +25,18 @@
 </ng-template>
 
 <ng-template #rightSide>
+  @if(isMobile()){
+  <div class="p-2">
+    <button
+      type="button"
+      (click)="goBack()"
+      hlmBtn
+      variant="secondary"
+      class="cursor-pointer rounded-full"
+    >
+      <ng-icon hlm size="sm" name="lucideChevronLeft" />
+    </button>
+  </div>
+  }
   <router-outlet></router-outlet>
 </ng-template>

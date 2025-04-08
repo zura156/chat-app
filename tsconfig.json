@@ -48,6 +48,9 @@
       ],
       "@spartan-ng/ui-tabs-helm": [
         ".\\libs/ui/ui-tabs-helm/src/index.ts"
+      ],
+      "@spartan-ng/ui-skeleton-helm": [
+        ".\\libs/ui/ui-skeleton-helm/src/index.ts"
       ]
     }
   },

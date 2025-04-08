@@ -12,7 +12,7 @@ import {
 } from '@ng-icons/lucide';
 import { HlmIconDirective } from '@spartan-ng/ui-icon-helm';
 import { ConversationService } from '../services/conversation.service';
-import { NgClass, NgFor, NgIf } from '@angular/common';
+import { NgFor, NgIf } from '@angular/common';
 import { Router, RouterLink } from '@angular/router';
 import { HlmInputDirective } from '@spartan-ng/ui-input-helm';
 import { HlmBadgeDirective } from '@spartan-ng/ui-badge-helm';
@@ -25,7 +25,6 @@ import {
   EMPTY,
   startWith,
   Subject,
-  switchMap,
   takeUntil,
   tap,
 } from 'rxjs';
@@ -38,6 +37,8 @@ import {
   HlmTabsTriggerDirective,
   HlmTabsContentDirective,
 } from '@spartan-ng/ui-tabs-helm';
+import { LayoutService } from '../layout/layout.service';
+import { HlmSkeletonComponent } from '@spartan-ng/ui-skeleton-helm';
 
 @Component({
   selector: 'app-messages-list',
@@ -60,6 +61,8 @@ import {
     NgIf,
     NgFor,
     RouterLink,
+
+    HlmSkeletonComponent,
   ],
   providers: [
     provideIcons({ lucidePencil, lucideMenu, lucideChevronLeft, lucideLoader }),
@@ -71,9 +74,10 @@ export class MessageListComponent {
   private conversationService = inject(ConversationService);
   private userService = inject(UserService);
   private router = inject(Router);
+  private layoutService = inject(LayoutService);
 
   // State signals
-  readonly activeView = signal<'conversations' | 'users' | 'chatbox'>('conversations');
+  readonly activeView = this.layoutService.activeView;
   readonly isLoading = signal<boolean>(false);
   readonly error = signal<string | null>(null);
   readonly searchQuery = signal<string>('');
@@ -135,10 +139,15 @@ export class MessageListComponent {
       const view = this.activeView();
       const query = this.searchQuery();
 
-      if (view === 'conversations') {
-        this.fetchConversationsIfNeeded(query);
-      } else {
-        this.fetchUsersIfNeeded(query);
+      switch (view) {
+        case 'conversations':
+          this.fetchConversationsIfNeeded(query);
+          break;
+        case 'users':
+          this.fetchUsersIfNeeded(query);
+          break;
+        default:
+          break;
       }
     });
   }
@@ -155,17 +164,19 @@ export class MessageListComponent {
 
   // View switching methods
   switchToConversations(): void {
-    this.activeView.set('conversations');
+    this.layoutService.setActiveView('conversations');
     this.searchControl.setValue('');
   }
 
   switchToUsers(): void {
-    this.activeView.set('users');
+    this.layoutService.setActiveView('users');
     this.searchControl.setValue('');
   }
 
   // Navigation methods
   navigateToNewConversation(): void {
+    this.layoutService.switchView();
+    this.layoutService.setActiveView('chatbox');
     this.router.navigate(['/messages/new']);
   }
 
