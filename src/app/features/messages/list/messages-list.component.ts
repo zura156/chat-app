@@ -200,6 +200,8 @@ export class MessageListComponent {
         queryParams: { userId: user._id },
       });
     }
+
+    this.layoutService.switchView();
   }
 
   // Data fetching methods with caching

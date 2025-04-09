@@ -8,6 +8,11 @@ import { HlmIconDirective } from '../../../../../libs/ui/ui-icon-helm/src/lib/hl
 import { NgIcon, provideIcons } from '@ng-icons/core';
 import { lucideUsersRound } from '@ng-icons/lucide';
 import { NgFor } from '@angular/common';
+import {
+  HlmAvatarComponent,
+  HlmAvatarFallbackDirective,
+  HlmAvatarImageDirective,
+} from '@spartan-ng/ui-avatar-helm';
 
 @Component({
   selector: 'app-conversation-card',
@@ -18,6 +23,10 @@ import { NgFor } from '@angular/common';
     NgIcon,
     HlmIconDirective,
     NgFor,
+
+    HlmAvatarImageDirective,
+    HlmAvatarComponent,
+    HlmAvatarFallbackDirective,
   ],
   providers: [provideIcons({ lucideUsersRound })],
   templateUrl: './conversation-card.component.html',

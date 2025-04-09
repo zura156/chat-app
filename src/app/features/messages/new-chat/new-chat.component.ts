@@ -26,25 +26,41 @@ import { HlmInputDirective } from '@spartan-ng/ui-input-helm';
 import { HlmSeparatorDirective } from '@spartan-ng/ui-separator-helm';
 import { UserI } from '../../../shared/interfaces/user.interface';
 
-import {
-  MatChipEditedEvent,
-  MatChipInputEvent,
-  MatChipsModule,
-} from '@angular/material/chips';
+import { MatChipsModule } from '@angular/material/chips';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatIconModule } from '@angular/material/icon';
+import { NgFor, NgIf } from '@angular/common';
+import { NgScrollbarModule } from 'ngx-scrollbar';
+import { UserCardComponent } from '../../user/components/card/user-card.component';
+import { ChatboxComponent } from '../chatbox/chatbox.component';
+import { ClickOutsideDirective } from '../../../shared/directives/click-outside.directive';
+import { HlmButtonDirective } from '@spartan-ng/ui-button-helm';
+import { NgIcon, provideIcons } from '@ng-icons/core';
+import { lucideX } from '@ng-icons/lucide';
+import { HlmIconDirective } from '@spartan-ng/ui-icon-helm';
 
 @Component({
   selector: 'app-new-chat',
   imports: [
+    NgIf,
+    NgFor,
+    ReactiveFormsModule,
+
     HlmSeparatorDirective,
     BrnSeparatorComponent,
+
     HlmInputDirective,
-    ReactiveFormsModule,
-    MatFormFieldModule,
-    MatChipsModule,
-    MatIconModule,
+
+    NgScrollbarModule,
+
+    UserCardComponent,
+
+    ClickOutsideDirective,
+
+    HlmIconDirective,
+    NgIcon,
   ],
+  providers: [provideIcons({ lucideX })],
   templateUrl: './new-chat.component.html',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
@@ -54,6 +70,7 @@ export class NewChatComponent implements OnInit, OnDestroy {
   private readonly userService = inject(UserService);
   private readonly conversationService = inject(ConversationService);
 
+  readonly showUserList = signal<boolean>(false);
   readonly isLoading = signal<boolean>(false);
   readonly error = signal<string | null>(null);
   readonly searchQuery = signal<string>('');
@@ -76,6 +93,7 @@ export class NewChatComponent implements OnInit, OnDestroy {
 
   // Expose computed values for template
   readonly users = this.#filteredUsers;
+  readonly selectedUsers = signal<UserI[]>([]);
 
   // Cache settings
   private readonly CACHE_DURATION = 5 * 60 * 1000; // 5 minutes in milliseconds
@@ -121,6 +139,31 @@ export class NewChatComponent implements OnInit, OnDestroy {
         })
       )
       .subscribe();
+  }
+
+  addToConversation(user: UserI): void {
+    this.searchControl.reset();
+    if (!this.selectedUsers().includes(user)) {
+      this.selectedUsers.update((val) => [...val, user]);
+      this.#users.update((val) => val.filter((u) => u._id !== user._id));
+    }
+  }
+
+  removeFromConversation(user: UserI): void {
+    if (this.selectedUsers().includes(user)) {
+      this.selectedUsers.update((val) => val.filter((u) => u._id !== user._id));
+      this.#users.update((val) => [...val, user]);
+    }
+  }
+
+  toggleUserList(): void {
+    this.showUserList.update((value) => !value);
+    this.isLoading.set(true);
+    this.fetchUsersIfNeeded();
+  }
+
+  closeUserList(): void {
+    this.showUserList.set(false);
   }
 
   private fetchUsersIfNeeded(query: string = ''): void {

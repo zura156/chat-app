@@ -6,8 +6,19 @@
   class="p-2 flex items-center gap-x-2 cursor-pointer hover:bg-accent"
 >
   <!-- AVATAR -->
-  <div class="size-lg flex justify-center items-center border p-2 rounded-full">
+  <div class="size-lg flex justify-center items-center border rounded-full">
+    @if(conversation()?.is_group) { @if(conversation()?.group_picture){} @else {
     <ng-icon hlm size="lg" name="lucideUsersRound" />
+    } } @else {
+    <!-- AVATAR -->
+    <hlm-avatar variant="medium">
+      <img
+        [src]="imageUrl ?? '/icons/avatar.svg'"
+        alt="spartan logo. Resembling a spartanic shield"
+        hlmAvatarImage
+      />
+    </hlm-avatar>
+    }
   </div>
 
   <section>

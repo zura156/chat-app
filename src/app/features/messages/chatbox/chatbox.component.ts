@@ -2,6 +2,7 @@ import {
   ChangeDetectionStrategy,
   Component,
   inject,
+  input,
   OnInit,
 } from '@angular/core';
 import { map, Subject, switchMap, tap } from 'rxjs';
@@ -18,6 +19,8 @@ import { MessageService } from '../services/message.service';
   templateUrl: './chatbox.component.html',
 })
 export class ChatboxComponent implements OnInit, OnDestroy {
+  userId = input<string>();
+
   private router = inject(Router);
   private route = inject(ActivatedRoute);
   private userService = inject(UserService);
@@ -35,7 +38,7 @@ export class ChatboxComponent implements OnInit, OnDestroy {
         map((params) => params['id']),
         switchMap((id) =>
           this.conversationService
-            .getConversationById(id)
+            .getConversationById(id ?? this.userId)
             .pipe(
               switchMap((conversation) =>
                 this.messageService.getMessagesByConversationId(
