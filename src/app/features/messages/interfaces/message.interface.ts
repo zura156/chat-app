@@ -15,12 +15,12 @@ export enum MessageStatus {
 }
 
 export interface MessageI {
-  _id: string;
+  _id?: string;
   sender: ParticipantI;
   conversation: ConversationI;
   content: string;
   type: MessageType;
-  status: MessageStatus;
+  status?: MessageStatus;
   readBy?: string[];
   createdAt?: Date;
   updatedAt?: Date;

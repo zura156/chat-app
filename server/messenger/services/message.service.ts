@@ -12,17 +12,17 @@ export const saveMessage = async (data: {
   try {
     const conversationObjectId = new Types.ObjectId(data.conversation);
 
-    // Update last message in conversation
-    await Conversation.findByIdAndUpdate(conversationObjectId, {
-      last_message: data.content,
-    });
-
-    // Save message
+    // Save message first
     const message = await Message.create({
       sender: data.sender,
       conversation: conversationObjectId,
       content: data.content,
       type: data.type,
+    });
+
+    // Update last_message in conversation with the new message's ID
+    await Conversation.findByIdAndUpdate(conversationObjectId, {
+      last_message: message._id, // Use the message ID instead of content
     });
 
     return message;

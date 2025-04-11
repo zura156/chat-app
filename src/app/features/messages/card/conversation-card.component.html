@@ -14,7 +14,7 @@
     <hlm-avatar variant="medium">
       <img
         [src]="imageUrl ?? '/icons/avatar.svg'"
-        alt="spartan logo. Resembling a spartanic shield"
+        alt="profile picture"
         hlmAvatarImage
       />
     </hlm-avatar>
@@ -34,12 +34,18 @@
             : user.username + ","
         }}
       </span>
-      } @else {
-      <span>
-        {{ conversation()!.participants[1].username }}
+      } @else { @for(participant of conversation()!.participants; track $index)
+      { @if( participant._id === currentUser()?._id) {
+      <span class="text-lg">
+        {{ participant.username }}
       </span>
-      }
-      {{ conversation()?.last_message?.content }}
+      } } }
+    </p>
+    <p class="text-sm">
+      {{ conversation()?.last_message?.sender?.username + ":" }}
+      <span class="text-gray-400">
+        {{ conversation()?.last_message?.content }}
+      </span>
     </p>
   </section>
 </main>

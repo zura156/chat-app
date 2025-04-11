@@ -10,9 +10,9 @@ import { lucideUsersRound } from '@ng-icons/lucide';
 import { NgFor } from '@angular/common';
 import {
   HlmAvatarComponent,
-  HlmAvatarFallbackDirective,
   HlmAvatarImageDirective,
 } from '@spartan-ng/ui-avatar-helm';
+import { UserService } from '../../user/services/user.service';
 
 @Component({
   selector: 'app-conversation-card',
@@ -26,7 +26,6 @@ import {
 
     HlmAvatarImageDirective,
     HlmAvatarComponent,
-    HlmAvatarFallbackDirective,
   ],
   providers: [provideIcons({ lucideUsersRound })],
   templateUrl: './conversation-card.component.html',
@@ -34,7 +33,10 @@ import {
 export class ConversationCardComponent {
   layoutService = inject(LayoutService);
 
+  userService = inject(UserService);
+
   conversation = input<ConversationI>();
+  currentUser = this.userService.currentUser
 
   imageUrl = this.conversation()?.group_picture;
 

@@ -10,11 +10,11 @@ export class MessageService {
 
   private apiUrl = `${environment.apiUrl}/message`;
 
-  private readonly SEND_MESSAGE_URL = `${this.apiUrl}`;
+  private readonly SEND_MESSAGE_URL = `${this.apiUrl}/send`;
   private readonly GET_MESSAGES_URL = `${this.apiUrl}/conversation`;
 
   #activeMessages = signal<MessageI[]>([]);
-  activeMessages$ = computed(this.#activeMessages);
+  activeMessages = computed(this.#activeMessages);
 
   sendMessage(message: {
     sender: string;

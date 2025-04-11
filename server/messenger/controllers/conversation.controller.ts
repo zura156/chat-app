@@ -90,7 +90,7 @@ export const getConversationById = async (
     const conversation = await Conversation.findOne({
       _id: conversationId,
       participants: userId,
-    }).populate('participants', 'username profile_picture');
+    }).populate('participants', 'first_name last_name username profile_picture');
 
     res.status(200).json(conversation);
   } catch (e) {
