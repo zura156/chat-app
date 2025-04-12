@@ -13,6 +13,7 @@ import {
   HlmAvatarImageDirective,
 } from '@spartan-ng/ui-avatar-helm';
 import { UserService } from '../../user/services/user.service';
+import { TimeAgoPipe } from '../../../shared/pipes/time-ago.pipe';
 
 @Component({
   selector: 'app-conversation-card',
@@ -26,6 +27,8 @@ import { UserService } from '../../user/services/user.service';
 
     HlmAvatarImageDirective,
     HlmAvatarComponent,
+
+    TimeAgoPipe
   ],
   providers: [provideIcons({ lucideUsersRound })],
   templateUrl: './conversation-card.component.html',

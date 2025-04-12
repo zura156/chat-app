@@ -68,6 +68,8 @@ export class ChatboxComponent implements OnInit, OnDestroy {
 
   messageControl = new FormControl<string>('');
 
+  currentUser = this.userService.currentUser;
+
   ngOnInit(): void {
     this.route.params
       .pipe(

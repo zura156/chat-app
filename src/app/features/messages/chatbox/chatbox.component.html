@@ -10,12 +10,15 @@
         />
       </hlm-avatar>
       <h1 class="font-medium text-2xl">
-        @if(conversation()) {
-        {{
-          conversation()!.participants[1].first_name +
-            " " +
-            conversation()!.participants[1].last_name
-        }}
+        @if(conversation()) {    
+          @for(participant of conversation()?.participants; let i = $index; track i){
+            @if(this.currentUser()?._id !== participant._id) {
+              {{ participant.first_name +  " " + participant.last_name }}
+            }
+            @if($index + 2 < conversation()?.participants!.length) {
+              ,
+            }
+          }
         }
       </h1>
     </div>

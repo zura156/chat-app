@@ -35,16 +35,18 @@
         }}
       </span>
       } @else { @for(participant of conversation()!.participants; track $index)
-      { @if( participant._id === currentUser()?._id) {
+      { @if( participant._id !== currentUser()?._id) {
       <span class="text-lg">
         {{ participant.username }}
       </span>
       } } }
     </p>
     <p class="text-sm">
-      {{ conversation()?.last_message?.sender?.username + ":" }}
+      @if(conversation()?.last_message?.sender?._id === currentUser()?._id) {
+      You: }
       <span class="text-gray-400">
-        {{ conversation()?.last_message?.content }}
+        {{ conversation()?.last_message?.content }} &middot;
+        {{ conversation()?.last_message?.createdAt ?? "" | timeAgo }}
       </span>
     </p>
   </section>
