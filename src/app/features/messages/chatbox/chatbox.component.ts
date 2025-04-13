@@ -86,11 +86,15 @@ export class ChatboxComponent implements OnInit, OnDestroy {
         map((params) => params['id']),
         switchMap((id) =>
           this.conversationService.getConversationById(id ?? this.userId).pipe(
-            tap((res) => {
-              this.conversation.set(res);
-            }),
-            switchMap((conversation) =>
-              this.messageService.getMessagesByConversationId(conversation._id)
+            tap((res) => this.conversation.set(res)),
+            switchMap((c) =>
+              this.messageService
+                .getMessagesByConversationId(c._id, 0, this.limit)
+                .pipe(
+                  tap((messagesList) => {
+                    this.offset.set(messagesList.messages.length);
+                  })
+                )
             )
           )
         )
@@ -149,19 +153,22 @@ export class ChatboxComponent implements OnInit, OnDestroy {
       .getMessagesByConversationId(convo._id, this.offset(), this.limit)
       .pipe(
         tap((msgs) => {
-          if (msgs.length < this.limit) {
+          this.offset.set(this.offset() + this.limit);
+          if (msgs.totalCount < this.offset()) {
             this.hasMoreMessages.set(false);
           }
-          this.offset.set(this.offset() + this.limit);
         }),
         tap(() => this.isLoading.set(false))
       )
       .subscribe();
   }
 
-  onScroll(event: Event) {
-    const target = event.target as HTMLElement;
-    if (target.scrollTop === 0) {
+  onScroll(event: Event): void {
+    const container = event.target as HTMLElement;
+
+    const scrolledToTop = container.scrollTop < -500; // some buffer
+
+    if (scrolledToTop && this.hasMoreMessages()) {
       this.loadMoreMessages();
     }
   }

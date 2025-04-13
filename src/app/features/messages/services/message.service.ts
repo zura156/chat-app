@@ -3,6 +3,7 @@ import { environment } from '../../../../environments/environment';
 import { HttpClient } from '@angular/common/http';
 import { catchError, Observable, tap, throwError } from 'rxjs';
 import { MessageI, MessageType } from '../interfaces/message.interface';
+import { MessageListI } from '../interfaces/message-list.interface';
 
 @Injectable()
 export class MessageService {
@@ -25,7 +26,7 @@ export class MessageService {
     return this.http.post<MessageI>(this.SEND_MESSAGE_URL, { message }).pipe(
       tap((newMessage) => {
         // Add new message to active messages
-        this.#activeMessages.update((messages) => [...messages, newMessage]);
+        this.#activeMessages.update((messages) => [newMessage, ...messages]);
       }),
       catchError((error) => {
         console.error('Error sending message:', error);
@@ -37,13 +38,13 @@ export class MessageService {
   }
 
   // Get messages for a conversation
-  getMessagesByConversationId(conversationId: string, offset = 0, limit = 20): Observable<MessageI[]> {
+  getMessagesByConversationId(conversationId: string, offset = 0, limit = 20): Observable<MessageListI> {
     const url = `${this.GET_MESSAGES_URL}/${conversationId}/messages?offset=${offset}&limit=${limit}`;
 
-    return this.http.get<MessageI[]>(url).pipe(
+    return this.http.get<MessageListI>(url).pipe(
       tap((messages) => {
         // Update active messages
-        this.#activeMessages.set(messages);
+        this.#activeMessages.update(val => [...val, ...messages.messages]);
       }),
       catchError((error) => {
         console.error('Error fetching messages:', error);

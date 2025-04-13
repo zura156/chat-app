@@ -20,7 +20,11 @@
   </header>
 
   <brn-separator decorative hlmSeparator />
-
+  @if(hasMoreMessages() && isLoading()) {
+  <div class="flex justify-center py-2 border-b border-input">
+    <p class="text-sm text-slate-400">Loading older messages...</p>
+  </div>
+  }
   <section
     class="h-full overflow-y-scroll flex-1 flex flex-col-reverse"
     (scroll)="onScroll($event)"
@@ -78,6 +82,7 @@
     <!-- Message Input -->
     <div class="p-2 flex justify-center items-center gap-x-4">
       <input
+        id="sender-input"
         hlmInput
         class="w-full"
         placeholder="Type a message..."
