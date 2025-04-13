@@ -18,15 +18,16 @@ import { ConversationI } from '../interfaces/conversation.interface';
 import {
   HlmAvatarImageDirective,
   HlmAvatarComponent,
-  HlmAvatarFallbackDirective,
 } from '@spartan-ng/ui-avatar-helm';
 import { BrnSeparatorComponent } from '@spartan-ng/brain/separator';
 import { HlmSeparatorDirective } from '@spartan-ng/ui-separator-helm';
-import { NgClass } from '@angular/common';
+import { NgClass, TitleCasePipe } from '@angular/common';
 import { MessageI, MessageType } from '../interfaces/message.interface';
-import { HlmCardContentDirective } from '@spartan-ng/ui-card-helm';
-import { FormControl, ReactiveFormsModule } from '@angular/forms';
-import { HlmFormFieldComponent } from '@spartan-ng/ui-formfield-helm';
+import {
+  HlmCardDescriptionDirective,
+  HlmCardDirective,
+} from '@spartan-ng/ui-card-helm';
+import { FormControl, ReactiveFormsModule, Validators } from '@angular/forms';
 import { HlmButtonDirective } from '@spartan-ng/ui-button-helm';
 import { HlmInputDirective } from '@spartan-ng/ui-input-helm';
 
@@ -34,11 +35,15 @@ import { HlmInputDirective } from '@spartan-ng/ui-input-helm';
   selector: 'app-chatbox',
   imports: [
     NgClass,
+    TitleCasePipe,
     HlmAvatarImageDirective,
     HlmAvatarComponent,
     HlmSeparatorDirective,
     BrnSeparatorComponent,
-    HlmCardContentDirective,
+
+    HlmCardDirective,
+    HlmCardDescriptionDirective,
+
     ReactiveFormsModule,
     HlmButtonDirective,
     HlmInputDirective,
@@ -66,9 +71,14 @@ export class ChatboxComponent implements OnInit, OnDestroy {
 
   messages = this.messageService.activeMessages;
 
-  messageControl = new FormControl<string>('');
+  messageControl = new FormControl<string>('', Validators.required);
 
   currentUser = this.userService.currentUser;
+
+  offset = signal<number>(0);
+  limit = 20;
+  hasMoreMessages = signal<boolean>(true);
+  isLoading = signal<boolean>(false);
 
   ngOnInit(): void {
     this.route.params
@@ -89,7 +99,10 @@ export class ChatboxComponent implements OnInit, OnDestroy {
   }
 
   isCurrentUserMessage(message: MessageI): boolean {
-    return message.sender === this.userService.currentUser();
+    return (
+      (message.sender._id ?? message.sender) ===
+      this.userService.currentUser()?._id
+    );
   }
 
   getMessageTime(message: MessageI): string {
@@ -113,11 +126,43 @@ export class ChatboxComponent implements OnInit, OnDestroy {
       type: MessageType.TEXT, // will change this later
     };
 
-    this.messageService.sendMessage(message).subscribe();
+    this.messageService
+      .sendMessage(message)
+      .pipe(tap(() => this.messageControl.reset()))
+      .subscribe();
   }
 
   ngOnDestroy() {
     this.destroy$.next();
     this.destroy$.complete();
+  }
+
+  loadMoreMessages() {
+    if (this.isLoading() || !this.hasMoreMessages()) return;
+
+    this.isLoading.set(true);
+
+    const convo = this.conversation();
+    if (!convo) return;
+
+    this.messageService
+      .getMessagesByConversationId(convo._id, this.offset(), this.limit)
+      .pipe(
+        tap((msgs) => {
+          if (msgs.length < this.limit) {
+            this.hasMoreMessages.set(false);
+          }
+          this.offset.set(this.offset() + this.limit);
+        }),
+        tap(() => this.isLoading.set(false))
+      )
+      .subscribe();
+  }
+
+  onScroll(event: Event) {
+    const target = event.target as HTMLElement;
+    if (target.scrollTop === 0) {
+      this.loadMoreMessages();
+    }
   }
 }

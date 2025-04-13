@@ -25,7 +25,7 @@ export class TimeAgoPipe implements PipeTransform {
 
     for (const i in intervals) {
       const counter = Math.floor(seconds / intervals[i]);
-      if (counter > 0) return `${counter}${i}${counter === 1 ? '' : 's'}`;
+      if (counter > 0) return `${counter} ${i}`;
     }
 
     return value.toString();

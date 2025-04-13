@@ -37,8 +37,8 @@ export class MessageService {
   }
 
   // Get messages for a conversation
-  getMessagesByConversationId(conversationId: string): Observable<MessageI[]> {
-    const url = `${this.GET_MESSAGES_URL}/${conversationId}/messages`;
+  getMessagesByConversationId(conversationId: string, offset = 0, limit = 20): Observable<MessageI[]> {
+    const url = `${this.GET_MESSAGES_URL}/${conversationId}/messages?offset=${offset}&limit=${limit}`;
 
     return this.http.get<MessageI[]>(url).pipe(
       tap((messages) => {
