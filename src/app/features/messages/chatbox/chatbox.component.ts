@@ -2,10 +2,12 @@ import {
   ChangeDetectionStrategy,
   Component,
   computed,
+  ElementRef,
   inject,
   input,
   OnInit,
   signal,
+  ViewChild,
   WritableSignal,
 } from '@angular/core';
 import { map, Subject, switchMap, tap } from 'rxjs';
@@ -60,6 +62,8 @@ export class ChatboxComponent implements OnInit, OnDestroy {
   private conversationService = inject(ConversationService);
   private messageService = inject(MessageService);
 
+  @ViewChild('topLoader') topLoader?: ElementRef;
+
   private readonly destroy$ = new Subject<void>();
 
   conversation: WritableSignal<ConversationI | null> =
@@ -107,13 +111,6 @@ export class ChatboxComponent implements OnInit, OnDestroy {
       (message.sender._id ?? message.sender) ===
       this.userService.currentUser()?._id
     );
-  }
-
-  getMessageTime(message: MessageI): string {
-    return new Date(message.createdAt || '').toLocaleTimeString([], {
-      hour: '2-digit',
-      minute: '2-digit',
-    });
   }
 
   sendMessage(): void {
@@ -166,10 +163,41 @@ export class ChatboxComponent implements OnInit, OnDestroy {
   onScroll(event: Event): void {
     const container = event.target as HTMLElement;
 
-    const scrolledToTop = container.scrollTop < -500; // some buffer
+    const scrolledToTop = container.scrollTop < -100; // some buffer
 
     if (scrolledToTop && this.hasMoreMessages()) {
       this.loadMoreMessages();
     }
+  }
+
+  getMessageTime(currentIndex: number): string {
+    const currentMessage = this.messages()[currentIndex];
+    const currentTime = new Date(currentMessage.createdAt || '');
+
+    // For the first message, always show the time
+    if (currentIndex === 0) {
+      return this.formatTime(currentTime);
+    }
+
+    // Compare with previous message
+    const previousMessage = this.messages()[currentIndex - 1];
+    const previousTime = new Date(previousMessage.createdAt || '');
+
+    // Calculate time difference in milliseconds
+    const timeDifference = currentTime.getTime() - previousTime.getTime();
+
+    // If more than 15 minutes (900000 ms) have passed, show the time
+    if (timeDifference > 15 * 60 * 1000) {
+      return this.formatTime(currentTime);
+    }
+
+    return '';
+  }
+
+  private formatTime(date: Date): string {
+    return date.toLocaleTimeString([], {
+      hour: '2-digit',
+      minute: '2-digit',
+    });
   }
 }

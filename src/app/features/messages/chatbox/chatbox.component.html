@@ -39,11 +39,11 @@
           <p class="text-slate-400">No messages yet. Start the conversation!</p>
         </div>
       </ng-container>
-      } @for(message of messages(); track message._id) {
+      } @for(message of messages(); let i = $index; track message._id) {
       <ng-container>
         <div class="flex-1 mt-2">
           <div hlmCardDescription class="text-xs text-center mt-1 opacity-70">
-            {{ getMessageTime(message) }}
+            {{ getMessageTime(i) }}
           </div>
           <div
             class="flex items-center mb-0"
