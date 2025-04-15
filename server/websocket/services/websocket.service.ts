@@ -10,20 +10,58 @@ export const setupWebSocket = () => {
   wss.on('connection', (ws) => {
     logger.info('Websocket connection on port: ' + config.wsPort);
 
+    // On message, handle different types
     ws.on('message', (message) => {
-      const data = JSON.parse(message.toString());
+      try {
+        const data = JSON.parse(message.toString());
+        console.log('Received:', data);
 
-      if (data.type === 'register') {
-        clients.set(data.userId, ws);
-      }
-
-      if (data.type === 'message') {
-        const recipientSocket = clients.get(data.to);
-        if (recipientSocket) {
-          recipientSocket.send(
-            JSON.stringify({ from: data.from, message: data.message })
+        // Handle user registration
+        if (data.type === 'register') {
+          if (!data.userId) {
+            console.warn('Missing userId in register message');
+            return;
+          }
+          clients.set(data.userId, ws);
+          console.log('Registered user:', data.userId);
+          console.log(
+            'Currently connected clients:',
+            Array.from(clients.keys())
           );
         }
+
+        // Handle messages (both for individual and multiple recipients)
+        if (data.type === 'message' || data.type === 'text') {
+          if (!Array.isArray(data.to)) {
+            console.warn('Expected "to" to be an array of user IDs');
+            return;
+          }
+
+          data.to.forEach((recipientId: string) => {
+            const recipientSocket = clients.get(recipientId);
+            console.log('Sending message to:', recipientId);
+            console.log('Current clients:', Array.from(clients.keys())); // Log the client map
+
+            if (
+              recipientSocket &&
+              recipientSocket.readyState === WebSocket.OPEN
+            ) {
+              recipientSocket.send(
+                JSON.stringify({
+                  _id: data._id,
+                  sender: data.sender,
+                  content: data.message,
+                  type: data.type,
+                  conversation: data.conversation ?? null,
+                })
+              );
+            } else {
+              console.log('No socket found for recipient:', recipientId);
+            }
+          });
+        }
+      } catch (err) {
+        console.error('Error parsing message:', err);
       }
     });
 
@@ -32,7 +70,6 @@ export const setupWebSocket = () => {
         if (socket === ws) {
           clients.delete(userId);
           logger.info(`User ${userId} disconnected`);
-
           break;
         }
       }

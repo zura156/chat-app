@@ -39,10 +39,13 @@
           <p class="text-slate-400">No messages yet. Start the conversation!</p>
         </div>
       </ng-container>
-      } @for(message of messages(); let i = $index; track message._id) {
+      } @for(message of messages(); let i = $index; track message) {
       <ng-container>
         <div class="flex-1 mt-2">
-          <div hlmCardDescription class="text-xs text-center mt-1 opacity-70">
+          <div
+            hlmCardDescription
+            class="text-xs text-center mt-1 opacity-70 mb-4"
+          >
             {{ getMessageTime(i) }}
           </div>
           <div
@@ -60,12 +63,12 @@
             </hlm-avatar>
             }
             <hlm-card hlmCard class="">
-              <div class="py-1 px-3">
+              <div class="py-1 px-3 text-ellipsis max-w-xs md:max-w-sm lg:max-w-md">
                 <p>{{ message.content }}</p>
               </div>
             </hlm-card>
           </div>
-          @if(isCurrentUserMessage(message)){
+          @if(isCurrentUserMessage(message) && i === 0){
           <div hlmCardDescription class="text-xs text-end mt-1 opacity-70">
             <span>{{ message.status | titlecase }}</span>
           </div>

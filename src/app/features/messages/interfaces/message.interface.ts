@@ -16,8 +16,8 @@ export enum MessageStatus {
 
 export interface MessageI {
   _id?: string;
-  sender: ParticipantI;
-  conversation: ConversationI;
+  sender: Partial<ParticipantI>;
+  conversation: ConversationI | string;
   content: string;
   type: MessageType;
   status?: MessageStatus;

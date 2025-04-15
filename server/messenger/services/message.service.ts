@@ -25,7 +25,9 @@ export const saveMessage = async (data: {
       last_message: message._id, // Use the message ID instead of content
     });
 
-    return message;
+    return await Message.findById(message._id)
+    .populate('sender', 'username profile_picture');
+
   } catch (e) {
     console.error('Error while trying to save a message', e);
     return null;

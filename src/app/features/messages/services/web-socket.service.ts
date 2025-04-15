@@ -1,19 +1,59 @@
 import { Injectable } from '@angular/core';
-import { WebSocketSubject } from 'rxjs/webSocket';
+import { webSocket, WebSocketSubject } from 'rxjs/webSocket';
 import { environment } from '../../../../environments/environment';
+import { ParticipantI } from '../interfaces/participant.interface';
 
 @Injectable({
   providedIn: 'root',
 })
 export class WebSocketService {
-  private socket$: WebSocketSubject<any>;
+  private socket$?: WebSocketSubject<{
+    _id?: string,
+    type: string;
+    to?: string[] | string;
+    sender?: Partial<ParticipantI>;
+    message?: string;
+    conversation?: string;
+    userId?: string;
+    content?: string;
+  }>;
 
-  constructor() {
-    this.socket$ = new WebSocketSubject(environment.wsUrl);
+  // In WebSocketService
+  connect(userId: string): void {
+    if (!userId) {
+      console.error('Cannot connect: No user ID provided');
+      return;
+    }
+
+    if (!this.socket$ || this.socket$.closed) {
+      console.log('Connecting with user ID:', userId);
+      this.socket$ = webSocket({
+        url: environment.wsUrl,
+        openObserver: {
+          next: () => {
+            console.log('WebSocket connection established');
+            // Register the user immediately after connection
+            this.socket$?.next({
+              type: 'register',
+              userId: userId,
+            });
+          },
+        },
+      });
+    }
   }
 
-  sendMessage(data: any) {
-    this.socket$.next(data);
+  sendMessage(data: {
+    _id: string;
+    type: string;
+    to: string[] | string;
+    sender: Partial<ParticipantI>;
+    message: string;
+    conversation: string;
+  }) {
+    if (this.socket$) {
+      this.socket$?.next(data);
+    }
   }
 
   onMessage() {
@@ -21,6 +61,8 @@ export class WebSocketService {
   }
 
   close() {
-    this.socket$.complete();
+    if (this.socket$) {
+      this.socket$?.complete();
+    }
   }
 }

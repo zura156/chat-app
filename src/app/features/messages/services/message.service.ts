@@ -4,6 +4,7 @@ import { HttpClient } from '@angular/common/http';
 import { catchError, Observable, tap, throwError } from 'rxjs';
 import { MessageI, MessageType } from '../interfaces/message.interface';
 import { MessageListI } from '../interfaces/message-list.interface';
+import { ParticipantI } from '../interfaces/participant.interface';
 
 @Injectable()
 export class MessageService {
@@ -18,7 +19,7 @@ export class MessageService {
   activeMessages = computed(this.#activeMessages);
 
   sendMessage(message: {
-    sender: string;
+    sender: Partial<ParticipantI>;
     conversation: string;
     content: string;
     type: MessageType;
@@ -38,13 +39,17 @@ export class MessageService {
   }
 
   // Get messages for a conversation
-  getMessagesByConversationId(conversationId: string, offset = 0, limit = 20): Observable<MessageListI> {
+  getMessagesByConversationId(
+    conversationId: string,
+    offset = 0,
+    limit = 20
+  ): Observable<MessageListI> {
     const url = `${this.GET_MESSAGES_URL}/${conversationId}/messages?offset=${offset}&limit=${limit}`;
 
     return this.http.get<MessageListI>(url).pipe(
       tap((messages) => {
         // Update active messages
-        this.#activeMessages.update(val => [...val, ...messages.messages]);
+        this.#activeMessages.update((val) => [...val, ...messages.messages]);
       }),
       catchError((error) => {
         console.error('Error fetching messages:', error);
@@ -71,7 +76,7 @@ export class MessageService {
 
   // Add a single message to the active messages (useful for real-time updates)
   addMessage(message: MessageI): void {
-    this.#activeMessages.update((messages) => [...messages, message]);
+    this.#activeMessages.update((messages) => [message, ...messages]);
   }
 
   // Clear active messages (useful when changing conversations)

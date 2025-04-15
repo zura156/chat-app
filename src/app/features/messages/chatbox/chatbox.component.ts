@@ -10,7 +10,7 @@ import {
   ViewChild,
   WritableSignal,
 } from '@angular/core';
-import { map, Subject, switchMap, tap } from 'rxjs';
+import { EMPTY, map, Subject, switchMap, tap } from 'rxjs';
 import { OnDestroy } from '@angular/core';
 import { ActivatedRoute, Router } from '@angular/router';
 import { UserService } from '../../user/services/user.service';
@@ -23,8 +23,12 @@ import {
 } from '@spartan-ng/ui-avatar-helm';
 import { BrnSeparatorComponent } from '@spartan-ng/brain/separator';
 import { HlmSeparatorDirective } from '@spartan-ng/ui-separator-helm';
-import { NgClass, TitleCasePipe } from '@angular/common';
-import { MessageI, MessageType } from '../interfaces/message.interface';
+import { JsonPipe, NgClass, TitleCasePipe } from '@angular/common';
+import {
+  MessageI,
+  MessageStatus,
+  MessageType,
+} from '../interfaces/message.interface';
 import {
   HlmCardDescriptionDirective,
   HlmCardDirective,
@@ -32,6 +36,8 @@ import {
 import { FormControl, ReactiveFormsModule, Validators } from '@angular/forms';
 import { HlmButtonDirective } from '@spartan-ng/ui-button-helm';
 import { HlmInputDirective } from '@spartan-ng/ui-input-helm';
+import { WebSocketService } from '../services/web-socket.service';
+import { ParticipantI } from '../interfaces/participant.interface';
 
 @Component({
   selector: 'app-chatbox',
@@ -61,6 +67,7 @@ export class ChatboxComponent implements OnInit, OnDestroy {
   private userService = inject(UserService);
   private conversationService = inject(ConversationService);
   private messageService = inject(MessageService);
+  private webSocketService = inject(WebSocketService);
 
   @ViewChild('topLoader') topLoader?: ElementRef;
 
@@ -85,51 +92,85 @@ export class ChatboxComponent implements OnInit, OnDestroy {
   isLoading = signal<boolean>(false);
 
   ngOnInit(): void {
+    if (window.visualViewport && window.visualViewport?.height > 1000) {
+      this.limit = 40;
+    }
+
     this.route.params
       .pipe(
         map((params) => params['id']),
-        switchMap((id) =>
-          this.conversationService.getConversationById(id ?? this.userId).pipe(
-            tap((res) => this.conversation.set(res)),
-            switchMap((c) =>
-              this.messageService
-                .getMessagesByConversationId(c._id, 0, this.limit)
-                .pipe(
-                  tap((messagesList) => {
-                    this.offset.set(messagesList.messages.length);
-                  })
-                )
-            )
-          )
-        )
+        switchMap((id) => {
+          return this.conversationService
+            .getConversationById(id ?? this.userId)
+            .pipe(
+              tap((res) => this.conversation.set(res)),
+              switchMap((c) =>
+                this.messageService
+                  .getMessagesByConversationId(c._id, 0, this.limit)
+                  .pipe(
+                    tap((messagesList) => {
+                      this.webSocketService.connect(
+                        this.currentUser()?._id ?? ''
+                      );
+                      this.offset.set(messagesList.messages.length);
+                    }),
+                    switchMap(
+                      () =>
+                        this.webSocketService.onMessage()?.pipe(
+                          tap((res) => {
+                            const message: MessageI = {
+                              _id: res._id,
+                              sender: res.sender!,
+                              conversation: this.conversation()?._id!,
+                              content: res.content!,
+                              type: MessageType.TEXT,
+                            };
+                            this.messageService.addMessage(message);
+                          })
+                        ) || EMPTY
+                    )
+                  )
+              )
+            );
+        })
       )
       .subscribe();
   }
 
   isCurrentUserMessage(message: MessageI): boolean {
-    return (
-      (message.sender._id ?? message.sender) ===
-      this.userService.currentUser()?._id
-    );
+    return message.sender._id === this.userService.currentUser()?._id;
   }
 
   sendMessage(): void {
     const sender = this.userService.currentUser();
     const convo = this.conversation();
-    if (!sender || !convo || !this.messageControl.value) {
-      return;
-    }
+    if (!sender || !convo || !this.messageControl.value) return;
 
     const message = {
-      sender: sender._id,
+      sender: sender,
       conversation: convo._id,
       content: this.messageControl.value,
-      type: MessageType.TEXT, // will change this later
+      type: MessageType.TEXT,
     };
 
     this.messageService
       .sendMessage(message)
-      .pipe(tap(() => this.messageControl.reset()))
+      .pipe(
+        tap((savedMessage) => {
+          const sender = this.userService.currentUser();
+          this.webSocketService.sendMessage({
+            _id: savedMessage._id!,
+            type: savedMessage.type,
+            to: convo.participants
+              .filter((u) => u._id !== sender?._id)
+              .map((p) => p._id),
+            sender: sender!,
+            message: savedMessage.content,
+            conversation: convo._id,
+          });
+        }),
+        tap(() => this.messageControl.reset())
+      )
       .subscribe();
   }
 

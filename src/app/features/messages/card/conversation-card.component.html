@@ -45,7 +45,9 @@
       @if(conversation()?.last_message?.sender?._id === currentUser()?._id) {
       You: }
       <span class="text-gray-400">
-        {{ conversation()?.last_message?.content }} &middot;
+        <span class="max-w-3/4 overflow-ellipsis w-32">
+          {{ conversation()?.last_message?.content }} &middot;
+        </span>
         {{ conversation()?.last_message?.createdAt ?? "" | timeAgo }}
       </span>
     </p>
