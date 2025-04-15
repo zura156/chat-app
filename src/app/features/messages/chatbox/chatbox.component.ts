@@ -184,7 +184,7 @@ export class ChatboxComponent implements OnInit, OnDestroy {
     const previousTime = new Date(previousMessage.createdAt || '');
 
     // Calculate time difference in milliseconds
-    const timeDifference = currentTime.getTime() - previousTime.getTime();
+    const timeDifference = previousTime.getTime() - currentTime.getTime();
 
     // If more than 15 minutes (900000 ms) have passed, show the time
     if (timeDifference > 15 * 60 * 1000) {
