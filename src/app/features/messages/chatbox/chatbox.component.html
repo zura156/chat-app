@@ -33,13 +33,18 @@
       id="chat-messages"
       class="flex flex-col-reverse p-4 space-y-4 space-y-reverse"
     >
-      @if(messages().length === 0 ) {
-      <ng-container>
-        <div class="flex justify-center h-full items-center">
-          <p class="text-slate-400">No messages yet. Start the conversation!</p>
-        </div>
-      </ng-container>
-      } @for(message of messages(); let i = $index; track message) {
+      @if(messages().length === 0 ) { 
+        @if(isLoading()) {
+          <hlm-spinner />
+        } @else {
+        <ng-container>
+          <div class="flex justify-center h-full items-center">
+            <p class="text-slate-400">No messages yet. Start the conversation!</p>
+          </div>
+        </ng-container>
+        } 
+      } 
+      @for(message of messages(); let i = $index; track message) {
       <ng-container>
         <div class="flex-1 mt-2">
           <div
@@ -63,7 +68,9 @@
             </hlm-avatar>
             }
             <hlm-card hlmCard class="">
-              <div class="py-1 px-3 text-ellipsis max-w-xs md:max-w-sm lg:max-w-md">
+              <div
+                class="py-1 px-3 text-ellipsis max-w-xs md:max-w-sm lg:max-w-md"
+              >
                 <p>{{ message.content }}</p>
               </div>
             </hlm-card>

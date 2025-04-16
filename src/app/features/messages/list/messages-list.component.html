@@ -82,12 +82,16 @@
     </section>
     <section hlmTabsContent="conversations">
       <ng-container *ngIf="conversations().length > 0; else noConvos">
-        <app-conversation-card
-          *ngFor="let conversation of conversations()"
-          class="conversation-item"
-          [conversation]="conversation"
-        >
-        </app-conversation-card>
+        <main>
+          <section class="h-full w-full flex flex-col gap-y-2">
+            <app-conversation-card
+              *ngFor="let conversation of conversations()"
+              class="conversation-item"
+              [conversation]="conversation"
+            >
+            </app-conversation-card>
+          </section>
+        </main>
       </ng-container>
       <ng-template #noConvos>
         @if(isLoading()){

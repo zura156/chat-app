@@ -154,7 +154,6 @@ export class MessageListComponent {
 
   ngOnInit(): void {
     this.setupSearchListener();
-    this.fetchInitialData();
   }
 
   ngOnDestroy(): void {
@@ -204,24 +203,9 @@ export class MessageListComponent {
     this.layoutService.switchView();
   }
 
-  // Data fetching methods with caching
-  private fetchInitialData(): void {
-    this.fetchConversationsIfNeeded();
-  }
-
   private fetchConversationsIfNeeded(query: string = ''): void {
-    const currentTime = Date.now();
-    const cacheExpired =
-      currentTime - this.lastConversationsUpdate > this.CACHE_DURATION;
-
-    // Skip fetch if we have recent data and no query
-    if (!cacheExpired && this.#conversations().length > 0 && !query) {
-      return;
-    }
-
     this.isLoading.set(true);
 
-    // Choose whether to search or get all conversations
     const request$ = query
       ? this.conversationService.searchConversations(query)
       : this.conversationService.getConversations();
@@ -237,10 +221,6 @@ export class MessageListComponent {
         })
       )
       .subscribe((result) => {
-        if (!query) {
-          // Only update cache timestamp for non-search requests
-          this.lastConversationsUpdate = currentTime;
-        }
         this.#conversations.set(result.conversations || result);
         this.isLoading.set(false);
       });

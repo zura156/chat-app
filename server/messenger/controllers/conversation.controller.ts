@@ -13,21 +13,29 @@ export const getConversations = async (
 ): Promise<void> => {
   try {
     const userId = req.user?.userId;
+    const limit = parseInt(req.query.limit as string) || 20;
+    const offset = parseInt(req.query.offset as string) || 0;
+
 
     if (!userId) {
       return next(createCustomError('User ID is required', 400));
     }
 
-    const conversations = await Conversation.find({ participants: userId })
-      .populate('participants', 'username profile_picture')
-      .populate({
-        path: 'last_message',
-        select: 'content sender createdAt',
-        populate: { path: 'sender', select: 'username profilePicture' },
-      })
-      .sort({ updatedAt: -1 });
+    const [conversations, totalCount] = await Promise.all([
+      Conversation.find({ participants: userId })
+        .sort({ updatedAt: -1 })
+        .skip(offset)
+        .limit(limit)
+        .populate('participants', 'username profile_picture')
+        .populate({
+          path: 'last_message',
+          select: 'content sender createdAt',
+          populate: { path: 'sender', select: 'username profilePicture' },
+        }),
+      Conversation.countDocuments({ participants: userId }),
+    ]);
 
-    res.status(200).json({ conversations, totalCount: conversations.length });
+    res.status(200).json({ conversations, totalCount });
   } catch (err) {
     console.error('Error fetching user conversations:', err);
     next(createCustomError('Failed to fetch conversations', 500));
@@ -90,7 +98,10 @@ export const getConversationById = async (
     const conversation = await Conversation.findOne({
       _id: conversationId,
       participants: userId,
-    }).populate('participants', 'first_name last_name username profile_picture');
+    }).populate(
+      'participants',
+      'first_name last_name username profile_picture'
+    );
 
     res.status(200).json(conversation);
   } catch (e) {

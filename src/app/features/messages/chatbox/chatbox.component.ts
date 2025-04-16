@@ -37,7 +37,7 @@ import { FormControl, ReactiveFormsModule, Validators } from '@angular/forms';
 import { HlmButtonDirective } from '@spartan-ng/ui-button-helm';
 import { HlmInputDirective } from '@spartan-ng/ui-input-helm';
 import { WebSocketService } from '../services/web-socket.service';
-import { ParticipantI } from '../interfaces/participant.interface';
+import { HlmSpinnerComponent } from '@spartan-ng/ui-spinner-helm';
 
 @Component({
   selector: 'app-chatbox',
@@ -55,6 +55,8 @@ import { ParticipantI } from '../interfaces/participant.interface';
     ReactiveFormsModule,
     HlmButtonDirective,
     HlmInputDirective,
+
+    HlmSpinnerComponent,
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './chatbox.component.html',
@@ -88,7 +90,7 @@ export class ChatboxComponent implements OnInit, OnDestroy {
 
   offset = signal<number>(0);
   limit = 20;
-  hasMoreMessages = signal<boolean>(true);
+  hasMoreMessages = signal<boolean>(false);
   isLoading = signal<boolean>(false);
 
   ngOnInit(): void {
@@ -99,6 +101,7 @@ export class ChatboxComponent implements OnInit, OnDestroy {
     this.route.params
       .pipe(
         map((params) => params['id']),
+        tap(() => this.isLoading.set(true)),
         switchMap((id) => {
           return this.conversationService
             .getConversationById(id ?? this.userId)
@@ -113,6 +116,9 @@ export class ChatboxComponent implements OnInit, OnDestroy {
                         this.currentUser()?._id ?? ''
                       );
                       this.offset.set(messagesList.messages.length);
+                      if (messagesList.totalCount <= this.offset()) {
+                        this.hasMoreMessages.set(false);
+                      }
                     }),
                     switchMap(
                       () =>
@@ -134,7 +140,7 @@ export class ChatboxComponent implements OnInit, OnDestroy {
             );
         })
       )
-      .subscribe();
+      .subscribe(() => this.isLoading.set(false));
   }
 
   isCurrentUserMessage(message: MessageI): boolean {

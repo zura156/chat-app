@@ -1,20 +1,37 @@
-import { computed, inject, Injectable, signal } from '@angular/core';
+import {
+  computed,
+  inject,
+  Injectable,
+  linkedSignal,
+  signal,
+} from '@angular/core';
 import { environment } from '../../../../environments/environment';
 import { HttpClient } from '@angular/common/http';
-import { catchError, Observable, tap, throwError } from 'rxjs';
+import { catchError, map, Observable, tap, throwError } from 'rxjs';
 import { MessageI, MessageType } from '../interfaces/message.interface';
 import { MessageListI } from '../interfaces/message-list.interface';
 import { ParticipantI } from '../interfaces/participant.interface';
+import { ConversationService } from './conversation.service';
 
 @Injectable()
 export class MessageService {
   private http = inject(HttpClient);
+  private conversationService = inject(ConversationService);
 
   private apiUrl = `${environment.apiUrl}/message`;
 
   private readonly SEND_MESSAGE_URL = `${this.apiUrl}/send`;
   private readonly GET_MESSAGES_URL = `${this.apiUrl}/conversation`;
 
+  // #activeMessages = linkedSignal<MessageI[]>(() => {
+  //   const conversationId = this.conversationService.activeConversation()?._id;
+  //   if (conversationId) {
+  //     this.getMessagesByConversationId(conversationId)
+  //       .pipe(map((convo) => convo.messages))
+  //       .subscribe();
+  //   }
+  //   return [];
+  // });
   #activeMessages = signal<MessageI[]>([]);
   activeMessages = computed(this.#activeMessages);
 
@@ -26,7 +43,6 @@ export class MessageService {
   }): Observable<MessageI> {
     return this.http.post<MessageI>(this.SEND_MESSAGE_URL, { message }).pipe(
       tap((newMessage) => {
-        // Add new message to active messages
         this.#activeMessages.update((messages) => [newMessage, ...messages]);
       }),
       catchError((error) => {
@@ -48,7 +64,12 @@ export class MessageService {
 
     return this.http.get<MessageListI>(url).pipe(
       tap((messages) => {
-        // Update active messages
+        if (
+          this.activeMessages().length > 0 &&
+          conversationId !== (this.activeMessages()[0].conversation as string)
+        ) {
+          this.#activeMessages.set(messages.messages);
+        }
         this.#activeMessages.update((val) => [...val, ...messages.messages]);
       }),
       catchError((error) => {

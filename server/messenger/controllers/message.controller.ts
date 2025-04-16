@@ -57,10 +57,10 @@ export const getMessagesByConversationId = async (
         .skip(offset)
         .limit(limit)
         .populate('sender', 'username profile_picture'),
-    
-      Message.countDocuments({ conversation: conversationId })
+
+      Message.countDocuments({ conversation: conversationId }),
     ]);
-    res.status(200).json({messages, totalCount });
+    res.status(200).json({ messages, totalCount });
   } catch (error) {
     console.error('Error fetching messages:', error);
     next(createCustomError('Failed to fetch messages', 500));
