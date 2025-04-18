@@ -56,7 +56,7 @@
         "./libs/ui/ui-scrollarea-helm/src/index.ts"
       ],
       "@spartan-ng/ui-spinner-helm": [
-        ".\\libs/ui/ui-spinner-helm/src/index.ts"
+        "./libs/ui/ui-spinner-helm/src/index.ts"
       ]
     }
   },
