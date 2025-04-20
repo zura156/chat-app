@@ -25,19 +25,14 @@ import { BrnSeparatorComponent } from '@spartan-ng/brain/separator';
 import { HlmInputDirective } from '@spartan-ng/ui-input-helm';
 import { HlmSeparatorDirective } from '@spartan-ng/ui-separator-helm';
 import { UserI } from '../../../shared/interfaces/user.interface';
-
-import { MatChipsModule } from '@angular/material/chips';
-import { MatFormFieldModule } from '@angular/material/form-field';
-import { MatIconModule } from '@angular/material/icon';
 import { NgFor, NgIf } from '@angular/common';
 import { NgScrollbarModule } from 'ngx-scrollbar';
 import { UserCardComponent } from '../../user/components/card/user-card.component';
-import { ChatboxComponent } from '../chatbox/chatbox.component';
 import { ClickOutsideDirective } from '../../../shared/directives/click-outside.directive';
-import { HlmButtonDirective } from '@spartan-ng/ui-button-helm';
 import { NgIcon, provideIcons } from '@ng-icons/core';
 import { lucideX } from '@ng-icons/lucide';
 import { HlmIconDirective } from '@spartan-ng/ui-icon-helm';
+import { HlmButtonDirective } from '@spartan-ng/ui-button-helm';
 
 @Component({
   selector: 'app-new-chat',
@@ -59,6 +54,8 @@ import { HlmIconDirective } from '@spartan-ng/ui-icon-helm';
 
     HlmIconDirective,
     NgIcon,
+
+    HlmButtonDirective,
   ],
   providers: [provideIcons({ lucideX })],
   templateUrl: './new-chat.component.html',
@@ -104,9 +101,6 @@ export class NewChatComponent implements OnInit, OnDestroy {
 
   constructor() {
     effect(() => {
-      if (this.userService.currentUser()) {
-        this.createConversation();
-      }
       const query = this.searchQuery();
       if (query) {
         this.fetchUsersIfNeeded(query);
@@ -114,9 +108,7 @@ export class NewChatComponent implements OnInit, OnDestroy {
     });
   }
 
-  ngOnInit(): void {}
-
-  createConversation() {
+  ngOnInit(): void {
     this.route.queryParams
       .pipe(
         takeUntil(this.destroy$),
@@ -136,6 +128,22 @@ export class NewChatComponent implements OnInit, OnDestroy {
                 console.log(conversation);
               })
             );
+        })
+      )
+      .subscribe();
+  }
+
+  createConversation() {
+    const selectedUsersIds = [
+      this.userService.currentUser()!._id,
+      ...this.selectedUsers().map((u) => u._id),
+    ];
+
+    this.conversationService
+      .createConversation(selectedUsersIds)
+      .pipe(
+        tap((conversation) => {
+          this.router.navigateByUrl(`/messages/${conversation._id}`);
         })
       )
       .subscribe();

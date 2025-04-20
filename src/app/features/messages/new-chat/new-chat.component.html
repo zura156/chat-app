@@ -22,7 +22,7 @@
             (focus)="toggleUserList()"
           />
           <div
-            class="absolute w-full flex gap-x-2 bottom-1 left-0 ml-4 text-sm cursor-pointer"
+            class="absolute flex gap-x-2 bottom-1 left-0 ml-4 text-sm cursor-pointer"
           >
             @for(user of selectedUsers(); track user) {
             <div
@@ -43,32 +43,35 @@
         </section>
 
         <section
-          *ngIf="showUserList()"
-          class="absolute w-full mt-2 left-0 top-full flex items-center gap-x-2"
+          *ngIf="showUserList() && users().length > 0"
+          class="absolute w-full z-20 mt-2 left-0 top-full flex items-center gap-x-2"
         >
           <ng-scrollbar
             hlm
-            class="bg-white dark:bg-black border-border h-72 w-full rounded-md border"
+            class="bg-white dark:bg-black border-border h-72 w-full rounded-md border ovreflow-y-scroll"
           >
-            <div class="p-4">
-              <h4 class="mb-4 text-sm font-medium leading-none">Users</h4>
-              <div hlmSeparator class="mb-4"></div>
+            <div class="p-3">
+              <h4 class="text-sm font-medium leading-none">Users</h4>
+              <div hlmSeparator class="my-2"></div>
               <div
                 class="text-sm mb-2"
                 *ngFor="let user of users(); let i = index"
                 (click)="addToConversation(user)"
               >
                 <app-user-card [user]="user"> </app-user-card>
-
-                @if(i !== users().length - 1) {
-                <div hlmSeparator class="my-2"></div>
-                }
               </div>
             </div>
           </ng-scrollbar>
         </section>
       </div>
     </section>
+    <button
+      hlmBtn
+      (click)="createConversation()"
+      [disabled]="selectedUsers().length < 1"
+    >
+      Create new
+    </button>
   </header>
 
   <brn-separator decorative hlmSeparator />
