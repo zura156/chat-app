@@ -8,6 +8,6 @@ export default {
   jwtSecret: process.env.JWT_SECRET ?? 'jwt_secret_key',
   jwtExpiresIn: process.env.JWT_EXPIRES_IN ?? '1h',
   jwtRefreshTokenExpiresIn: process.env.JWT_REFRESH_EXPIRES_IN ?? '7d',
-  clientUrl: process.env.CLIENT_URL || 'http://localhost:4200',
+  clientUrl: process.env.CLIENT_URL ?? 'http://localhost:4200',
   nodeEnv: process.env.NODE_ENV || 'development',
 };
