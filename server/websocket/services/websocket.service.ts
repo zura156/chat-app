@@ -7,6 +7,8 @@ const clients = new Map<string, WebSocket>();
 export const setupWebSocket = () => {
   const wss = new WebSocketServer({ port: parseInt(config.wsPort.toString()) });
 
+  console.log('WS PORT: ' + config.wsPort);
+
   wss.on('connection', (ws) => {
     logger.info('Websocket connection on port: ' + config.wsPort);
 
