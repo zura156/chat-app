@@ -18,6 +18,7 @@
     "@types/cors": "^2.8.17",
     "@types/express": "^5.0.0",
     "@types/express-session": "^1.18.1",
+    "@types/jsonwebtoken": "^9.0.9",
     "@types/node": "^22.13.9",
     "@types/validator": "^13.12.2",
     "@types/winston": "^2.4.4",
