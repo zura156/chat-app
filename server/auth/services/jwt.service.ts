@@ -26,11 +26,11 @@ export const generateTokens = (user: IUser) => {
   };
 
   const accessToken = jwt.sign(payload, config.jwtSecret, {
-    expiresIn: config.jwtExpiresIn,
+    expiresIn: config.jwtExpiresIn as jwt.SignOptions['expiresIn'],
   });
 
   const refreshToken = jwt.sign(refreshTokenPayload, config.jwtSecret, {
-    expiresIn: config.jwtRefreshTokenExpiresIn,
+    expiresIn: config.jwtRefreshTokenExpiresIn as jwt.SignOptions['expiresIn'],
   });
 
   return { accessToken, refreshToken };
