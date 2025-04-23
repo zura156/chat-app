@@ -125,7 +125,6 @@ export class NewChatComponent implements OnInit, OnDestroy {
             .pipe(
               tap((conversation) => {
                 this.router.navigateByUrl(`/messages/${conversation._id}`);
-                console.log(conversation);
               })
             );
         })
@@ -139,8 +138,14 @@ export class NewChatComponent implements OnInit, OnDestroy {
       ...this.selectedUsers().map((u) => u._id),
     ];
 
+    let isGroup = false;
+
+    if (selectedUsersIds.length > 2) {
+      isGroup = true;
+    }
+
     this.conversationService
-      .createConversation(selectedUsersIds)
+      .createConversation(selectedUsersIds, isGroup)
       .pipe(
         tap((conversation) => {
           this.router.navigateByUrl(`/messages/${conversation._id}`);

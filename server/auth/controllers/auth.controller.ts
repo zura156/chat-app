@@ -206,7 +206,6 @@ export const refreshToken = async (
     if (error.message) {
       next(createCustomError(error.message, 400));
     }
-    console.log(error);
     next(createCustomError('Server error during token refresh', 500));
   }
 };

@@ -14,7 +14,6 @@ export const setupWebSocket = () => {
     ws.on('message', (message) => {
       try {
         const data = JSON.parse(message.toString());
-        console.log('Received:', data);
 
         // Handle user registration
         if (data.type === 'register') {
@@ -23,11 +22,6 @@ export const setupWebSocket = () => {
             return;
           }
           clients.set(data.userId, ws);
-          console.log('Registered user:', data.userId);
-          console.log(
-            'Currently connected clients:',
-            Array.from(clients.keys())
-          );
         }
 
         // Handle messages (both for individual and multiple recipients)
@@ -39,8 +33,6 @@ export const setupWebSocket = () => {
 
           data.to.forEach((recipientId: string) => {
             const recipientSocket = clients.get(recipientId);
-            console.log('Sending message to:', recipientId);
-            console.log('Current clients:', Array.from(clients.keys())); // Log the client map
 
             if (
               recipientSocket &&
@@ -55,8 +47,6 @@ export const setupWebSocket = () => {
                   conversation: data.conversation ?? null,
                 })
               );
-            } else {
-              console.log('No socket found for recipient:', recipientId);
             }
           });
         }

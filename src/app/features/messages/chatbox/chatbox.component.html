@@ -13,8 +13,9 @@
         @if(conversation()) { @for(participant of conversation()?.participants;
         let i = $index; track i){ @if(this.currentUser()?._id !==
         participant._id) {
-        {{ participant.first_name + " " + participant.last_name }}
-        } @if($index + 2 < conversation()?.participants!.length) { , } } }
+        {{ participant.first_name + " " + participant.last_name }}} @if($index +
+        1 < conversation()?.participants!.length && this.currentUser()?._id !==
+        participant._id) {,} } }
       </h1>
     </div>
   </header>
@@ -33,18 +34,15 @@
       id="chat-messages"
       class="flex flex-col-reverse p-4 space-y-4 space-y-reverse"
     >
-      @if(messages().length === 0 ) { 
-        @if(isLoading()) {
-          <hlm-spinner />
-        } @else {
-        <ng-container>
-          <div class="flex justify-center h-full items-center">
-            <p class="text-slate-400">No messages yet. Start the conversation!</p>
-          </div>
-        </ng-container>
-        } 
-      } 
-      @for(message of messages(); let i = $index; track message) {
+      @if(messages().length === 0 ) { @if(isLoading()) {
+      <hlm-spinner />
+      } @else {
+      <ng-container>
+        <div class="flex justify-center h-full items-center">
+          <p class="text-slate-400">No messages yet. Start the conversation!</p>
+        </div>
+      </ng-container>
+      } } @for(message of messages(); let i = $index; track message) {
       <ng-container>
         <div class="flex-1 mt-2">
           <div
@@ -57,23 +55,34 @@
             class="flex items-center mb-0"
             [ngClass]="{ 'justify-end': isCurrentUserMessage(message) }"
           >
-            @if(!isCurrentUserMessage(message)){
-            <hlm-avatar variant="small" class="min-w-fit mr-1.5">
-              <img
-                src="/icons/avatar.svg"
-                [alt]="message.sender.username"
-                hlmAvatarImage
-              />
-              <span class="bg-[#FD005B] text-white" hlmAvatarFallback>RG</span>
-            </hlm-avatar>
-            }
-            <hlm-card hlmCard class="">
-              <div
-                class="py-1 px-3 text-ellipsis max-w-xs md:max-w-sm lg:max-w-md"
-              >
-                <p>{{ message.content }}</p>
+            <div class="flex flex-col">
+              @if(conversation()?.is_group && !isCurrentUserMessage(message)){
+              <span class="text-gray-500">
+                {{ message.sender.username }}
+              </span>
+              }
+              <div class="flex items-center justify-start">
+                @if(!isCurrentUserMessage(message)){
+                <hlm-avatar variant="small" class="min-w-fit mr-1.5">
+                  <img
+                    src="/icons/avatar.svg"
+                    [alt]="message.sender.username"
+                    hlmAvatarImage
+                  />
+                  <span class="bg-[#FD005B] text-white" hlmAvatarFallback
+                    >RG</span
+                  >
+                </hlm-avatar>
+                }
+                <hlm-card hlmCard>
+                  <div
+                    class="py-1 px-3 text-ellipsis max-w-xs md:max-w-sm lg:max-w-md"
+                  >
+                    <p>{{ message.content }}</p>
+                  </div>
+                </hlm-card>
               </div>
-            </hlm-card>
+            </div>
           </div>
           @if(isCurrentUserMessage(message) && i === 0){
           <div hlmCardDescription class="text-xs text-end mt-1 opacity-70">
