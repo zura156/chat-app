@@ -4,32 +4,35 @@ A real-time chat application built with Angular 19 frontend and Express.js backe
 
 ## Overview
 
-This project is a full-stack chat application that enables real-time messaging between users. The frontend is built with Angular 19, while the backend is powered by Express.js with Socket.IO for real-time communication.
+This project is a full-stack chat application that enables real-time messaging between users. The frontend is built with Angular 19, while the backend is powered by Express.js with WebSocketServer for real-time communication.
 
 ## Features
 
 - Real-time messaging
 - User authentication and profiles
+<!--
 - Message history
 - Typing indicators
 - Online/offline status
 - Read receipts
 - File sharing support
+-->
 
 ## Tech Stack
 
 ### Frontend
 
-- Angular 19
-- Socket.IO Client
+- TailwindCSS
 - Angular Material UI
+- Spartan NG
+- Angular 19
 - RxJS
 - TypeScript
 
 ### Backend
 
 - Express.js
-- Socket.IO
+- WebSocket
 - MongoDB (database)
 - JWT Authentication
 - Node.js
@@ -46,8 +49,8 @@ This project is a full-stack chat application that enables real-time messaging b
 ### Clone the repository
 
 ```bash
-git clone https://github.com/yourusername/angular-express-chat.git
-cd angular-express-chat
+git clone https://github.com/zura156/chat-app.git
+cd chat-app
 ```
 
 ### Backend Setup
@@ -60,7 +63,7 @@ cd server
 npm install
 
 # Create a .env file and configure environment variables
-cp .env.example .env
+touch .env
 
 # Start the server
 npm run dev
@@ -70,7 +73,7 @@ npm run dev
 
 ```bash
 # Navigate to client directory
-cd ../client
+cd ../
 
 # Install dependencies
 npm install
@@ -82,58 +85,79 @@ ng serve
 ## Project Structure
 
 ```
-angular-express-chat/
-├── client/                  # Angular 19 frontend
-│   ├── src/
-│   │   ├── app/
-│   │   │   ├── components/  # Angular components
-│   │   │   ├── services/    # Angular services
-│   │   │   ├── models/      # TypeScript interfaces
-│   │   │   └── guards/      # Auth guards
-│   │   ├── assets/          # Static assets
-│   │   └── environments/    # Environment configurations
-├── server/                  # Express.js backend
-│   ├── controllers/         # Request handlers
-│   ├── middleware/          # Express middleware
-│   ├── models/              # MongoDB models
-│   ├── routes/              # API routes
-│   ├── socket/              # Socket.IO configuration
-│   └── app.js               # Express app entry point
+chat-app/                  # Angular 19 frontend
+│   src/
+│   ├── app/
+│   │   ├── features/        # Main features of the app
+|   │   │   ├── auth/        # Auth pages
+|   │   │   ├── messages/    # Chatbox
+|   │   │   └── user/        # User pages (Profile, Change password, etc.)
+│   │   ├── shared/
+|   │   │   ├── directives/  # Angular directives
+|   │   │   ├── interfaces/  # Angular interfaces
+|   │   │   ├── layout/      # Page layout
+|   │   │   ├── pipes/       # Angular pipes
+|   │   │   └── services/    # Angular services
+│   ├── public/          # Static assets
+│   └── environments/    # Environment configurations
+├── server/              # Express.js backend (TypeScript)
+│   ├── auth/            # Authentication/Authorization API
+│   ├── config/          # Environment configuration
+│   ├── error-handling/  # Tools for error-handling
+│   ├── messenger/       # Messaging methods
+│   ├── user/            # User methods
+│   ├── utils/           # Shared utilities
+│   ├── websocket/       # WebSocket configuration
+│   ├── index.ts         # Express app entry point
+│   ├── package-lock.json
+│   ├── package.json
+│   ├── tsconfig.json
+│   └── .gitignore
+├── .editorconfig
 ├── .gitignore
+├── .postcssrc.json
+├── angular.json
+├── components.json       # Spartan NG components config
+├── package-lock.json
+├── package.json
 ├── README.md
-└── package.json
+├── tsconfig.app.json
+├── tsconfig.json
+└── tsconfig.spec.json
 ```
 
 ## API Endpoints
 
 ### Authentication
 
-- `POST /api/auth/register` - Register a new user
-- `POST /api/auth/login` - Login user
-- `GET /api/auth/profile` - Get user profile
+- `POST /auth/register` - Register a new user
+- `POST /auth/login` - Login user
+- `GET /auth/profile` - Get user profile
 
 ### Messages
 
-- `GET /api/messages/:conversationId` - Get messages for a conversation
-- `POST /api/messages` - Send a new message
-- `DELETE /api/messages/:messageId` - Delete a message
+- `GET /message/conversation/:conversationId/messages` - Get messages for a conversation
+- `POST /message/send` - Send a new message
+- `DELETE /messages/:messageId` - Delete a message
 
 ### Conversations
 
-- `GET /api/conversations` - Get user conversations
-- `GET /api/conversations/:id` - Get conversation by ID
-- `POST /api/conversations` - Create a new conversation
+- `GET /message/conversation` - Get user conversations
+- `GET /message/conversation/:id` - Get conversation by ID
+- `POST /message/conversation` - Create a new conversation
 
 ## Socket Events
 
+### Under development.
+_Events do exist, but there are more events that must be added._
+<!--
 ### Client Events
 
-- `join` - Join a room
+- `register` - Register a client in socket
 - `message` - Send a message
 - `typing` - User is typing
 - `stop_typing` - User stopped typing
 - `read_receipt` - Mark messages as read
-
 ### Server Events
 
 - `message` - New message received
@@ -141,6 +165,7 @@ angular-express-chat/
 - `user_typing` - User is typing
 - `user_stopped_typing` - User stopped typing
 - `message_read` - Message read receipt
+-->
 
 ## Environment Variables
 
@@ -148,10 +173,12 @@ angular-express-chat/
 
 ```
 PORT=3000
-MONGODB_URI=mongodb://localhost:27017/chat-app
+WS_PORT=3001
+MONGO_URI=your_mongo_uri
 JWT_SECRET=your_jwt_secret
-JWT_EXPIRY=7d
-NODE_ENV=development
+JWT_EXPIRES_IN=1h
+JWT_REFRESH_EXPIRES_IN=7d
+
 ```
 
 ### Frontend (environment.ts)
@@ -159,8 +186,8 @@ NODE_ENV=development
 ```typescript
 export const environment = {
   production: false,
-  apiUrl: "http://localhost:3000/api",
-  socketUrl: "http://localhost:3000",
+  apiUrl: "http://localhost:3000",
+  wsUrl: "http://localhost:3000",
 };
 ```
 
@@ -177,7 +204,7 @@ npm start
 ### Frontend
 
 ```bash
-cd client
+cd ./chat-app
 ng build --configuration production
 ```
 
@@ -187,7 +214,7 @@ The Angular build artifacts will be stored in the `client/dist/` directory, whic
 
 1. Fork the repository
 2. Create your feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit your changes (`git commit -m 'Add some amazing feature'`)
+3. Commit your changes (`git commit -m 'Some amazing feature'`)
 4. Push to the branch (`git push origin feature/amazing-feature`)
 5. Open a Pull Request
 
@@ -199,4 +226,4 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 
 - Angular team for the great framework
 - Express.js community
-- Socket.IO for real-time communication capabilities
+- WebSocketServer for real-time communication capabilities
