@@ -92,14 +92,12 @@ export class MessageListComponent {
 
   constructor() {
     effect(() => {
-      const query = this.searchQuery();
-
       switch (this.activeView()) {
         case 'conversations':
-          this.fetchConversations(query);
+          this.fetchConversations();
           break;
         case 'users':
-          this.fetchUsers(query);
+          this.fetchUsers();
           break;
         default:
           break;
@@ -166,16 +164,13 @@ export class MessageListComponent {
         distinctUntilChanged(),
         tap((query) => {
           this.searchQuery.set(query || '');
-          console.log(query);
         }),
         switchMap((query) => {
           if (query) {
-            console.log(this.activeView());
             switch (this.activeView()) {
               case 'conversations':
                 return this.conversationService
                   .searchConversations(query)
-                  .pipe(tap(() => console.log(this.conversations())));
               case 'users':
                 return this.userService.searchUsers(query);
               default:
@@ -189,11 +184,17 @@ export class MessageListComponent {
       .subscribe();
   }
 
-  private fetchConversations(query: string = ''): void {
-    // this.isLoading.set(true);
+  private fetchConversations(): void {
+    this.isLoading.set(true);
+
+    this.conversationService
+      .getConversations()
+      .subscribe(() => this.isLoading.set(false));
   }
 
-  private fetchUsers(query: string = ''): void {
-    // this.isLoading.set(true);
+  private fetchUsers(): void {
+    this.isLoading.set(true);
+
+    this.userService.fetchUsers().subscribe(() => this.isLoading.set(false));
   }
 }

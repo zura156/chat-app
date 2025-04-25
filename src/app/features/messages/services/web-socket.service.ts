@@ -8,7 +8,7 @@ import { ParticipantI } from '../interfaces/participant.interface';
 })
 export class WebSocketService {
   private socket$?: WebSocketSubject<{
-    _id?: string,
+    _id?: string;
     type: string;
     to?: string[] | string;
     sender?: Partial<ParticipantI>;
@@ -26,12 +26,10 @@ export class WebSocketService {
     }
 
     if (!this.socket$ || this.socket$.closed) {
-      console.log('Connecting with user ID:', userId);
       this.socket$ = webSocket({
         url: environment.wsUrl,
         openObserver: {
           next: () => {
-            console.log('WebSocket connection established');
             // Register the user immediately after connection
             this.socket$?.next({
               type: 'register',
