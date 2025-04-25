@@ -1,5 +1,6 @@
 import { UserI } from './user.interface';
 
-export interface UserList {
+export interface UserListI {
   users: UserI[];
+  totalCount: number;
 }

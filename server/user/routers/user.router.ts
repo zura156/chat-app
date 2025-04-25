@@ -14,7 +14,7 @@ router.route('/profile').get(authenticate, getCurrentUser);
 router.patch('/profile/update', authenticate, updateUserDetails);
 router.delete('/profile/delete', authenticate, deleteUser);
 
-router.get('/users', authenticate, getUsers);
-router.get('/users/search', authenticate, searchUsers);
+router.get('/', authenticate, getUsers);
+router.get('/search', authenticate, searchUsers);
 
 export default router;

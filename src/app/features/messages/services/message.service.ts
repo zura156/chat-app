@@ -23,6 +23,7 @@ export class MessageService {
   private readonly SEND_MESSAGE_URL = `${this.apiUrl}/send`;
   private readonly GET_MESSAGES_URL = `${this.apiUrl}/conversation`;
 
+  // ! old idea
   // #activeMessages = linkedSignal<MessageI[]>(() => {
   //   const conversationId = this.conversationService.activeConversation()?._id;
   //   if (conversationId) {
@@ -32,6 +33,7 @@ export class MessageService {
   //   }
   //   return [];
   // });
+
   #activeMessages = signal<MessageI[]>([]);
   activeMessages = computed(this.#activeMessages);
 

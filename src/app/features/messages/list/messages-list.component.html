@@ -52,11 +52,13 @@
       </button>
     </hlm-tabs-list>
     <section hlmTabsContent="users">
-      <ng-container *ngIf="users().length > 0; else noUsers">
+      <ng-container
+        *ngIf="users() && (users()?.users?.length ?? 0 > 0); else noUsers"
+      >
         <main>
           <section class="h-full w-full flex flex-col gap-y-2">
             <app-user-card
-              *ngFor="let user of users()"
+              *ngFor="let user of users()?.users"
               [user]="user"
               (click)="selectUser(user)"
             ></app-user-card>
@@ -81,11 +83,16 @@
       </ng-template>
     </section>
     <section hlmTabsContent="conversations">
-      <ng-container *ngIf="conversations().length > 0; else noConvos">
+      <ng-container
+        *ngIf="
+          conversations() && (conversations()?.conversations?.length ?? 0 > 0);
+          else noConvos
+        "
+      >
         <main>
           <section class="h-full w-full flex flex-col gap-y-2">
             <app-conversation-card
-              *ngFor="let conversation of conversations()"
+              *ngFor="let conversation of conversations()?.conversations"
               class="conversation-item"
               [conversation]="conversation"
             >

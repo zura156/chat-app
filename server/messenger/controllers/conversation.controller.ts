@@ -5,6 +5,7 @@ import { Conversation } from '../models/conversation.model';
 import { AuthRequest } from '../../auth/middlewares/auth.middleware';
 import { Types } from 'mongoose';
 import { MutedConversation } from '../models/muted-conversation.model';
+import { User } from '../../user/models/user.model';
 
 export const getConversations = async (
   req: AuthRequest,
@@ -15,7 +16,6 @@ export const getConversations = async (
     const userId = req.user?.userId;
     const limit = parseInt(req.query.limit as string) || 20;
     const offset = parseInt(req.query.offset as string) || 0;
-
 
     if (!userId) {
       return next(createCustomError('User ID is required', 400));
@@ -49,30 +49,44 @@ export const searchConversations = async (
 ): Promise<void> => {
   try {
     const query = req.query['q'];
-    const userId = req.user?.userId;
+    const userId = new Types.ObjectId(req.user?.userId);
 
     if (!userId) {
       return next(createCustomError('User ID is required', 400));
     }
 
-    const conversations = await Conversation.find({
-      participants: userId,
-      $or: [
-        {
-          group_name: { $regex: query, $options: 'i' },
-          participants: { $regex: query, $options: 'i' },
-        },
-      ],
-    })
-      .populate('participants', 'username profile_picture')
-      .populate({
-        path: 'last_message',
-        select: 'content sender createdAt',
-        populate: { path: 'sender', select: 'username profilePicture' },
+    const [conversations, totalCount] = await Promise.all([
+      Conversation.find({
+        participants: userId,
+        $or: [
+          {
+            group_name: { $regex: query, $options: 'i' },
+          },
+          {
+            participants: {
+              $in: await User.find({
+                $or: [
+                  { username: { $regex: query, $options: 'i' } },
+                  { first_name: { $regex: query, $options: 'i' } },
+                  { last_name: { $regex: query, $options: 'i' } },
+                ],
+                _id: { $ne: userId },
+              }).distinct('_id'),
+            },
+          },
+        ],
       })
-      .sort({ updatedAt: -1 });
+        .populate('participants', 'username profile_picture')
+        .populate({
+          path: 'last_message',
+          select: 'content sender createdAt',
+          populate: { path: 'sender', select: 'username profile_picture' },
+        })
+        .sort({ updatedAt: -1 }),
+      Conversation.countDocuments({ participants: userId }),
+    ]);
 
-    res.status(200).json(conversations);
+    res.status(200).json({ conversations, totalCount });
   } catch (err) {
     console.error('Error fetching user conversations:', err);
     next(createCustomError('Failed to fetch conversations', 500));

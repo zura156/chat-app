@@ -8,6 +8,7 @@ import {
   deleteConversation,
   getConversationById,
   getConversations,
+  searchConversations,
   updateConversation,
 } from './controllers/conversation.controller';
 import { authenticate } from '../auth/middlewares/auth.middleware';
@@ -27,6 +28,8 @@ router
   .route('/conversation')
   .get(authenticate, getConversations)
   .post(authenticate, createConversation);
+
+router.route('/conversation/search').get(authenticate, searchConversations);
 
 router
   .route('/conversation/:id')

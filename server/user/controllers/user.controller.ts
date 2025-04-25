@@ -91,20 +91,28 @@ export const getUsers = async (
 ) => {
   try {
     const user = req.user;
+    const limit = parseInt(req.query.limit as string) || 20;
+    const offset = parseInt(req.query.offset as string) || 0;
 
     if (!user) {
       next(createCustomError('User must be authorized!', 401));
       return;
     }
 
-    const users = await User.find({ _id: { $ne: user.userId } });
+    const [users, totalCount] = await Promise.all([
+      User.find({ _id: { $ne: user.userId } })
+        .sort({ updatedAt: -1 })
+        .skip(offset)
+        .limit(limit),
+      User.countDocuments({ participants: user.userId }),
+    ]);
 
     if (!users) {
       next(createCustomError('Could not fetch users!', 502));
       return;
     }
 
-    res.status(200).json({ users });
+    res.status(200).json({ users, totalCount });
   } catch (err) {
     console.error('Error getting users:', err);
     res.status(500).json({ message: 'Server error getting users' });

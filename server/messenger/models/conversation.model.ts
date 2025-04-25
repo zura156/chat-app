@@ -15,10 +15,10 @@ const ConversationSchema = new Schema<IConversation>(
     participants: [
       { type: Schema.Types.ObjectId, ref: 'User', required: true },
     ],
-    last_message: { type: Schema.Types.ObjectId, ref: 'Message' }, // ✅ Optional
+    last_message: { type: Schema.Types.ObjectId, ref: 'Message' },
     is_group: { type: Boolean, default: false },
-    group_name: { type: String, required: false }, // ✅ Optional
-    group_picture: { type: String, required: false }, // ✅ Optional
+    group_name: { type: String, required: false },
+    group_picture: { type: String, required: false },
   },
   { timestamps: true }
 );
