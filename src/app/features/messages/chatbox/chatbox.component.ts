@@ -112,18 +112,16 @@ export class ChatboxComponent implements OnInit, OnDestroy {
                   .getMessagesByConversationId(c._id, 0, this.limit)
                   .pipe(
                     tap((messagesList) => {
-                      this.webSocketService.connect(
-                        this.currentUser()?._id ?? ''
-                      );
                       this.offset.set(messagesList.messages.length);
                       if (messagesList.totalCount <= this.offset()) {
                         this.hasMoreMessages.set(false);
                       }
                     }),
-                    switchMap(
-                      () =>
-                        this.webSocketService.onMessage()?.pipe(
-                          tap((res) => {
+                    switchMap(() =>
+                      this.webSocketService.onMessage()?.pipe(
+                        tap((res) => {
+                          // Process incoming message only if it belongs to the current conversation
+                          if (res.conversation === this.conversation()?._id) {
                             const message: MessageI = {
                               _id: res._id,
                               sender: res.sender!,
@@ -132,8 +130,9 @@ export class ChatboxComponent implements OnInit, OnDestroy {
                               type: MessageType.TEXT,
                             };
                             this.messageService.addMessage(message);
-                          })
-                        ) || EMPTY
+                          }
+                        })
+                      ) || EMPTY
                     )
                   )
               )

@@ -4,12 +4,14 @@ import { environment } from '../../../../environments/environment';
 import { UserI } from '../../../shared/interfaces/user.interface';
 import { Observable, tap } from 'rxjs';
 import { UserListI } from '../../../shared/interfaces/user-list.interface';
+import { WebSocketService } from '../../messages/services/web-socket.service';
 
 @Injectable({
   providedIn: 'root',
 })
 export class UserService {
   private http = inject(HttpClient);
+  private webSocketService = inject(WebSocketService);
 
   private readonly apiUrl = environment.apiUrl;
 
@@ -23,7 +25,9 @@ export class UserService {
   users = computed(this.#users);
 
   constructor() {
-    this.getCurrentUser().subscribe();
+    this.getCurrentUser().subscribe((res) =>
+      this.webSocketService.connect(res._id)
+    );
   }
 
   getCurrentUser(): Observable<UserI> {
