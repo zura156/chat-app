@@ -10,7 +10,7 @@ import {
   ViewChild,
   WritableSignal,
 } from '@angular/core';
-import { EMPTY, map, Subject, switchMap, tap } from 'rxjs';
+import { EMPTY, finalize, map, Subject, switchMap, tap } from 'rxjs';
 import { OnDestroy } from '@angular/core';
 import { ActivatedRoute, Router } from '@angular/router';
 import { UserService } from '../../user/services/user.service';
@@ -98,10 +98,12 @@ export class ChatboxComponent implements OnInit, OnDestroy {
       this.limit = 40;
     }
 
+    this.isLoading.set(true);
+
     this.route.params
       .pipe(
         map((params) => params['id']),
-        tap(() => this.isLoading.set(true)),
+        tap(() => this.isLoading.set(false)),
         switchMap((id) => {
           return this.conversationService
             .getConversationById(id ?? this.userId)
@@ -140,7 +142,7 @@ export class ChatboxComponent implements OnInit, OnDestroy {
             );
         })
       )
-      .subscribe(() => this.isLoading.set(false));
+      .subscribe();
   }
 
   isCurrentUserMessage(message: MessageI): boolean {
@@ -204,7 +206,7 @@ export class ChatboxComponent implements OnInit, OnDestroy {
         }),
         tap(() => this.isLoading.set(false))
       )
-      .subscribe(() =>  this.isLoading.set(false));
+      .subscribe(() => this.isLoading.set(false));
   }
 
   onScroll(event: Event): void {

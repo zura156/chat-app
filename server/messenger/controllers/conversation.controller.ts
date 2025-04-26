@@ -149,7 +149,7 @@ export const createConversation = async (
     if (!conversation) {
       conversation = await Conversation.create({
         participants,
-        is_group: false,
+        is_group: is_group,
       });
     }
 
