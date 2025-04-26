@@ -38,6 +38,7 @@ export class WebSocketService {
           },
         },
       });
+      this.socket$.subscribe();
     }
   }
 

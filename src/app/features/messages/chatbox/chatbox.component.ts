@@ -117,22 +117,23 @@ export class ChatboxComponent implements OnInit, OnDestroy {
                         this.hasMoreMessages.set(false);
                       }
                     }),
-                    switchMap(() =>
-                      this.webSocketService.onMessage()?.pipe(
-                        tap((res) => {
-                          // Process incoming message only if it belongs to the current conversation
-                          if (res.conversation === this.conversation()?._id) {
-                            const message: MessageI = {
-                              _id: res._id,
-                              sender: res.sender!,
-                              conversation: this.conversation()?._id!,
-                              content: res.content!,
-                              type: MessageType.TEXT,
-                            };
-                            this.messageService.addMessage(message);
-                          }
-                        })
-                      ) || EMPTY
+                    switchMap(
+                      () =>
+                        this.webSocketService.onMessage()?.pipe(
+                          tap((res) => {
+                            // Process incoming message only if it belongs to the current conversation
+                            if (res.conversation === this.conversation()?._id) {
+                              const message: MessageI = {
+                                _id: res._id,
+                                sender: res.sender!,
+                                conversation: this.conversation()?._id!,
+                                content: res.content!,
+                                type: MessageType.TEXT,
+                              };
+                              this.messageService.addMessage(message);
+                            }
+                          })
+                        ) || EMPTY
                     )
                   )
               )
