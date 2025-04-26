@@ -34,7 +34,7 @@
       id="chat-messages"
       class="flex flex-col-reverse p-4 space-y-4 space-y-reverse"
     >
-      @if(messages().length === 0 ) { @if(isLoading()) {
+      @if(messages().length !> 0 ) { @if(isLoading()) {
       <hlm-spinner />
       } @else {
       <ng-container>

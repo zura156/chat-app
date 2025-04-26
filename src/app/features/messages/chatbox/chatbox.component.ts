@@ -177,7 +177,7 @@ export class ChatboxComponent implements OnInit, OnDestroy {
         }),
         tap(() => this.messageControl.reset())
       )
-      .subscribe();
+      .subscribe(() => this.isLoading.set(false));
   }
 
   ngOnDestroy() {
@@ -204,7 +204,7 @@ export class ChatboxComponent implements OnInit, OnDestroy {
         }),
         tap(() => this.isLoading.set(false))
       )
-      .subscribe();
+      .subscribe(() =>  this.isLoading.set(false));
   }
 
   onScroll(event: Event): void {
