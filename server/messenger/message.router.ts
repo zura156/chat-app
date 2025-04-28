@@ -1,8 +1,5 @@
 import express from 'express';
-import {
-  getMessagesByConversationId,
-  sendMessage,
-} from './controllers/message.controller';
+import { getMessagesByConversationId } from './controllers/message.controller';
 import {
   createConversation,
   deleteConversation,
@@ -16,7 +13,6 @@ import { markNotificationsAsSeen } from './controllers/notifications.controller'
 
 const router = express.Router();
 
-router.post('/send', authenticate, sendMessage);
 router.post('/:conversationId/read', authenticate, markNotificationsAsSeen);
 router.get(
   '/conversation/:conversationId/messages',

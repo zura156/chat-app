@@ -109,8 +109,11 @@ export class ChatboxComponent implements OnInit, OnDestroy {
             .getConversationById(id ?? this.userId)
             .pipe(
               tap((res) => this.conversation.set(res)),
-              switchMap((c) =>
-                this.messageService
+              switchMap((c) => {
+                if (!c) {
+                  return EMPTY;
+                }
+                return this.messageService
                   .getMessagesByConversationId(c._id, 0, this.limit)
                   .pipe(
                     tap((messagesList) => {
@@ -137,8 +140,8 @@ export class ChatboxComponent implements OnInit, OnDestroy {
                           })
                         ) || EMPTY
                     )
-                  )
-              )
+                  );
+              })
             );
         })
       )
