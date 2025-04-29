@@ -4,13 +4,14 @@ import {
   computed,
   ElementRef,
   inject,
-  input,
+  linkedSignal,
   OnInit,
+  Signal,
   signal,
   ViewChild,
   WritableSignal,
 } from '@angular/core';
-import { EMPTY, finalize, map, Subject, switchMap, tap } from 'rxjs';
+import { catchError, EMPTY, map, of, Subject, switchMap, tap } from 'rxjs';
 import { OnDestroy } from '@angular/core';
 import { ActivatedRoute, Router } from '@angular/router';
 import { UserService } from '../../user/services/user.service';
@@ -23,12 +24,8 @@ import {
 } from '@spartan-ng/ui-avatar-helm';
 import { BrnSeparatorComponent } from '@spartan-ng/brain/separator';
 import { HlmSeparatorDirective } from '@spartan-ng/ui-separator-helm';
-import { JsonPipe, NgClass, TitleCasePipe } from '@angular/common';
-import {
-  MessageI,
-  MessageStatus,
-  MessageType,
-} from '../interfaces/message.interface';
+import { NgClass, TitleCasePipe } from '@angular/common';
+import { MessageI, MessageType } from '../interfaces/message.interface';
 import {
   HlmCardDescriptionDirective,
   HlmCardDirective,
@@ -38,11 +35,15 @@ import { HlmButtonDirective } from '@spartan-ng/ui-button-helm';
 import { HlmInputDirective } from '@spartan-ng/ui-input-helm';
 import { WebSocketService } from '../services/web-socket.service';
 import { HlmSpinnerComponent } from '@spartan-ng/ui-spinner-helm';
+import { IntersectionObserverDirective } from '../../../shared/directives/is-visible.directive';
+import { UserI } from '../../../shared/interfaces/user.interface';
 
 @Component({
   selector: 'app-chatbox',
   imports: [
     NgClass,
+    IntersectionObserverDirective,
+
     TitleCasePipe,
     HlmAvatarImageDirective,
     HlmAvatarComponent,
@@ -62,8 +63,6 @@ import { HlmSpinnerComponent } from '@spartan-ng/ui-spinner-helm';
   templateUrl: './chatbox.component.html',
 })
 export class ChatboxComponent implements OnInit, OnDestroy {
-  userId = input<string>();
-
   private router = inject(Router);
   private route = inject(ActivatedRoute);
   private userService = inject(UserService);
@@ -71,22 +70,34 @@ export class ChatboxComponent implements OnInit, OnDestroy {
   private messageService = inject(MessageService);
   private webSocketService = inject(WebSocketService);
 
-  @ViewChild('topLoader') topLoader?: ElementRef;
-
   private readonly destroy$ = new Subject<void>();
 
-  conversation: WritableSignal<ConversationI | null> =
-    signal<ConversationI | null>(null);
-
-  imageUrl = computed<string | null>(
-    () => this.conversation()?.participants[1].profile_picture ?? null
+  conversation: Signal<ConversationI | null> = signal<ConversationI | null>(
+    null
   );
+
+  imageUrl = linkedSignal<string | null>(() => {
+    const currentConversation = this.conversation();
+    if (!currentConversation) {
+      return null;
+    }
+
+    if (currentConversation.is_group) {
+      return currentConversation.group_picture ?? null;
+    } else {
+      const otherUser = currentConversation.participants.find(
+        (participant) => participant._id !== this.currentUser()?._id
+      );
+      return otherUser?.profile_picture ?? null;
+    }
+  });
 
   messages = this.messageService.activeMessages;
 
   messageControl = new FormControl<string>('', Validators.required);
 
   currentUser = this.userService.currentUser;
+  selectedUser = this.conversationService.selectedUser;
 
   offset = signal<number>(0);
   limit = 20;
@@ -105,44 +116,52 @@ export class ChatboxComponent implements OnInit, OnDestroy {
         map((params) => params['id']),
         tap(() => this.isLoading.set(false)),
         switchMap((id) => {
-          return this.conversationService
-            .getConversationById(id ?? this.userId)
-            .pipe(
-              tap((res) => this.conversation.set(res)),
-              switchMap((c) => {
-                if (!c) {
-                  return EMPTY;
-                }
-                return this.messageService
-                  .getMessagesByConversationId(c._id, 0, this.limit)
-                  .pipe(
-                    tap((messagesList) => {
-                      this.offset.set(messagesList.messages.length);
-                      if (messagesList.totalCount <= this.offset()) {
-                        this.hasMoreMessages.set(false);
-                      }
-                    }),
-                    switchMap(
-                      () =>
-                        this.webSocketService.onMessage()?.pipe(
-                          tap((res) => {
-                            // Process incoming message only if it belongs to the current conversation
-                            if (res.conversation === this.conversation()?._id) {
-                              const message: MessageI = {
-                                _id: res._id,
-                                sender: res.sender!,
-                                conversation: this.conversation()?._id!,
-                                content: res.content!,
-                                type: MessageType.TEXT,
-                              };
-                              this.messageService.addMessage(message);
-                            }
-                          })
-                        ) || EMPTY
-                    )
-                  );
-              })
-            );
+          this.conversation = this.conversationService.activeConversation;
+          const selectedUser: UserI | null = JSON.parse(
+            sessionStorage.getItem('selectedUser') ?? ''
+          );
+          if (selectedUser) {
+            this.conversationService.selectUserForConversation(selectedUser);
+          }
+          if (id === selectedUser?._id) {
+            this.conversationService.createMockConversation();
+            return of(this.conversation());
+          }
+          return this.conversationService.getConversationById(id).pipe(
+            switchMap((c) => {
+              if (!c) {
+                return EMPTY;
+              }
+              return this.messageService
+                .getMessagesByConversationId(c._id, 0, this.limit)
+                .pipe(
+                  tap((messagesList) => {
+                    this.offset.set(messagesList.messages.length);
+                    if (messagesList.totalCount <= this.offset()) {
+                      this.hasMoreMessages.set(false);
+                    }
+                  }),
+                  switchMap(
+                    () =>
+                      this.webSocketService.onMessage()?.pipe(
+                        tap((res) => {
+                          // Process incoming message only if it belongs to the current conversation
+                          if (res.conversation === this.conversation()?._id) {
+                            const message: MessageI = {
+                              _id: res._id,
+                              sender: res.sender!,
+                              conversation: this.conversation()?._id!,
+                              content: res.content!,
+                              type: MessageType.TEXT,
+                            };
+                            this.messageService.addMessage(message);
+                          }
+                        })
+                      ) || EMPTY
+                  )
+                );
+            })
+          );
         })
       )
       .subscribe();
@@ -155,34 +174,40 @@ export class ChatboxComponent implements OnInit, OnDestroy {
   sendMessage(): void {
     const sender = this.userService.currentUser();
     const convo = this.conversation();
-    if (!sender || !convo || !this.messageControl.value) return;
 
-    const message = {
-      sender: sender,
-      conversation: convo._id,
-      content: this.messageControl.value,
-      type: MessageType.TEXT,
-    };
+    if (!sender || !this.messageControl.value) return;
 
-    this.messageService
-      .sendMessage(message)
-      .pipe(
-        tap((savedMessage) => {
-          const sender = this.userService.currentUser();
-          this.webSocketService.sendMessage({
-            _id: savedMessage._id!,
-            type: savedMessage.type,
-            to: convo.participants
-              .filter((u) => u._id !== sender?._id)
-              .map((p) => p._id),
-            sender: sender!,
-            message: savedMessage.content,
-            conversation: convo._id,
-          });
-        }),
-        tap(() => this.messageControl.reset())
-      )
-      .subscribe(() => this.isLoading.set(false));
+    if (!convo) {
+      // TODO: create group support
+      // this.conversationService.createConversation([sender._id]);
+    } else {
+      const message = {
+        sender: sender,
+        conversation: convo._id,
+        content: this.messageControl.value,
+        type: MessageType.TEXT,
+      };
+
+      this.messageService
+        .sendMessage(message)
+        .pipe(
+          tap((savedMessage) => {
+            const sender = this.userService.currentUser();
+            this.webSocketService.sendMessage({
+              _id: savedMessage._id!,
+              type: savedMessage.type,
+              to: convo.participants
+                .filter((u) => u._id !== sender?._id)
+                .map((p) => p._id),
+              sender: sender!,
+              message: savedMessage.content,
+              conversation: convo._id,
+            });
+          }),
+          tap(() => this.messageControl.reset())
+        )
+        .subscribe(() => this.isLoading.set(false));
+    }
   }
 
   ngOnDestroy() {
@@ -212,12 +237,9 @@ export class ChatboxComponent implements OnInit, OnDestroy {
       .subscribe(() => this.isLoading.set(false));
   }
 
-  onScroll(event: Event): void {
-    const container = event.target as HTMLElement;
-
-    const scrolledToTop = container.scrollTop < -100; // some buffer
-
-    if (scrolledToTop && this.hasMoreMessages()) {
+  onChatTopVisible(): void {
+    console.log('top part visible');
+    if (this.hasMoreMessages()) {
       this.loadMoreMessages();
     }
   }

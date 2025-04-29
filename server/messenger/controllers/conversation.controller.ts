@@ -117,6 +117,10 @@ export const getConversationById = async (
       'first_name last_name username profile_picture'
     );
 
+    if (!conversation) {
+      return next(createCustomError('conversation not found!', 404));
+    }
+
     res.status(200).json(conversation);
   } catch (e) {
     console.error('Error while fetching conversation by id!', e);

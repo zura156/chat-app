@@ -5,6 +5,7 @@ import { environment } from '../../../../environments/environment';
 import { ConversationI } from '../interfaces/conversation.interface';
 import { MessageI } from '../interfaces/message.interface';
 import { ConversationListI } from '../interfaces/conversation-list.interface';
+import { UserI } from '../../../shared/interfaces/user.interface';
 
 @Injectable()
 export class ConversationService {
@@ -22,8 +23,16 @@ export class ConversationService {
   #activeConversation = signal<ConversationI | null>(null);
   activeConversation = computed<ConversationI | null>(this.#activeConversation);
 
+  #selectedUser = signal<UserI | null>(null);
+  selectedUser = computed(this.#selectedUser);
+
   #conversationList = signal<ConversationListI | null>(null);
   conversationList = computed<ConversationListI | null>(this.#conversationList);
+
+  selectUserForConversation(user: UserI): void {
+    sessionStorage.setItem('selectedUser', JSON.stringify(user));
+    this.#selectedUser.set(user);
+  }
 
   // Get a single conversation with messages
   getConversationById(id: string): Observable<ConversationI> {
@@ -73,6 +82,20 @@ export class ConversationService {
         return throwError(() => error);
       })
     );
+  }
+
+  // create mock conversation for efficiency
+  createMockConversation(): void {
+    const selectedUser = this.selectedUser();
+    if (selectedUser) {
+      const mockConversation: ConversationI = {
+        _id: selectedUser._id,
+        participants: [selectedUser],
+        is_group: false,
+      };
+
+      this.#activeConversation.set(mockConversation);
+    }
   }
 
   // Create a new conversation

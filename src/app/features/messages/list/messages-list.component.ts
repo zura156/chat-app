@@ -37,6 +37,7 @@ import {
 } from '@spartan-ng/ui-tabs-helm';
 import { LayoutService } from '../layout/layout.service';
 import { HlmSkeletonComponent } from '@spartan-ng/ui-skeleton-helm';
+import { ConversationI } from '../interfaces/conversation.interface';
 
 @Component({
   selector: 'app-messages-list',
@@ -86,6 +87,7 @@ export class MessageListComponent {
   // Main data
   readonly conversations = this.conversationService.conversationList;
   readonly users = this.userService.users;
+  readonly currentUser = this.userService.currentUser;
 
   // Cleanup subject
   private readonly destroy$ = new Subject<void>();
@@ -148,9 +150,8 @@ export class MessageListComponent {
       this.navigateToConversation(existingConversation._id);
     } else {
       // Create new conversation or navigate to new conversation view with this user pre-selected
-      this.router.navigate(['/messages/new'], {
-        queryParams: { userId: user._id },
-      });
+      this.conversationService.selectUserForConversation(user);
+      this.router.navigate(['/messages', user._id]);
     }
 
     this.layoutService.switchView();
@@ -169,8 +170,7 @@ export class MessageListComponent {
           if (query) {
             switch (this.activeView()) {
               case 'conversations':
-                return this.conversationService
-                  .searchConversations(query)
+                return this.conversationService.searchConversations(query);
               case 'users':
                 return this.userService.searchUsers(query);
               default:

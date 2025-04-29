@@ -103,7 +103,8 @@ export const getUsers = async (
       User.find({ _id: { $ne: user.userId } })
         .sort({ updatedAt: -1 })
         .skip(offset)
-        .limit(limit),
+        .limit(limit)
+        .select('-password'),
       User.countDocuments({ participants: user.userId }),
     ]);
 

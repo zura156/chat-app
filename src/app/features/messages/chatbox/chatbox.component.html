@@ -10,25 +10,32 @@
         />
       </hlm-avatar>
       <h1 class="font-medium text-2xl">
-        @if(conversation()) { @for(participant of conversation()?.participants;
-        let i = $index; track i){ @if(this.currentUser()?._id !==
-        participant._id) {
-        {{ participant.first_name + " " + participant.last_name }}} @if($index +
-        1 < conversation()?.participants!.length && this.currentUser()?._id !==
-        participant._id) {,} } }
+        @if(conversation()) { 
+          @for(participant of conversation()?.participants; let i = $index; track i) {
+            @if(this.currentUser()?._id !== participant._id) { 
+              {{ participant.first_name + " " + participant.last_name }}
+            } 
+            @if($index + 1 < conversation()?.participants!.length && this.currentUser()?._id !== participant._id) 
+            {
+              ,
+            }
+           }
+          }
       </h1>
     </div>
   </header>
 
   <brn-separator decorative hlmSeparator />
   @if(hasMoreMessages() && isLoading()) {
-  <div class="flex justify-center py-2 border-b border-input">
-    <p class="text-sm text-slate-400">Loading older messages...</p>
-  </div>
+    <div class="flex justify-center py-2 border-b border-input">
+      <p class="text-sm text-slate-400">Loading older messages...</p>
+    </div>
   }
   <section
     class="h-full overflow-y-scroll flex-1 flex flex-col-reverse"
-    (scroll)="onScroll($event)"
+    appIntersectionObserver
+    [options]="{ rootMargin: '0px', threshold: 0.1 }"
+    (visible)="onChatTopVisible()"
   >
     <div
       id="chat-messages"
@@ -90,11 +97,11 @@
           <hlm-spinner />
         } 
         @else {
-        <ng-container>
-          <div class="flex justify-center h-full items-center">
-            <p class="text-slate-400">No messages yet. Start the conversation!</p>
-          </div>
-        </ng-container>
+          <ng-container>
+            <div class="flex justify-center h-full items-center">
+              <p class="text-slate-400">No messages yet. Start the conversation!</p>
+            </div>
+          </ng-container>
         } 
       }
     </div>

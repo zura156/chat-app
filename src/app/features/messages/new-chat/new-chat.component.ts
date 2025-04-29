@@ -108,29 +108,7 @@ export class NewChatComponent implements OnInit, OnDestroy {
     });
   }
 
-  ngOnInit(): void {
-    this.route.queryParams
-      .pipe(
-        takeUntil(this.destroy$),
-        map((params) => params['userId']),
-        switchMap((userId) => {
-          if (!userId) {
-            return this.router.navigateByUrl('/messages/new');
-          }
-          return this.conversationService
-            .createConversation([
-              this.userService.currentUser()?._id ?? '',
-              userId,
-            ])
-            .pipe(
-              tap((conversation) => {
-                this.router.navigateByUrl(`/messages/${conversation._id}`);
-              })
-            );
-        })
-      )
-      .subscribe();
-  }
+  ngOnInit(): void {}
 
   createConversation() {
     const selectedUsersIds = [
