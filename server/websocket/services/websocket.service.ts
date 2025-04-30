@@ -2,11 +2,19 @@ import { WebSocket, WebSocketServer } from 'ws';
 import config from '../../config/config';
 import { logger } from '../../utils/logger';
 import { Message, MessageType } from '../../messenger/models/message.model';
-import { ParticipantI } from '../../../src/app/features/messages/interfaces/participant.interface';
 
 interface WebSocketRegister {
   type: 'register';
   userId: string;
+}
+
+interface ParticipantI {
+  _id: string;
+  first_name: string;
+  last_name: string;
+  username: string;
+  email: string;
+  profile_picture?: string;
 }
 
 interface WebSocketMessage {
