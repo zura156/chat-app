@@ -35,6 +35,6 @@ app.use((err: Error, req: Request, res: Response, next: NextFunction) => {
   errorMiddleware(err, req, res, next);
 });
 
-app.listen(port, () => {
+server.listen(port, () => {
   logger.info(`Server is listening at port ${port}`);
 });
