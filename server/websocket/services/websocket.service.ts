@@ -2,6 +2,7 @@ import { WebSocket, WebSocketServer } from 'ws';
 import config from '../../config/config';
 import { logger } from '../../utils/logger';
 import { Message, MessageType } from '../../messenger/models/message.model';
+import { Server } from 'http';
 
 interface WebSocketRegister {
   type: 'register';
@@ -28,13 +29,13 @@ interface WebSocketMessage {
 
 const clients = new Map<string, WebSocket>();
 
-export const setupWebSocket = () => {
-  const wss = new WebSocketServer({ port: Number(config.wsPort) });
+export const setupWebSocket = (server: Server) => {
+  const wss = new WebSocketServer({ server });
 
-  console.log('WS PORT: ' + config.wsPort);
+  console.log('WS PORT: ' + config.port);
 
   wss.on('connection', (ws) => {
-    logger.info(`WebSocket connection established on port: ${config.wsPort}`);
+    logger.info(`WebSocket connection established on port: ${config.port}`);
 
     ws.on('message', async (rawMessage) => {
       try {

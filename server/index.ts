@@ -8,11 +8,14 @@ import config from './config/config';
 import { setupWebSocket } from './websocket/services/websocket.service';
 import { logger } from './utils/logger';
 import messageRouter from './messenger/message.router';
+import http from 'http';
 
 const app: Application = express();
 const port: number | 3000 = parseInt(config.port.toString());
 
-setupWebSocket();
+const server = http.createServer(app);
+
+setupWebSocket(server);
 connectDB();
 
 app.use(express.json());
