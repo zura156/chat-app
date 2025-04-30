@@ -1,15 +1,21 @@
 import { WebSocket, WebSocketServer } from 'ws';
 import config from '../../config/config';
 import { logger } from '../../utils/logger';
+import { Message, MessageType } from '../../messenger/models/message.model';
+import { ParticipantI } from '../../../src/app/features/messages/interfaces/participant.interface';
+
+interface WebSocketRegister {
+  type: 'register';
+  userId: string;
+}
 
 interface WebSocketMessage {
-  type: string;
-  userId?: string;
-  sender?: string;
-  to?: string[];
-  message?: string;
+  type: 'message' | MessageType;
+  sender: Partial<ParticipantI>;
+  participants: Partial<ParticipantI>[];
+  content: string;
   _id?: string;
-  conversation?: string | null;
+  conversation: string;
 }
 
 const clients = new Map<string, WebSocket>();
@@ -22,9 +28,11 @@ export const setupWebSocket = () => {
   wss.on('connection', (ws) => {
     logger.info(`WebSocket connection established on port: ${config.wsPort}`);
 
-    ws.on('message', (rawMessage) => {
+    ws.on('message', async (rawMessage) => {
       try {
-        const data: WebSocketMessage = JSON.parse(rawMessage.toString());
+        const data: WebSocketRegister | WebSocketMessage = JSON.parse(
+          rawMessage.toString()
+        );
 
         switch (data.type) {
           case 'register':
@@ -41,21 +49,50 @@ export const setupWebSocket = () => {
 
           case 'message':
           case 'text':
-            if (!Array.isArray(data.to)) {
-              console.warn('Expected "to" to be an array of user IDs');
+            if (!Array.isArray(data.participants)) {
+              console.warn(
+                'Expected "participants" to be an array of user IDs'
+              );
               return;
             }
-            for (const recipientId of data.to) {
-              if (!clients.has(recipientId)) {
-                console.warn(`User ${recipientId} is not connected`);
+
+            const { sender, conversation, content } = data;
+
+            const type = 'text';
+
+            let savedMessage;
+
+            try {
+              savedMessage = await Message.create({
+                sender,
+                conversation,
+                content,
+                type,
+              });
+
+              logger.info('💾 Message saved to DB:', savedMessage._id);
+            } catch (err) {
+              console.error('❌ Failed to save message:', err);
+              ws.send(
+                JSON.stringify({ error: 'Failed to save message to database' })
+              );
+              return;
+            }
+
+            for (const recipient of data.participants) {
+              if (!recipient._id) continue;
+
+              if (!clients.has(recipient._id)) {
+                console.warn(`User ${recipient} is not connected`);
                 continue;
               }
-              sendMessageToUser(recipientId, {
-                _id: data._id,
-                sender: data.sender,
-                content: data.message,
-                type: data.type,
-                conversation: data.conversation ?? null,
+
+              sendMessageToUser(recipient._id, {
+                _id: savedMessage._id,
+                sender,
+                content,
+                type,
+                conversation,
               });
             }
             break;
@@ -83,7 +120,7 @@ export const setupWebSocket = () => {
   return wss;
 };
 
-export const sendMessageToUser = (userId: string, payload: any) => {
+const sendMessageToUser = (userId: string, payload: any) => {
   const recipientSocket = clients.get(userId);
   if (recipientSocket && recipientSocket.readyState === WebSocket.OPEN) {
     recipientSocket.send(JSON.stringify(payload));

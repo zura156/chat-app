@@ -7,16 +7,18 @@ import {
 } from '@angular/core';
 import { environment } from '../../../../environments/environment';
 import { HttpClient } from '@angular/common/http';
-import { catchError, map, Observable, tap, throwError } from 'rxjs';
+import { catchError, map, Observable, of, tap, throwError } from 'rxjs';
 import { MessageI, MessageType } from '../interfaces/message.interface';
 import { MessageListI } from '../interfaces/message-list.interface';
 import { ParticipantI } from '../interfaces/participant.interface';
 import { ConversationService } from './conversation.service';
+import { WebSocketService } from './web-socket.service';
 
 @Injectable()
 export class MessageService {
   private http = inject(HttpClient);
   private conversationService = inject(ConversationService);
+  private webSocketService = inject(WebSocketService);
 
   private apiUrl = `${environment.apiUrl}/message`;
 
@@ -37,23 +39,23 @@ export class MessageService {
   #activeMessages = signal<MessageI[]>([]);
   activeMessages = computed(this.#activeMessages);
 
-  sendMessage(message: {
-    sender: Partial<ParticipantI>;
-    conversation: string;
-    content: string;
-    type: MessageType;
-  }): Observable<MessageI> {
-    return this.http.post<MessageI>(this.SEND_MESSAGE_URL, { message }).pipe(
-      tap((newMessage) => {
-        this.#activeMessages.update((messages) => [newMessage, ...messages]);
-      }),
-      catchError((error) => {
-        console.error('Error sending message:', error);
-        return throwError(
-          () => new Error(error.message || 'Failed to send message')
-        );
-      })
-    );
+  sendMessage(
+    message: MessageI & {
+      participants: Partial<ParticipantI>[];
+    }
+  ): Observable<MessageI> {
+    const data = {
+      type: 'message',
+      conversation: message.conversation.toString(),
+      content: message.content,
+      sender: message.sender,
+      participants: message.participants,
+    };
+
+    this.webSocketService.sendMessage(data);
+    this.#activeMessages.update((messages) => [message, ...messages]);
+
+    return of(message);
   }
 
   // Get messages for a conversation

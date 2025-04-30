@@ -1,4 +1,5 @@
-<main class="h-full flex flex-col py-2">
+<main class="relative h-full flex flex-col py-2">
+  <hlm-toaster />
   <brn-separator decorative hlmSeparator />
   <header class="flex w-full items-start py-2 px-4 md:px-0 justify-between">
     <div class="flex items-center gap-x-2">
@@ -94,7 +95,9 @@
         } 
       } @else {
         @if(isLoading()) {
-          <hlm-spinner />
+          <div class="mx-auto">
+            <hlm-spinner />
+          </div>
         } 
         @else {
           <ng-container>
@@ -108,7 +111,6 @@
   </section>
 
   <brn-separator decorative hlmSeparator />
-
   <footer>
     <!-- Message Input -->
     <div class="p-2 flex justify-center items-center gap-x-4">

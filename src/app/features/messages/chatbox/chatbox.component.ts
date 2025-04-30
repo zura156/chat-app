@@ -1,17 +1,22 @@
 import {
   ChangeDetectionStrategy,
   Component,
-  computed,
-  ElementRef,
   inject,
   linkedSignal,
   OnInit,
   Signal,
   signal,
-  ViewChild,
-  WritableSignal,
 } from '@angular/core';
-import { catchError, EMPTY, map, of, Subject, switchMap, tap } from 'rxjs';
+import {
+  catchError,
+  EMPTY,
+  map,
+  of,
+  Subject,
+  switchMap,
+  tap,
+  throwError,
+} from 'rxjs';
 import { OnDestroy } from '@angular/core';
 import { ActivatedRoute, Router } from '@angular/router';
 import { UserService } from '../../user/services/user.service';
@@ -38,6 +43,9 @@ import { HlmSpinnerComponent } from '@spartan-ng/ui-spinner-helm';
 import { IntersectionObserverDirective } from '../../../shared/directives/is-visible.directive';
 import { UserI } from '../../../shared/interfaces/user.interface';
 
+import { toast } from 'ngx-sonner';
+import { HlmToasterComponent } from '@spartan-ng/ui-sonner-helm';
+
 @Component({
   selector: 'app-chatbox',
   imports: [
@@ -52,6 +60,8 @@ import { UserI } from '../../../shared/interfaces/user.interface';
 
     HlmCardDirective,
     HlmCardDescriptionDirective,
+
+    HlmToasterComponent,
 
     ReactiveFormsModule,
     HlmButtonDirective,
@@ -114,20 +124,37 @@ export class ChatboxComponent implements OnInit, OnDestroy {
     this.route.params
       .pipe(
         map((params) => params['id']),
-        tap(() => this.isLoading.set(false)),
+        catchError((err) => {
+          toast.error('Something went wrong!', {
+            description: err.error.message,
+            duration: 5000,
+            position: 'bottom-right',
+          });
+          this.isLoading.set(false);
+          return throwError(() => err);
+        }),
         switchMap((id) => {
           this.conversation = this.conversationService.activeConversation;
           const selectedUser: UserI | null = JSON.parse(
-            sessionStorage.getItem('selectedUser') ?? ''
+            sessionStorage.getItem('selectedUser') ?? 'null'
           );
           if (selectedUser) {
             this.conversationService.selectUserForConversation(selectedUser);
-          }
-          if (id === selectedUser?._id) {
-            this.conversationService.createMockConversation();
-            return of(this.conversation());
+            if (id === selectedUser?._id) {
+              this.conversationService.createMockConversation();
+              return of(this.conversation());
+            }
           }
           return this.conversationService.getConversationById(id).pipe(
+            catchError((err) => {
+              toast.error('Something went wrong!', {
+                description: err.error.message,
+                duration: 5000,
+                position: 'bottom-right',
+              });
+              this.isLoading.set(false);
+              return throwError(() => err);
+            }),
             switchMap((c) => {
               if (!c) {
                 return EMPTY;
@@ -140,6 +167,16 @@ export class ChatboxComponent implements OnInit, OnDestroy {
                     if (messagesList.totalCount <= this.offset()) {
                       this.hasMoreMessages.set(false);
                     }
+                    this.isLoading.set(false);
+                  }),
+                  catchError((err) => {
+                    toast.error('Something went wrong!', {
+                      description: err.error.message,
+                      duration: 5000,
+                      position: 'bottom-right',
+                    });
+                    this.isLoading.set(false);
+                    return throwError(() => err);
                   }),
                   switchMap(
                     () =>
@@ -156,6 +193,15 @@ export class ChatboxComponent implements OnInit, OnDestroy {
                             };
                             this.messageService.addMessage(message);
                           }
+                        }),
+                        catchError((err) => {
+                          toast.error('Something went wrong!', {
+                            description: err.error.message,
+                            duration: 5000,
+                            position: 'bottom-right',
+                          });
+                          this.isLoading.set(false);
+                          return throwError(() => err);
                         })
                       ) || EMPTY
                   )
@@ -175,38 +221,82 @@ export class ChatboxComponent implements OnInit, OnDestroy {
     const sender = this.userService.currentUser();
     const convo = this.conversation();
 
-    if (!sender || !this.messageControl.value) return;
+    if (!convo || !sender || !this.messageControl.value) return;
 
-    if (!convo) {
-      // TODO: create group support
-      // this.conversationService.createConversation([sender._id]);
+    if (!convo.createdAt) {
+      this.isLoading.set(true);
+
+      this.conversationService
+        .createConversation([sender._id, this.selectedUser()!._id])
+        .pipe(
+          catchError((err) => {
+            toast.error('Something went wrong!', {
+              description: err.error.message,
+              duration: 5000,
+              position: 'bottom-right',
+            });
+            this.isLoading.set(false);
+            return throwError(() => err);
+          }),
+          switchMap((conversation) => {
+            this.conversation = this.conversationService.activeConversation;
+            const message = {
+              sender: sender,
+              conversation: conversation._id,
+              content: this.messageControl.value!,
+              participants: conversation.participants.filter(
+                (u) => u._id !== sender?._id
+              ),
+              type: MessageType.TEXT,
+            };
+            return this.messageService.sendMessage(message).pipe(
+              catchError((err) => {
+                toast.error('Something went wrong!', {
+                  description: err.error.message,
+                  duration: 5000,
+                  position: 'bottom-right',
+                });
+                this.isLoading.set(false);
+                return throwError(() => err);
+              }),
+              tap(() => {
+                this.isLoading.set(false);
+                this.messageControl.reset();
+              })
+            );
+          })
+        )
+        .subscribe();
     } else {
+      this.isLoading.set(true);
+
       const message = {
         sender: sender,
         conversation: convo._id,
         content: this.messageControl.value,
+        participants: convo.participants.filter((u) => u._id !== sender?._id),
         type: MessageType.TEXT,
       };
 
       this.messageService
         .sendMessage(message)
         .pipe(
-          tap((savedMessage) => {
-            const sender = this.userService.currentUser();
-            this.webSocketService.sendMessage({
-              _id: savedMessage._id!,
-              type: savedMessage.type,
-              to: convo.participants
-                .filter((u) => u._id !== sender?._id)
-                .map((p) => p._id),
-              sender: sender!,
-              message: savedMessage.content,
-              conversation: convo._id,
+          catchError((err) => {
+            toast.error('Something went wrong!', {
+              description: err.error.message,
+              duration: 5000,
+              position: 'bottom-right',
             });
+            this.isLoading.set(false);
+            return throwError(() => err);
           }),
-          tap(() => this.messageControl.reset())
+          tap(() => {
+            this.conversation = this.conversationService.activeConversation;
+            this.isLoading.set(false);
+            this.messageControl.reset();
+          })
         )
-        .subscribe(() => this.isLoading.set(false));
+        .subscribe();
     }
   }
 

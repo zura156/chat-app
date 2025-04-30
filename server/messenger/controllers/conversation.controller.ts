@@ -149,15 +149,26 @@ export const createConversation = async (
       $expr: { $eq: [{ $size: '$participants' }, participants.length] },
     });
 
-    // If it doesn't exist, create it
-    if (!conversation) {
-      conversation = await Conversation.create({
-        participants,
-        is_group: is_group,
-      });
+    // If it exists, throw error
+    if (conversation) {
+      return next(createCustomError('Conversation already exists', 409));
     }
 
-    res.status(201).json(conversation);
+    conversation = await Conversation.create({
+      participants,
+      is_group,
+    });
+    
+    const populatedConversation = await Conversation.findById(conversation._id)
+      .populate('participants', 'username profile_picture')
+      .populate({
+        path: 'last_message',
+        select: 'content sender createdAt',
+        populate: { path: 'sender', select: 'username profilePicture' },
+      })
+      .lean();
+
+    res.status(201).json(populatedConversation);
   } catch (e: any) {
     console.error('Error creating conversation:', e);
     next(createCustomError(`Failed to create conversation: ${e.message}`, 500));

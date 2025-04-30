@@ -7,17 +7,19 @@
 >
   <!-- AVATAR -->
   <div class="size-lg flex justify-center items-center border rounded-full">
-    @if(conversation()?.is_group) { @if(conversation()?.group_picture){} @else {
-    <ng-icon hlm size="lg" name="lucideUsersRound" />
-    } } @else {
-    <!-- AVATAR -->
-    <hlm-avatar variant="medium">
-      <img
-        [src]="imageUrl ?? '/icons/avatar.svg'"
-        alt="profile picture"
-        hlmAvatarImage
-      />
-    </hlm-avatar>
+    @if(conversation()?.is_group) { 
+      @if(!conversation()?.group_picture) {
+        <ng-icon hlm size="lg" name="lucideUsersRound" />
+      } 
+    } @else {
+      <!-- AVATAR -->
+      <hlm-avatar variant="medium">
+        <img
+          [src]="imageUrl ?? '/icons/avatar.svg'"
+          alt="profile picture"
+          hlmAvatarImage
+        />
+      </hlm-avatar>
     }
   </div>
 
@@ -27,29 +29,35 @@
     <!-- Last message -->
     <p class="text-sm">
       @if(conversation()?.is_group) {
-      <span *ngFor="let user of conversation()?.participants; let i = index">
-        {{
-          i + 1 === conversation()?.participants?.length
-            ? user.username + ""
-            : user.username + ","
-        }}
-      </span>
-      } @else { @for(participant of conversation()!.participants; track $index)
-      { @if( participant._id !== currentUser()?._id) {
-      <span class="text-lg">
-        {{ participant.username }}
-      </span>
-      } } }
+        <span *ngFor="let user of conversation()?.participants; let i = index">
+          {{
+            i + 1 === conversation()?.participants?.length
+              ? user.username + ""
+              : user.username + ","
+          }}
+        </span>
+      } @else { 
+        @for(participant of conversation()!.participants; track $index) { 
+          @if(participant._id !== currentUser()?._id) {
+            <span class="text-lg">
+              {{ participant.username }}
+            </span>
+          } 
+        } 
+      }
     </p>
     <p class="text-sm">
       @if(conversation()?.last_message?.sender?._id === currentUser()?._id) {
-      You: }
+        You: 
+      } 
+      @if(conversation()?.last_message?.content) {
       <span class="text-gray-400">
         <span class="max-w-3/4 overflow-ellipsis w-32">
           {{ conversation()?.last_message?.content }} &middot;
         </span>
         {{ conversation()?.last_message?.createdAt ?? "" | timeAgo }}
       </span>
+      }
     </p>
   </section>
 </main>

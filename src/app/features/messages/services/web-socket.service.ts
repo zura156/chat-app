@@ -43,11 +43,11 @@ export class WebSocketService {
   }
 
   sendMessage(data: {
-    _id: string;
+    _id?: string;
     type: string;
-    to: string[] | string;
     sender: Partial<ParticipantI>;
-    message: string;
+    participants: Partial<ParticipantI>[];
+    content: string;
     conversation: string;
   }) {
     if (this.socket$) {

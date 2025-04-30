@@ -126,19 +126,4 @@ export class ConversationService {
         })
       );
   }
-
-  // Send a message to a conversation
-  sendMessage(
-    conversationId: string,
-    content: string,
-    type: string = 'text'
-  ): Observable<MessageI> {
-    const url = `${this.GET_CONVERSATION_URL}/${conversationId}/messages`;
-    const payload = {
-      content,
-      type,
-    };
-
-    return this.http.post<MessageI>(url, payload);
-  }
 }
