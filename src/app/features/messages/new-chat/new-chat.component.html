@@ -1,80 +1,99 @@
-<main class="p-3 w-full min-h-screen">
-  <header class="pt-2 flex flex-col gap-y-3">
-    <section
-      (clickOutside)="closeUserList()"
-      class="flex justify-between gap-x-2 items-center"
-    >
-      <div>
-        <h1 class="text-lg font-medium">To:</h1>
-      </div>
-
-      <div class="relative w-full flex items-center justify-between">
-        <section class="w-full relative">
-          <input
-            hlmInput
-            variant="search"
-            id="userSearch"
-            type="search"
-            class="w-full pt-5 pb-10"
-            placeholder="Search..."
-            alt="search for people"
-            [formControl]="searchControl"
-            (focus)="toggleUserList()"
-          />
-          <div
-            class="absolute flex gap-x-2 bottom-1 left-0 ml-4 text-sm cursor-pointer"
-          >
-            @for(user of selectedUsers(); track user) {
-            <div
-              class="border relative rounded-full pl-2 pr-5 bg-white dark:bg-black hover:bg-accent"
-            >
-              <span class="text-gray-500">
-                {{ user.username }}
-              </span>
-              <ng-icon
-                hlm
-                size="sm"
-                name="lucideX"
-                class="absolute right-1 top-1/2 -translate-y-1/2 cursor-pointer"
-                (click)="removeFromConversation(user)"
-              >
-              </ng-icon>
-            </div>
-            }
-          </div>
-        </section>
-
-        <section
-          *ngIf="showUserList() && users().length > 0"
-          class="absolute w-full z-20 mt-2 left-0 top-full flex items-center gap-x-2"
-        >
-          <ng-scrollbar
-            hlm
-            class="bg-white dark:bg-black border-border h-72 w-full rounded-md border ovreflow-y-scroll"
-          >
-            <div class="p-3">
-              <h4 class="text-sm font-medium leading-none">Users</h4>
-              <div hlmSeparator class="my-2"></div>
-              <div
-                class="text-sm mb-2"
-                *ngFor="let user of users(); let i = index"
-                (click)="addToConversation(user)"
-              >
-                <app-user-card [user]="user"> </app-user-card>
-              </div>
-            </div>
-          </ng-scrollbar>
-        </section>
-      </div>
-    </section>
-    <button
-      hlmBtn
-      (click)="createConversation()"
-      [disabled]="selectedUsers().length < 1"
-    >
-      Create new
-    </button>
+<main
+  class="p-3 w-full min-h-screen flex flex-col items-center justify-center gap-y-3"
+>
+  <header class="py-2 flex flex-col items-center gap-y-3">
+    <h1 class="text-2xl font-bold">Create new</h1>
   </header>
 
-  <brn-separator decorative hlmSeparator />
+  <!-- <brn-separator decorative hlmSeparator /> -->
+
+  <section class="h-full w-full flex items-center py-6">
+    <form class="w-full h-full">
+      <fieldset class="space-y-4 mx-auto max-w-lg">
+        <fieldset>
+          <label hlmLabel for="groupName" class="mb-2.5">Group name</label>
+          <input
+            id="groupName"
+            hlmInput
+            [formControl]="groupNameControl"
+            type="text"
+            class="w-full"
+          />
+        </fieldset>
+        <fieldset
+          (clickOutside)="closeUserList()"
+          class="flex flex-col justify-center gap-x-2 items-start w-full"
+        >
+          <label hlmLabel for="userSeach" class="mb-2.5"
+            >Add participants</label
+          >
+          <div class="relative w-full flex items-center justify-between">
+            <section class="w-full relative">
+              <input
+                hlmInput
+                variant="search"
+                id="userSearch"
+                type="search"
+                class="w-full pt-5 pb-20"
+                placeholder="Search..."
+                alt="search for people"
+                [formControl]="searchControl"
+                autocomplete="off"
+                (focus)="showUserList()"
+              />
+              <div
+                class="absolute flex gap-y-1 flex-wrap gap-x-2 bottom-2 left-0 right-0 ml-4 text-sm cursor-pointer"
+              >
+                @for(user of selectedUsers(); track user) {
+                <div
+                  class="border relative rounded-full pl-2 pr-5 bg-white dark:bg-black hover:bg-accent"
+                >
+                  <span class="text-black dark:text-white">
+                    {{ user.username }}
+                  </span>
+                  <ng-icon
+                    hlm
+                    size="sm"
+                    name="lucideX"
+                    class="absolute right-1 top-1/2 -translate-y-1/2 cursor-pointer"
+                    (click)="removeFromConversation(user)"
+                  >
+                  </ng-icon>
+                </div>
+                }
+              </div>
+            </section>
+
+            <section
+              *ngIf="userListFlag() && users().length > 0"
+              class="absolute w-full z-20 mt-2 left-0 top-full flex items-center gap-x-2"
+            >
+              <ng-scrollbar
+                hlm
+                class="bg-white dark:bg-black border-border h-72 w-full rounded-md border ovreflow-y-scroll"
+              >
+                <div class="p-3">
+                  <h4 class="text-sm font-medium leading-none">Users</h4>
+                  <div hlmSeparator class="my-2"></div>
+                  <div
+                    class="text-sm mb-2"
+                    *ngFor="let user of users(); let i = index"
+                    (click)="addToConversation(user)"
+                  >
+                    <app-user-card [user]="user"> </app-user-card>
+                  </div>
+                </div>
+              </ng-scrollbar>
+            </section>
+          </div>
+        </fieldset>
+        <fieldset>
+          <label for=""></label>
+          <input type="text" />
+        </fieldset>
+
+        <button hlmBtn type="button">Submit</button>
+      </fieldset>
+    </form>
+  </section>
 </main>

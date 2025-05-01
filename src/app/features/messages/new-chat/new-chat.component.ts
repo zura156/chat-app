@@ -15,12 +15,19 @@ import {
   catchError,
   EMPTY,
   map,
+  Observable,
+  of,
   Subject,
   switchMap,
   takeUntil,
   tap,
 } from 'rxjs';
-import { FormControl, ReactiveFormsModule } from '@angular/forms';
+import {
+  FormBuilder,
+  FormControl,
+  ReactiveFormsModule,
+  Validators,
+} from '@angular/forms';
 import { BrnSeparatorComponent } from '@spartan-ng/brain/separator';
 import { HlmInputDirective } from '@spartan-ng/ui-input-helm';
 import { HlmSeparatorDirective } from '@spartan-ng/ui-separator-helm';
@@ -33,16 +40,21 @@ import { NgIcon, provideIcons } from '@ng-icons/core';
 import { lucideX } from '@ng-icons/lucide';
 import { HlmIconDirective } from '@spartan-ng/ui-icon-helm';
 import { HlmButtonDirective } from '@spartan-ng/ui-button-helm';
+import { CreateConversationI } from '../interfaces/create-conversation.interface';
+import { HlmLabelDirective } from '@spartan-ng/ui-label-helm';
+import { UserListI } from '../../../shared/interfaces/user-list.interface';
 
 @Component({
   selector: 'app-new-chat',
   imports: [
-    NgIf,
-    NgFor,
     ReactiveFormsModule,
 
+    NgIf,
+    NgFor,
+
     HlmSeparatorDirective,
-    BrnSeparatorComponent,
+
+    HlmLabelDirective,
 
     HlmInputDirective,
 
@@ -64,16 +76,21 @@ import { HlmButtonDirective } from '@spartan-ng/ui-button-helm';
 export class NewChatComponent implements OnInit, OnDestroy {
   private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
+  private readonly fb = inject(FormBuilder);
   private readonly userService = inject(UserService);
   private readonly conversationService = inject(ConversationService);
 
-  readonly showUserList = signal<boolean>(false);
+  readonly userListFlag = signal<boolean>(false);
   readonly isLoading = signal<boolean>(false);
   readonly error = signal<string | null>(null);
   readonly searchQuery = signal<string>('');
 
   // Form control for search
   readonly searchControl = new FormControl<string>('');
+  readonly groupNameControl = new FormControl<string>('', [
+    Validators.minLength(3),
+    Validators.maxLength(32),
+  ]);
 
   readonly #users = signal<UserI[]>([]);
   readonly #filteredUsers = computed(() => {
@@ -92,10 +109,6 @@ export class NewChatComponent implements OnInit, OnDestroy {
   readonly users = this.#filteredUsers;
   readonly selectedUsers = signal<UserI[]>([]);
 
-  // Cache settings
-  private readonly CACHE_DURATION = 5 * 60 * 1000; // 5 minutes in milliseconds
-  private lastUsersUpdate = 0;
-
   // Cleanup subject
   private readonly destroy$ = new Subject<void>();
 
@@ -108,7 +121,16 @@ export class NewChatComponent implements OnInit, OnDestroy {
     });
   }
 
-  ngOnInit(): void {}
+  ngOnInit(): void {
+    this.searchControl.valueChanges
+      .pipe(
+        map((q) => q?.toString()),
+        switchMap((query) => this.fetchUsersIfNeeded(query))
+      )
+      .subscribe();
+  }
+
+  onSubmit(): void {}
 
   createConversation() {
     const selectedUsersIds = [
@@ -134,7 +156,9 @@ export class NewChatComponent implements OnInit, OnDestroy {
 
   addToConversation(user: UserI): void {
     this.searchControl.reset();
+    // if (!this.selectedUsers().map(u => u._id).includes(user._id)) {
     if (!this.selectedUsers().includes(user)) {
+      console.log(this.selectedUsers());
       this.selectedUsers.update((val) => [...val, user]);
       this.#users.update((val) => val.filter((u) => u._id !== user._id));
     }
@@ -147,25 +171,27 @@ export class NewChatComponent implements OnInit, OnDestroy {
     }
   }
 
-  toggleUserList(): void {
-    this.showUserList.update((value) => !value);
+  showUserList(): void {
+    this.userListFlag.set(true);
     this.isLoading.set(true);
     this.fetchUsersIfNeeded();
   }
+  // toggleUserList(): void {
+  //   this.showUserList.update((value) => !value);
+  //   this.isLoading.set(true);
+  //   this.fetchUsersIfNeeded();
+  // }
 
   closeUserList(): void {
-    this.showUserList.set(false);
+    this.userListFlag.set(false);
   }
 
-  private fetchUsersIfNeeded(query: string = ''): void {
+  private fetchUsersIfNeeded(query: string = ''): Observable<UserListI> {
     this.searchControl.reset();
-    const currentTime = Date.now();
-    const cacheExpired =
-      currentTime - this.lastUsersUpdate > this.CACHE_DURATION;
 
     // Skip fetch if we have recent data and no query
-    if (!cacheExpired && this.#users().length > 0 && !query) {
-      return;
+    if (this.#users().length > 0 && !query) {
+      return of({ users: this.users(), totalCount: this.users().length });
     }
 
     this.isLoading.set(true);
@@ -175,24 +201,19 @@ export class NewChatComponent implements OnInit, OnDestroy {
       ? this.userService.searchUsers(query)
       : this.userService.fetchUsers();
 
-    request$
-      .pipe(
-        takeUntil(this.destroy$),
-        catchError((err) => {
-          this.error.set('Failed to load users');
-          console.error('Error fetching users:', err);
-          this.isLoading.set(false);
-          return EMPTY;
-        })
-      )
-      .subscribe((result) => {
-        if (!query) {
-          // Only update cache timestamp for non-search requests
-          this.lastUsersUpdate = currentTime;
-        }
-        this.#users.set(result.users || result);
+    return request$.pipe(
+      takeUntil(this.destroy$),
+      catchError((err) => {
+        this.error.set('Failed to load users');
+        console.error('Error fetching users:', err);
         this.isLoading.set(false);
-      });
+        return EMPTY;
+      })
+    );
+    // .subscribe((result) => {
+    //   this.#users.set(result.users || result);
+    //   this.isLoading.set(false);
+    // });
   }
 
   ngOnDestroy(): void {
