@@ -13,7 +13,10 @@ import { UserService } from '../../user/services/user.service';
 import { ConversationService } from '../services/conversation.service';
 import {
   catchError,
+  debounceTime,
+  distinctUntilChanged,
   EMPTY,
+  filter,
   map,
   Observable,
   of,
@@ -124,8 +127,10 @@ export class NewChatComponent implements OnInit, OnDestroy {
   ngOnInit(): void {
     this.searchControl.valueChanges
       .pipe(
+        debounceTime(300),
+        distinctUntilChanged(),
         map((q) => q?.toString()),
-        switchMap((query) => this.fetchUsersIfNeeded(query))
+        tap((q) => this.fetchUsersIfNeeded(q))
       )
       .subscribe();
   }
@@ -156,8 +161,7 @@ export class NewChatComponent implements OnInit, OnDestroy {
 
   addToConversation(user: UserI): void {
     this.searchControl.reset();
-    // if (!this.selectedUsers().map(u => u._id).includes(user._id)) {
-    if (!this.selectedUsers().includes(user)) {
+    if (!this.selectedUsers().some(u => u._id === user._id)) {
       console.log(this.selectedUsers());
       this.selectedUsers.update((val) => [...val, user]);
       this.#users.update((val) => val.filter((u) => u._id !== user._id));
@@ -165,7 +169,7 @@ export class NewChatComponent implements OnInit, OnDestroy {
   }
 
   removeFromConversation(user: UserI): void {
-    if (this.selectedUsers().includes(user)) {
+    if (this.selectedUsers().some(u => u._id === user._id)) {
       this.selectedUsers.update((val) => val.filter((u) => u._id !== user._id));
       this.#users.update((val) => [...val, user]);
     }
@@ -186,12 +190,10 @@ export class NewChatComponent implements OnInit, OnDestroy {
     this.userListFlag.set(false);
   }
 
-  private fetchUsersIfNeeded(query: string = ''): Observable<UserListI> {
-    this.searchControl.reset();
-
+  private fetchUsersIfNeeded(query: string = ''): void {
     // Skip fetch if we have recent data and no query
     if (this.#users().length > 0 && !query) {
-      return of({ users: this.users(), totalCount: this.users().length });
+      return;
     }
 
     this.isLoading.set(true);
@@ -201,19 +203,20 @@ export class NewChatComponent implements OnInit, OnDestroy {
       ? this.userService.searchUsers(query)
       : this.userService.fetchUsers();
 
-    return request$.pipe(
-      takeUntil(this.destroy$),
-      catchError((err) => {
-        this.error.set('Failed to load users');
-        console.error('Error fetching users:', err);
+    request$
+      .pipe(
+        takeUntil(this.destroy$),
+        catchError((err) => {
+          this.error.set('Failed to load users');
+          console.error('Error fetching users:', err);
+          this.isLoading.set(false);
+          return EMPTY;
+        })
+      )
+      .subscribe((result) => {
+        this.#users.set(result.users || result);
         this.isLoading.set(false);
-        return EMPTY;
-      })
-    );
-    // .subscribe((result) => {
-    //   this.#users.set(result.users || result);
-    //   this.isLoading.set(false);
-    // });
+      });
   }
 
   ngOnDestroy(): void {
