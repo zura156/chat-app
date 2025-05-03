@@ -1,4 +1,11 @@
-import { Component, computed, effect, inject, signal } from '@angular/core';
+import {
+  Component,
+  computed,
+  effect,
+  inject,
+  runInInjectionContext,
+  signal,
+} from '@angular/core';
 import { ConversationCardComponent } from '../card/conversation-card.component';
 import { HlmSeparatorDirective } from '@spartan-ng/ui-separator-helm';
 import { BrnSeparatorComponent } from '@spartan-ng/brain/separator';
@@ -19,9 +26,15 @@ import { HlmBadgeDirective } from '@spartan-ng/ui-badge-helm';
 import { UserService } from '../../user/services/user.service';
 import { UserCardComponent } from '../../user/components/card/user-card.component';
 import {
+  catchError,
+  combineLatest,
   debounceTime,
   distinctUntilChanged,
   EMPTY,
+  Observable,
+  of,
+  pipe,
+  startWith,
   Subject,
   switchMap,
   takeUntil,
@@ -37,7 +50,9 @@ import {
 } from '@spartan-ng/ui-tabs-helm';
 import { LayoutService } from '../layout/layout.service';
 import { HlmSkeletonComponent } from '@spartan-ng/ui-skeleton-helm';
-import { ConversationI } from '../interfaces/conversation.interface';
+import { ConversationListI } from '../interfaces/conversation-list.interface';
+import { UserListI } from '../../../shared/interfaces/user-list.interface';
+import { toObservable } from '@angular/core/rxjs-interop';
 
 @Component({
   selector: 'app-messages-list',
@@ -89,23 +104,27 @@ export class MessageListComponent {
   readonly users = this.userService.users;
   readonly currentUser = this.userService.currentUser;
 
+  activeView$: Observable<'conversations' | 'users' | 'chatbox'> = toObservable(
+    this.activeView
+  );
+
   // Cleanup subject
   private readonly destroy$ = new Subject<void>();
 
-  constructor() {
-    effect(() => {
-      switch (this.activeView()) {
-        case 'conversations':
-          this.fetchConversations();
-          break;
-        case 'users':
-          this.fetchUsers();
-          break;
-        default:
-          break;
-      }
-    });
-  }
+  // constructor() {
+  //   effect(() => {
+  //     switch (this.activeView()) {
+  //       case 'conversations':
+  //         this.fetchConversations();
+  //         break;
+  //       case 'users':
+  //         this.fetchUsers();
+  //         break;
+  //       default:
+  //         break;
+  //     }
+  //   });
+  // }
 
   ngOnInit(): void {
     this.searchForData();
@@ -158,43 +177,84 @@ export class MessageListComponent {
   }
 
   private searchForData(): void {
-    this.searchControl.valueChanges
+    combineLatest([
+      this.searchControl.valueChanges.pipe(
+        startWith(''),
+        debounceTime(300),
+        distinctUntilChanged()
+      ),
+      this.activeView$,
+    ])
       .pipe(
         takeUntil(this.destroy$),
-        debounceTime(300),
-        distinctUntilChanged(),
-        tap((query) => {
+        tap(([query]) => {
           this.searchQuery.set(query || '');
         }),
-        switchMap((query) => {
-          if (query) {
-            switch (this.activeView()) {
-              case 'conversations':
-                return this.conversationService.searchConversations(query);
-              case 'users':
-                return this.userService.searchUsers(query);
-              default:
-                return EMPTY;
-            }
-          } else {
-            return EMPTY;
+        switchMap(([query, view]) => {
+          switch (view) {
+            case 'conversations':
+              return this.fetchConversations(query || '');
+            case 'users':
+              return this.fetchUsers(query || '');
+            default:
+              return EMPTY;
           }
         })
       )
       .subscribe();
   }
 
-  private fetchConversations(): void {
+  private fetchConversations(
+    query: string = ''
+  ): Observable<ConversationListI> {
+    if (
+      this.conversations() &&
+      this.conversations()?.conversations.length! > 0 &&
+      !query
+    ) {
+      return of(this.conversations() as ConversationListI);
+    }
+
     this.isLoading.set(true);
 
-    this.conversationService
-      .getConversations()
-      .subscribe(() => this.isLoading.set(false));
+    const request$ = query
+      ? this.conversationService.searchConversations(query)
+      : this.conversationService.getConversations();
+
+    return request$.pipe(
+      takeUntil(this.destroy$),
+      catchError((err) => {
+        this.error.set('Failed to load conversations.');
+        console.error('Error fetching users:', err);
+        this.isLoading.set(false);
+        return EMPTY;
+      }),
+      tap(() => this.isLoading.set(false))
+    );
   }
 
-  private fetchUsers(): void {
+  private fetchUsers(query: string = ''): Observable<UserListI> {
+    // Skip fetch if we have recent data and no query
+    if (this.users() && this.users()?.users.length! > 0 && !query) {
+      return of(this.users() as UserListI);
+    }
+
     this.isLoading.set(true);
 
-    this.userService.fetchUsers().subscribe(() => this.isLoading.set(false));
+    // Choose whether to search or get all users
+    const request$ = query
+      ? this.userService.searchUsers(query)
+      : this.userService.fetchUsers();
+
+    return request$.pipe(
+      takeUntil(this.destroy$),
+      catchError((err) => {
+        this.error.set('Failed to load users');
+        console.error('Error fetching users:', err);
+        this.isLoading.set(false);
+        return EMPTY;
+      }),
+      tap(() => this.isLoading.set(false))
+    );
   }
 }
