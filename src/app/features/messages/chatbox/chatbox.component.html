@@ -43,14 +43,14 @@
       class="flex flex-col-reverse p-4 space-y-4 space-y-reverse"
     >
       @if(messages().length > 0) { 
-        @for(message of messages(); let i = $index; track message) {
+        @for(message of messages(); track message._id) {
         <ng-container>
           <div class="flex-1 mt-2">
             <div
               hlmCardDescription
               class="text-xs text-center mt-1 opacity-70 mb-4"
             >
-              {{ getMessageTime(i) }}
+              {{ getMessageTime($index) }}
             </div>
             <div
               class="flex items-center mb-0"
@@ -85,7 +85,7 @@
                 </div>
               </div>
             </div>
-            @if(isCurrentUserMessage(message) && i === 0){
+            @if(isCurrentUserMessage(message) && $index === 0){
               <div hlmCardDescription class="text-xs text-end mt-1 opacity-70">
                 <span>{{ message.status | titlecase }}</span>
               </div>

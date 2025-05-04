@@ -1,7 +1,7 @@
 import { WebSocket, WebSocketServer } from 'ws';
-import config from '../../config/config';
-import { logger } from '../../utils/logger';
-import { Message, MessageType } from '../../messenger/models/message.model';
+import config from '../config/config';
+import { logger } from '../utils/logger';
+import { Message, MessageType } from '../messenger/models/message.model';
 import { Server } from 'http';
 
 interface WebSocketRegister {
@@ -103,6 +103,9 @@ export const setupWebSocket = (server: Server) => {
                 type,
                 conversation,
               });
+            }
+            if (sender._id) {
+              sendMessageToUser(sender._id, savedMessage);
             }
             break;
 

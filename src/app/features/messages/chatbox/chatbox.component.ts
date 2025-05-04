@@ -142,7 +142,10 @@ export class ChatboxComponent implements OnInit, OnDestroy {
             this.conversationService.selectUserForConversation(selectedUser);
             if (id === selectedUser?._id) {
               this.conversationService.createMockConversation();
-              return of(this.conversation());
+              this.messageService.clearActiveMessages();
+              return of(this.conversation()).pipe(
+                tap(() => this.isLoading.set(false))
+              );
             }
           }
           return this.conversationService.getConversationById(id).pipe(
@@ -163,6 +166,12 @@ export class ChatboxComponent implements OnInit, OnDestroy {
                 .getMessagesByConversationId(c._id, 0, this.limit)
                 .pipe(
                   tap((messagesList) => {
+                    const duplicateIds = messagesList.messages.filter(
+                      (id, index) => messagesList.messages.indexOf(id) !== index
+                    );
+                    if (duplicateIds.length > 0) {
+                      console.warn('Duplicate _id values found:', duplicateIds);
+                    }
                     this.offset.set(messagesList.messages.length);
                     if (messagesList.totalCount <= this.offset()) {
                       this.hasMoreMessages.set(false);
@@ -214,7 +223,10 @@ export class ChatboxComponent implements OnInit, OnDestroy {
   }
 
   isCurrentUserMessage(message: MessageI): boolean {
-    return message.sender._id === this.userService.currentUser()?._id;
+    return (
+      (message.sender._id || message.sender) ===
+      this.userService.currentUser()?._id
+    );
   }
 
   sendMessage(): void {

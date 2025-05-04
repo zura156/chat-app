@@ -116,6 +116,8 @@ export class ConversationService {
       })
       .pipe(
         tap((newConversation) => {
+          this.#activeConversation.set(newConversation);
+
           const conversationList = this.conversationList();
           if (conversationList && conversationList.conversations.length > 0) {
             this.#conversationList.update((val) => {

@@ -5,7 +5,7 @@ import userRouter from './user/routers/user.router';
 import { errorMiddleware } from './error-handling/middlewares/error.middleware';
 import { connectDB } from './config/db';
 import config from './config/config';
-import { setupWebSocket } from './websocket/services/websocket.service';
+import { setupWebSocket } from './websocket/websocket.service';
 import { logger } from './utils/logger';
 import messageRouter from './messenger/message.router';
 import http from 'http';
