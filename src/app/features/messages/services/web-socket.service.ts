@@ -2,6 +2,7 @@ import { Injectable } from '@angular/core';
 import { webSocket, WebSocketSubject } from 'rxjs/webSocket';
 import { environment } from '../../../../environments/environment';
 import { ParticipantI } from '../interfaces/participant.interface';
+import { MessageStatus } from '../interfaces/message.interface';
 
 @Injectable({
   providedIn: 'root',
@@ -9,6 +10,10 @@ import { ParticipantI } from '../interfaces/participant.interface';
 export class WebSocketService {
   private socket$?: WebSocketSubject<{
     _id?: string;
+    createdAt?: string;
+    updatedAt?: string;
+    readBy?: string;
+    status?: MessageStatus;
     type: string;
     to?: string[] | string;
     sender?: Partial<ParticipantI>;
@@ -16,6 +21,7 @@ export class WebSocketService {
     conversation?: string;
     userId?: string;
     content?: string;
+    is_typing?: boolean;
   }>;
 
   // In WebSocketService
@@ -47,7 +53,8 @@ export class WebSocketService {
     type: string;
     sender: Partial<ParticipantI>;
     participants: Partial<ParticipantI>[];
-    content: string;
+    is_typing?: boolean;
+    content?: string;
     conversation: string;
   }) {
     if (this.socket$) {

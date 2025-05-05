@@ -1,8 +1,9 @@
 import { WebSocket, WebSocketServer } from 'ws';
 import config from '../config/config';
 import { logger } from '../utils/logger';
-import { Message, MessageType } from '../messenger/models/message.model';
+import { Message } from '../messenger/models/message.model';
 import { Server } from 'http';
+import { MessageTypeEnum } from '../messenger/interfaces/message.interface';
 
 interface WebSocketRegister {
   type: 'register';
@@ -19,7 +20,8 @@ interface ParticipantI {
 }
 
 interface WebSocketMessage {
-  type: 'message' | MessageType;
+  type: 'message' | 'typing' | MessageTypeEnum;
+  is_typing?: boolean;
   sender: Partial<ParticipantI>;
   participants: Partial<ParticipantI>[];
   content: string;
@@ -54,6 +56,21 @@ export const setupWebSocket = (server: Server) => {
               return;
             }
             clients.set(data.userId, ws);
+            break;
+
+          case 'typing':
+            if (!data.participants || !data.sender) return;
+
+            for (const participant of data.participants) {
+              if (participant._id && participant._id !== data.sender._id) {
+                sendMessageToUser(participant._id, {
+                  type: 'typing',
+                  is_typing: data.is_typing,
+                  sender: data.sender,
+                  conversation: data.conversation,
+                });
+              }
+            }
             break;
 
           case 'message':

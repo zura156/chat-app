@@ -9,11 +9,13 @@ import {
 } from '@angular/core';
 import {
   catchError,
+  distinctUntilChanged,
   EMPTY,
   map,
   of,
   Subject,
   switchMap,
+  takeUntil,
   tap,
   throwError,
 } from 'rxjs';
@@ -30,7 +32,11 @@ import {
 import { BrnSeparatorComponent } from '@spartan-ng/brain/separator';
 import { HlmSeparatorDirective } from '@spartan-ng/ui-separator-helm';
 import { NgClass, TitleCasePipe } from '@angular/common';
-import { MessageI, MessageType } from '../interfaces/message.interface';
+import {
+  convertToMessageType,
+  MessageI,
+  MessageType,
+} from '../interfaces/message.interface';
 import {
   HlmCardDescriptionDirective,
   HlmCardDirective,
@@ -45,6 +51,7 @@ import { UserI } from '../../../shared/interfaces/user.interface';
 
 import { toast } from 'ngx-sonner';
 import { HlmToasterComponent } from '@spartan-ng/ui-sonner-helm';
+import { ParticipantI } from '../interfaces/participant.interface';
 
 @Component({
   selector: 'app-chatbox',
@@ -71,6 +78,7 @@ import { HlmToasterComponent } from '@spartan-ng/ui-sonner-helm';
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './chatbox.component.html',
+  styleUrl: './chatbox.component.css'
 })
 export class ChatboxComponent implements OnInit, OnDestroy {
   private router = inject(Router);
@@ -104,7 +112,7 @@ export class ChatboxComponent implements OnInit, OnDestroy {
 
   messages = this.messageService.activeMessages;
 
-  messageControl = new FormControl<string>('', Validators.required);
+  messageControl = new FormControl<string>('');
 
   currentUser = this.userService.currentUser;
   selectedUser = this.conversationService.selectedUser;
@@ -113,11 +121,17 @@ export class ChatboxComponent implements OnInit, OnDestroy {
   limit = 20;
   hasMoreMessages = signal<boolean>(false);
   isLoading = signal<boolean>(false);
+  isTyping = signal<{
+    typer: Partial<ParticipantI>;
+    is_typing: boolean;
+  } | null>(null);
 
   ngOnInit(): void {
     if (window.visualViewport && window.visualViewport?.height > 1000) {
       this.limit = 40;
     }
+
+    this.trackTypingStatus();
 
     this.isLoading.set(true);
 
@@ -191,8 +205,38 @@ export class ChatboxComponent implements OnInit, OnDestroy {
                     () =>
                       this.webSocketService.onMessage()?.pipe(
                         tap((res) => {
+                          if (res.type === 'typing') {
+                            this.isTyping.set({
+                              typer: res.sender ?? {},
+                              is_typing: !!res.is_typing,
+                            });
+                            return;
+                          }
+
+                          const convo = this.conversation();
+                          const user = this.currentUser();
+
+                          if (!user || !convo) return;
+
                           // Process incoming message only if it belongs to the current conversation
-                          if (res.conversation === this.conversation()?._id) {
+                          if (res.conversation === (convo && convo._id)) {
+                            if (res.sender === user._id) {
+                              const savedMessage: MessageI = {
+                                _id: res._id,
+                                sender: res.sender,
+                                conversation: res.conversation,
+                                content: res.content ?? '',
+                                type: convertToMessageType(res.type),
+                                createdAt: res.createdAt || '',
+                                updatedAt: res.updatedAt || '',
+                              };
+
+                              this.messageService.fillInMessageDetails(
+                                savedMessage
+                              );
+                              return;
+                            }
+
                             const message: MessageI = {
                               _id: res._id,
                               sender: res.sender!,
@@ -375,5 +419,29 @@ export class ChatboxComponent implements OnInit, OnDestroy {
       hour: '2-digit',
       minute: '2-digit',
     });
+  }
+
+  private trackTypingStatus(): void {
+    this.messageControl.valueChanges
+      .pipe(
+        distinctUntilChanged((prev, curr) => Boolean(prev) === Boolean(curr)),
+        takeUntil(this.destroy$),
+        tap((query) => {
+          const sender = this.currentUser();
+          const convo = this.conversation();
+
+          if (!sender || !convo) return;
+
+          const data = {
+            type: 'typing',
+            sender,
+            participants: convo.participants,
+            is_typing: Boolean(query),
+            conversation: convo._id,
+          };
+          this.webSocketService.sendMessage(data);
+        })
+      )
+      .subscribe();
   }
 }

@@ -1,11 +1,11 @@
-export enum MessageType {
+export enum MessageTypeEnum {
   TEXT = 'text',
   IMAGE = 'image',
   VIDEO = 'video',
   FILE = 'file',
 }
 
-export enum MessageStatus {
+export enum MessageStatusEnum {
   SENT = 'sent',
   DELIVERED = 'delivered',
   READ = 'read',
@@ -15,8 +15,8 @@ export interface MessageI {
   sender: string;
   conversation: string;
   content: string;
-  type: MessageType;
-  status: MessageStatus;
+  type: MessageTypeEnum;
+  status: MessageStatusEnum;
   readBy?: string[];
   createdAt?: Date;
   updatedAt?: Date;

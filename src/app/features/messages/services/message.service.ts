@@ -108,4 +108,11 @@ export class MessageService {
   clearActiveMessages(): void {
     this.#activeMessages.set([]);
   }
+
+  fillInMessageDetails(message: MessageI): void {
+    this.#activeMessages.update((val) => {
+      val.shift();
+      return [message, ...val];
+    });
+  }
 }
