@@ -160,11 +160,11 @@ export const createConversation = async (
     });
     
     const populatedConversation = await Conversation.findById(conversation._id)
-      .populate('participants', 'username profile_picture')
+      .populate('participants', 'first_name last_name username profile_picture')
       .populate({
         path: 'last_message',
         select: 'content sender createdAt',
-        populate: { path: 'sender', select: 'username profilePicture' },
+        populate: { path: 'sender', select: 'first_name last_name username profilePicture' },
       })
       .lean();
 

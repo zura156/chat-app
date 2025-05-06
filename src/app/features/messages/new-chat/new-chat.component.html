@@ -1,6 +1,8 @@
 <main
-  class="p-3 w-full min-h-screen flex flex-col items-center justify-center gap-y-3"
+  class="relative p-3 w-full min-h-screen flex flex-col items-center justify-center gap-y-3"
 >
+  <hlm-toaster />
+
   <header class="py-2 flex flex-col items-center gap-y-3">
     <h1 class="text-2xl font-bold">Create new</h1>
   </header>
@@ -17,14 +19,29 @@
             hlmInput
             [formControl]="groupNameControl"
             type="text"
+            placeholder="(Optional)"
             class="w-full"
           />
+          <div class="mt-1">
+            <hlm-error
+              *ngIf="groupNameControl.hasError('minlength')"
+              class="flex items-center gap-x-1"
+              ><ng-icon hlm size="sm" name="lucideCircleAlert"></ng-icon> Group
+              name must be at least 3 characters long</hlm-error
+            >
+            <hlm-error
+              *ngIf="groupNameControl.hasError('maxlength')"
+              class="flex items-center gap-x-1"
+              ><ng-icon hlm size="sm" name="lucideCircleAlert"></ng-icon> Group
+              name must be at most 32 characters long
+            </hlm-error>
+          </div>
         </fieldset>
         <fieldset
           (clickOutside)="closeUserList()"
           class="flex flex-col justify-center gap-x-2 items-start w-full"
         >
-          <label hlmLabel for="userSeach" class="mb-2.5"
+          <label hlmLabel for="userSearch" class="mb-2.5"
             >Add participants</label
           >
           <div class="relative w-full flex items-center justify-between">
@@ -87,12 +104,15 @@
             </section>
           </div>
         </fieldset>
-        <fieldset>
-          <label for=""></label>
-          <input type="text" />
-        </fieldset>
 
-        <button hlmBtn type="button">Submit</button>
+        <button
+          hlmBtn
+          class="cursor-pointer"
+          type="button"
+          (click)="onSubmit()"
+        >
+          Submit
+        </button>
       </fieldset>
     </form>
   </section>

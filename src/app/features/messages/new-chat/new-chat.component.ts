@@ -8,7 +8,7 @@ import {
   OnInit,
   signal,
 } from '@angular/core';
-import { ActivatedRoute, Router } from '@angular/router';
+import { Router } from '@angular/router';
 import { UserService } from '../../user/services/user.service';
 import { ConversationService } from '../services/conversation.service';
 import {
@@ -16,22 +16,13 @@ import {
   debounceTime,
   distinctUntilChanged,
   EMPTY,
-  filter,
   map,
-  Observable,
-  of,
   Subject,
-  switchMap,
   takeUntil,
   tap,
+  throwError,
 } from 'rxjs';
-import {
-  FormBuilder,
-  FormControl,
-  ReactiveFormsModule,
-  Validators,
-} from '@angular/forms';
-import { BrnSeparatorComponent } from '@spartan-ng/brain/separator';
+import { FormControl, ReactiveFormsModule, Validators } from '@angular/forms';
 import { HlmInputDirective } from '@spartan-ng/ui-input-helm';
 import { HlmSeparatorDirective } from '@spartan-ng/ui-separator-helm';
 import { UserI } from '../../../shared/interfaces/user.interface';
@@ -40,12 +31,13 @@ import { NgScrollbarModule } from 'ngx-scrollbar';
 import { UserCardComponent } from '../../user/components/card/user-card.component';
 import { ClickOutsideDirective } from '../../../shared/directives/click-outside.directive';
 import { NgIcon, provideIcons } from '@ng-icons/core';
-import { lucideX } from '@ng-icons/lucide';
+import { lucideCircleAlert, lucideX } from '@ng-icons/lucide';
 import { HlmIconDirective } from '@spartan-ng/ui-icon-helm';
 import { HlmButtonDirective } from '@spartan-ng/ui-button-helm';
-import { CreateConversationI } from '../interfaces/create-conversation.interface';
 import { HlmLabelDirective } from '@spartan-ng/ui-label-helm';
-import { UserListI } from '../../../shared/interfaces/user-list.interface';
+import { toast } from 'ngx-sonner';
+import { HlmToasterComponent } from '@spartan-ng/ui-sonner-helm';
+import { HlmErrorDirective } from '@spartan-ng/ui-formfield-helm';
 
 @Component({
   selector: 'app-new-chat',
@@ -60,6 +52,7 @@ import { UserListI } from '../../../shared/interfaces/user-list.interface';
     HlmLabelDirective,
 
     HlmInputDirective,
+    HlmErrorDirective,
 
     NgScrollbarModule,
 
@@ -70,16 +63,16 @@ import { UserListI } from '../../../shared/interfaces/user-list.interface';
     HlmIconDirective,
     NgIcon,
 
+    HlmToasterComponent,
+
     HlmButtonDirective,
   ],
-  providers: [provideIcons({ lucideX })],
+  providers: [provideIcons({ lucideX, lucideCircleAlert })],
   templateUrl: './new-chat.component.html',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class NewChatComponent implements OnInit, OnDestroy {
-  private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
-  private readonly fb = inject(FormBuilder);
   private readonly userService = inject(UserService);
   private readonly conversationService = inject(ConversationService);
 
@@ -135,9 +128,28 @@ export class NewChatComponent implements OnInit, OnDestroy {
       .subscribe();
   }
 
-  onSubmit(): void {}
+  onSubmit(): void {
+    const selectedUsers = this.selectedUsers();
+
+    toast.success('Something went wrong!', {
+      description: 'test',
+      duration: 5000,
+      position: 'bottom-right',
+    });
+    if (!selectedUsers.length) return;
+
+    if (selectedUsers.length < 2) {
+      this.conversationService.selectUserForConversation(selectedUsers[0]);
+      this.router.navigate(['/messages/', selectedUsers[0]._id]);
+    } else {
+      this.createConversation();
+      return;
+    }
+  }
 
   createConversation() {
+    this.isLoading.set(true);
+
     const selectedUsersIds = [
       this.userService.currentUser()!._id,
       ...this.selectedUsers().map((u) => u._id),
@@ -150,10 +162,24 @@ export class NewChatComponent implements OnInit, OnDestroy {
     }
 
     this.conversationService
-      .createConversation(selectedUsersIds, isGroup)
+      .createConversation(
+        selectedUsersIds,
+        isGroup,
+        this.groupNameControl.value ?? ''
+      )
       .pipe(
         tap((conversation) => {
           this.router.navigateByUrl(`/messages/${conversation._id}`);
+          this.isLoading.set(false);
+        }),
+        catchError((err) => {
+          toast.error('Something went wrong!', {
+            description: err.error.message,
+            duration: 5000,
+            position: 'bottom-right',
+          });
+          this.isLoading.set(false);
+          return throwError(() => err);
         })
       )
       .subscribe();
@@ -161,15 +187,14 @@ export class NewChatComponent implements OnInit, OnDestroy {
 
   addToConversation(user: UserI): void {
     this.searchControl.reset();
-    if (!this.selectedUsers().some(u => u._id === user._id)) {
-      console.log(this.selectedUsers());
+    if (!this.selectedUsers().some((u) => u._id === user._id)) {
       this.selectedUsers.update((val) => [...val, user]);
       this.#users.update((val) => val.filter((u) => u._id !== user._id));
     }
   }
 
   removeFromConversation(user: UserI): void {
-    if (this.selectedUsers().some(u => u._id === user._id)) {
+    if (this.selectedUsers().some((u) => u._id === user._id)) {
       this.selectedUsers.update((val) => val.filter((u) => u._id !== user._id));
       this.#users.update((val) => [...val, user]);
     }
