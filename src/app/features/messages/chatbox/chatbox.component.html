@@ -16,11 +16,7 @@
         @if(conversation) { 
           @for(participant of conversation?.participants; let i = $index; track i) {
             @if(this.currentUser()?._id !== participant._id) { 
-              {{ participant.first_name + " " + participant.last_name }}
-            } 
-            @if($index + 1 < conversation?.participants!.length && this.currentUser()?._id !== participant._id) 
-            {
-              ,
+              {{ participant.first_name + " " + participant.last_name + ($index + 1 < conversation?.participants!.length && this.currentUser()?._id !== participant._id ? ',' : '') }}
             }
            }
           }
