@@ -53,6 +53,7 @@ import { HlmSkeletonComponent } from '@spartan-ng/ui-skeleton-helm';
 import { ConversationListI } from '../interfaces/conversation-list.interface';
 import { UserListI } from '../../../shared/interfaces/user-list.interface';
 import { toObservable } from '@angular/core/rxjs-interop';
+import { AuthService } from '../../auth/services/auth.service';
 
 @Component({
   selector: 'app-messages-list',
@@ -87,6 +88,7 @@ export class MessageListComponent {
   // Injected services
   private conversationService = inject(ConversationService);
   private userService = inject(UserService);
+  authService = inject(AuthService)
   private router = inject(Router);
   private layoutService = inject(LayoutService);
 

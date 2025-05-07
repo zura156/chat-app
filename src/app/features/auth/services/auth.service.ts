@@ -1,4 +1,4 @@
-import { inject, Injectable } from '@angular/core';
+import { inject, Injectable, Injector } from '@angular/core';
 import { environment } from '../../../../environments/environment';
 import { BehaviorSubject, catchError, Observable, tap, throwError } from 'rxjs';
 import {
@@ -11,17 +11,33 @@ import { RegisterResponseI } from '../interfaces/register-response.interface';
 import { RefreshTokenResponseI } from '../interfaces/refresh-token-response.interface';
 import { RegisterCredentialsI } from '../interfaces/register-credentials.interface';
 import { LoginCredentialsI } from '../interfaces/login-credentials.interface';
-import { TokenDataI } from '../interfaces/token-data.interface';
+import { NavigationStart, Router } from '@angular/router';
+import { WebSocketService } from '../../messages/services/web-socket.service';
+import { UserService } from '../../user/services/user.service';
+import { ParticipantI } from '../../messages/interfaces/participant.interface';
 
 @Injectable({
   providedIn: 'root',
 })
 export class AuthService {
+  private injector = inject(Injector);
+
+  private _userService: UserService | null = null;
+
+  private get userService(): UserService {
+    if (!this._userService) {
+      this._userService = this.injector.get(UserService);
+    }
+    return this._userService;
+  }
+
   /*
    * Dependency injections.
    */
 
   http = inject(HttpClient);
+  router = inject(Router);
+  webSocketService = inject(WebSocketService);
 
   /*
    * API Urls.
@@ -55,6 +71,12 @@ export class AuthService {
    * Setting state for authorization and .
    */
   constructor() {
+    this.router.events.subscribe((event) => {
+      if (event instanceof NavigationStart) {
+        this.setLastActiveTime();
+      }
+    });
+
     if (!this.accessToken) this.logOut();
 
     this.signedIn$.next(!!this.accessToken);
@@ -86,7 +108,9 @@ export class AuthService {
   private setupUnloadListener(): void {
     window.addEventListener('beforeunload', this.handleBeforeUnload.bind(this));
   }
-  private handleBeforeUnload(): void {
+
+  // private handleBeforeUnload(): void {
+  handleBeforeUnload(): void {
     const { accessToken, refreshToken } = this;
     if (
       !accessToken ||
@@ -95,6 +119,27 @@ export class AuthService {
       this.accessToken$.value !== accessToken
     ) {
       this.handleStorage();
+    }
+
+    const currentUser = this.userService.currentUser();
+
+    if (currentUser) {
+      const { _id, first_name, last_name, username, email, profile_picture } =
+        currentUser;
+
+      const data = {
+        type: 'user-status',
+        sender: {
+          _id,
+          first_name,
+          last_name,
+          username,
+          email,
+          profile_picture,
+        },
+        content: Date.now().toString(),
+      };
+      this.webSocketService.updateUserStatus(data);
     }
   }
 

@@ -48,6 +48,18 @@ export class WebSocketService {
     }
   }
 
+  updateUserStatus(data: {
+    type: string;
+    sender: Partial<ParticipantI>;
+    content: string;
+  }) {
+    if (this.socket$) {
+      debugger;
+      this.socket$?.next(data);
+    }
+    console.log('test');
+  }
+
   sendMessage(data: {
     _id?: string;
     type: string;
