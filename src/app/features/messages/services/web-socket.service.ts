@@ -54,7 +54,6 @@ export class WebSocketService {
     content: string;
   }) {
     if (this.socket$) {
-      debugger;
       this.socket$?.next(data);
     }
     console.log('test');

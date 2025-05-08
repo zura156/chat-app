@@ -48,7 +48,6 @@ import { WebSocketService } from '../services/web-socket.service';
 import { HlmSpinnerComponent } from '@spartan-ng/ui-spinner-helm';
 import { IntersectionObserverDirective } from '../../../shared/directives/is-visible.directive';
 import { UserI } from '../../../shared/interfaces/user.interface';
-
 import { toast } from 'ngx-sonner';
 import { HlmToasterComponent } from '@spartan-ng/ui-sonner-helm';
 import { ParticipantI } from '../interfaces/participant.interface';
@@ -78,7 +77,7 @@ import { ParticipantI } from '../interfaces/participant.interface';
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './chatbox.component.html',
-  styleUrl: './chatbox.component.css'
+  styleUrl: './chatbox.component.css',
 })
 export class ChatboxComponent implements OnInit, OnDestroy {
   private router = inject(Router);

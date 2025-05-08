@@ -5,4 +5,5 @@ export interface ParticipantI {
   username: string;
   email: string;
   profile_picture?: string;
+  last_seen?: Date;
 }

@@ -2,7 +2,6 @@ import { AuthRequest } from '../../auth/middlewares/auth.middleware';
 import { NextFunction, Response } from 'express';
 import { User } from '../../user/models/user.model';
 import { createCustomError } from '../../error-handling/models/custom-api-error.model';
-import { create } from 'domain';
 
 export const getCurrentUser = async (
   req: AuthRequest,
