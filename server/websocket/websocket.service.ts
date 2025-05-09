@@ -3,6 +3,8 @@ import { Server } from 'http';
 import config from '../config/config';
 import { logger } from '../utils/logger';
 import { Message } from '../messenger/models/message.model';
+import { webSocket } from 'rxjs/webSocket';
+import { User } from '../user/models/user.model';
 
 type MessageContentType = 'text' | 'image' | 'video' | 'file';
 type WebSocketMessageType =
@@ -85,6 +87,10 @@ class WebSocketClientManager {
     return null;
   }
 
+  getConnections(): Map<string, WebSocket> {
+    return new Map(this.clients);
+  }
+
   sendToUser(userId: string, payload: any): boolean {
     const recipientSocket = this.clients.get(userId);
     if (recipientSocket && recipientSocket.readyState === WebSocket.OPEN) {
@@ -109,7 +115,7 @@ class WebSocketClientManager {
 class MessageHandler {
   constructor(protected clientManager: WebSocketClientManager) {}
 
-  async handleMessage(ws: WebSocket, data: WebSocketMessage): Promise<void> {
+  async handleMessage(ws: WebSocket, data: any): Promise<void> {
     logger.debug(`Received message type: ${data.type}`);
 
     // Type guard implementations for better type safety
@@ -119,6 +125,12 @@ class MessageHandler {
       this.handleTypingMessage(data);
     } else if (this.isChatMessage(data)) {
       await this.handleChatMessage(ws, data);
+    } else if (this.isUserStatusMessage(data)) {
+      await this.handleUserStatus(ws, data);
+      // } else if (this.isContactRequestMessage(data)) {
+      //   await this.handleContactRequestMessage(ws, data);
+      // } else if (this.isContactResponseMessage(data)) {
+      //   await this.handleContactResponseMessage(ws, data);
     } else {
       this.handleUnknownMessage(ws, data);
     }
@@ -173,6 +185,14 @@ class MessageHandler {
     }
   }
 
+  protected isUserStatusMessage(data: any): data is UserStatusMessage {
+    return (
+      data.type === 'user-status' &&
+      typeof data.userId === 'string' &&
+      ['online', 'offline'].includes(data.status)
+    );
+  }
+
   protected async handleChatMessage(
     ws: WebSocket,
     message: ChatMessage
@@ -219,6 +239,60 @@ class MessageHandler {
       ws.send(
         JSON.stringify({
           error: 'Failed to save message to database',
+          details: err instanceof Error ? err.message : 'Unknown error',
+        })
+      );
+    }
+  }
+
+  protected async handleUserStatus(
+    ws: WebSocket,
+    data: UserStatusMessage
+  ): Promise<void> {
+    const { status, userId, last_seen } = data;
+
+    try {
+      const user = await User.findById(userId);
+
+      if (!user) {
+        logger.warn(`User ${userId} not found in database`);
+        ws.send(
+          JSON.stringify({
+            error: 'User not found',
+            userId,
+          })
+        );
+        return;
+      }
+
+      if (status === user.status && last_seen === user.last_seen) {
+        return;
+      }
+
+      user.status = status;
+      if (last_seen) {
+        user.last_seen = last_seen;
+      } else if (status === 'offline') {
+        user.last_seen = new Date();
+      }
+
+      await user.save();
+      logger.info(`User ${userId} status updated to ${status}`);
+
+      // const contacts = await UserContact.find({ userId });
+      // for (const contact of contacts) {
+      //   this.clientManager.sendToUser(contact.contactId, {
+      //     type: 'user-status',
+      //     userId,
+      //     status,
+      //     last_seen: user.last_seen,
+      //   });
+      // }
+    } catch (err) {
+      logger.error('Failed to update user status:', err);
+      ws.send(
+        JSON.stringify({
+          error: 'Failed to update user entity',
           details: err instanceof Error ? err.message : 'Unknown error',
         })
       );

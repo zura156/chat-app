@@ -62,7 +62,6 @@ const UserSchema = new Schema<IUser>(
   { timestamps: true }
 );
 
-// Hash password before saving
 UserSchema.pre<IUser>('save', async function (next) {
   if (!this.isModified('password')) return next();
 
@@ -75,7 +74,6 @@ UserSchema.pre<IUser>('save', async function (next) {
   }
 });
 
-// Method to compare passwords
 UserSchema.methods.comparePassword = async function (
   candidatePassword: string
 ): Promise<boolean> {
