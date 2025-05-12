@@ -88,7 +88,6 @@ export class MessageListComponent {
   // Injected services
   private conversationService = inject(ConversationService);
   private userService = inject(UserService);
-  authService = inject(AuthService)
   private router = inject(Router);
   private layoutService = inject(LayoutService);
 
