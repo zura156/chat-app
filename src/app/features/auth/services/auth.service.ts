@@ -15,6 +15,7 @@ import { NavigationStart, Router } from '@angular/router';
 import { WebSocketService } from '../../messages/services/web-socket.service';
 import { UserService } from '../../user/services/user.service';
 import { ParticipantI } from '../../messages/interfaces/participant.interface';
+import { UserStatusMessage } from '../../messages/interfaces/web-socket-message.interface';
 
 @Injectable({
   providedIn: 'root',
@@ -124,22 +125,15 @@ export class AuthService {
     const currentUser = this.userService.currentUser();
 
     if (currentUser) {
-      const { _id, first_name, last_name, username, email, profile_picture } =
-        currentUser;
+      const { _id } = currentUser;
 
-      const data = {
+      const data: UserStatusMessage = {
         type: 'user-status',
-        sender: {
-          _id,
-          first_name,
-          last_name,
-          username,
-          email,
-          profile_picture,
-        },
-        content: Date.now().toString(),
+        userId: _id,
+        status: 'offline',
+        last_seen: new Date(),
       };
-      this.webSocketService.updateUserStatus(data);
+      this.webSocketService.sendMessage(data);
     }
   }
 

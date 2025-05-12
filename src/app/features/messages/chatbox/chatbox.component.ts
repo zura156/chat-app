@@ -47,10 +47,11 @@ import { HlmInputDirective } from '@spartan-ng/ui-input-helm';
 import { WebSocketService } from '../services/web-socket.service';
 import { HlmSpinnerComponent } from '@spartan-ng/ui-spinner-helm';
 import { IntersectionObserverDirective } from '../../../shared/directives/is-visible.directive';
-import { UserI } from '../../../shared/interfaces/user.interface';
+import { UserI } from '../../user/interfaces/user.interface';
 import { toast } from 'ngx-sonner';
 import { HlmToasterComponent } from '@spartan-ng/ui-sonner-helm';
 import { ParticipantI } from '../interfaces/participant.interface';
+import { TypingMessage } from '../interfaces/web-socket-message.interface';
 
 @Component({
   selector: 'app-chatbox',
@@ -204,46 +205,28 @@ export class ChatboxComponent implements OnInit, OnDestroy {
                     () =>
                       this.webSocketService.onMessage()?.pipe(
                         tap((res) => {
-                          if (res.type === 'typing') {
-                            this.isTyping.set({
-                              typer: res.sender ?? {},
-                              is_typing: !!res.is_typing,
-                            });
-                            return;
-                          }
+                          switch (res.type) {
+                            case 'typing':
+                              this.isTyping.set({
+                                typer: res.sender ?? {},
+                                is_typing: !!res.is_typing,
+                              });
+                              break;
+                            case 'message':
+                              const user = this.currentUser();
+                              if (res.message.sender._id === user?._id) {
+                                const savedMessage: MessageI = res.message;
 
-                          const convo = this.conversation();
-                          const user = this.currentUser();
+                                this.messageService.fillInMessageDetails(
+                                  savedMessage
+                                );
 
-                          if (!user || !convo) return;
+                                return;
+                              }
+                              const message: MessageI = res.message;
 
-                          // Process incoming message only if it belongs to the current conversation
-                          if (res.conversation === (convo && convo._id)) {
-                            if (res.sender === user._id) {
-                              const savedMessage: MessageI = {
-                                _id: res._id,
-                                sender: res.sender,
-                                conversation: res.conversation,
-                                content: res.content ?? '',
-                                type: convertToMessageType(res.type),
-                                createdAt: res.createdAt || '',
-                                updatedAt: res.updatedAt || '',
-                              };
-
-                              this.messageService.fillInMessageDetails(
-                                savedMessage
-                              );
+                              this.messageService.addMessage(message);
                               return;
-                            }
-
-                            const message: MessageI = {
-                              _id: res._id,
-                              sender: res.sender!,
-                              conversation: this.conversation()?._id!,
-                              content: res.content!,
-                              type: MessageType.TEXT,
-                            };
-                            this.messageService.addMessage(message);
                           }
                         }),
                         catchError((err) => {
@@ -299,12 +282,14 @@ export class ChatboxComponent implements OnInit, OnDestroy {
               sender: sender,
               conversation: conversation._id,
               content: this.messageControl.value!,
-              participants: conversation.participants.filter(
-                (u) => u._id !== sender?._id
-              ),
               type: MessageType.TEXT,
             };
-            return this.messageService.sendMessage(message).pipe(
+
+            const participants = conversation.participants.filter(
+              (u) => u._id !== sender?._id
+            );
+
+            return this.messageService.sendMessage(message, participants).pipe(
               catchError((err) => {
                 toast.error('Something went wrong!', {
                   description: err.error.message,
@@ -329,12 +314,14 @@ export class ChatboxComponent implements OnInit, OnDestroy {
         sender: sender,
         conversation: convo._id,
         content: this.messageControl.value,
-        participants: convo.participants.filter((u) => u._id !== sender?._id),
         type: MessageType.TEXT,
       };
+      const participants = convo.participants.filter(
+        (u) => u._id !== sender?._id
+      );
 
       this.messageService
-        .sendMessage(message)
+        .sendMessage(message, participants)
         .pipe(
           catchError((err) => {
             toast.error('Something went wrong!', {
@@ -431,7 +418,7 @@ export class ChatboxComponent implements OnInit, OnDestroy {
 
           if (!sender || !convo) return;
 
-          const data = {
+          const data: TypingMessage = {
             type: 'typing',
             sender,
             participants: convo.participants,

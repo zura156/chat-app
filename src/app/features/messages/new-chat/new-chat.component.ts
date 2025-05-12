@@ -25,7 +25,7 @@ import {
 import { FormControl, ReactiveFormsModule, Validators } from '@angular/forms';
 import { HlmInputDirective } from '@spartan-ng/ui-input-helm';
 import { HlmSeparatorDirective } from '@spartan-ng/ui-separator-helm';
-import { UserI } from '../../../shared/interfaces/user.interface';
+import { UserI } from '../../user/interfaces/user.interface';
 import { NgFor, NgIf } from '@angular/common';
 import { NgScrollbarModule } from 'ngx-scrollbar';
 import { UserCardComponent } from '../../user/components/card/user-card.component';

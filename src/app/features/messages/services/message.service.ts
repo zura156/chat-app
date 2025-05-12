@@ -1,10 +1,4 @@
-import {
-  computed,
-  inject,
-  Injectable,
-  linkedSignal,
-  signal,
-} from '@angular/core';
+import { computed, inject, Injectable, signal } from '@angular/core';
 import { environment } from '../../../../environments/environment';
 import { HttpClient } from '@angular/common/http';
 import { catchError, map, Observable, of, tap, throwError } from 'rxjs';
@@ -13,6 +7,7 @@ import { MessageListI } from '../interfaces/message-list.interface';
 import { ParticipantI } from '../interfaces/participant.interface';
 import { ConversationService } from './conversation.service';
 import { WebSocketService } from './web-socket.service';
+import { ChatMessage } from '../interfaces/web-socket-message.interface';
 
 @Injectable()
 export class MessageService {
@@ -40,16 +35,13 @@ export class MessageService {
   activeMessages = computed(this.#activeMessages);
 
   sendMessage(
-    message: MessageI & {
-      participants: Partial<ParticipantI>[];
-    }
+    message: MessageI,
+    participants: Partial<ParticipantI>[]
   ): Observable<MessageI> {
-    const data = {
+    const data: ChatMessage = {
       type: 'message',
-      conversation: message.conversation.toString(),
-      content: message.content,
-      sender: message.sender,
-      participants: message.participants,
+      message,
+      participants,
     };
 
     this.webSocketService.sendMessage(data);

@@ -1,28 +1,13 @@
 import { Injectable } from '@angular/core';
 import { webSocket, WebSocketSubject } from 'rxjs/webSocket';
 import { environment } from '../../../../environments/environment';
-import { ParticipantI } from '../interfaces/participant.interface';
-import { MessageStatus } from '../interfaces/message.interface';
+import { WebSocketMessageT } from '../interfaces/web-socket-message.interface';
 
 @Injectable({
   providedIn: 'root',
 })
 export class WebSocketService {
-  private socket$?: WebSocketSubject<{
-    _id?: string;
-    createdAt?: string;
-    updatedAt?: string;
-    readBy?: string;
-    status?: MessageStatus;
-    type: string;
-    to?: string[] | string;
-    sender?: Partial<ParticipantI>;
-    message?: string;
-    conversation?: string;
-    userId?: string;
-    content?: string;
-    is_typing?: boolean;
-  }>;
+  private socket$?: WebSocketSubject<WebSocketMessageT>;
 
   // In WebSocketService
   connect(userId: string): void {
@@ -38,7 +23,7 @@ export class WebSocketService {
           next: () => {
             // Register the user immediately after connection
             this.socket$?.next({
-              type: 'register',
+              type: 'authenticate',
               userId: userId,
             });
           },
@@ -48,26 +33,7 @@ export class WebSocketService {
     }
   }
 
-  updateUserStatus(data: {
-    type: string;
-    sender: Partial<ParticipantI>;
-    content: string;
-  }) {
-    if (this.socket$) {
-      this.socket$?.next(data);
-    }
-    console.log('test');
-  }
-
-  sendMessage(data: {
-    _id?: string;
-    type: string;
-    sender: Partial<ParticipantI>;
-    participants: Partial<ParticipantI>[];
-    is_typing?: boolean;
-    content?: string;
-    conversation: string;
-  }) {
+  sendMessage(data: WebSocketMessageT) {
     if (this.socket$) {
       this.socket$?.next(data);
     }

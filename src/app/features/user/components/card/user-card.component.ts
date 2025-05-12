@@ -1,5 +1,5 @@
 import { Component, inject, input } from '@angular/core';
-import { UserI } from '../../../../shared/interfaces/user.interface';
+import { UserI } from '../../interfaces/user.interface';
 import { LayoutService } from '../../../messages/layout/layout.service';
 import { HlmCardDirective } from '@spartan-ng/ui-card-helm';
 import {

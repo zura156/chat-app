@@ -5,7 +5,7 @@ import { environment } from '../../../../environments/environment';
 import { ConversationI } from '../interfaces/conversation.interface';
 import { MessageI } from '../interfaces/message.interface';
 import { ConversationListI } from '../interfaces/conversation-list.interface';
-import { UserI } from '../../../shared/interfaces/user.interface';
+import { UserI } from '../../user/interfaces/user.interface';
 
 @Injectable()
 export class ConversationService {

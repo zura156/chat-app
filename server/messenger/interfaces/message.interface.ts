@@ -1,3 +1,5 @@
+import { UserInterface } from "../../user/interfaces/user.interface";
+
 export enum MessageTypeEnum {
   TEXT = 'text',
   IMAGE = 'image',
@@ -12,7 +14,7 @@ export enum MessageStatusEnum {
 }
 
 export interface MessageI {
-  sender: string;
+  sender: Partial<UserInterface>;
   conversation: string;
   content: string;
   type: MessageTypeEnum;

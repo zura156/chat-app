@@ -1,9 +1,9 @@
 import { HttpClient } from '@angular/common/http';
 import { computed, inject, Injectable, signal } from '@angular/core';
 import { environment } from '../../../../environments/environment';
-import { UserI } from '../../../shared/interfaces/user.interface';
+import { UserI } from '../interfaces/user.interface';
 import { Observable, tap } from 'rxjs';
-import { UserListI } from '../../../shared/interfaces/user-list.interface';
+import { UserListI } from '../interfaces/user-list.interface';
 import { WebSocketService } from '../../messages/services/web-socket.service';
 
 @Injectable({

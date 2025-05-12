@@ -41,7 +41,7 @@ import {
   tap,
 } from 'rxjs';
 import { FormControl, ReactiveFormsModule } from '@angular/forms';
-import { UserI } from '../../../shared/interfaces/user.interface';
+import { UserI } from '../../user/interfaces/user.interface';
 import {
   HlmTabsComponent,
   HlmTabsListComponent,
@@ -51,7 +51,7 @@ import {
 import { LayoutService } from '../layout/layout.service';
 import { HlmSkeletonComponent } from '@spartan-ng/ui-skeleton-helm';
 import { ConversationListI } from '../interfaces/conversation-list.interface';
-import { UserListI } from '../../../shared/interfaces/user-list.interface';
+import { UserListI } from '../../user/interfaces/user-list.interface';
 import { toObservable } from '@angular/core/rxjs-interop';
 import { AuthService } from '../../auth/services/auth.service';
 

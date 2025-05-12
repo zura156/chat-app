@@ -1,4 +1,4 @@
-import { UserI } from '../../../shared/interfaces/user.interface';
+import { UserI } from '../../user/interfaces/user.interface';
 
 export interface RegisterResponseI {
   message: string;

@@ -5,7 +5,7 @@ export interface UserI {
   username: string;
   email: string;
   profile_picture?: string;
-  status?: 'offline' | 'online' | 'away';
+  status?: 'offline' | 'online';
   last_seen?: Date;
   blocked_users?: string[];
 }

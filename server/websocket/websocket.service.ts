@@ -3,33 +3,24 @@ import { Server } from 'http';
 import config from '../config/config';
 import { logger } from '../utils/logger';
 import { Message } from '../messenger/models/message.model';
-import { webSocket } from 'rxjs/webSocket';
 import { User } from '../user/models/user.model';
+import { MessageI } from '../messenger/interfaces/message.interface';
+import { UserInterface } from '../user/interfaces/user.interface';
 
 type MessageContentType = 'text' | 'image' | 'video' | 'file';
 type WebSocketMessageType =
-  | 'register'
+  | 'authenticate'
   | 'typing'
   | 'message'
   | MessageContentType
   | 'user-status';
 
-interface UserInterface {
-  _id: string;
-  first_name: string;
-  last_name: string;
-  username: string;
-  email: string;
-  profile_picture?: string;
-  last_seen: Date;
-}
-
 interface BaseWebSocketMessage {
   type: WebSocketMessageType;
 }
 
-interface RegisterMessage extends BaseWebSocketMessage {
-  type: 'register';
+interface AuthenticateMessage extends BaseWebSocketMessage {
+  type: 'authenticate';
   userId: string;
 }
 
@@ -43,11 +34,8 @@ interface TypingMessage extends BaseWebSocketMessage {
 
 interface ChatMessage extends BaseWebSocketMessage {
   type: 'message' | MessageContentType;
-  sender: Partial<UserInterface>;
+  message: MessageI;
   participants: Partial<UserInterface>[];
-  content: string;
-  conversation: string;
-  _id?: string;
 }
 
 interface UserStatusMessage extends BaseWebSocketMessage {
@@ -58,7 +46,7 @@ interface UserStatusMessage extends BaseWebSocketMessage {
 }
 
 type WebSocketMessage =
-  | RegisterMessage
+  | AuthenticateMessage
   | TypingMessage
   | ChatMessage
   | UserStatusMessage;
@@ -66,17 +54,17 @@ type WebSocketMessage =
 class WebSocketClientManager {
   private clients = new Map<string, WebSocket>();
 
-  register(userId: string, ws: WebSocket): boolean {
+  authenticate(userId: string, ws: WebSocket): boolean {
     if (this.clients.has(userId)) {
-      logger.warn(`User ${userId} is already registered`);
+      logger.warn(`User ${userId} is already authenticated`);
       return false;
     }
     this.clients.set(userId, ws);
-    logger.info(`User ${userId} registered`);
+    logger.info(`User ${userId} authenticated`);
     return true;
   }
 
-  unregister(ws: WebSocket): string | null {
+  logout(ws: WebSocket): string | null {
     for (const [userId, socket] of this.clients.entries()) {
       if (socket === ws) {
         this.clients.delete(userId);
@@ -118,26 +106,21 @@ class MessageHandler {
   async handleMessage(ws: WebSocket, data: any): Promise<void> {
     logger.debug(`Received message type: ${data.type}`);
 
-    // Type guard implementations for better type safety
     if (this.isRegisterMessage(data)) {
-      this.handleRegisterMessage(ws, data);
+      this.handleAuthenticateMessage(ws, data);
     } else if (this.isTypingMessage(data)) {
       this.handleTypingMessage(data);
     } else if (this.isChatMessage(data)) {
       await this.handleChatMessage(ws, data);
     } else if (this.isUserStatusMessage(data)) {
       await this.handleUserStatus(ws, data);
-      // } else if (this.isContactRequestMessage(data)) {
-      //   await this.handleContactRequestMessage(ws, data);
-      // } else if (this.isContactResponseMessage(data)) {
-      //   await this.handleContactResponseMessage(ws, data);
     } else {
       this.handleUnknownMessage(ws, data);
     }
   }
 
-  protected isRegisterMessage(data: any): data is RegisterMessage {
-    return data.type === 'register' && typeof data.userId === 'string';
+  protected isRegisterMessage(data: any): data is AuthenticateMessage {
+    return data.type === 'authenticate' && typeof data.userId === 'string';
   }
 
   protected isTypingMessage(data: any): data is TypingMessage {
@@ -152,21 +135,21 @@ class MessageHandler {
   protected isChatMessage(data: any): data is ChatMessage {
     return (
       (data.type === 'message' || data.type === 'text') &&
-      data.sender &&
+      data.message.sender &&
       Array.isArray(data.participants) &&
-      typeof data.content === 'string' &&
-      typeof data.conversation === 'string'
+      typeof data.message.content === 'string' &&
+      typeof data.message.conversation === 'string'
     );
   }
 
-  protected handleRegisterMessage(
+  protected handleAuthenticateMessage(
     ws: WebSocket,
-    message: RegisterMessage
+    message: AuthenticateMessage
   ): void {
-    if (!this.clientManager.register(message.userId, ws)) {
+    if (!this.clientManager.authenticate(message.userId, ws)) {
       ws.send(
         JSON.stringify({
-          error: 'Registration failed. User may already be registered.',
+          error: 'Registration failed. User may already be authenticated.',
         })
       );
     }
@@ -197,7 +180,7 @@ class MessageHandler {
     ws: WebSocket,
     message: ChatMessage
   ): Promise<void> {
-    const { sender, conversation, content, participants } = message;
+    const { sender, conversation, content } = message.message;
 
     try {
       // Standardize type to 'text' for DB storage
@@ -214,16 +197,14 @@ class MessageHandler {
       logger.info('Message saved to DB:', savedMessage._id);
 
       // Send message to all participants
-      for (const recipient of participants) {
+      for (const recipient of message.participants) {
         if (!recipient._id) continue;
 
         if (this.clientManager.isConnected(recipient._id)) {
           this.clientManager.sendToUser(recipient._id, {
-            _id: savedMessage._id,
-            sender,
-            content,
-            type,
-            conversation,
+            type: 'message',
+            message: savedMessage,
+            participants: message.participants,
           });
         } else {
           logger.debug(`User ${recipient._id} is not connected`);
@@ -232,7 +213,11 @@ class MessageHandler {
 
       // Send confirmation to sender as well
       if (sender._id) {
-        this.clientManager.sendToUser(sender._id, savedMessage);
+        this.clientManager.sendToUser(sender._id, {
+          type: 'message',
+          message: savedMessage,
+          participants: message.participants,
+        });
       }
     } catch (err) {
       logger.error('Failed to save message:', err);
@@ -250,6 +235,8 @@ class MessageHandler {
     data: UserStatusMessage
   ): Promise<void> {
     const { status, userId, last_seen } = data;
+
+    console.log('user status changed to: ', status);
 
     try {
       const user = await User.findById(userId);
@@ -279,15 +266,16 @@ class MessageHandler {
       await user.save();
       logger.info(`User ${userId} status updated to ${status}`);
 
-      // const contacts = await UserContact.find({ userId });
-      // for (const contact of contacts) {
-      //   this.clientManager.sendToUser(contact.contactId, {
-      //     type: 'user-status',
-      //     userId,
-      //     status,
-      //     last_seen: user.last_seen,
-      //   });
-      // }
+      const connectedUsers = this.clientManager.getConnections();
+
+      for (const [connectedUserId, ws] of connectedUsers.entries()) {
+        this.clientManager.sendToUser(userId, {
+          type: 'user-status',
+          connectedUserId,
+          status,
+          last_seen: user.last_seen,
+        });
+      }
     } catch (err) {
       logger.error('Failed to update user status:', err);
       ws.send(
@@ -357,7 +345,7 @@ export class WebSocketService {
   }
 
   private handleClose(ws: WebSocket): void {
-    this.clientManager.unregister(ws);
+    this.clientManager.logout(ws);
   }
 
   private handleError(ws: WebSocket, error: Error): void {
