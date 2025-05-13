@@ -269,9 +269,11 @@ class MessageHandler {
       const connectedUsers = this.clientManager.getConnections();
 
       for (const [connectedUserId, ws] of connectedUsers.entries()) {
-        this.clientManager.sendToUser(userId, {
+        if (connectedUserId === userId) continue;
+
+        this.clientManager.sendToUser(connectedUserId, {
           type: 'user-status',
-          connectedUserId,
+          userId,
           status,
           last_seen: user.last_seen,
         });
