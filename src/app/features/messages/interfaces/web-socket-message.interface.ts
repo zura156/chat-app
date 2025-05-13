@@ -37,7 +37,7 @@ export interface UserStatusMessage extends BaseWebSocketMessage {
   type: 'user-status';
   userId: string;
   status: 'online' | 'offline';
-  last_seen?: Date;
+  last_seen?: string;
 }
 
 export type WebSocketMessageT =

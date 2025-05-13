@@ -52,14 +52,17 @@ import { toast } from 'ngx-sonner';
 import { HlmToasterComponent } from '@spartan-ng/ui-sonner-helm';
 import { ParticipantI } from '../interfaces/participant.interface';
 import { TypingMessage } from '../interfaces/web-socket-message.interface';
+import { TimeAgoPipe } from '../../../shared/pipes/time-ago.pipe';
 
 @Component({
   selector: 'app-chatbox',
   imports: [
     NgClass,
     IntersectionObserverDirective,
-
+    
+    TimeAgoPipe,
     TitleCasePipe,
+    
     HlmAvatarImageDirective,
     HlmAvatarComponent,
     HlmSeparatorDirective,
@@ -227,6 +230,20 @@ export class ChatboxComponent implements OnInit, OnDestroy {
 
                               this.messageService.addMessage(message);
                               return;
+                            case 'user-status':
+                              const { userId, status } = res;
+
+                              let { last_seen } = res;
+
+                              if (!last_seen) {
+                                last_seen = new Date().toISOString();
+                              }
+
+                              this.conversationService.updateParticipantStatus(
+                                userId,
+                                status,
+                                last_seen
+                              );
                           }
                         }),
                         catchError((err) => {

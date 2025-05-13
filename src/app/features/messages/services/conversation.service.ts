@@ -1,9 +1,8 @@
 import { HttpClient } from '@angular/common/http';
 import { computed, inject, Injectable, signal } from '@angular/core';
-import { Observable, of, tap, catchError, shareReplay, throwError } from 'rxjs';
+import { Observable, of, tap, catchError, throwError } from 'rxjs';
 import { environment } from '../../../../environments/environment';
 import { ConversationI } from '../interfaces/conversation.interface';
-import { MessageI } from '../interfaces/message.interface';
 import { ConversationListI } from '../interfaces/conversation-list.interface';
 import { UserI } from '../../user/interfaces/user.interface';
 
@@ -127,5 +126,21 @@ export class ConversationService {
           }
         })
       );
+  }
+
+  updateParticipantStatus(userId: string, status: 'offline' | 'online', last_seen: string): void {
+    this.#activeConversation.update((convo) => {
+      if (convo?.participants) {
+        return {
+          ...convo,
+          participants: convo.participants.map((participant) =>
+            participant._id === userId
+              ? { ...participant, status, last_seen }
+              : participant
+          ),
+        };
+      }
+      return convo;
+    });
   }
 }

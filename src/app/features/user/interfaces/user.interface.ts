@@ -6,6 +6,6 @@ export interface UserI {
   email: string;
   profile_picture?: string;
   status?: 'offline' | 'online';
-  last_seen?: Date;
+  last_seen?: string;
   blocked_users?: string[];
 }

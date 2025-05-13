@@ -6,5 +6,5 @@ export interface ParticipantI {
   email: string;
   status?: 'offline' | 'online';
   profile_picture?: string;
-  last_seen?: Date;
+  last_seen?: string;
 }

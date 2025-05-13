@@ -5,6 +5,7 @@ import { UserI } from '../interfaces/user.interface';
 import { Observable, tap } from 'rxjs';
 import { UserListI } from '../interfaces/user-list.interface';
 import { WebSocketService } from '../../messages/services/web-socket.service';
+import { UserStatusMessage } from '../../messages/interfaces/web-socket-message.interface';
 
 @Injectable({
   providedIn: 'root',
@@ -25,9 +26,23 @@ export class UserService {
   users = computed(this.#users);
 
   constructor() {
-    this.getCurrentUser().subscribe((res) =>
-      this.webSocketService.connect(res._id)
-    );
+    this.getCurrentUser().subscribe((res) => {
+      this.webSocketService.connect(res._id);
+
+      const currentUser = this.currentUser();
+
+      if (currentUser) {
+        const { _id } = currentUser;
+
+        const data: UserStatusMessage = {
+          type: 'user-status',
+          userId: _id,
+          status: 'online',
+          last_seen: new Date().toISOString(),
+        };
+        this.webSocketService.sendMessage(data);
+      }
+    });
   }
 
   getCurrentUser(): Observable<UserI> {

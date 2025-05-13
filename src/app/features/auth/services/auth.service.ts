@@ -14,7 +14,6 @@ import { LoginCredentialsI } from '../interfaces/login-credentials.interface';
 import { NavigationStart, Router } from '@angular/router';
 import { WebSocketService } from '../../messages/services/web-socket.service';
 import { UserService } from '../../user/services/user.service';
-import { ParticipantI } from '../../messages/interfaces/participant.interface';
 import { UserStatusMessage } from '../../messages/interfaces/web-socket-message.interface';
 
 @Injectable({
@@ -131,7 +130,7 @@ export class AuthService {
         type: 'user-status',
         userId: _id,
         status: 'offline',
-        last_seen: new Date(),
+        last_seen: new Date().toISOString(),
       };
       this.webSocketService.sendMessage(data);
     }

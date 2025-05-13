@@ -114,7 +114,7 @@ export const getConversationById = async (
       participants: userId,
     }).populate(
       'participants',
-      'first_name last_name username profile_picture'
+      'first_name last_name username profile_picture status last_seen'
     );
 
     if (!conversation) {
