@@ -1,5 +1,5 @@
 import { Types } from 'mongoose';
-import { MessageType } from '../interfaces/message.interface';
+import { MessageTypeEnum } from '../interfaces/message.interface';
 import { Conversation } from '../models/conversation.model';
 import { IMessage, Message } from '../models/message.model';
 
@@ -7,7 +7,7 @@ export const saveMessage = async (data: {
   sender: string;
   conversation: string;
   content: string;
-  type: MessageType;
+  type: MessageTypeEnum;
 }): Promise<IMessage | null> => {
   try {
     const conversationObjectId = new Types.ObjectId(data.conversation);
