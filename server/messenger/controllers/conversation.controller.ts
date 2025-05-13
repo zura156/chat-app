@@ -121,7 +121,15 @@ export const getConversationById = async (
       return next(createCustomError('conversation not found!', 404));
     }
 
-    res.status(200).json(conversation);
+    const otherParticipants = conversation.participants.filter(
+      (p) => p._id.toString() !== userId.toString()
+    );
+
+    // res.status(200).json(conversation);
+    res.status(200).json({
+      ...conversation.toObject(),
+      participants: otherParticipants,
+    });
   } catch (e) {
     console.error('Error while fetching conversation by id!', e);
     next(createCustomError('Error while fetching conversation by id', 500));
@@ -158,13 +166,16 @@ export const createConversation = async (
       participants,
       is_group,
     });
-    
+
     const populatedConversation = await Conversation.findById(conversation._id)
       .populate('participants', 'first_name last_name username profile_picture')
       .populate({
         path: 'last_message',
         select: 'content sender createdAt',
-        populate: { path: 'sender', select: 'first_name last_name username profilePicture' },
+        populate: {
+          path: 'sender',
+          select: 'first_name last_name username profilePicture',
+        },
       })
       .lean();
 

@@ -42,7 +42,7 @@ interface UserStatusMessage extends BaseWebSocketMessage {
   type: 'user-status';
   userId: string;
   status: 'online' | 'offline';
-  last_seen?: Date;
+  last_seen?: string;
 }
 
 type WebSocketMessage =
@@ -101,6 +101,8 @@ class WebSocketClientManager {
 
 // Message handler classes
 class MessageHandler {
+  private delayedOfflineUpdates = new Map<string, NodeJS.Timeout>();
+
   constructor(protected clientManager: WebSocketClientManager) {}
 
   async handleMessage(ws: WebSocket, data: any): Promise<void> {
@@ -234,12 +236,46 @@ class MessageHandler {
     ws: WebSocket,
     data: UserStatusMessage
   ): Promise<void> {
-    const { status, userId, last_seen } = data;
+    const { status, userId } = data;
 
-    console.log('user status changed to: ', status);
+    const existingTimeout = this.delayedOfflineUpdates.get(userId);
+
+    if (status === 'online' && existingTimeout) {
+      clearTimeout(existingTimeout);
+      this.delayedOfflineUpdates.delete(userId);
+      logger.info(`Cancelled delayed offline update for user ${userId}`);
+      return;
+    }
+
+    if (status === 'offline') {
+      if (existingTimeout) {
+        clearTimeout(existingTimeout);
+      }
+
+      const timeout = setTimeout(() => {
+        this._finalizeUserStatus(ws, data);
+        this.delayedOfflineUpdates.delete(userId);
+      }, 60 * 1000);
+
+      this.delayedOfflineUpdates.set(userId, timeout);
+
+      logger.info(`Scheduled delayed offline status update for user ${userId}`);
+      return;
+    }
+
+    this._finalizeUserStatus(ws, data);
+  }
+
+  private async _finalizeUserStatus(
+    ws: WebSocket,
+    data: UserStatusMessage
+  ): Promise<void> {
+    const { status, userId } = data;
+    const last_seen = new Date(data.last_seen ?? '');
 
     try {
       const user = await User.findById(userId);
+      const now = new Date();
 
       if (!user) {
         logger.warn(`User ${userId} not found in database`);
@@ -252,7 +288,10 @@ class MessageHandler {
         return;
       }
 
-      if (status === user.status && last_seen === user.last_seen) {
+      const oldDate = new Date(user.last_seen);
+      const isoDate = oldDate.toISOString();
+
+      if (status === user.status && last_seen.toISOString() === isoDate) {
         return;
       }
 
@@ -260,7 +299,7 @@ class MessageHandler {
       if (last_seen) {
         user.last_seen = last_seen;
       } else if (status === 'offline') {
-        user.last_seen = new Date();
+        user.last_seen = now;
       }
 
       await user.save();
@@ -268,7 +307,7 @@ class MessageHandler {
 
       const connectedUsers = this.clientManager.getConnections();
 
-      for (const [connectedUserId, ws] of connectedUsers.entries()) {
+      for (const [connectedUserId] of connectedUsers.entries()) {
         if (connectedUserId === userId) continue;
 
         this.clientManager.sendToUser(connectedUserId, {

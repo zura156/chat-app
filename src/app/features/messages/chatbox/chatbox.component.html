@@ -14,10 +14,10 @@
       </hlm-avatar>
       <h1 class="font-medium text-2xl">
         @if(conversation) { 
-          @for(participant of conversation?.participants; let i = $index; track i) {
-            @if(this.currentUser()?._id !== participant._id) { 
-              {{ participant.first_name + " " + participant.last_name + ($index + 1 < conversation?.participants!.length && this.currentUser()?._id !== participant._id ? ',' : '') }}
-            }
+          @for(participant of conversation?.participants; let i = $index; track participant._id) {
+            
+              {{ participant.first_name + " " + participant.last_name + (i + 1 !== conversation.participants.length ? ',' : '') }}
+            
            }
           }
       </h1>
