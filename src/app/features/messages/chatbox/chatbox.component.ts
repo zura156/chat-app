@@ -1,11 +1,13 @@
 import {
   ChangeDetectionStrategy,
   Component,
+  ElementRef,
   inject,
   linkedSignal,
   OnInit,
   Signal,
   signal,
+  ViewChild,
 } from '@angular/core';
 import {
   catchError,
@@ -33,7 +35,6 @@ import { BrnSeparatorComponent } from '@spartan-ng/brain/separator';
 import { HlmSeparatorDirective } from '@spartan-ng/ui-separator-helm';
 import { NgClass, TitleCasePipe } from '@angular/common';
 import {
-  convertToMessageType,
   MessageI,
   MessageStatus,
   MessageType,
@@ -47,7 +48,6 @@ import { HlmButtonDirective } from '@spartan-ng/ui-button-helm';
 import { HlmInputDirective } from '@spartan-ng/ui-input-helm';
 import { WebSocketService } from '../services/web-socket.service';
 import { HlmSpinnerComponent } from '@spartan-ng/ui-spinner-helm';
-import { IntersectionObserverDirective } from '../../../shared/directives/is-visible.directive';
 import { UserI } from '../../user/interfaces/user.interface';
 import { toast } from 'ngx-sonner';
 import { HlmToasterComponent } from '@spartan-ng/ui-sonner-helm';
@@ -59,7 +59,6 @@ import { TimeAgoPipe } from '../../../shared/pipes/time-ago.pipe';
   selector: 'app-chatbox',
   imports: [
     NgClass,
-    IntersectionObserverDirective,
 
     TimeAgoPipe,
     TitleCasePipe,
@@ -115,6 +114,7 @@ export class ChatboxComponent implements OnInit, OnDestroy {
   });
 
   messages = this.messageService.activeMessages;
+  totalMessagesCount = signal<number>(0);
 
   messageControl = new FormControl<string>('');
 
@@ -124,11 +124,18 @@ export class ChatboxComponent implements OnInit, OnDestroy {
   offset = signal<number>(0);
   limit = 20;
   hasMoreMessages = signal<boolean>(false);
+
   isLoading = signal<boolean>(false);
   isTyping = signal<{
     typer: Partial<ParticipantI>;
     is_typing: boolean;
   } | null>(null);
+
+  @ViewChild('topTracker') observedElement?: ElementRef;
+
+  isVisible = signal<boolean>(false);
+  isVisibilityObserving = signal<boolean>(false);
+  private observer?: IntersectionObserver;
 
   ngOnInit(): void {
     if (window.visualViewport && window.visualViewport?.height > 1000) {
@@ -184,16 +191,20 @@ export class ChatboxComponent implements OnInit, OnDestroy {
                 .getMessagesByConversationId(c._id, 0, this.limit)
                 .pipe(
                   tap((messagesList) => {
+                    this.totalMessagesCount.set(messagesList.totalCount);
                     const duplicateIds = messagesList.messages.filter(
                       (id, index) => messagesList.messages.indexOf(id) !== index
                     );
                     if (duplicateIds.length > 0) {
                       console.warn('Duplicate _id values found:', duplicateIds);
                     }
-                    this.offset.set(messagesList.messages.length);
-                    if (messagesList.totalCount <= this.offset()) {
+                    if (messagesList.totalCount > this.offset()) {
+                      this.hasMoreMessages.set(true);
+                      this.offset.update((val) => val + this.limit);
+                    } else {
                       this.hasMoreMessages.set(false);
                     }
+
                     this.isLoading.set(false);
                   }),
                   catchError((err) => {
@@ -218,7 +229,7 @@ export class ChatboxComponent implements OnInit, OnDestroy {
                               break;
                             case 'message':
                               const user = this.currentUser();
-                              if (res.message.sender._id === user?._id) {
+                              if (res.message.sender === user?._id) {
                                 const savedMessage: MessageI = res.message;
 
                                 this.messageService.fillInMessageDetails(
@@ -264,6 +275,14 @@ export class ChatboxComponent implements OnInit, OnDestroy {
         })
       )
       .subscribe();
+  }
+
+  ngOnDestroy() {
+    this.destroy$.next();
+    this.destroy$.complete();
+    if (this.observer) {
+      this.observer.disconnect();
+    }
   }
 
   isCurrentUserMessage(message: MessageI): boolean {
@@ -362,17 +381,13 @@ export class ChatboxComponent implements OnInit, OnDestroy {
     }
   }
 
-  ngOnDestroy() {
-    this.destroy$.next();
-    this.destroy$.complete();
-  }
-
   loadMoreMessages() {
-    if (this.isLoading() || !this.hasMoreMessages()) return;
+    if (!this.hasMoreMessages()) return;
 
     this.isLoading.set(true);
 
     const convo = this.conversation();
+
     if (!convo) return;
 
     this.messageService
@@ -380,19 +395,38 @@ export class ChatboxComponent implements OnInit, OnDestroy {
       .pipe(
         tap((msgs) => {
           this.offset.set(this.offset() + this.limit);
-          if (msgs.totalCount < this.offset()) {
+          if (msgs.totalCount > this.offset()) {
+            this.hasMoreMessages.set(true);
+            this.offset.update((val) => val + this.limit);
+          } else {
             this.hasMoreMessages.set(false);
           }
-        }),
-        tap(() => this.isLoading.set(false))
+          this.isLoading.set(false);
+        })
       )
-      .subscribe(() => this.isLoading.set(false));
+      .subscribe();
   }
 
   onChatTopVisible(): void {
-    console.log('top part visible');
-    if (this.hasMoreMessages()) {
-      this.loadMoreMessages();
+    if (this.observedElement && !this.isVisibilityObserving()) {
+      this.isVisibilityObserving.set(true);
+      this.observer = new IntersectionObserver(
+        ([entry]) => {
+          this.isVisible.set(entry.isIntersecting && !this.isLoading());
+          if (this.hasMoreMessages() && this.isVisible()) {
+            this.loadMoreMessages();
+          }
+          if (this.totalMessagesCount() < this.offset()) {
+            this.observer?.disconnect();
+          }
+          console.log('run');
+        },
+        {
+          threshold: 0.1, // 10% of the element must be visible to trigger
+        }
+      );
+
+      this.observer.observe(this.observedElement.nativeElement);
     }
   }
 

@@ -1,40 +1,42 @@
-import {
-  Directive,
-  ElementRef,
-  input,
-  InputSignal,
-  NgZone,
-  OnDestroy,
-  OnInit,
-  output,
-} from '@angular/core';
+import { Directive, ElementRef, HostListener, OnInit, OnDestroy, Output, EventEmitter } from '@angular/core';
+import { Subject, fromEvent, takeUntil } from 'rxjs';
+import { auditTime } from 'rxjs/operators';
 
 @Directive({
-  selector: '[appIntersectionObserver]',
+  selector: '[appViewportTopVisible]',
 })
-export class IntersectionObserverDirective implements OnInit, OnDestroy {
-  visible = output<IntersectionObserverEntry>();
-  options: InputSignal<IntersectionObserverInit> = input({});
+export class ViewportTopVisibleDirective implements OnInit, OnDestroy {
+  @Output() viewportTopVisible = new EventEmitter<boolean>();
 
-  private observer?: IntersectionObserver;
+  private element: HTMLElement;
+  private destroy$ = new Subject<void>();
 
-  constructor(private element: ElementRef, private zone: NgZone) {}
+  constructor(private el: ElementRef) {
+    this.element = this.el.nativeElement;
+  }
 
   ngOnInit(): void {
-    this.zone.runOutsideAngular(() => {
-      this.observer = new IntersectionObserver((entries) => {
-        entries.forEach((entry) => {
-          if (entry.isIntersecting) {
-            this.zone.run(() => this.visible.emit(entry));
-          }
-        });
-      }, this.options());
+    fromEvent(window, 'scroll')
+      .pipe(auditTime(100), takeUntil(this.destroy$))
+      .subscribe(() => this.checkVisibility());
 
-      this.observer.observe(this.element.nativeElement);
-    });
+    // Initial check in case the element is already in the viewport on load
+    this.checkVisibility();
   }
 
   ngOnDestroy(): void {
-    this.observer?.disconnect();
+    this.destroy$.next();
+    this.destroy$.complete();
+  }
+
+  private checkVisibility(): void {
+    if (!this.element) {
+      return;
+    }
+
+    const rect = this.element.getBoundingClientRect();
+    const isTopVisible = rect.top >= 0;
+
+    this.viewportTopVisible.emit(isTopVisible);
   }
 }
