@@ -35,6 +35,7 @@ import { NgClass, TitleCasePipe } from '@angular/common';
 import {
   convertToMessageType,
   MessageI,
+  MessageStatus,
   MessageType,
 } from '../interfaces/message.interface';
 import {
@@ -59,10 +60,10 @@ import { TimeAgoPipe } from '../../../shared/pipes/time-ago.pipe';
   imports: [
     NgClass,
     IntersectionObserverDirective,
-    
+
     TimeAgoPipe,
     TitleCasePipe,
-    
+
     HlmAvatarImageDirective,
     HlmAvatarComponent,
     HlmSeparatorDirective,
@@ -295,11 +296,12 @@ export class ChatboxComponent implements OnInit, OnDestroy {
           }),
           switchMap((conversation) => {
             this.conversation = this.conversationService.activeConversation;
-            const message = {
+            const message: MessageI = {
               sender: sender,
               conversation: conversation._id,
               content: this.messageControl.value!,
               type: MessageType.TEXT,
+              status: MessageStatus.SENDING,
             };
 
             const participants = conversation.participants.filter(
@@ -327,11 +329,12 @@ export class ChatboxComponent implements OnInit, OnDestroy {
     } else {
       this.isLoading.set(true);
 
-      const message = {
+      const message: MessageI = {
         sender: sender,
         conversation: convo._id,
         content: this.messageControl.value,
         type: MessageType.TEXT,
+        status: MessageStatus.SENDING,
       };
       const participants = convo.participants.filter(
         (u) => u._id !== sender?._id

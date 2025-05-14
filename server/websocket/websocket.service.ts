@@ -105,8 +105,8 @@ class MessageHandler {
 
   constructor(protected clientManager: WebSocketClientManager) {}
 
-  async handleMessage(ws: WebSocket, data: any): Promise<void> {
-    logger.debug(`Received message type: ${data.type}`);
+  async handleMessage(ws: WebSocket, data: WebSocketMessage | unknown): Promise<void> {
+    logger.debug(`Received message type: ${data}`);
 
     if (this.isRegisterMessage(data)) {
       this.handleAuthenticateMessage(ws, data);
