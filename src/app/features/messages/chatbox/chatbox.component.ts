@@ -13,6 +13,7 @@ import {
 } from '@angular/core';
 import {
   catchError,
+  debounceTime,
   distinctUntilChanged,
   EMPTY,
   map,
@@ -56,14 +57,14 @@ import { HlmToasterComponent } from '@spartan-ng/ui-sonner-helm';
 import { ParticipantI } from '../interfaces/participant.interface';
 import { TypingMessage } from '../interfaces/web-socket-message.interface';
 import { TimeAgoPipe } from '../../../shared/pipes/time-ago.pipe';
+import { MessageCardComponent } from '../message/message-card.component';
 
 @Component({
   selector: 'app-chatbox',
   imports: [
-    NgClass,
+    MessageCardComponent,
 
     TimeAgoPipe,
-    TitleCasePipe,
 
     HlmAvatarImageDirective,
     HlmAvatarComponent,
@@ -125,7 +126,7 @@ export class ChatboxComponent implements OnInit, OnDestroy {
 
   offset = signal<number>(0);
   limit = 20;
-  hasMoreMessages = signal<boolean>(false);
+  hasMoreMessages = signal<boolean>(true);
 
   isLoading = signal<boolean>(false);
   isTyping = signal<{
@@ -192,97 +193,95 @@ export class ChatboxComponent implements OnInit, OnDestroy {
               if (!c) {
                 return EMPTY;
               }
-              return this.messageService
-                .getMessagesByConversationId(c._id, 0, this.limit)
-                .pipe(
-                  tap((messagesList) => {
-                    const user = this.currentUser();
-                    this.totalMessagesCount.set(messagesList.totalCount);
-                    const duplicateIds = messagesList.messages.filter(
-                      (id, index) => messagesList.messages.indexOf(id) !== index
+              return this.loadMoreMessages(c._id).pipe(
+                tap((messagesList) => {
+                  const user = this.currentUser();
+                  this.totalMessagesCount.set(messagesList.totalCount);
+                  const duplicateIds = messagesList.messages.filter(
+                    (id, index) => messagesList.messages.indexOf(id) !== index
+                  );
+                  if (duplicateIds.length > 0) {
+                    console.warn('Duplicate _id values found:', duplicateIds);
+                  }
+                  if (messagesList.totalCount > this.offset()) {
+                    this.hasMoreMessages.set(true);
+                    this.offset.update((val) => val + this.limit);
+                  } else {
+                    this.hasMoreMessages.set(false);
+                  }
+
+                  if (user) {
+                    const filteredMessages = messagesList.messages.filter((m) =>
+                      m.readBy?.includes(user._id)
                     );
-                    if (duplicateIds.length > 0) {
-                      console.warn('Duplicate _id values found:', duplicateIds);
-                    }
-                    if (messagesList.totalCount > this.offset()) {
-                      this.hasMoreMessages.set(true);
-                      this.offset.update((val) => val + this.limit);
-                    } else {
-                      this.hasMoreMessages.set(false);
-                    }
+                    console.log(filteredMessages);
+                  }
 
-                    if (user) {
-                      const filteredMessages = messagesList.messages.filter(
-                        (m) => m.readBy?.includes(user._id)
-                      );
-                      console.log(filteredMessages);
-                    }
+                  this.isLoading.set(false);
+                }),
+                catchError((err) => {
+                  toast.error('Something went wrong!', {
+                    description: err.error.message,
+                    duration: 5000,
+                    position: 'bottom-right',
+                  });
+                  this.isLoading.set(false);
+                  return throwError(() => err);
+                }),
+                switchMap(
+                  () =>
+                    this.webSocketService.onMessage()?.pipe(
+                      tap((res) => {
+                        switch (res.type) {
+                          case 'typing':
+                            this.isTyping.set({
+                              typer: res.sender ?? {},
+                              is_typing: !!res.is_typing,
+                            });
+                            break;
+                          case 'message':
+                            const user = this.currentUser();
+                            if (res.message.sender === user?._id) {
+                              const savedMessage: MessageI = res.message;
 
-                    this.isLoading.set(false);
-                  }),
-                  catchError((err) => {
-                    toast.error('Something went wrong!', {
-                      description: err.error.message,
-                      duration: 5000,
-                      position: 'bottom-right',
-                    });
-                    this.isLoading.set(false);
-                    return throwError(() => err);
-                  }),
-                  switchMap(
-                    () =>
-                      this.webSocketService.onMessage()?.pipe(
-                        tap((res) => {
-                          switch (res.type) {
-                            case 'typing':
-                              this.isTyping.set({
-                                typer: res.sender ?? {},
-                                is_typing: !!res.is_typing,
-                              });
-                              break;
-                            case 'message':
-                              const user = this.currentUser();
-                              if (res.message.sender === user?._id) {
-                                const savedMessage: MessageI = res.message;
-
-                                this.messageService.fillInMessageDetails(
-                                  savedMessage
-                                );
-
-                                return;
-                              }
-                              const message: MessageI = res.message;
-
-                              this.messageService.addMessage(message);
-                              return;
-                            case 'user-status':
-                              const { userId, status } = res;
-
-                              let { last_seen } = res;
-
-                              if (!last_seen) {
-                                last_seen = new Date().toISOString();
-                              }
-
-                              this.conversationService.updateParticipantStatus(
-                                userId,
-                                status,
-                                last_seen
+                              this.messageService.fillInMessageDetails(
+                                savedMessage
                               );
-                          }
-                        }),
-                        catchError((err) => {
-                          toast.error('Something went wrong!', {
-                            description: err.error.message,
-                            duration: 5000,
-                            position: 'bottom-right',
-                          });
-                          this.isLoading.set(false);
-                          return throwError(() => err);
-                        })
-                      ) || EMPTY
-                  )
-                );
+
+                              return;
+                            }
+                            const message: MessageI = res.message;
+
+                            this.messageService.addMessage(message);
+                            return;
+                          case 'user-status':
+                            const { userId, status } = res;
+
+                            let { last_seen } = res;
+
+                            if (!last_seen) {
+                              last_seen = new Date().toISOString();
+                            }
+
+                            this.conversationService.updateParticipantStatus(
+                              userId,
+                              status,
+                              last_seen
+                            );
+                        }
+                      }),
+                      catchError((err) => {
+                        toast.error('Something went wrong!', {
+                          description: err.error.message,
+                          duration: 5000,
+                          position: 'bottom-right',
+                        });
+                        this.isLoading.set(false);
+                        return throwError(() => err);
+                      })
+                    ) || EMPTY
+                )
+              );
             })
           );
         })
@@ -319,13 +318,6 @@ export class ChatboxComponent implements OnInit, OnDestroy {
     if (this.messageObserver) {
       this.messageObserver.disconnect();
     }
-  }
-
-  isCurrentUserMessage(message: MessageI): boolean {
-    return (
-      (message.sender._id || message.sender) ===
-      this.userService.currentUser()?._id
-    );
   }
 
   sendMessage(): void {
@@ -417,18 +409,19 @@ export class ChatboxComponent implements OnInit, OnDestroy {
     }
   }
 
-  loadMoreMessages() {
-    if (!this.hasMoreMessages()) return;
+  loadMoreMessages(conversationId: string) {
+    if (!this.hasMoreMessages()) return EMPTY;
 
     this.isLoading.set(true);
 
     const convo = this.conversation();
 
-    if (!convo) return;
+    if (!conversationId) return EMPTY;
 
-    this.messageService
-      .getMessagesByConversationId(convo._id, this.offset(), this.limit)
+    return this.messageService
+      .getMessagesByConversationId(conversationId, this.offset(), this.limit)
       .pipe(
+        debounceTime(500),
         tap((msgs) => {
           this.offset.set(this.offset() + this.limit);
           if (msgs.totalCount > this.offset()) {
@@ -437,10 +430,11 @@ export class ChatboxComponent implements OnInit, OnDestroy {
           } else {
             this.hasMoreMessages.set(false);
           }
+          console.log(msgs.totalCount, this.offset());
           this.isLoading.set(false);
         })
-      )
-      .subscribe();
+      );
+    // .subscribe();
   }
 
   onChatTopVisible(): void {
@@ -450,7 +444,9 @@ export class ChatboxComponent implements OnInit, OnDestroy {
         ([entry]) => {
           this.isVisible.set(entry.isIntersecting && !this.isLoading());
           if (this.hasMoreMessages() && this.isVisible()) {
-            this.loadMoreMessages();
+            this.loadMoreMessages(
+              String(this.conversation()?._id)
+            )?.subscribe();
           }
           if (this.totalMessagesCount() < this.offset()) {
             this.divTopObserver?.disconnect();
@@ -466,35 +462,87 @@ export class ChatboxComponent implements OnInit, OnDestroy {
     }
   }
 
-  getMessageTime(currentIndex: number): string {
-    const currentMessage = this.messages()[currentIndex];
-    const currentTime = new Date(currentMessage.createdAt || '');
+  shouldShowTimestamp(index: number): boolean {
+    const TIME_GAP_THRESHOLD = 10; // Minutes
+    const SENDER_CHANGE_THRESHOLD = 5; // Minutes
+    const msgs = this.messages();
 
-    // For the first message, always show the time
-    if (currentIndex === 0) {
-      return this.formatTime(currentTime);
+    // Always show timestamp for the newest message (first in the list)
+    if (index === 0) {
+      return true;
     }
 
-    // Compare with previous message
-    const previousMessage = this.messages()[currentIndex - 1];
-    const previousTime = new Date(previousMessage.createdAt || '');
+    const currentMessage = msgs[index];
+    const newerMessage = msgs[index - 1]; // The message above (newer) in the UI
 
-    // Calculate time difference in milliseconds
-    const timeDifference = previousTime.getTime() - currentTime.getTime();
+    // Parse ISO strings to Date objects
+    const currentDate = new Date(currentMessage.createdAt ?? '');
+    const newerDate = new Date(newerMessage.createdAt ?? '');
 
-    // If more than 15 minutes (900000 ms) have passed, show the time
-    if (timeDifference > 15 * 60 * 1000) {
-      return this.formatTime(currentTime);
+    // Calculate minutes between messages
+    // Since messages are newest-first, newer message timestamp - current message timestamp will be positive
+    const minutesBetween =
+      (newerDate.getTime() - currentDate.getTime()) / (1000 * 60);
+
+    // Show timestamp if significant time has passed
+    if (minutesBetween >= TIME_GAP_THRESHOLD) {
+      return true;
     }
 
-    return '';
+    // Show timestamp if sender changed and some time has passed
+    if (
+      currentMessage.sender._id !== newerMessage.sender._id &&
+      minutesBetween >= SENDER_CHANGE_THRESHOLD
+    ) {
+      return true;
+    }
+
+    return false;
   }
 
-  private formatTime(date: Date): string {
-    return date.toLocaleTimeString([], {
-      hour: '2-digit',
-      minute: '2-digit',
+  /**
+   * Format the timestamp in a user-friendly way
+   */
+  formatTimestamp(isoString: string): string {
+    if (!isoString) return '';
+
+    const timestamp = new Date(isoString);
+    const now = new Date();
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const yesterday = new Date(today);
+    yesterday.setDate(yesterday.getDate() - 1);
+
+    const messageDate = new Date(
+      timestamp.getFullYear(),
+      timestamp.getMonth(),
+      timestamp.getDate()
+    );
+
+    // Format time component
+    const timeFormat = new Intl.DateTimeFormat('en', {
+      hour: 'numeric',
+      minute: 'numeric',
+      hour12: true,
     });
+    const timeString = timeFormat.format(timestamp);
+
+    // Today's messages
+    if (messageDate.getTime() === today.getTime()) {
+      return timeString;
+    }
+
+    // Yesterday's messages
+    if (messageDate.getTime() === yesterday.getTime()) {
+      return `Yesterday at ${timeString}`;
+    }
+
+    // Older messages
+    const dateFormat = new Intl.DateTimeFormat('en', {
+      month: 'short',
+      day: 'numeric',
+    });
+    const dateString = dateFormat.format(timestamp);
+    return `${dateString} at ${timeString}`;
   }
 
   private trackTypingStatus(): void {

@@ -49,10 +49,11 @@
     id="chat-messages"
     class="flex flex-col-reverse p-4 space-y-4 space-y-reverse"
     >
+        @let currentUser = this.currentUser();
         @let sender = this.isTyping()?.typer;
         @let isTyping = this.isTyping()?.is_typing;
 
-        @if(currentUser()?._id !== sender?._id && isTyping){
+        @if(currentUser && currentUser._id !== sender?._id && isTyping){
           <div class="flex-col items-start justify-center">
             @if(conversation?.is_group){
               <span class="text-gray-500">
@@ -85,56 +86,27 @@
           </div>
         </div>
       }
-      @if(messages().length > 0) { 
+      @if(messages().length > 0 && currentUser) { 
         @for(message of messages(); track message.createdAt) {
-          <!-- <message-box [message]="message" [currentUserId]="currentUser()?._id"></message-box> -->
-        <ng-container #messageItem>
-          <div class="flex-1 mt-2">
-            <div
-              hlmCardDescription
-              class="text-xs text-center mt-1 opacity-70 mb-4"
-            >
-              {{ getMessageTime($index) }}
-            </div>
-            <div
-              class="flex items-center mb-0"
-              [ngClass]="{ 'justify-end': isCurrentUserMessage(message) }"
-            >
-              <div class="flex flex-col">
-                @if(conversation?.is_group && !isCurrentUserMessage(message)){
-                  <span class="text-gray-500">
-                    {{ message.sender.username }}
-                  </span>
-                }
-                  <div class="flex items-center justify-start">
-                    @if(!isCurrentUserMessage(message)){
-                    <hlm-avatar variant="small" class="min-w-fit mr-1.5">
-                      <img
-                        src="/icons/avatar.svg"
-                        [alt]="message.sender.username"
-                        hlmAvatarImage
-                      />
-                      <span class="bg-[#FD005B] text-white" hlmAvatarFallback
-                        >RG</span
-                      >
-                    </hlm-avatar>
-                  }
-                  <hlm-card hlmCard>
-                    <div
-                      class="py-1 px-3 text-ellipsis max-w-xs md:max-w-sm lg:max-w-md"
-                    >
-                      <p>{{ message.content }}</p>
-                    </div>
-                  </hlm-card>
+          <ng-container #messageItem>
+            <div class="flex-1 mt-2">
+              
+              @if(shouldShowTimestamp($index)) {
+                <div
+                  hlmCardDescription
+                  class="text-xs text-center mt-1 opacity-70 mb-4"
+                  >
+                  {{ formatTimestamp(message.createdAt ?? '') }}
                 </div>
-              </div>
-            </div>
-            @if(isCurrentUserMessage(message) && $index === 0){
-              <div hlmCardDescription class="text-xs text-end mt-1 opacity-70">
-                <span>{{ message.status | titlecase }}</span>
-              </div>
-            }
-            
+              }
+              <message-card 
+              [message]="message" 
+              [currentUser]="currentUser"
+              [isGroup]="conversation?.is_group"
+              [index]="$index"
+              [imageUrl]="imageUrl() ?? ''"
+              ></message-card>
+              
           </div>
         </ng-container>
         }

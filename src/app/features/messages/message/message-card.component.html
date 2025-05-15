@@ -1,0 +1,36 @@
+@let message = this.message();
+<div
+  class="flex items-center mb-0"
+  [ngClass]="{ 'justify-end': isCurrentUserMessage(message) }"
+>
+  <div class="flex flex-col">
+    @if(isGroup() && !isCurrentUserMessage(message)){
+    <span class="text-gray-500">
+      {{ message.sender.username }}
+    </span>
+    }
+    <div class="flex items-center justify-start">
+      @if(!isCurrentUserMessage(message)){
+      <hlm-avatar variant="small" class="min-w-fit mr-1.5">
+        <img
+          [src]="imageUrl() || '/icons/avatar.svg'"
+          [alt]="message.sender.username"
+          hlmAvatarImage
+        />
+        <span class="bg-[#FD005B] text-white" hlmAvatarFallback>RG</span>
+      </hlm-avatar>
+      }
+      <hlm-card hlmCard>
+        <div class="py-1 px-3 text-ellipsis max-w-xs md:max-w-sm lg:max-w-md">
+          <p>{{ message.content }}</p>
+        </div>
+      </hlm-card>
+    </div>
+  </div>
+</div>
+@if(isCurrentUserMessage(message) && index() === 0){
+<div hlmCardDescription class="text-xs text-end mt-1 opacity-70">
+  <span>{{ message.status | titlecase }}</span>
+</div>
+}
+
