@@ -87,7 +87,8 @@
       }
       @if(messages().length > 0) { 
         @for(message of messages(); track message.createdAt) {
-        <ng-container>
+          <!-- <message-box [message]="message" [currentUserId]="currentUser()?._id"></message-box> -->
+        <ng-container #messageItem>
           <div class="flex-1 mt-2">
             <div
               hlmCardDescription

@@ -5,9 +5,11 @@ import {
   inject,
   linkedSignal,
   OnInit,
+  QueryList,
   Signal,
   signal,
   ViewChild,
+  ViewChildren,
 } from '@angular/core';
 import {
   catchError,
@@ -132,10 +134,13 @@ export class ChatboxComponent implements OnInit, OnDestroy {
   } | null>(null);
 
   @ViewChild('topTracker') observedElement?: ElementRef;
+  @ViewChildren('messageItem') messageItems?: QueryList<ElementRef>;
 
   isVisible = signal<boolean>(false);
   isVisibilityObserving = signal<boolean>(false);
-  private observer?: IntersectionObserver;
+
+  private divTopObserver?: IntersectionObserver;
+  private messageObserver?: IntersectionObserver;
 
   ngOnInit(): void {
     if (window.visualViewport && window.visualViewport?.height > 1000) {
@@ -191,6 +196,7 @@ export class ChatboxComponent implements OnInit, OnDestroy {
                 .getMessagesByConversationId(c._id, 0, this.limit)
                 .pipe(
                   tap((messagesList) => {
+                    const user = this.currentUser();
                     this.totalMessagesCount.set(messagesList.totalCount);
                     const duplicateIds = messagesList.messages.filter(
                       (id, index) => messagesList.messages.indexOf(id) !== index
@@ -203,6 +209,13 @@ export class ChatboxComponent implements OnInit, OnDestroy {
                       this.offset.update((val) => val + this.limit);
                     } else {
                       this.hasMoreMessages.set(false);
+                    }
+
+                    if (user) {
+                      const filteredMessages = messagesList.messages.filter(
+                        (m) => m.readBy?.includes(user._id)
+                      );
+                      console.log(filteredMessages);
                     }
 
                     this.isLoading.set(false);
@@ -277,11 +290,34 @@ export class ChatboxComponent implements OnInit, OnDestroy {
       .subscribe();
   }
 
+  ngAfterViewInit() {
+    const observer = new IntersectionObserver(
+      (entries) => {
+        const readMessages = entries
+          .filter((entry) => entry.isIntersecting)
+          .map((entry) => entry.target.getAttribute('data-message-id'));
+
+        if (readMessages.length > 0) {
+          console.log(readMessages);
+          // this.messageService.markMessagesAsRead(readMessages);
+        }
+      },
+      { threshold: 0.5 }
+    ); // Consider as read if 50% visible
+
+    this.messageItems?.forEach((item) => {
+      observer.observe(item.nativeElement);
+    });
+  }
+
   ngOnDestroy() {
     this.destroy$.next();
     this.destroy$.complete();
-    if (this.observer) {
-      this.observer.disconnect();
+    if (this.divTopObserver) {
+      this.divTopObserver.disconnect();
+    }
+    if (this.messageObserver) {
+      this.messageObserver.disconnect();
     }
   }
 
@@ -410,14 +446,14 @@ export class ChatboxComponent implements OnInit, OnDestroy {
   onChatTopVisible(): void {
     if (this.observedElement && !this.isVisibilityObserving()) {
       this.isVisibilityObserving.set(true);
-      this.observer = new IntersectionObserver(
+      this.divTopObserver = new IntersectionObserver(
         ([entry]) => {
           this.isVisible.set(entry.isIntersecting && !this.isLoading());
           if (this.hasMoreMessages() && this.isVisible()) {
             this.loadMoreMessages();
           }
           if (this.totalMessagesCount() < this.offset()) {
-            this.observer?.disconnect();
+            this.divTopObserver?.disconnect();
           }
           console.log('run');
         },
@@ -426,7 +462,7 @@ export class ChatboxComponent implements OnInit, OnDestroy {
         }
       );
 
-      this.observer.observe(this.observedElement.nativeElement);
+      this.divTopObserver.observe(this.observedElement.nativeElement);
     }
   }
 
