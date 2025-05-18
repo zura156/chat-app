@@ -154,6 +154,8 @@ export class ChatboxComponent implements OnInit, OnDestroy {
       });
     }
 
+    console.log(groupedMessages)
+
     return groupedMessages;
   });
   totalMessagesCount = signal<number>(0);
