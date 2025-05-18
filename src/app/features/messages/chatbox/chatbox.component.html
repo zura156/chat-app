@@ -22,7 +22,7 @@
             @if(!conversation.is_group) {
               @if(participant.status === 'offline') {
                 <span class="text-sm block text-gray-500">
-                  Last active {{ participant.last_seen ?? '' | timeAgo }} ago
+                  Last active {{ participant.last_seen ?? '' | timeAgo }}
                 </span>
               }@else {
                 <span class="size-2.5 inline-block bg-green-700 rounded-full"></span>
@@ -102,7 +102,7 @@
                     [message]="message" 
                     [currentUser]="currentUser"
                     [isGroup]="conversation?.is_group"
-                    [index]="$index"
+                    [isLastMessage]="message?._id === this.messages()[0]._id"
                     [imageUrl]="imageUrl() ?? ''"
                     ></message-card>
                 }

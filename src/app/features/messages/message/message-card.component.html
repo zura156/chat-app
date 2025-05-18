@@ -28,9 +28,9 @@
     </div>
   </div>
 </div>
-@if(isCurrentUserMessage(message) && index() === 0){
+@if(isCurrentUserMessage(message) && isLastMessage()){
 <div hlmCardDescription class="text-xs text-end mt-1 opacity-70">
-  <span>{{ message.status | titlecase }}</span>
+  <span>{{ `${(message.status | titlecase)} ${(message.createdAt | timeAgo)}` }}</span>
 </div>
 }
 

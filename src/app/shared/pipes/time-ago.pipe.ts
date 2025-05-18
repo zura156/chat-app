@@ -14,18 +14,18 @@ export class TimeAgoPipe implements PipeTransform {
     if (seconds < 29) return 'just now';
 
     const intervals: { [key: string]: number } = {
-      y: 31536000,
-      m: 2592000,
+      yr: 31536000,
+      mo: 2592000,
       w: 604800,
       d: 86400,
       h: 3600,
-      min: 60,
-      sec: 1,
+      m: 60,
+      s: 1,
     };
 
     for (const i in intervals) {
       const counter = Math.floor(seconds / intervals[i]);
-      if (counter > 0) return `${counter} ${i}`;
+      if (counter > 0) return `${counter}${i} ago`;
     }
 
     return value.toString();
