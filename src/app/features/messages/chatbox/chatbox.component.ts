@@ -38,6 +38,7 @@ import { BrnSeparatorComponent } from '@spartan-ng/brain/separator';
 import { HlmSeparatorDirective } from '@spartan-ng/ui-separator-helm';
 import { NgClass, TitleCasePipe } from '@angular/common';
 import {
+  GroupedMessages,
   MessageI,
   MessageStatus,
   MessageType,
@@ -95,6 +96,7 @@ export class ChatboxComponent implements OnInit, OnDestroy {
   private webSocketService = inject(WebSocketService);
 
   private readonly destroy$ = new Subject<void>();
+  private readonly TIME_GAP_THRESHOLD: number = 15;
 
   conversation: Signal<ConversationI | null> = signal<ConversationI | null>(
     null
@@ -117,6 +119,43 @@ export class ChatboxComponent implements OnInit, OnDestroy {
   });
 
   messages = this.messageService.activeMessages;
+  groupedMessages = linkedSignal<GroupedMessages[]>(() => {
+    let groupedMessages: GroupedMessages[] = [];
+    const messages = this.messages();
+
+    let currentGroup: MessageI[] = [];
+    let lastTimestamp: Date | null = null;
+
+    for (let i = 0; i < messages.length; i++) {
+      const message = messages[i];
+
+      if (lastTimestamp) {
+        const timeDifference =
+          (lastTimestamp.getTime() - new Date(message.createdAt).getTime()) /
+          (1000 * 60); // in minutes
+
+        if (timeDifference >= this.TIME_GAP_THRESHOLD) {
+          groupedMessages.push({
+            timeframe: this.formatTimestamp(lastTimestamp.toISOString()), // Format the last timestamp of the group
+            messages: currentGroup,
+          });
+          currentGroup = [];
+        }
+      }
+
+      currentGroup.push(message);
+      lastTimestamp = new Date(message.createdAt);
+    }
+
+    if (currentGroup.length > 0) {
+      groupedMessages.push({
+        timeframe: this.formatTimestamp(lastTimestamp?.toISOString() ?? ''), // Format the last timestamp of the group
+        messages: currentGroup,
+      });
+    }
+
+    return groupedMessages;
+  });
   totalMessagesCount = signal<number>(0);
 
   messageControl = new FormControl<string>('');
@@ -214,7 +253,6 @@ export class ChatboxComponent implements OnInit, OnDestroy {
                     const filteredMessages = messagesList.messages.filter((m) =>
                       m.readBy?.includes(user._id)
                     );
-                    console.log(filteredMessages);
                   }
 
                   this.isLoading.set(false);
@@ -432,7 +470,6 @@ export class ChatboxComponent implements OnInit, OnDestroy {
           } else {
             this.hasMoreMessages.set(false);
           }
-          console.log(msgs.totalCount, this.offset());
           this.isLoading.set(false);
         })
       );
@@ -453,7 +490,6 @@ export class ChatboxComponent implements OnInit, OnDestroy {
           if (this.totalMessagesCount() < this.offset()) {
             this.divTopObserver?.disconnect();
           }
-          console.log('run');
         },
         {
           threshold: 0.1, // 10% of the element must be visible to trigger
@@ -462,44 +498,6 @@ export class ChatboxComponent implements OnInit, OnDestroy {
 
       this.divTopObserver.observe(this.observedElement.nativeElement);
     }
-  }
-
-  shouldShowTimestamp(index: number): boolean {
-    const TIME_GAP_THRESHOLD = 10; // Minutes
-    const SENDER_CHANGE_THRESHOLD = 5; // Minutes
-    const msgs = this.messages();
-
-    // Always show timestamp for the newest message (first in the list)
-    if (index === 0) {
-      return true;
-    }
-
-    const currentMessage = msgs[index];
-    const newerMessage = msgs[index - 1]; // The message above (newer) in the UI
-
-    // Parse ISO strings to Date objects
-    const currentDate = new Date(currentMessage.createdAt ?? '');
-    const newerDate = new Date(newerMessage.createdAt ?? '');
-
-    // Calculate minutes between messages
-    // Since messages are newest-first, newer message timestamp - current message timestamp will be positive
-    const minutesBetween =
-      (newerDate.getTime() - currentDate.getTime()) / (1000 * 60);
-
-    // Show timestamp if significant time has passed
-    if (minutesBetween >= TIME_GAP_THRESHOLD) {
-      return true;
-    }
-
-    // Show timestamp if sender changed and some time has passed
-    if (
-      currentMessage.sender._id !== newerMessage.sender._id &&
-      minutesBetween >= SENDER_CHANGE_THRESHOLD
-    ) {
-      return true;
-    }
-
-    return false;
   }
 
   /**

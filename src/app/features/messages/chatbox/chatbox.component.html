@@ -87,27 +87,27 @@
         </div>
       }
       @if(messages().length > 0 && currentUser) { 
-        @for(message of messages(); track message.createdAt) {
+        @for(group of groupedMessages(); track group.timeframe) {
           <ng-container #messageItem>
             <div class="flex-1 mt-2">
-              
-              @if(shouldShowTimestamp($index)) {
-                <div
-                  hlmCardDescription
-                  class="text-xs text-center mt-1 opacity-70 mb-4"
-                  >
-                  {{ formatTimestamp(message.createdAt) }}
+              <div
+                hlmCardDescription
+                class="text-xs text-center mt-1 opacity-70 mb-4"
+                >
+                {{ group.timeframe }}
+              </div>
+              @for(message of group.messages; track message.createdAt) {
+                <div class="mt-2">
+                  <message-card 
+                  [message]="message" 
+                  [currentUser]="currentUser"
+                  [isGroup]="conversation?.is_group"
+                  [index]="$index"
+                  [imageUrl]="imageUrl() ?? ''"
+                  ></message-card>
                 </div>
               }
-              <message-card 
-              [message]="message" 
-              [currentUser]="currentUser"
-              [isGroup]="conversation?.is_group"
-              [index]="$index"
-              [imageUrl]="imageUrl() ?? ''"
-              ></message-card>
-              
-          </div>
+              </div>
         </ng-container>
         }
       } @else {

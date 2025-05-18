@@ -28,7 +28,7 @@ export interface MessageI {
 }
 
 export interface GroupedMessages {
-  date: Date;
+  timeframe: string;
   messages: MessageI[];
 }
 
