@@ -23,8 +23,13 @@ export interface MessageI {
   type: MessageType;
   status?: MessageStatus;
   readBy?: string[];
-  createdAt?: string;
+  createdAt: string;
   updatedAt?: string;
+}
+
+export interface GroupedMessages {
+  date: Date;
+  messages: MessageI[];
 }
 
 // Add this method to your class

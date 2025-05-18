@@ -349,6 +349,7 @@ export class ChatboxComponent implements OnInit, OnDestroy {
               content: this.messageControl.value!,
               type: MessageType.TEXT,
               status: MessageStatus.SENDING,
+              createdAt: new Date().toISOString(),
             };
 
             const participants = conversation.participants.filter(
@@ -382,6 +383,7 @@ export class ChatboxComponent implements OnInit, OnDestroy {
         content: this.messageControl.value,
         type: MessageType.TEXT,
         status: MessageStatus.SENDING,
+        createdAt: new Date().toISOString(),
       };
       const participants = convo.participants.filter(
         (u) => u._id !== sender?._id
