@@ -21,8 +21,8 @@ export interface MessageI {
   conversation: ConversationI | string;
   content: string;
   type: MessageType;
-  status?: MessageStatus;
-  readBy?: string[];
+  status: MessageStatus;
+  readBy: string[];
   createdAt: string;
   updatedAt?: string;
 }

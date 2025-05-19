@@ -327,23 +327,30 @@ export class ChatboxComponent implements OnInit, OnDestroy {
   }
 
   ngAfterViewInit() {
-    const observer = new IntersectionObserver(
-      (entries) => {
-        const readMessages = entries
-          .filter((entry) => entry.isIntersecting)
-          .map((entry) => entry.target.getAttribute('data-message-id'));
+    console.log(this.messageControl);
+    if (
+      // !hasMessagesRead() && 
+      this.messageItems
+    ) {
+      this.messageObserver = new IntersectionObserver(
+        () => {
+          if (this.messages().length > 0) {
+            const message = this.messages()[0];
+            if (message && message.readBy.length > 0) {
+              const user = this.currentUser();
+              if (user && !message.readBy.includes(user._id)) {
+                this.messageService.markMessagesAsRead(String(message._id));
+              }
+            }
+          }
+        },
+        { threshold: 0.5 }
+      );
 
-        if (readMessages.length > 0) {
-          console.log(readMessages);
-          // this.messageService.markMessagesAsRead(readMessages);
-        }
-      },
-      { threshold: 0.5 }
-    ); // Consider as read if 50% visible
-
-    this.messageItems?.forEach((item) => {
-      observer.observe(item.nativeElement);
-    });
+      this.messageItems?.forEach((item) => {
+        this.messageObserver?.observe(item.nativeElement);
+      });
+    }
   }
 
   ngOnDestroy() {
@@ -387,6 +394,7 @@ export class ChatboxComponent implements OnInit, OnDestroy {
               type: MessageType.TEXT,
               status: MessageStatus.SENDING,
               createdAt: new Date().toISOString(),
+              readBy: [],
             };
 
             const participants = conversation.participants.filter(
@@ -421,6 +429,7 @@ export class ChatboxComponent implements OnInit, OnDestroy {
         type: MessageType.TEXT,
         status: MessageStatus.SENDING,
         createdAt: new Date().toISOString(),
+        readBy: [],
       };
       const participants = convo.participants.filter(
         (u) => u._id !== sender?._id
