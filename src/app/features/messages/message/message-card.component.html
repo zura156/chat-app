@@ -21,9 +21,22 @@
       </hlm-avatar>
       }
       <hlm-card hlmCard>
-        <div class="py-1 px-3 text-ellipsis max-w-xs md:max-w-sm lg:max-w-md">
-          <p>{{ message.content }}</p>
-        </div>
+        @if(message.readReceipts && message.readReceipts.length > 0) {
+          <!-- <div class="py-1 px-3 text-ellipsis max-w-xs md:max-w-sm lg:max-w-md">
+            <p>{{ message.content }}</p>
+            <div class="flex items-center mt-1">
+              @for(readReceipt of message.readReceipts; track readReceipt.userId) {
+                <span class="text-xs text-gray-500 mr-1">
+                  {{ readReceipt.userId }}
+                </span>
+              }
+            </div>
+          </div> -->
+        } @else {
+          <div class="py-1 px-3 text-ellipsis max-w-xs md:max-w-sm lg:max-w-md">
+            <p>{{ message.content }}</p>
+          </div>
+        }
       </hlm-card>
     </div>
   </div>

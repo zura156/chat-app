@@ -8,6 +8,11 @@ export enum MessageType {
   FILE = 'file',
 }
 
+export interface ReadReceipt {
+  userId: string;
+  readAt: Date | null;
+}
+
 export enum MessageStatus {
   SENDING = 'sending',
   SENT = 'sent',
@@ -22,7 +27,7 @@ export interface MessageI {
   content: string;
   type: MessageType;
   status: MessageStatus;
-  readBy: string[];
+  readReceipts: ReadReceipt[];
   createdAt: string;
   updatedAt?: string;
 }

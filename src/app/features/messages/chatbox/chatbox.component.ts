@@ -103,7 +103,7 @@ export class ChatboxComponent implements OnInit, OnDestroy {
     null
   );
 
-  imageUrl = linkedSignal<string | null>(() => {
+  groupImageUrl = linkedSignal<string | null>(() => {
     const currentConversation = this.conversation();
     if (!currentConversation) {
       return null;
@@ -183,12 +183,6 @@ export class ChatboxComponent implements OnInit, OnDestroy {
   private divTopIntersectionObserver?: IntersectionObserver;
   private messageIntersectionObserver?: IntersectionObserver;
 
-  constructor() {
-    afterNextRender(() => {
-      this.setupMessageVisibilityTracking();
-    });
-  }
-
   ngOnInit(): void {
     if (window.visualViewport && window.visualViewport?.height > 1000) {
       this.limit = 40;
@@ -239,8 +233,13 @@ export class ChatboxComponent implements OnInit, OnDestroy {
               if (!c) {
                 return EMPTY;
               }
-              return this.loadMoreMessages(c._id).pipe(
+
+              this.hasMoreMessages.set(true);
+              this.offset.set(0);
+
+              return this.loadMessages(c._id).pipe(
                 tap((messagesList) => {
+                  console.log('Messages List:', messagesList);
                   const user = this.currentUser();
                   this.totalMessagesCount.set(messagesList.totalCount);
                   const duplicateIds = messagesList.messages.filter(
@@ -256,11 +255,16 @@ export class ChatboxComponent implements OnInit, OnDestroy {
                     this.hasMoreMessages.set(false);
                   }
 
-                  if (user) {
-                    const filteredMessages = messagesList.messages.filter((m) =>
-                      m.readBy?.includes(user._id)
-                    );
-                  }
+                  // if (
+                  //   user &&
+                  //   !messagesList.messages.some((msg) =>
+                  //     msg.readReceipts?.some(
+                  //       (receipt) => receipt.userId === user._id
+                  //     )
+                  //   )
+                  // ) {
+                  //   this.markMessagesAsRead(messagesList.messages[0]._id ?? '');
+                  // }
 
                   this.isLoading.set(false);
                 }),
@@ -384,7 +388,7 @@ export class ChatboxComponent implements OnInit, OnDestroy {
               type: MessageType.TEXT,
               status: MessageStatus.SENDING,
               createdAt: new Date().toISOString(),
-              readBy: [],
+              readReceipts: [],
             };
 
             const participants = conversation.participants.filter(
@@ -419,7 +423,7 @@ export class ChatboxComponent implements OnInit, OnDestroy {
         type: MessageType.TEXT,
         status: MessageStatus.SENDING,
         createdAt: new Date().toISOString(),
-        readBy: [],
+        readReceipts: [],
       };
       const participants = convo.participants.filter(
         (u) => u._id !== sender?._id
@@ -447,7 +451,7 @@ export class ChatboxComponent implements OnInit, OnDestroy {
     }
   }
 
-  loadMoreMessages(conversationId: string) {
+  loadMessages(conversationId: string) {
     if (!this.hasMoreMessages()) return EMPTY;
 
     this.isLoading.set(true);
@@ -471,89 +475,8 @@ export class ChatboxComponent implements OnInit, OnDestroy {
       );
   }
 
-  setupMessageVisibilityTracking(): void {
-    // Don't setup if already observing or no message items
-    if (this.messageIntersectionObserver || !this.messageItems?.length) {
-      return;
-    }
-
-    // Create an intersection observer for tracking message visibility
-    this.messageIntersectionObserver = new IntersectionObserver(
-      (entries) => {
-        const unreadMessageIds: string[] = [];
-        const currentUserId = this.currentUser()?._id;
-
-        if (!currentUserId) return;
-
-        entries.forEach((entry) => {
-          const messageElement = entry.target as HTMLElement;
-          const messageId = messageElement.getAttribute('data-message-id');
-
-          if (entry.isIntersecting && messageId) {
-            // Mark as visible
-            this.visibleMessageIds.add(messageId);
-
-            // Check if it's an unread message from someone else
-            const message = this.findMessageById(messageId);
-            if (
-              message &&
-              message.sender._id !== currentUserId &&
-              !message.readBy?.includes(currentUserId)
-            ) {
-              unreadMessageIds.push(messageId);
-            }
-          } else if (messageId) {
-            // No longer visible
-            this.visibleMessageIds.delete(messageId);
-          }
-        });
-
-        // Mark visible messages as read on server
-        if (unreadMessageIds.length > 0) {
-          this.markMessagesAsRead(unreadMessageIds);
-        }
-      },
-      {
-        threshold: 0.5, // Message must be 50% visible
-      }
-    );
-
-    // Start observing all message items
-    this.refreshMessageObservations();
-
-    // When message list changes, update observations
-    this.messageItems.changes.pipe(takeUntil(this.destroy$)).subscribe(() => {
-      this.refreshMessageObservations();
-    });
-  }
-
-  private refreshMessageObservations(): void {
-    if (!this.messageIntersectionObserver || !this.messageItems) return;
-
-    // Disconnect existing observations
-    this.messageIntersectionObserver.disconnect();
-
-    // Observe each message element
-    this.messageItems.forEach((item) => {
-      const element = item.nativeElement as HTMLElement;
-
-      // Ensure each element has a message ID attribute
-      if (!element.hasAttribute('data-message-id')) {
-        const messageId = element.getAttribute('id')?.replace('msg-', '');
-        if (messageId) {
-          element.setAttribute('data-message-id', messageId);
-        }
-      }
-
-      this.messageIntersectionObserver!.observe(element);
-    });
-  }
-
-  /**
-   * Mark multiple messages as read
-   */
-  private markMessagesAsRead(messageIds: string[]): void {
-    if (!messageIds.length) return;
+  private markMessagesAsRead(lastReadMessageId: string): void {
+    if (!lastReadMessageId) return;
 
     const currentUserId = this.currentUser()?._id;
     const conversationId = this.conversation()?._id;
@@ -561,21 +484,18 @@ export class ChatboxComponent implements OnInit, OnDestroy {
     if (!currentUserId || !conversationId) return;
 
     // First update local state
-    messageIds.forEach((messageId) => {
-      console.log(messageId);
-      // this.messageService.updateMessageReadStatus(messageId, currentUserId, new Date().toISOString());
-    });
+
+    // this.messageService.updateMessageReadStatus(lastReadMessageId, currentUserId, new Date().toISOString());
 
     // Then send to server via websocket
     const readData = {
       type: 'message-read',
-      messageIds,
+      last_read_message_id: lastReadMessageId,
       userId: currentUserId,
       conversationId,
       readAt: new Date().toISOString(),
     };
 
-    console.log(readData);
     // this.webSocketService.sendMessage(readData);
   }
 
@@ -586,9 +506,7 @@ export class ChatboxComponent implements OnInit, OnDestroy {
         ([entry]) => {
           this.isVisible.set(entry.isIntersecting && !this.isLoading());
           if (this.hasMoreMessages() && this.isVisible()) {
-            this.loadMoreMessages(
-              String(this.conversation()?._id)
-            )?.subscribe();
+            this.loadMessages(String(this.conversation()?._id))?.subscribe();
           }
           if (this.totalMessagesCount() < this.offset()) {
             this.divTopIntersectionObserver?.disconnect();

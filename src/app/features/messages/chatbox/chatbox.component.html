@@ -7,7 +7,7 @@
     <div class="flex items-center gap-x-2">
       <hlm-avatar variant="medium">
         <img
-          [src]="imageUrl() ?? '/icons/avatar.svg'"
+          [src]="groupImageUrl() ?? '/icons/avatar.svg'"
           alt="pfp"
           hlmAvatarImage
         />
@@ -105,8 +105,11 @@
                     [currentUser]="currentUser"
                     [isGroup]="conversation?.is_group"
                     [isLastMessage]="message?._id === this.messages()[0]._id"
-                    [imageUrl]="imageUrl() ?? ''"
-                    ></message-card>
+                    [imageUrl]="message.sender.profile_picture ?? ''"
+                  ></message-card>
+                  @for(readReceipt of message.readReceipts; track readReceipt.userId) {
+                    {{ readReceipt.userId }}
+                  }
                 }
               </div>
               </div>
@@ -117,8 +120,7 @@
           <div class="mx-auto">
             <hlm-spinner />
           </div>
-        } 
-        @else {
+        } @else {
           <ng-container>
             <div class="flex justify-center h-full items-center">
               <p class="text-slate-400">No messages yet. Start the conversation!</p>
@@ -136,6 +138,7 @@
     <div class="p-2 flex justify-center items-center gap-x-4">
       <input
         id="sender-input"
+        autocomplete="off"
         hlmInput
         class="w-full"
         placeholder="Type a message..."
