@@ -1,4 +1,5 @@
 import {
+  afterNextRender,
   ChangeDetectionStrategy,
   Component,
   ElementRef,
@@ -36,7 +37,6 @@ import {
 } from '@spartan-ng/ui-avatar-helm';
 import { BrnSeparatorComponent } from '@spartan-ng/brain/separator';
 import { HlmSeparatorDirective } from '@spartan-ng/ui-separator-helm';
-import { NgClass, TitleCasePipe } from '@angular/common';
 import {
   GroupedMessages,
   MessageI,
@@ -96,6 +96,7 @@ export class ChatboxComponent implements OnInit, OnDestroy {
   private webSocketService = inject(WebSocketService);
 
   private readonly destroy$ = new Subject<void>();
+
   private readonly TIME_GAP_THRESHOLD: number = 15;
 
   conversation: Signal<ConversationI | null> = signal<ConversationI | null>(
@@ -177,9 +178,16 @@ export class ChatboxComponent implements OnInit, OnDestroy {
 
   isVisible = signal<boolean>(false);
   isVisibilityObserving = signal<boolean>(false);
+  private visibleMessageIds = new Set<string>();
 
-  private divTopObserver?: IntersectionObserver;
-  private messageObserver?: IntersectionObserver;
+  private divTopIntersectionObserver?: IntersectionObserver;
+  private messageIntersectionObserver?: IntersectionObserver;
+
+  constructor() {
+    afterNextRender(() => {
+      this.setupMessageVisibilityTracking();
+    });
+  }
 
   ngOnInit(): void {
     if (window.visualViewport && window.visualViewport?.height > 1000) {
@@ -305,6 +313,15 @@ export class ChatboxComponent implements OnInit, OnDestroy {
                               status,
                               last_seen
                             );
+                            break;
+                          // case 'message-read':
+                          //   const { messageId, sender, readAt } = res;
+                          //   this.messageService.updateMessageReadStatus(
+                          //     messageId,
+                          //     userId,
+                          //     readAt
+                          //   );
+                          //   break;
                         }
                       }),
                       catchError((err) => {
@@ -326,41 +343,14 @@ export class ChatboxComponent implements OnInit, OnDestroy {
       .subscribe();
   }
 
-  ngAfterViewInit() {
-    console.log(this.messageControl);
-    if (
-      // !hasMessagesRead() && 
-      this.messageItems
-    ) {
-      this.messageObserver = new IntersectionObserver(
-        () => {
-          if (this.messages().length > 0) {
-            const message = this.messages()[0];
-            if (message && message.readBy.length > 0) {
-              const user = this.currentUser();
-              if (user && !message.readBy.includes(user._id)) {
-                this.messageService.markMessagesAsRead(String(message._id));
-              }
-            }
-          }
-        },
-        { threshold: 0.5 }
-      );
-
-      this.messageItems?.forEach((item) => {
-        this.messageObserver?.observe(item.nativeElement);
-      });
-    }
-  }
-
   ngOnDestroy() {
     this.destroy$.next();
     this.destroy$.complete();
-    if (this.divTopObserver) {
-      this.divTopObserver.disconnect();
+    if (this.divTopIntersectionObserver) {
+      this.divTopIntersectionObserver.disconnect();
     }
-    if (this.messageObserver) {
-      this.messageObserver.disconnect();
+    if (this.messageIntersectionObserver) {
+      this.messageIntersectionObserver.disconnect();
     }
   }
 
@@ -462,8 +452,6 @@ export class ChatboxComponent implements OnInit, OnDestroy {
 
     this.isLoading.set(true);
 
-    const convo = this.conversation();
-
     if (!conversationId) return EMPTY;
 
     return this.messageService
@@ -481,13 +469,120 @@ export class ChatboxComponent implements OnInit, OnDestroy {
           this.isLoading.set(false);
         })
       );
-    // .subscribe();
+  }
+
+  setupMessageVisibilityTracking(): void {
+    // Don't setup if already observing or no message items
+    if (this.messageIntersectionObserver || !this.messageItems?.length) {
+      return;
+    }
+
+    // Create an intersection observer for tracking message visibility
+    this.messageIntersectionObserver = new IntersectionObserver(
+      (entries) => {
+        const unreadMessageIds: string[] = [];
+        const currentUserId = this.currentUser()?._id;
+
+        if (!currentUserId) return;
+
+        entries.forEach((entry) => {
+          const messageElement = entry.target as HTMLElement;
+          const messageId = messageElement.getAttribute('data-message-id');
+
+          if (entry.isIntersecting && messageId) {
+            // Mark as visible
+            this.visibleMessageIds.add(messageId);
+
+            // Check if it's an unread message from someone else
+            const message = this.findMessageById(messageId);
+            if (
+              message &&
+              message.sender._id !== currentUserId &&
+              !message.readBy?.includes(currentUserId)
+            ) {
+              unreadMessageIds.push(messageId);
+            }
+          } else if (messageId) {
+            // No longer visible
+            this.visibleMessageIds.delete(messageId);
+          }
+        });
+
+        // Mark visible messages as read on server
+        if (unreadMessageIds.length > 0) {
+          this.markMessagesAsRead(unreadMessageIds);
+        }
+      },
+      {
+        threshold: 0.5, // Message must be 50% visible
+      }
+    );
+
+    // Start observing all message items
+    this.refreshMessageObservations();
+
+    // When message list changes, update observations
+    this.messageItems.changes.pipe(takeUntil(this.destroy$)).subscribe(() => {
+      this.refreshMessageObservations();
+    });
+  }
+
+  private refreshMessageObservations(): void {
+    if (!this.messageIntersectionObserver || !this.messageItems) return;
+
+    // Disconnect existing observations
+    this.messageIntersectionObserver.disconnect();
+
+    // Observe each message element
+    this.messageItems.forEach((item) => {
+      const element = item.nativeElement as HTMLElement;
+
+      // Ensure each element has a message ID attribute
+      if (!element.hasAttribute('data-message-id')) {
+        const messageId = element.getAttribute('id')?.replace('msg-', '');
+        if (messageId) {
+          element.setAttribute('data-message-id', messageId);
+        }
+      }
+
+      this.messageIntersectionObserver!.observe(element);
+    });
+  }
+
+  /**
+   * Mark multiple messages as read
+   */
+  private markMessagesAsRead(messageIds: string[]): void {
+    if (!messageIds.length) return;
+
+    const currentUserId = this.currentUser()?._id;
+    const conversationId = this.conversation()?._id;
+
+    if (!currentUserId || !conversationId) return;
+
+    // First update local state
+    messageIds.forEach((messageId) => {
+      console.log(messageId);
+      // this.messageService.updateMessageReadStatus(messageId, currentUserId, new Date().toISOString());
+    });
+
+    // Then send to server via websocket
+    const readData = {
+      type: 'message-read',
+      messageIds,
+      userId: currentUserId,
+      conversationId,
+      readAt: new Date().toISOString(),
+    };
+
+    console.log(readData);
+    // this.webSocketService.sendMessage(readData);
   }
 
   onChatTopVisible(): void {
     if (this.observedElement && !this.isVisibilityObserving()) {
       this.isVisibilityObserving.set(true);
-      this.divTopObserver = new IntersectionObserver(
+      this.divTopIntersectionObserver = new IntersectionObserver(
         ([entry]) => {
           this.isVisible.set(entry.isIntersecting && !this.isLoading());
           if (this.hasMoreMessages() && this.isVisible()) {
@@ -496,7 +591,7 @@ export class ChatboxComponent implements OnInit, OnDestroy {
             )?.subscribe();
           }
           if (this.totalMessagesCount() < this.offset()) {
-            this.divTopObserver?.disconnect();
+            this.divTopIntersectionObserver?.disconnect();
           }
         },
         {
@@ -504,13 +599,12 @@ export class ChatboxComponent implements OnInit, OnDestroy {
         }
       );
 
-      this.divTopObserver.observe(this.observedElement.nativeElement);
+      this.divTopIntersectionObserver.observe(
+        this.observedElement.nativeElement
+      );
     }
   }
 
-  /**
-   * Format the timestamp in a user-friendly way
-   */
   formatTimestamp(isoString: string): string {
     if (!isoString) return '';
 
@@ -551,6 +645,16 @@ export class ChatboxComponent implements OnInit, OnDestroy {
     });
     const dateString = dateFormat.format(timestamp);
     return `${dateString} at ${timeString}`;
+  }
+
+  private findMessageById(messageId: string): MessageI | undefined {
+    for (const group of this.groupedMessages()) {
+      const message = group.messages.find((m) => m._id === messageId);
+      if (message) {
+        return message;
+      }
+    }
+    return undefined;
   }
 
   private trackTypingStatus(): void {
