@@ -239,7 +239,6 @@ export class ChatboxComponent implements OnInit, OnDestroy {
 
               return this.loadMessages(c._id).pipe(
                 tap((messagesList) => {
-                  console.log('Messages List:', messagesList);
                   const user = this.currentUser();
                   this.totalMessagesCount.set(messagesList.totalCount);
                   const duplicateIds = messagesList.messages.filter(
@@ -255,16 +254,17 @@ export class ChatboxComponent implements OnInit, OnDestroy {
                     this.hasMoreMessages.set(false);
                   }
 
-                  // if (
-                  //   user &&
-                  //   !messagesList.messages.some((msg) =>
-                  //     msg.readReceipts?.some(
-                  //       (receipt) => receipt.userId === user._id
-                  //     )
-                  //   )
-                  // ) {
-                  //   this.markMessagesAsRead(messagesList.messages[0]._id ?? '');
-                  // }
+                  if (
+                    user &&
+                    messagesList.messages.length > 0 &&
+                    !messagesList.messages.some((msg) =>
+                      msg.readReceipts?.some(
+                        (receipt) => receipt?.userId === user._id
+                      )
+                    )
+                  ) {
+                    this.markMessagesAsRead(messagesList.messages[0]._id ?? '');
+                  }
 
                   this.isLoading.set(false);
                 }),
