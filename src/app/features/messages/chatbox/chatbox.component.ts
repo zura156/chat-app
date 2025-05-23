@@ -56,7 +56,10 @@ import { UserI } from '../../user/interfaces/user.interface';
 import { toast } from 'ngx-sonner';
 import { HlmToasterComponent } from '@spartan-ng/ui-sonner-helm';
 import { ParticipantI } from '../interfaces/participant.interface';
-import { TypingMessage } from '../interfaces/web-socket-message.interface';
+import {
+  MessageStatusMessage,
+  TypingMessage,
+} from '../interfaces/web-socket-message.interface';
 import { TimeAgoPipe } from '../../../shared/pipes/time-ago.pipe';
 import { MessageCardComponent } from '../message/message-card.component';
 
@@ -254,16 +257,9 @@ export class ChatboxComponent implements OnInit, OnDestroy {
                     this.hasMoreMessages.set(false);
                   }
 
-                  if (
-                    user &&
-                    messagesList.messages.length > 0 &&
-                    !messagesList.messages.some((msg) =>
-                      msg.readReceipts?.some(
-                        (receipt) => receipt?.userId === user._id
-                      )
-                    )
-                  ) {
-                    this.markMessagesAsRead(messagesList.messages[0]._id ?? '');
+                  const lastMessageId = messagesList.messages[0]._id;
+                  if (lastMessageId) {
+                    this.markMessagesAsRead(lastMessageId);
                   }
 
                   this.isLoading.set(false);
@@ -475,28 +471,29 @@ export class ChatboxComponent implements OnInit, OnDestroy {
       );
   }
 
-  private markMessagesAsRead(lastReadMessageId: string): void {
-    if (!lastReadMessageId) return;
+  private markMessagesAsRead(lastMessageId: string): void {
+    if (!lastMessageId) return;
 
-    const currentUserId = this.currentUser()?._id;
+    const message = this.findMessageById(lastMessageId);
+    const user = this.currentUser();
+    if (!user || !message) return;
+
+    const currentUserId = user._id;
     const conversationId = this.conversation()?._id;
+
+    if (message && message.readReceipts.some((r) => r.userId === currentUserId))
+      return;
 
     if (!currentUserId || !conversationId) return;
 
-    // First update local state
-
-    // this.messageService.updateMessageReadStatus(lastReadMessageId, currentUserId, new Date().toISOString());
-
     // Then send to server via websocket
-    const readData = {
-      type: 'message-read',
-      last_read_message_id: lastReadMessageId,
-      userId: currentUserId,
-      conversationId,
-      readAt: new Date().toISOString(),
+    const readData: MessageStatusMessage = {
+      type: 'message-status',
+      last_message_id: lastMessageId,
+      status: 'read',
     };
 
-    // this.webSocketService.sendMessage(readData);
+    this.webSocketService.sendMessage(readData);
   }
 
   onChatTopVisible(): void {

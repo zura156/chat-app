@@ -4,7 +4,7 @@ import config from '../config/config';
 import { logger } from '../utils/logger';
 import { Message } from '../messenger/models/message.model';
 import { User } from '../user/models/user.model';
-import { MessageI } from '../messenger/interfaces/message.interface';
+import { MessageI, MessageStatusEnum, MessageTypeEnum } from '../messenger/interfaces/message.interface';
 import { UserInterface } from '../user/interfaces/user.interface';
 
 type MessageContentType = 'text' | 'image' | 'video' | 'file';
@@ -12,6 +12,7 @@ type WebSocketMessageType =
   | 'authenticate'
   | 'typing'
   | 'message'
+  | 'message-status'
   | MessageContentType
   | 'user-status';
 
@@ -38,6 +39,12 @@ interface ChatMessage extends BaseWebSocketMessage {
   participants: Partial<UserInterface>[];
 }
 
+interface MessageStatusMessage extends BaseWebSocketMessage {
+  type: 'message-status';
+  last_message_id: string;
+  status: 'sent' | 'delivered' | 'read';
+}
+
 interface UserStatusMessage extends BaseWebSocketMessage {
   type: 'user-status';
   userId: string;
@@ -49,6 +56,7 @@ type WebSocketMessage =
   | AuthenticateMessage
   | TypingMessage
   | ChatMessage
+  | MessageStatusMessage
   | UserStatusMessage;
 
 class WebSocketClientManager {
@@ -105,7 +113,10 @@ class MessageHandler {
 
   constructor(protected clientManager: WebSocketClientManager) {}
 
-  async handleMessage(ws: WebSocket, data: WebSocketMessage | unknown): Promise<void> {
+  async handleMessage(
+    ws: WebSocket,
+    data: WebSocketMessage | unknown
+  ): Promise<void> {
     logger.debug(`Received message type: ${data}`);
 
     if (this.isRegisterMessage(data)) {
@@ -116,6 +127,8 @@ class MessageHandler {
       await this.handleChatMessage(ws, data);
     } else if (this.isUserStatusMessage(data)) {
       await this.handleUserStatus(ws, data);
+    } else if (this.isMessageStatusMessage(data)) {
+      await this.handleMessageStatus(ws, data);
     } else {
       this.handleUnknownMessage(ws, data);
     }
@@ -175,6 +188,14 @@ class MessageHandler {
       data.type === 'user-status' &&
       typeof data.userId === 'string' &&
       ['online', 'offline'].includes(data.status)
+    );
+  }
+
+  protected isMessageStatusMessage(data: any): data is MessageStatusMessage {
+    return (
+      data.type === 'message-status' &&
+      typeof data.last_message_id === 'string' &&
+      ['sent', 'delivered', 'read'].includes(data.status)
     );
   }
 
@@ -265,6 +286,44 @@ class MessageHandler {
 
     this._finalizeUserStatus(ws, data);
   }
+
+  protected async handleMessageStatus(
+    ws: WebSocket,
+    data: MessageStatusMessage
+  ): Promise<void> {
+    const { last_message_id, status} = data;
+
+    try {
+
+      const message = await Message.findById(last_message_id);
+
+      if(!message) {
+        logger.warn(`Message ${last_message_id} not found in DB.`);
+        ws.send(
+          JSON.stringify({
+            error: 'Message not found',
+            last_message_id,
+          })
+        );
+        return;
+      }
+
+      message.status = status as MessageStatusEnum;
+      await message.save();
+
+      
+    }
+    catch (err) {
+      logger.error('Failed to update message status:', err);
+      ws.send(
+        JSON.stringify({
+          error: 'Failed to update message status in database',
+          details: err instanceof Error ? err.message : 'Unknown error',
+        })
+      );
+    }
+  }
+
 
   private async _finalizeUserStatus(
     ws: WebSocket,

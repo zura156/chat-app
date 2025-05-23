@@ -77,19 +77,19 @@ export class MessageService {
     );
   }
 
-  // Mark messages as read
-  markMessagesAsRead(conversationId: string): Observable<any> {
-    const url = `${this.GET_MESSAGES_URL}/${conversationId}/read`;
+  // // Mark messages as read
+  // markMessagesAsRead(conversationId: string): Observable<any> {
+  //   const url = `${this.GET_MESSAGES_URL}/${conversationId}/read`;
 
-    return this.http.post(url, {}).pipe(
-      catchError((error) => {
-        console.error('Error marking messages as read:', error);
-        return throwError(
-          () => new Error(error.message || 'Failed to mark messages as read')
-        );
-      })
-    );
-  }
+  //   return this.http.post(url, {}).pipe(
+  //     catchError((error) => {
+  //       console.error('Error marking messages as read:', error);
+  //       return throwError(
+  //         () => new Error(error.message || 'Failed to mark messages as read')
+  //       );
+  //     })
+  //   );
+  // }
 
   // Add a single message to the active messages (useful for real-time updates)
   addMessage(message: MessageI): void {

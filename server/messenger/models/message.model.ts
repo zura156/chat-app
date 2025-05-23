@@ -1,6 +1,8 @@
-import { Schema, model, Document, Types } from 'mongoose';
-import { MessageStatusEnum, MessageTypeEnum } from '../interfaces/message.interface';
-
+import { Schema, model, Document, Types, now } from 'mongoose';
+import {
+  MessageStatusEnum,
+  MessageTypeEnum,
+} from '../interfaces/message.interface';
 
 export interface IMessage extends Document {
   sender: Types.ObjectId;
@@ -8,7 +10,7 @@ export interface IMessage extends Document {
   content: string;
   type: MessageTypeEnum;
   status: MessageStatusEnum;
-  readBy: Types.ObjectId[];
+  readReceipts: { userId: Types.ObjectId; readAt: Date }[];
   createdAt?: Date;
   updatedAt?: Date;
 }
@@ -32,7 +34,12 @@ const MessageSchema = new Schema<IMessage>(
       enum: Object.values(MessageStatusEnum),
       default: MessageStatusEnum.SENT,
     },
-    readBy: [{ type: Schema.Types.ObjectId, ref: 'User' }],
+    readReceipts: [
+      {
+        userId: { type: Schema.Types.ObjectId, ref: 'User' },
+        readAt: { type: Date, default: now() },
+      },
+    ],
   },
   { timestamps: true }
 );

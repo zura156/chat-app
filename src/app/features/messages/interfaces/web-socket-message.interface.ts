@@ -8,6 +8,7 @@ type WebSocketMessageType =
   | 'authenticate'
   | 'typing'
   | 'message'
+  | 'message-status'
   | MessageContentType
   | 'user-status';
 interface BaseWebSocketMessage {
@@ -33,6 +34,12 @@ export interface ChatMessage extends BaseWebSocketMessage {
   participants: Partial<ParticipantI>[];
 }
 
+export interface MessageStatusMessage extends BaseWebSocketMessage {
+  type: 'message-status';
+  last_message_id: string;
+  status: 'sent' | 'delivered' | 'read';
+}
+
 export interface UserStatusMessage extends BaseWebSocketMessage {
   type: 'user-status';
   userId: string;
@@ -44,4 +51,5 @@ export type WebSocketMessageT =
   | AuthenticateMessage
   | TypingMessage
   | ChatMessage
-  | UserStatusMessage;
+  | UserStatusMessage
+  | MessageStatusMessage;

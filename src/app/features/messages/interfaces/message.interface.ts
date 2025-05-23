@@ -14,6 +14,7 @@ export interface ReadReceipt {
 }
 
 export enum MessageStatus {
+  FAILED = 'failed',
   SENDING = 'sending',
   SENT = 'sent',
   DELIVERED = 'delivered',

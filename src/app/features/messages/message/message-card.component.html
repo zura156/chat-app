@@ -43,7 +43,7 @@
 </div>
 @if(isCurrentUserMessage(message) && isLastMessage()){
 <div hlmCardDescription class="text-xs text-end mt-1 opacity-70">
-  <span>{{ `${(message.status | titlecase)} ${(message.createdAt | timeAgo)}` }}</span>
+  <span>{{ `${(message.status | titlecase)} ${message.status !== 'sending' && message.status !== 'failed' ? (message.createdAt | timeAgo) : ''}` }}</span>
 </div>
 }
 
