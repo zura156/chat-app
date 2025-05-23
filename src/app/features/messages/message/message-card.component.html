@@ -32,18 +32,29 @@
 </div>
 @if(message.readReceipts && message.readReceipts.length > 0) {
   <div class="w-full flex items-center gap-x-1 justify-end pt-2">
-    @for(readReceipt of message.readReceipts; track readReceipt.userId) {
-      @let userCredentials = this.getUserCredentials(readReceipt.userId);
-      <hlm-avatar variant="2xs" class="min-w-fit">
-        <img
+    @if(message.readReceipts.length > 4) {
+      @for(readReceipt of message.readReceipts.slice(0, 4); track readReceipt.userId) {
+        @let userCredentials = this.getUserCredentials(readReceipt.userId);
+        <hlm-avatar variant="2xs" class="min-w-fit">
+          <img
           [src]="userCredentials.profile_picture || '/icons/avatar.svg'"
           [alt]="userCredentials.username"
           hlmAvatarImage
-        />
-        <span class="bg-[#FD005B] text-white" hlmAvatarFallback>
-          {{ userCredentials.username }}
-        </span>
-      </hlm-avatar>
+          />
+        </hlm-avatar>
+      }
+      <span class="text-xs text-gray-500">+{{ message.readReceipts.length - 4 }}</span>
+    } @else {
+      @for(readReceipt of message.readReceipts; track readReceipt.userId) {
+        @let userCredentials = this.getUserCredentials(readReceipt.userId);
+        <hlm-avatar variant="2xs" class="min-w-fit">
+          <img
+          [src]="userCredentials.profile_picture || '/icons/avatar.svg'"
+          [alt]="userCredentials.username"
+          hlmAvatarImage
+          />
+        </hlm-avatar>
+      }
     }
   </div>
 } @else if(isCurrentUserMessage(message) && isLastMessage()) {
