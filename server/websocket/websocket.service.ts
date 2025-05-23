@@ -4,8 +4,13 @@ import config from '../config/config';
 import { logger } from '../utils/logger';
 import { Message } from '../messenger/models/message.model';
 import { User } from '../user/models/user.model';
-import { MessageI, MessageStatusEnum, MessageTypeEnum } from '../messenger/interfaces/message.interface';
+import {
+  MessageI,
+  MessageStatusEnum,
+  MessageTypeEnum,
+} from '../messenger/interfaces/message.interface';
 import { UserInterface } from '../user/interfaces/user.interface';
+import { now, Types } from 'mongoose';
 
 type MessageContentType = 'text' | 'image' | 'video' | 'file';
 type WebSocketMessageType =
@@ -42,6 +47,8 @@ interface ChatMessage extends BaseWebSocketMessage {
 interface MessageStatusMessage extends BaseWebSocketMessage {
   type: 'message-status';
   last_message_id: string;
+  sender_id: string;
+  participants: Partial<UserInterface>[];
   status: 'sent' | 'delivered' | 'read';
 }
 
@@ -195,7 +202,9 @@ class MessageHandler {
     return (
       data.type === 'message-status' &&
       typeof data.last_message_id === 'string' &&
-      ['sent', 'delivered', 'read'].includes(data.status)
+      ['sent', 'delivered', 'read'].includes(data.status) &&
+      Array.isArray(data.participants) &&
+      typeof data.sender_id === 'string'
     );
   }
 
@@ -222,6 +231,7 @@ class MessageHandler {
       // Send message to all participants
       for (const recipient of message.participants) {
         if (!recipient._id) continue;
+        if (recipient._id === message.message.sender.toString()) continue;
 
         if (this.clientManager.isConnected(recipient._id)) {
           this.clientManager.sendToUser(recipient._id, {
@@ -291,13 +301,12 @@ class MessageHandler {
     ws: WebSocket,
     data: MessageStatusMessage
   ): Promise<void> {
-    const { last_message_id, status} = data;
+    const { last_message_id, status, participants, sender_id } = data;
 
     try {
-
       const message = await Message.findById(last_message_id);
 
-      if(!message) {
+      if (!message) {
         logger.warn(`Message ${last_message_id} not found in DB.`);
         ws.send(
           JSON.stringify({
@@ -309,11 +318,32 @@ class MessageHandler {
       }
 
       message.status = status as MessageStatusEnum;
+
+      const readReceipts = {
+        userId: new Types.ObjectId(sender_id),
+        readAt: now(),
+      };
+      message.readReceipts.push(readReceipts);
       await message.save();
 
-      
-    }
-    catch (err) {
+      logger.info(`Message ${last_message_id} status updated to ${status}`);
+
+      // Send update to all participants
+      for (const recipient of participants) {
+        if (!recipient._id) continue;
+        if (recipient._id === message.sender.toString()) continue;
+
+        if (this.clientManager.isConnected(recipient._id)) {
+          this.clientManager.sendToUser(recipient._id, {
+            type: 'message-status',
+            last_message_id,
+            status,
+          });
+        } else {
+          logger.debug(`User ${recipient._id} is not connected`);
+        }
+      }
+    } catch (err) {
       logger.error('Failed to update message status:', err);
       ws.send(
         JSON.stringify({
@@ -323,7 +353,6 @@ class MessageHandler {
       );
     }
   }
-
 
   private async _finalizeUserStatus(
     ws: WebSocket,

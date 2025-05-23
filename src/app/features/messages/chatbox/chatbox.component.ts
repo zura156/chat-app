@@ -244,22 +244,25 @@ export class ChatboxComponent implements OnInit, OnDestroy {
                 tap((messagesList) => {
                   const user = this.currentUser();
                   this.totalMessagesCount.set(messagesList.totalCount);
-                  const duplicateIds = messagesList.messages.filter(
-                    (id, index) => messagesList.messages.indexOf(id) !== index
-                  );
-                  if (duplicateIds.length > 0) {
-                    console.warn('Duplicate _id values found:', duplicateIds);
-                  }
-                  if (messagesList.totalCount > this.offset()) {
-                    this.hasMoreMessages.set(true);
-                    this.offset.update((val) => val + this.limit);
-                  } else {
-                    this.hasMoreMessages.set(false);
-                  }
 
-                  const lastMessageId = messagesList.messages[0]._id;
-                  if (lastMessageId) {
-                    this.markMessagesAsRead(lastMessageId);
+                  if (messagesList.messages.length > 0) {
+                    const duplicateIds = messagesList.messages.filter(
+                      (id, index) => messagesList.messages.indexOf(id) !== index
+                    );
+                    if (duplicateIds.length > 0) {
+                      console.warn('Duplicate _id values found:', duplicateIds);
+                    }
+                    if (messagesList.totalCount > this.offset()) {
+                      this.hasMoreMessages.set(true);
+                      this.offset.update((val) => val + this.limit);
+                    } else {
+                      this.hasMoreMessages.set(false);
+                    }
+
+                    const lastMessageId = messagesList.messages[0]._id;
+                    if (lastMessageId) {
+                      this.markMessagesAsRead(lastMessageId);
+                    }
                   }
 
                   this.isLoading.set(false);
@@ -286,18 +289,19 @@ export class ChatboxComponent implements OnInit, OnDestroy {
                             break;
                           case 'message':
                             const user = this.currentUser();
-                            if (res.message.sender === user?._id) {
-                              const savedMessage: MessageI = res.message;
+                            const message: MessageI = res.message;
 
-                              this.messageService.fillInMessageDetails(
-                                savedMessage
-                              );
+                            if (res.message.sender === user?._id) {
+                              this.messageService.fillInMessageDetails(message);
 
                               return;
                             }
-                            const message: MessageI = res.message;
 
                             this.messageService.addMessage(message);
+                            if (message._id) {
+                              this.markMessagesAsRead(message._id);
+                            }
+
                             return;
                           case 'user-status':
                             const { userId, status } = res;
@@ -491,6 +495,8 @@ export class ChatboxComponent implements OnInit, OnDestroy {
       type: 'message-status',
       last_message_id: lastMessageId,
       status: 'read',
+      sender_id: currentUserId,
+      participants: this.conversation()?.participants ?? [],
     };
 
     this.webSocketService.sendMessage(readData);

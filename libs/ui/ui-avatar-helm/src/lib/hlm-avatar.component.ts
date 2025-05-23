@@ -7,6 +7,8 @@ import type { ClassValue } from 'clsx';
 export const avatarVariants = cva('relative flex shrink-0 overflow-hidden rounded-full', {
 	variants: {
 		variant: {
+			'2xs': 'h-4 w-4 text-xxs',
+			xs: 'h-5 w-5 text-xxs',
 			small: 'h-6 w-6 text-xs',
 			medium: 'h-10 w-10',
 			large: 'h-14 w-14 text-lg',

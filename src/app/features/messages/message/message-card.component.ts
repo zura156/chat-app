@@ -3,12 +3,24 @@ import { UserI } from '../../user/interfaces/user.interface';
 import { MessageI } from '../interfaces/message.interface';
 import { NgClass, TitleCasePipe } from '@angular/common';
 import { HlmCardDirective } from '@spartan-ng/ui-card-helm';
-import { HlmAvatarComponent, HlmAvatarFallbackDirective, HlmAvatarImageDirective } from '@spartan-ng/ui-avatar-helm';
+import {
+  HlmAvatarComponent,
+  HlmAvatarFallbackDirective,
+  HlmAvatarImageDirective,
+} from '@spartan-ng/ui-avatar-helm';
 import { TimeAgoPipe } from '../../../shared/pipes/time-ago.pipe';
 
 @Component({
   selector: 'message-card',
-  imports: [TitleCasePipe, TimeAgoPipe, NgClass, HlmCardDirective, HlmAvatarFallbackDirective, HlmAvatarImageDirective, HlmAvatarComponent],
+  imports: [
+    TitleCasePipe,
+    TimeAgoPipe,
+    NgClass,
+    HlmCardDirective,
+    HlmAvatarFallbackDirective,
+    HlmAvatarImageDirective,
+    HlmAvatarComponent,
+  ],
   templateUrl: './message-card.component.html',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
@@ -21,5 +33,16 @@ export class MessageCardComponent {
 
   isCurrentUserMessage(message: MessageI): boolean {
     return (message.sender._id || message.sender) === this.currentUser()?._id;
+  }
+
+  getUserCredentials(userId: string): {
+    username: string;
+    profile_picture: string;
+  } {
+    const user = this.currentUser(); // Get the current user
+    return {
+      username: user?.username || 'Unknown',
+      profile_picture: user?.profile_picture || '/icons/avatar.svg',
+    };
   }
 }

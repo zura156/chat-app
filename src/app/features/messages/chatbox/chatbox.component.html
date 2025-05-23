@@ -107,9 +107,6 @@
                     [isLastMessage]="message?._id === this.messages()[0]._id"
                     [imageUrl]="message.sender.profile_picture ?? ''"
                   ></message-card>
-                  @for(readReceipt of message.readReceipts; track readReceipt.userId) {
-                    {{ readReceipt.userId }}
-                  }
                 }
               </div>
               </div>

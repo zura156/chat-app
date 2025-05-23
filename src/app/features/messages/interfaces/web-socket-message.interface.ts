@@ -38,6 +38,8 @@ export interface MessageStatusMessage extends BaseWebSocketMessage {
   type: 'message-status';
   last_message_id: string;
   status: 'sent' | 'delivered' | 'read';
+  sender_id: string;
+  participants: Partial<ParticipantI>[];
 }
 
 export interface UserStatusMessage extends BaseWebSocketMessage {
