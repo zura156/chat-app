@@ -174,6 +174,7 @@ export class ChatboxComponent implements OnInit, OnDestroy {
   isTyping = signal<{
     typer: Partial<ParticipantI>;
     is_typing: boolean;
+    conversationId: string;
   } | null>(null);
 
   @ViewChild('topTracker') observedElement?: ElementRef;
@@ -259,7 +260,11 @@ export class ChatboxComponent implements OnInit, OnDestroy {
                       this.hasMoreMessages.set(false);
                     }
 
-                    const lastMessageId = messagesList.messages[0]._id;
+                    const lastMessageId = messagesList.messages.filter(
+                      (m) => user?._id !== m.sender._id
+                    )[0]._id;
+
+                    console.log(lastMessageId)
                     if (lastMessageId) {
                       this.markMessagesAsRead(lastMessageId);
                     }
@@ -285,6 +290,7 @@ export class ChatboxComponent implements OnInit, OnDestroy {
                             this.isTyping.set({
                               typer: res.sender ?? {},
                               is_typing: !!res.is_typing,
+                              conversationId: res.conversation,
                             });
                             break;
                           case 'message':
@@ -298,7 +304,10 @@ export class ChatboxComponent implements OnInit, OnDestroy {
                             }
 
                             this.messageService.addMessage(message);
-                            if (message._id) {
+                            if (
+                              message._id &&
+                              user?._id !== message.sender._id
+                            ) {
                               this.markMessagesAsRead(message._id);
                             }
 
@@ -481,6 +490,8 @@ export class ChatboxComponent implements OnInit, OnDestroy {
     const message = this.findMessageById(lastMessageId);
     const user = this.currentUser();
     if (!user || !message) return;
+    if (user._id === message.sender._id) return;
+    if (message.status === MessageStatus.READ) return;
 
     const currentUserId = user._id;
     const conversationId = this.conversation()?._id;

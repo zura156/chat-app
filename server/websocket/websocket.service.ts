@@ -317,6 +317,18 @@ class MessageHandler {
         return;
       }
 
+      if (message && message.status === status) {
+        logger.warn(`Message ${last_message_id} status could not be updated.`);
+        ws.send(
+          JSON.stringify({
+            error: 'Message status could not be updated',
+            last_message_id,
+            status,
+          })
+        );
+        return;
+      }
+
       message.status = status as MessageStatusEnum;
 
       const readReceipts = {

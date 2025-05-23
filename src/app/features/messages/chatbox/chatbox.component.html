@@ -52,8 +52,9 @@
         @let currentUser = this.currentUser();
         @let sender = this.isTyping()?.typer;
         @let isTyping = this.isTyping()?.is_typing;
+        @let isTypingConversationId = this.isTyping()?.conversationId;
 
-        @if(currentUser && currentUser._id !== sender?._id && isTyping){
+        @if(currentUser && currentUser._id !== sender?._id && isTyping && isTypingConversationId === conversation?._id) {
           <div class="flex-col items-start justify-center">
             @if(conversation?.is_group){
               <span class="text-gray-500">

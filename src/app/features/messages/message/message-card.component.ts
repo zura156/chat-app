@@ -1,14 +1,21 @@
-import { Component, ChangeDetectionStrategy, input } from '@angular/core';
+import {
+  Component,
+  ChangeDetectionStrategy,
+  input,
+  inject,
+} from '@angular/core';
 import { UserI } from '../../user/interfaces/user.interface';
 import { MessageI } from '../interfaces/message.interface';
-import { NgClass, TitleCasePipe } from '@angular/common';
+import { DatePipe, NgClass, TitleCasePipe } from '@angular/common';
 import { HlmCardDirective } from '@spartan-ng/ui-card-helm';
+import { MatTooltipModule } from '@angular/material/tooltip';
 import {
   HlmAvatarComponent,
   HlmAvatarFallbackDirective,
   HlmAvatarImageDirective,
 } from '@spartan-ng/ui-avatar-helm';
 import { TimeAgoPipe } from '../../../shared/pipes/time-ago.pipe';
+import { ConversationService } from '../services/conversation.service';
 
 @Component({
   selector: 'message-card',
@@ -16,6 +23,8 @@ import { TimeAgoPipe } from '../../../shared/pipes/time-ago.pipe';
     TitleCasePipe,
     TimeAgoPipe,
     NgClass,
+    DatePipe,
+    MatTooltipModule,
     HlmCardDirective,
     HlmAvatarFallbackDirective,
     HlmAvatarImageDirective,
@@ -31,6 +40,8 @@ export class MessageCardComponent {
   isLastMessage = input.required<boolean>();
   isGroup = input<boolean>();
 
+  conversationService = inject(ConversationService);
+
   isCurrentUserMessage(message: MessageI): boolean {
     return (message.sender._id || message.sender) === this.currentUser()?._id;
   }
@@ -39,7 +50,9 @@ export class MessageCardComponent {
     username: string;
     profile_picture: string;
   } {
-    const user = this.currentUser(); // Get the current user
+    const user = this.conversationService
+      .activeConversation()
+      ?.participants.find((participant) => participant._id === userId);
     return {
       username: user?.username || 'Unknown',
       profile_picture: user?.profile_picture || '/icons/avatar.svg',
