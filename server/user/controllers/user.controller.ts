@@ -42,7 +42,15 @@ export const updateUserDetails = async (
       return;
     }
 
-    const user = await User.findByIdAndUpdate(req.user.userId, req.body);
+    const allowedUpdates = ['name', 'email', 'profilePicture']; // Define allowed fields
+    const updates = Object.keys(req.body).reduce((filtered, key) => {
+      if (allowedUpdates.includes(key)) {
+        filtered[key] = req.body[key];
+      }
+      return filtered;
+    }, {});
+
+    const user = await User.findByIdAndUpdate(req.user.userId, updates);
 
     if (!user) {
       res.status(404).json({ message: 'User not found' });
