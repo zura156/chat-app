@@ -2,7 +2,11 @@ import { computed, inject, Injectable, signal } from '@angular/core';
 import { environment } from '../../../../environments/environment';
 import { HttpClient } from '@angular/common/http';
 import { catchError, map, Observable, of, tap, throwError } from 'rxjs';
-import { MessageI, MessageType } from '../interfaces/message.interface';
+import {
+  MessageI,
+  MessageStatus,
+  MessageType,
+} from '../interfaces/message.interface';
 import { MessageListI } from '../interfaces/message-list.interface';
 import { ParticipantI } from '../interfaces/participant.interface';
 import { ConversationService } from './conversation.service';
@@ -77,19 +81,35 @@ export class MessageService {
     );
   }
 
-  // // Mark messages as read
-  // markMessagesAsRead(conversationId: string): Observable<any> {
-  //   const url = `${this.GET_MESSAGES_URL}/${conversationId}/read`;
+  updateMessageStatus(
+    messageId: string,
+    senderId: string,
+    status: MessageStatus,
+    readAt?: string
+  ): void {
+    this.#activeMessages.update((messages) => {
+      const messageIndex = messages.findIndex((msg) => msg._id === messageId);
 
-  //   return this.http.post(url, {}).pipe(
-  //     catchError((error) => {
-  //       console.error('Error marking messages as read:', error);
-  //       return throwError(
-  //         () => new Error(error.message || 'Failed to mark messages as read')
-  //       );
-  //     })
-  //   );
-  // }
+      if (messageIndex === -1) {
+        return messages;
+      }
+
+      const updatedMessages = [...messages];
+      updatedMessages[messageIndex] = {
+        ...updatedMessages[messageIndex],
+        readReceipts: [
+          ...updatedMessages[messageIndex].readReceipts,
+          {
+            user_id: senderId,
+            read_at: readAt ? new Date(readAt) : new Date(),
+          },
+        ],
+        status,
+      };
+
+      return updatedMessages;
+    });
+  }
 
   // Add a single message to the active messages (useful for real-time updates)
   addMessage(message: MessageI): void {

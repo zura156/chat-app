@@ -30,11 +30,11 @@
     </div>
   </div>
 </div>
-@if(message.readReceipts && message.readReceipts.length > 0 && isGroup()) {
+@if(message.readReceipts && message.readReceipts.length > 0 && isGroup() && isLastMessage()) {
   <div class="w-full flex items-center gap-x-1 justify-end pt-2">
     @if(message.readReceipts.length > 4) {
-      @for(readReceipt of message.readReceipts.slice(0, 4); track readReceipt.userId) {
-        @let userCredentials = this.getUserCredentials(readReceipt.userId);
+      @for(readReceipt of message.readReceipts.slice(0, 4); track readReceipt.user_id) {
+        @let userCredentials = this.getUserCredentials(readReceipt.user_id);
         <hlm-avatar variant="2xs" class="min-w-fit">
           <img
           [src]="userCredentials.profile_picture || '/icons/avatar.svg'"
@@ -44,18 +44,20 @@
         </hlm-avatar>
       }
       <span class="text-xs text-gray-500">+{{ message.readReceipts.length - 4 }}</span>
-    } @else {
-      @for(readReceipt of message.readReceipts; track readReceipt.userId) {
-        @let userCredentials = this.getUserCredentials(readReceipt.userId);
-        <button type="button" matTooltipClass="dark:bg-gray-300 text-start text-xs rounded-md dark:text-black" matTooltipPosition="above" aria-label="Button that displays a date when hovered user has read a message" matTooltip="Seen by {{ userCredentials.username }} at {{ readReceipt.readAt | date: 'short' }}" class="w-fit">
-          <hlm-avatar variant="2xs" class="min-w-fit">
-            <img
-            [src]="userCredentials.profile_picture || '/icons/avatar.svg'"
-            [alt]="userCredentials.username"
-            hlmAvatarImage
-            />
-          </hlm-avatar>
-        </button>
+    } @else{
+      @for(readReceipt of message.readReceipts; track readReceipt.user_id) {
+        @if(currentUser()._id !== readReceipt.user_id) {
+          @let userCredentials = this.getUserCredentials(readReceipt.user_id);
+          <button type="button" matTooltipClass="dark:bg-gray-300 text-start text-xs rounded-md dark:text-black" matTooltipPosition="above" aria-label="Button that displays a date when hovered user has read a message" matTooltip="Seen by {{ userCredentials.username }} at {{ readReceipt.read_at | date: 'short' }}" class="w-fit">
+            <hlm-avatar variant="2xs" class="min-w-fit">
+              <img
+              [src]="userCredentials.profile_picture || '/icons/avatar.svg'"
+              [alt]="userCredentials.username"
+              hlmAvatarImage
+              />
+            </hlm-avatar>
+          </button>
+        }
       }
     }
   </div>

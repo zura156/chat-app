@@ -332,8 +332,8 @@ class MessageHandler {
       message.status = status as MessageStatusEnum;
 
       const readReceipts = {
-        userId: new Types.ObjectId(sender_id),
-        readAt: now(),
+        user_id: new Types.ObjectId(sender_id),
+        read_at: now(),
       };
       message.readReceipts.push(readReceipts);
       await message.save();
@@ -343,13 +343,17 @@ class MessageHandler {
       // Send update to all participants
       for (const recipient of participants) {
         if (!recipient._id) continue;
-        if (recipient._id === message.sender.toString()) continue;
+        logger.info(
+          `Sending message status update to user ${recipient.username}`
+        );
 
         if (this.clientManager.isConnected(recipient._id)) {
           this.clientManager.sendToUser(recipient._id, {
             type: 'message-status',
-            last_message_id,
             status,
+            sender_id,
+            last_message_id,
+            read_at: readReceipts.read_at,
           });
         } else {
           logger.debug(`User ${recipient._id} is not connected`);

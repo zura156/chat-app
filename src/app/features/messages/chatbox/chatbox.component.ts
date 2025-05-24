@@ -264,7 +264,6 @@ export class ChatboxComponent implements OnInit, OnDestroy {
                       (m) => user?._id !== m.sender._id
                     )[0]._id;
 
-                    console.log(lastMessageId)
                     if (lastMessageId) {
                       this.markMessagesAsRead(lastMessageId);
                     }
@@ -313,7 +312,7 @@ export class ChatboxComponent implements OnInit, OnDestroy {
 
                             return;
                           case 'user-status':
-                            const { userId, status } = res;
+                            const { userId, status: userStatus } = res;
 
                             let { last_seen } = res;
 
@@ -323,18 +322,25 @@ export class ChatboxComponent implements OnInit, OnDestroy {
 
                             this.conversationService.updateParticipantStatus(
                               userId,
-                              status,
+                              userStatus,
                               last_seen
                             );
                             break;
-                          // case 'message-read':
-                          //   const { messageId, sender, readAt } = res;
-                          //   this.messageService.updateMessageReadStatus(
-                          //     messageId,
-                          //     userId,
-                          //     readAt
-                          //   );
-                          //   break;
+                          case 'message-status':
+                            const {
+                              last_message_id,
+                              sender_id,
+                              status: messageStatus,
+                              read_at,
+                            } = res;
+
+                            this.messageService.updateMessageStatus(
+                              last_message_id,
+                              sender_id,
+                              messageStatus as MessageStatus,
+                              read_at
+                            );
+                            break;
                         }
                       }),
                       catchError((err) => {
@@ -496,7 +502,10 @@ export class ChatboxComponent implements OnInit, OnDestroy {
     const currentUserId = user._id;
     const conversationId = this.conversation()?._id;
 
-    if (message && message.readReceipts.some((r) => r.userId === currentUserId))
+    if (
+      message &&
+      message.readReceipts.some((r) => r.user_id === currentUserId)
+    )
       return;
 
     if (!currentUserId || !conversationId) return;

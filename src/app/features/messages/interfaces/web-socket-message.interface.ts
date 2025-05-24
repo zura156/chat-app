@@ -38,6 +38,7 @@ export interface MessageStatusMessage extends BaseWebSocketMessage {
   type: 'message-status';
   last_message_id: string;
   status: 'sent' | 'delivered' | 'read';
+  read_at?: string; // ISO date string
   sender_id: string;
   participants: Partial<ParticipantI>[];
 }

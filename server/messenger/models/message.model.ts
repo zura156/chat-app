@@ -10,7 +10,7 @@ export interface IMessage extends Document {
   content: string;
   type: MessageTypeEnum;
   status: MessageStatusEnum;
-  readReceipts: { userId: Types.ObjectId; readAt: Date }[];
+  readReceipts: { user_id: Types.ObjectId; read_at: Date }[];
   createdAt?: Date;
   updatedAt?: Date;
 }
@@ -36,8 +36,9 @@ const MessageSchema = new Schema<IMessage>(
     },
     readReceipts: [
       {
-        userId: { type: Schema.Types.ObjectId, ref: 'User' },
-        readAt: { type: Date, default: now() },
+        _id: false, // Disable automatic _id generation for read receipts
+        user_id: { type: Schema.Types.ObjectId, ref: 'User' },
+        read_at: { type: Date, default: now() },
       },
     ],
   },

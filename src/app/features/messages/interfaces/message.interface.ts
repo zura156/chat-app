@@ -9,8 +9,8 @@ export enum MessageType {
 }
 
 export interface ReadReceipt {
-  userId: string;
-  readAt: Date | null;
+  user_id: string;
+  read_at: Date | null;
 }
 
 export enum MessageStatus {
