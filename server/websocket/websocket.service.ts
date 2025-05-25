@@ -7,10 +7,10 @@ import { User } from '../user/models/user.model';
 import {
   MessageI,
   MessageStatusEnum,
-  MessageTypeEnum,
 } from '../messenger/interfaces/message.interface';
 import { UserInterface } from '../user/interfaces/user.interface';
 import { now, Types } from 'mongoose';
+import { Conversation } from '../messenger/models/conversation.model';
 
 type MessageContentType = 'text' | 'image' | 'video' | 'file';
 type WebSocketMessageType =
@@ -46,9 +46,9 @@ interface ChatMessage extends BaseWebSocketMessage {
 
 interface MessageStatusMessage extends BaseWebSocketMessage {
   type: 'message-status';
-  last_message_id: string;
-  sender_id: string;
-  participants: Partial<UserInterface>[];
+  last_message_read_id: string;
+  user_id: string;
+  conversation_id: string;
   status: 'sent' | 'delivered' | 'read';
 }
 
@@ -201,10 +201,10 @@ class MessageHandler {
   protected isMessageStatusMessage(data: any): data is MessageStatusMessage {
     return (
       data.type === 'message-status' &&
-      typeof data.last_message_id === 'string' &&
-      ['sent', 'delivered', 'read'].includes(data.status) &&
-      Array.isArray(data.participants) &&
-      typeof data.sender_id === 'string'
+      typeof data.last_message_read_id === 'string' &&
+      typeof data.user_id === 'string' &&
+      typeof data.conversation_id === 'string' &&
+      ['sent', 'delivered', 'read'].includes(data.status)
     );
   }
 
@@ -301,28 +301,45 @@ class MessageHandler {
     ws: WebSocket,
     data: MessageStatusMessage
   ): Promise<void> {
-    const { last_message_id, status, participants, sender_id } = data;
+    const { last_message_read_id, status, conversation_id, user_id } = data;
 
     try {
-      const message = await Message.findById(last_message_id);
+      const message = await Message.findById(last_message_read_id);
 
       if (!message) {
-        logger.warn(`Message ${last_message_id} not found in DB.`);
+        logger.warn(`Message id: ${last_message_read_id} is not found.`);
         ws.send(
           JSON.stringify({
             error: 'Message not found',
-            last_message_id,
+            last_message_read_id,
+          })
+        );
+        return;
+      }
+
+      const conversation = await Conversation.findById(
+        conversation_id
+      ).populate('participants');
+
+      if (!conversation) {
+        logger.warn(`Conversation id: ${conversation_id} is not found.`);
+        ws.send(
+          JSON.stringify({
+            error: 'Conversation not found',
+            conversation_id,
           })
         );
         return;
       }
 
       if (message && message.status === status) {
-        logger.warn(`Message ${last_message_id} status could not be updated.`);
+        logger.warn(
+          `Message ${last_message_read_id} status could not be updated.`
+        );
         ws.send(
           JSON.stringify({
             error: 'Message status could not be updated',
-            last_message_id,
+            last_message_read_id,
             status,
           })
         );
@@ -330,33 +347,39 @@ class MessageHandler {
       }
 
       message.status = status as MessageStatusEnum;
-
-      const readReceipts = {
-        user_id: new Types.ObjectId(sender_id),
-        read_at: now(),
-      };
-      message.readReceipts.push(readReceipts);
       await message.save();
 
-      logger.info(`Message ${last_message_id} status updated to ${status}`);
+      const readReceipts = {
+        user_id: new Types.ObjectId(user_id),
+        last_message_read_id: last_message_read_id,
+        read_at: now(),
+      };
+      conversation.readReceipts.push(readReceipts);
+      await conversation.save();
+
+      logger.info(
+        `Message ${last_message_read_id} status updated to ${status}`
+      );
 
       // Send update to all participants
-      for (const recipient of participants) {
-        if (!recipient._id) continue;
-        logger.info(
-          `Sending message status update to user ${recipient.username}`
-        );
+      for (const recipientId of conversation.participants) {
+        if (!recipientId) continue;
 
-        if (this.clientManager.isConnected(recipient._id)) {
-          this.clientManager.sendToUser(recipient._id, {
+        const userId = recipientId.toString();
+
+        logger.info(`Sending message status update to user ${userId}`);
+
+        if (this.clientManager.isConnected(userId)) {
+          this.clientManager.sendToUser(userId, {
             type: 'message-status',
             status,
-            sender_id,
-            last_message_id,
-            read_at: readReceipts.read_at,
+            readReceipts: {
+              ...readReceipts,
+              user_id: readReceipts.user_id.toString(),
+            },
           });
         } else {
-          logger.debug(`User ${recipient._id} is not connected`);
+          logger.debug(`User ${userId} is not connected`);
         }
       }
     } catch (err) {

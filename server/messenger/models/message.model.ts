@@ -1,4 +1,4 @@
-import { Schema, model, Document, Types, now } from 'mongoose';
+import { Schema, model, Document, Types } from 'mongoose';
 import {
   MessageStatusEnum,
   MessageTypeEnum,
@@ -10,7 +10,6 @@ export interface IMessage extends Document {
   content: string;
   type: MessageTypeEnum;
   status: MessageStatusEnum;
-  readReceipts: { user_id: Types.ObjectId; read_at: Date }[];
   createdAt?: Date;
   updatedAt?: Date;
 }
@@ -34,13 +33,6 @@ const MessageSchema = new Schema<IMessage>(
       enum: Object.values(MessageStatusEnum),
       default: MessageStatusEnum.SENT,
     },
-    readReceipts: [
-      {
-        _id: false, // Disable automatic _id generation for read receipts
-        user_id: { type: Schema.Types.ObjectId, ref: 'User' },
-        read_at: { type: Date, default: now() },
-      },
-    ],
   },
   { timestamps: true }
 );
