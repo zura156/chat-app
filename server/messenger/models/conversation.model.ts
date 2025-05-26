@@ -3,7 +3,7 @@ import { model, Schema, Types, Document, now } from 'mongoose';
 export interface IConversation extends Document {
   participants: Types.ObjectId[];
   last_message?: Types.ObjectId;
-  readReceipts: {
+  read_receipts: {
     user_id: Types.ObjectId;
     last_message_read_id?: string;
     read_at: Date;
@@ -21,7 +21,7 @@ const ConversationSchema = new Schema<IConversation>(
       { type: Schema.Types.ObjectId, ref: 'User', required: true },
     ],
     last_message: { type: Schema.Types.ObjectId, ref: 'Message' },
-    readReceipts: [
+    read_receipts: [
       {
         _id: false, // Disable automatic _id generation for read receipts
         user_id: { type: Schema.Types.ObjectId, ref: 'User' },

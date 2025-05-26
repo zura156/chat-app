@@ -48,8 +48,8 @@ export class MessageService {
       participants,
     };
 
-    this.webSocketService.sendMessage(data);
     this.#activeMessages.update((messages) => [message, ...messages]);
+    this.webSocketService.sendMessage(data);
 
     return of(message);
   }
@@ -81,12 +81,7 @@ export class MessageService {
     );
   }
 
-  updateMessageStatus(
-    messageId: string,
-    senderId: string,
-    status: MessageStatus,
-    readAt?: string
-  ): void {
+  updateMessageStatus(messageId: string, status: MessageStatus): void {
     this.#activeMessages.update((messages) => {
       const messageIndex = messages.findIndex((msg) => msg._id === messageId);
 
@@ -97,13 +92,6 @@ export class MessageService {
       const updatedMessages = [...messages];
       updatedMessages[messageIndex] = {
         ...updatedMessages[messageIndex],
-        readReceipts: [
-          ...updatedMessages[messageIndex].readReceipts,
-          {
-            user_id: senderId,
-            read_at: readAt ? new Date(readAt) : new Date(),
-          },
-        ],
         status,
       };
 

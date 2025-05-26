@@ -46,10 +46,13 @@ interface ChatMessage extends BaseWebSocketMessage {
 
 interface MessageStatusMessage extends BaseWebSocketMessage {
   type: 'message-status';
-  last_message_read_id: string;
-  user_id: string;
-  conversation_id: string;
+  read_receipt: {
+    user_id: string;
+    last_message_read_id: string;
+    read_at?: Date;
+  };
   status: 'sent' | 'delivered' | 'read';
+  conversation_id: string;
 }
 
 interface UserStatusMessage extends BaseWebSocketMessage {
@@ -201,10 +204,11 @@ class MessageHandler {
   protected isMessageStatusMessage(data: any): data is MessageStatusMessage {
     return (
       data.type === 'message-status' &&
-      typeof data.last_message_read_id === 'string' &&
-      typeof data.user_id === 'string' &&
-      typeof data.conversation_id === 'string' &&
-      ['sent', 'delivered', 'read'].includes(data.status)
+      data.read_receipt &&
+      typeof data.read_receipt.user_id === 'string' &&
+      typeof data.read_receipt.last_message_read_id === 'string' &&
+      ['sent', 'delivered', 'read'].includes(data.status) &&
+      typeof data.conversation_id === 'string'
     );
   }
 
@@ -225,6 +229,16 @@ class MessageHandler {
         content,
         type,
       });
+
+      if(!savedMessage) {
+        logger.error('Failed to save message to database');
+        ws.send(
+          JSON.stringify({
+            error: 'Failed to save message to database',
+          })
+        );
+        return;
+      }
 
       logger.info('Message saved to DB:', savedMessage._id);
 
@@ -301,7 +315,8 @@ class MessageHandler {
     ws: WebSocket,
     data: MessageStatusMessage
   ): Promise<void> {
-    const { last_message_read_id, status, conversation_id, user_id } = data;
+    const { read_receipt, status, conversation_id } = data;
+    const { user_id, last_message_read_id } = read_receipt;
 
     try {
       const message = await Message.findById(last_message_read_id);
@@ -349,12 +364,12 @@ class MessageHandler {
       message.status = status as MessageStatusEnum;
       await message.save();
 
-      const readReceipts = {
+      const readReceipt = {
         user_id: new Types.ObjectId(user_id),
         last_message_read_id: last_message_read_id,
         read_at: now(),
       };
-      conversation.readReceipts.push(readReceipts);
+      conversation.read_receipts.push(readReceipt);
       await conversation.save();
 
       logger.info(
@@ -373,10 +388,11 @@ class MessageHandler {
           this.clientManager.sendToUser(userId, {
             type: 'message-status',
             status,
-            readReceipts: {
-              ...readReceipts,
-              user_id: readReceipts.user_id.toString(),
+            read_receipt: {
+              ...readReceipt,
+              user_id: readReceipt.user_id.toString(),
             },
+            conversation_id,
           });
         } else {
           logger.debug(`User ${userId} is not connected`);

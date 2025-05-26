@@ -1,7 +1,6 @@
 @let conversation = this.conversation();
 
 <main class="relative h-full flex flex-col py-2">
-  <hlm-toaster />
   <brn-separator decorative hlmSeparator />
   <header class="flex w-full items-start py-2 px-4 md:px-0 justify-between">
     <div class="flex items-center gap-x-2">
@@ -99,15 +98,18 @@
               </div>
               <div class="flex flex-col-reverse gap-y-2">
                 @for(message of group.messages; track message.createdAt) {
-                  <message-card
+                  @if(message) {
+                    <message-card
                     #messageItem
                     [attr.data-message-id]="message._id"
                     [message]="message" 
+                    [readReceipts]="conversation?.read_receipts ?? []"
                     [currentUser]="currentUser"
                     [isGroup]="conversation?.is_group"
                     [isLastMessage]="message?._id === this.messages()[0]._id"
                     [imageUrl]="message.sender.profile_picture ?? ''"
-                  ></message-card>
+                    ></message-card>
+                  }
                 }
               </div>
               </div>

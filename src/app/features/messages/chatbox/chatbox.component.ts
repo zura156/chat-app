@@ -29,7 +29,10 @@ import { ActivatedRoute, Router } from '@angular/router';
 import { UserService } from '../../user/services/user.service';
 import { ConversationService } from '../services/conversation.service';
 import { MessageService } from '../services/message.service';
-import { ConversationI } from '../interfaces/conversation.interface';
+import {
+  ConversationI,
+  ReadReceiptI,
+} from '../interfaces/conversation.interface';
 import {
   HlmAvatarImageDirective,
   HlmAvatarComponent,
@@ -46,14 +49,12 @@ import {
   HlmCardDescriptionDirective,
   HlmCardDirective,
 } from '@spartan-ng/ui-card-helm';
-import { FormControl, ReactiveFormsModule, Validators } from '@angular/forms';
+import { FormControl, ReactiveFormsModule } from '@angular/forms';
 import { HlmButtonDirective } from '@spartan-ng/ui-button-helm';
 import { HlmInputDirective } from '@spartan-ng/ui-input-helm';
 import { WebSocketService } from '../services/web-socket.service';
 import { HlmSpinnerComponent } from '@spartan-ng/ui-spinner-helm';
 import { UserI } from '../../user/interfaces/user.interface';
-import { toast } from 'ngx-sonner';
-import { HlmToasterComponent } from '@spartan-ng/ui-sonner-helm';
 import { ParticipantI } from '../interfaces/participant.interface';
 import {
   MessageStatusMessage,
@@ -61,6 +62,7 @@ import {
 } from '../interfaces/web-socket-message.interface';
 import { TimeAgoPipe } from '../../../shared/pipes/time-ago.pipe';
 import { MessageCardComponent } from '../message/message-card.component';
+import { ToastrService } from 'ngx-toastr';
 
 @Component({
   selector: 'app-chatbox',
@@ -77,8 +79,6 @@ import { MessageCardComponent } from '../message/message-card.component';
     HlmCardDirective,
     HlmCardDescriptionDirective,
 
-    HlmToasterComponent,
-
     ReactiveFormsModule,
     HlmButtonDirective,
     HlmInputDirective,
@@ -90,12 +90,13 @@ import { MessageCardComponent } from '../message/message-card.component';
   styleUrl: './chatbox.component.css',
 })
 export class ChatboxComponent implements OnInit, OnDestroy {
-  private router = inject(Router);
-  private route = inject(ActivatedRoute);
-  private userService = inject(UserService);
-  private conversationService = inject(ConversationService);
-  private messageService = inject(MessageService);
-  private webSocketService = inject(WebSocketService);
+  private readonly router = inject(Router);
+  private readonly route = inject(ActivatedRoute);
+  private readonly userService = inject(UserService);
+  private readonly conversationService = inject(ConversationService);
+  private readonly messageService = inject(MessageService);
+  private readonly webSocketService = inject(WebSocketService);
+  private readonly toast = inject(ToastrService);
 
   private readonly destroy$ = new Subject<void>();
 
@@ -194,16 +195,11 @@ export class ChatboxComponent implements OnInit, OnDestroy {
     this.trackTypingStatus();
 
     this.isLoading.set(true);
-
     this.route.params
       .pipe(
         map((params) => params['id']),
         catchError((err) => {
-          toast.error('Something went wrong!', {
-            description: err.error.message,
-            duration: 5000,
-            position: 'bottom-right',
-          });
+          this.toast.error('Something went wrong!', err.error.message);
           this.isLoading.set(false);
           return throwError(() => err);
         }),
@@ -218,71 +214,12 @@ export class ChatboxComponent implements OnInit, OnDestroy {
               this.conversationService.createMockConversation();
               this.messageService.clearActiveMessages();
               return of(this.conversation()).pipe(
-                tap(() => this.isLoading.set(false))
-              );
-            }
-          }
-          return this.conversationService.getConversationById(id).pipe(
-            catchError((err) => {
-              toast.error('Something went wrong!', {
-                description: err.error.message,
-                duration: 5000,
-                position: 'bottom-right',
-              });
-              this.isLoading.set(false);
-              return throwError(() => err);
-            }),
-            switchMap((c) => {
-              if (!c) {
-                return EMPTY;
-              }
-
-              this.hasMoreMessages.set(true);
-              this.offset.set(0);
-
-              return this.loadMessages(c._id).pipe(
-                tap((messagesList) => {
-                  const user = this.currentUser();
-                  this.totalMessagesCount.set(messagesList.totalCount);
-
-                  if (messagesList.messages.length > 0) {
-                    const duplicateIds = messagesList.messages.filter(
-                      (id, index) => messagesList.messages.indexOf(id) !== index
-                    );
-                    if (duplicateIds.length > 0) {
-                      console.warn('Duplicate _id values found:', duplicateIds);
-                    }
-                    if (messagesList.totalCount > this.offset()) {
-                      this.hasMoreMessages.set(true);
-                      this.offset.update((val) => val + this.limit);
-                    } else {
-                      this.hasMoreMessages.set(false);
-                    }
-
-                    const lastMessageId = messagesList.messages.filter(
-                      (m) => user?._id !== m.sender._id
-                    )[0]._id;
-
-                    if (lastMessageId) {
-                      this.markMessagesAsRead(lastMessageId);
-                    }
-                  }
-
-                  this.isLoading.set(false);
-                }),
-                catchError((err) => {
-                  toast.error('Something went wrong!', {
-                    description: err.error.message,
-                    duration: 5000,
-                    position: 'bottom-right',
-                  });
-                  this.isLoading.set(false);
-                  return throwError(() => err);
-                }),
+                tap(() => this.isLoading.set(false)),
                 switchMap(
                   () =>
-                    this.webSocketService.onMessage()?.pipe(
+                    this.webSocketService.onMessage()!.pipe(
                       tap((res) => {
+                        console.log(res);
                         switch (res.type) {
                           case 'typing':
                             this.isTyping.set({
@@ -292,6 +229,7 @@ export class ChatboxComponent implements OnInit, OnDestroy {
                             });
                             break;
                           case 'message':
+                            console.log('Received message:', res.message);
                             const user = this.currentUser();
                             const message: MessageI = res.message;
 
@@ -326,28 +264,173 @@ export class ChatboxComponent implements OnInit, OnDestroy {
                             );
                             break;
                           case 'message-status':
+                            const { read_receipt, status: messageStatus } = res;
+
                             const {
-                              last_message_id,
-                              sender_id,
-                              status: messageStatus,
+                              last_message_read_id: last_message_id,
+                              user_id: sender_id,
                               read_at,
-                            } = res;
+                            } = read_receipt;
+
+                            const readReceipt: ReadReceiptI = {
+                              user_id: sender_id,
+                              last_message_read_id: last_message_id,
+                              read_at: new Date(read_at ?? ''),
+                            };
+
+                            this.conversationService.updateReadReceipts(
+                              readReceipt
+                            );
 
                             this.messageService.updateMessageStatus(
                               last_message_id,
-                              sender_id,
-                              messageStatus as MessageStatus,
-                              read_at
+                              messageStatus as MessageStatus
                             );
                             break;
                         }
                       }),
                       catchError((err) => {
-                        toast.error('Something went wrong!', {
-                          description: err.error.message,
-                          duration: 5000,
-                          position: 'bottom-right',
-                        });
+                        this.toast.error(
+                          'Something went wrong!',
+                          err.error.message
+                        );
+                        this.isLoading.set(false);
+                        return throwError(() => err);
+                      })
+                    ) || EMPTY
+                )
+              );
+            }
+          }
+          return this.conversationService.getConversationById(id).pipe(
+            catchError((err) => {
+              this.router.navigate(['/messages']);
+              this.toast.error('Something went wrong!', err.error.message);
+              this.isLoading.set(false);
+              return throwError(() => err);
+            }),
+            switchMap((c) => {
+              if (!c) {
+                return EMPTY;
+              }
+
+              this.hasMoreMessages.set(true);
+              this.offset.set(0);
+
+              return this.loadMessages(c._id).pipe(
+                tap((messagesList) => {
+                  const user = this.currentUser();
+                  this.totalMessagesCount.set(messagesList.totalCount);
+
+                  if (messagesList.messages.length > 0) {
+                    const duplicateIds = messagesList.messages.filter(
+                      (id, index) => messagesList.messages.indexOf(id) !== index
+                    );
+                    if (duplicateIds.length > 0) {
+                      console.warn('Duplicate _id values found:', duplicateIds);
+                    }
+                    if (messagesList.totalCount > this.offset()) {
+                      this.hasMoreMessages.set(true);
+                      this.offset.update((val) => val + this.limit);
+                    } else {
+                      this.hasMoreMessages.set(false);
+                    }
+
+                    const lastMessageId = messagesList.messages.filter(
+                      (m) => user?._id !== m.sender._id
+                    )[0]?._id;
+
+                    if (lastMessageId) {
+                      this.markMessagesAsRead(lastMessageId);
+                    }
+                  }
+
+                  this.isLoading.set(false);
+                }),
+                catchError((err) => {
+                  this.toast.error('Something went wrong!', err.error?.message);
+                  this.isLoading.set(false);
+                  return throwError(() => err);
+                }),
+                switchMap(
+                  () =>
+                    this.webSocketService.onMessage()!.pipe(
+                      tap((res) => {
+                        console.log(res);
+                        switch (res.type) {
+                          case 'typing':
+                            this.isTyping.set({
+                              typer: res.sender ?? {},
+                              is_typing: !!res.is_typing,
+                              conversationId: res.conversation,
+                            });
+                            break;
+                          case 'message':
+                            console.log('Received message:', res.message);
+                            const user = this.currentUser();
+                            const message: MessageI = res.message;
+
+                            if (res.message.sender === user?._id) {
+                              this.messageService.fillInMessageDetails(message);
+
+                              return;
+                            }
+
+                            this.messageService.addMessage(message);
+                            if (
+                              message._id &&
+                              user?._id !== message.sender._id
+                            ) {
+                              this.markMessagesAsRead(message._id);
+                            }
+
+                            return;
+                          case 'user-status':
+                            const { userId, status: userStatus } = res;
+
+                            let { last_seen } = res;
+
+                            if (!last_seen) {
+                              last_seen = new Date().toISOString();
+                            }
+
+                            this.conversationService.updateParticipantStatus(
+                              userId,
+                              userStatus,
+                              last_seen
+                            );
+                            break;
+                          case 'message-status':
+                            const { read_receipt, status: messageStatus } = res;
+
+                            const {
+                              last_message_read_id: last_message_id,
+                              user_id: sender_id,
+                              read_at,
+                            } = read_receipt;
+
+                            const readReceipt: ReadReceiptI = {
+                              user_id: sender_id,
+                              last_message_read_id: last_message_id,
+                              read_at: new Date(read_at ?? ''),
+                            };
+
+                            this.conversationService.updateReadReceipts(
+                              readReceipt
+                            );
+
+                            this.messageService.updateMessageStatus(
+                              last_message_id,
+                              messageStatus as MessageStatus
+                            );
+                            break;
+                        }
+                      }),
+                      catchError((err) => {
+                        this.toast.error(
+                          'Something went wrong!',
+                          err.error.message
+                        );
                         this.isLoading.set(false);
                         return throwError(() => err);
                       })
@@ -385,11 +468,7 @@ export class ChatboxComponent implements OnInit, OnDestroy {
         .createConversation([sender._id, this.selectedUser()!._id])
         .pipe(
           catchError((err) => {
-            toast.error('Something went wrong!', {
-              description: err.error.message,
-              duration: 5000,
-              position: 'bottom-right',
-            });
+            this.toast.error('Something went wrong!', err.error.message);
             this.isLoading.set(false);
             return throwError(() => err);
           }),
@@ -402,20 +481,17 @@ export class ChatboxComponent implements OnInit, OnDestroy {
               type: MessageType.TEXT,
               status: MessageStatus.SENDING,
               createdAt: new Date().toISOString(),
-              readReceipts: [],
             };
 
             const participants = conversation.participants.filter(
               (u) => u._id !== sender?._id
             );
 
+            // this.router.navigateByUrl(`/messages/${conversation._id}`);
+
             return this.messageService.sendMessage(message, participants).pipe(
               catchError((err) => {
-                toast.error('Something went wrong!', {
-                  description: err.error.message,
-                  duration: 5000,
-                  position: 'bottom-right',
-                });
+                this.toast.error('Something went wrong!', err.error.message);
                 this.isLoading.set(false);
                 return throwError(() => err);
               }),
@@ -437,7 +513,6 @@ export class ChatboxComponent implements OnInit, OnDestroy {
         type: MessageType.TEXT,
         status: MessageStatus.SENDING,
         createdAt: new Date().toISOString(),
-        readReceipts: [],
       };
       const participants = convo.participants.filter(
         (u) => u._id !== sender?._id
@@ -447,11 +522,7 @@ export class ChatboxComponent implements OnInit, OnDestroy {
         .sendMessage(message, participants)
         .pipe(
           catchError((err) => {
-            toast.error('Something went wrong!', {
-              description: err.error.message,
-              duration: 5000,
-              position: 'bottom-right',
-            });
+            this.toast.error('Something went wrong!', err.error.message);
             this.isLoading.set(false);
             return throwError(() => err);
           }),
@@ -499,23 +570,25 @@ export class ChatboxComponent implements OnInit, OnDestroy {
     if (message.status === MessageStatus.READ) return;
 
     const currentUserId = user._id;
-    const conversationId = this.conversation()?._id;
+    const conversation = this.conversation();
 
     if (
-      message &&
-      message.readReceipts.some((r) => r.user_id === currentUserId)
+      conversation &&
+      conversation.read_receipts.some((r) => r.user_id === currentUserId)
     )
       return;
 
-    if (!currentUserId || !conversationId) return;
+    if (!currentUserId || !conversation?._id) return;
 
     // Then send to server via websocket
     const readData: MessageStatusMessage = {
       type: 'message-status',
-      last_message_id: lastMessageId,
+      read_receipt: {
+        last_message_read_id: lastMessageId,
+        user_id: currentUserId,
+      },
+      conversation_id: conversation._id,
       status: 'read',
-      sender_id: currentUserId,
-      participants: this.conversation()?.participants ?? [],
     };
 
     this.webSocketService.sendMessage(readData);

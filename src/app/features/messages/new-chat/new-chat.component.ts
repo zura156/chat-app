@@ -35,9 +35,8 @@ import { lucideCircleAlert, lucideX } from '@ng-icons/lucide';
 import { HlmIconDirective } from '@spartan-ng/ui-icon-helm';
 import { HlmButtonDirective } from '@spartan-ng/ui-button-helm';
 import { HlmLabelDirective } from '@spartan-ng/ui-label-helm';
-import { toast } from 'ngx-sonner';
-import { HlmToasterComponent } from '@spartan-ng/ui-sonner-helm';
 import { HlmErrorDirective } from '@spartan-ng/ui-formfield-helm';
+import { ToastrService } from 'ngx-toastr';
 
 @Component({
   selector: 'app-new-chat',
@@ -63,8 +62,6 @@ import { HlmErrorDirective } from '@spartan-ng/ui-formfield-helm';
     HlmIconDirective,
     NgIcon,
 
-    HlmToasterComponent,
-
     HlmButtonDirective,
   ],
   providers: [provideIcons({ lucideX, lucideCircleAlert })],
@@ -75,6 +72,7 @@ export class NewChatComponent implements OnInit, OnDestroy {
   private readonly router = inject(Router);
   private readonly userService = inject(UserService);
   private readonly conversationService = inject(ConversationService);
+  private readonly toast = inject(ToastrService);
 
   readonly userListFlag = signal<boolean>(false);
   readonly isLoading = signal<boolean>(false);
@@ -131,11 +129,6 @@ export class NewChatComponent implements OnInit, OnDestroy {
   onSubmit(): void {
     const selectedUsers = this.selectedUsers();
 
-    toast.success('Something went wrong!', {
-      description: 'test',
-      duration: 5000,
-      position: 'bottom-right',
-    });
     if (!selectedUsers.length) return;
 
     if (selectedUsers.length < 2) {
@@ -173,11 +166,7 @@ export class NewChatComponent implements OnInit, OnDestroy {
           this.isLoading.set(false);
         }),
         catchError((err) => {
-          toast.error('Something went wrong!', {
-            description: err.error.message,
-            duration: 5000,
-            position: 'bottom-right',
-          });
+          this.toast.error('Something went wrong!', err.error.message);
           this.isLoading.set(false);
           return throwError(() => err);
         })

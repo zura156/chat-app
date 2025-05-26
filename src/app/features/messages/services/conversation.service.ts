@@ -2,7 +2,7 @@ import { HttpClient } from '@angular/common/http';
 import { computed, inject, Injectable, signal } from '@angular/core';
 import { Observable, of, tap, catchError, throwError } from 'rxjs';
 import { environment } from '../../../../environments/environment';
-import { ConversationI } from '../interfaces/conversation.interface';
+import { ConversationI, ReadReceiptI } from '../interfaces/conversation.interface';
 import { ConversationListI } from '../interfaces/conversation-list.interface';
 import { UserI } from '../../user/interfaces/user.interface';
 
@@ -91,6 +91,7 @@ export class ConversationService {
         _id: selectedUser._id,
         participants: [selectedUser],
         is_group: false,
+        read_receipts: [],
       };
 
       this.#activeConversation.set(mockConversation);
@@ -128,7 +129,11 @@ export class ConversationService {
       );
   }
 
-  updateParticipantStatus(userId: string, status: 'offline' | 'online', last_seen: string): void {
+  updateParticipantStatus(
+    userId: string,
+    status: 'offline' | 'online',
+    last_seen: string
+  ): void {
     this.#activeConversation.update((convo) => {
       if (convo?.participants) {
         return {
@@ -142,5 +147,9 @@ export class ConversationService {
       }
       return convo;
     });
+  }
+
+  updateReadReceipts(readReceipts: ReadReceiptI): void {
+
   }
 }

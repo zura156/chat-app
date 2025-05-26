@@ -142,6 +142,12 @@ export const createConversation = async (
   next: NextFunction
 ): Promise<void> => {
   try {
+    const userId = req.user?.userId;
+
+    if (!userId) {
+      return next(createCustomError('User ID is required', 400));
+    }
+
     const { participants, is_group, group_name, group_picture } =
       req.body.conversation;
 
@@ -179,7 +185,19 @@ export const createConversation = async (
       })
       .lean();
 
-    res.status(201).json(populatedConversation);
+    if (!populatedConversation) {
+      res.status(200).json(conversation);
+      return;
+    }
+
+    const otherParticipants = populatedConversation.participants.filter(
+      (p) => p._id.toString() !== userId.toString()
+    );
+
+    res.status(200).json({
+      ...conversation.toObject(),
+      participants: otherParticipants,
+    });
   } catch (e: any) {
     console.error('Error creating conversation:', e);
     next(createCustomError(`Failed to create conversation: ${e.message}`, 500));

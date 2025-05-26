@@ -1,4 +1,5 @@
 import { UserI } from '../../user/interfaces/user.interface';
+import { ReadReceiptI } from './conversation.interface';
 import { MessageI } from './message.interface';
 import { ParticipantI } from './participant.interface';
 
@@ -36,11 +37,9 @@ export interface ChatMessage extends BaseWebSocketMessage {
 
 export interface MessageStatusMessage extends BaseWebSocketMessage {
   type: 'message-status';
-  last_message_id: string;
+  read_receipt: ReadReceiptI;
   status: 'sent' | 'delivered' | 'read';
-  read_at?: string; // ISO date string
-  sender_id: string;
-  participants: Partial<ParticipantI>[];
+  conversation_id: string;
 }
 
 export interface UserStatusMessage extends BaseWebSocketMessage {

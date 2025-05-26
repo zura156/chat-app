@@ -2,6 +2,7 @@ import { Injectable } from '@angular/core';
 import { webSocket, WebSocketSubject } from 'rxjs/webSocket';
 import { environment } from '../../../../environments/environment';
 import { WebSocketMessageT } from '../interfaces/web-socket-message.interface';
+import { tap } from 'rxjs';
 
 @Injectable({
   providedIn: 'root',
@@ -40,7 +41,10 @@ export class WebSocketService {
   }
 
   onMessage() {
-    return this.socket$;
+    console.log('onMessage called');
+    return this.socket$?.pipe(
+      tap(res => console.log('from service: ', res))
+    );
   }
 
   close() {

@@ -16,6 +16,7 @@ import {
 } from '@spartan-ng/ui-avatar-helm';
 import { TimeAgoPipe } from '../../../shared/pipes/time-ago.pipe';
 import { ConversationService } from '../services/conversation.service';
+import { ReadReceiptI } from '../interfaces/conversation.interface';
 
 @Component({
   selector: 'message-card',
@@ -35,6 +36,7 @@ import { ConversationService } from '../services/conversation.service';
 })
 export class MessageCardComponent {
   message = input.required<MessageI>();
+  readReceipts = input.required<ReadReceiptI[]>();
   imageUrl = input.required<string>();
   currentUser = input.required<UserI>();
   isLastMessage = input.required<boolean>();
