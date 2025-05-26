@@ -2,7 +2,10 @@ import { HttpClient } from '@angular/common/http';
 import { computed, inject, Injectable, signal } from '@angular/core';
 import { Observable, of, tap, catchError, throwError } from 'rxjs';
 import { environment } from '../../../../environments/environment';
-import { ConversationI, ReadReceiptI } from '../interfaces/conversation.interface';
+import {
+  ConversationI,
+  ReadReceiptI,
+} from '../interfaces/conversation.interface';
 import { ConversationListI } from '../interfaces/conversation-list.interface';
 import { UserI } from '../../user/interfaces/user.interface';
 
@@ -116,6 +119,8 @@ export class ConversationService {
       })
       .pipe(
         tap((newConversation) => {
+          this.#selectedUser.set(null);
+          sessionStorage.removeItem('selectedUser');
           this.#activeConversation.set(newConversation);
 
           const conversationList = this.conversationList();
@@ -149,7 +154,21 @@ export class ConversationService {
     });
   }
 
-  updateReadReceipts(readReceipts: ReadReceiptI): void {
+  updateReadReceipts(readReceipt: ReadReceiptI): void {
+    this.#activeConversation.update((convo) => {
+      if (!convo) return null;
 
+      const existingReceiptIndex = convo.read_receipts.findIndex(
+        (r) => r.user_id === readReceipt.user_id
+      );
+      const newReceipts = [...convo.read_receipts];
+
+      if (existingReceiptIndex > -1) {
+        newReceipts[existingReceiptIndex] = readReceipt;
+      } else {
+        newReceipts.push(readReceipt);
+      }
+      return { ...convo, read_receipts: newReceipts };
+    });
   }
 }

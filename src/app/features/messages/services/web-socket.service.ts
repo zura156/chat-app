@@ -41,10 +41,7 @@ export class WebSocketService {
   }
 
   onMessage() {
-    console.log('onMessage called');
-    return this.socket$?.pipe(
-      tap(res => console.log('from service: ', res))
-    );
+    return this.socket$;
   }
 
   close() {

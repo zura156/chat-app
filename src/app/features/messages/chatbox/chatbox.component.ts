@@ -17,6 +17,7 @@ import {
   distinctUntilChanged,
   EMPTY,
   map,
+  Observable,
   of,
   Subject,
   switchMap,
@@ -59,6 +60,7 @@ import { ParticipantI } from '../interfaces/participant.interface';
 import {
   MessageStatusMessage,
   TypingMessage,
+  WebSocketMessageT,
 } from '../interfaces/web-socket-message.interface';
 import { TimeAgoPipe } from '../../../shared/pipes/time-ago.pipe';
 import { MessageCardComponent } from '../message/message-card.component';
@@ -67,23 +69,18 @@ import { ToastrService } from 'ngx-toastr';
 @Component({
   selector: 'app-chatbox',
   imports: [
-    MessageCardComponent,
-
     TimeAgoPipe,
-
-    HlmAvatarImageDirective,
-    HlmAvatarComponent,
-    HlmSeparatorDirective,
-    BrnSeparatorComponent,
-
     HlmCardDirective,
-    HlmCardDescriptionDirective,
-
-    ReactiveFormsModule,
-    HlmButtonDirective,
     HlmInputDirective,
-
+    HlmButtonDirective,
+    HlmSeparatorDirective,
+    HlmAvatarImageDirective,
+    HlmCardDescriptionDirective,
+    HlmAvatarComponent,
     HlmSpinnerComponent,
+    MessageCardComponent,
+    BrnSeparatorComponent,
+    ReactiveFormsModule,
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './chatbox.component.html',
@@ -198,11 +195,7 @@ export class ChatboxComponent implements OnInit, OnDestroy {
     this.route.params
       .pipe(
         map((params) => params['id']),
-        catchError((err) => {
-          this.toast.error('Something went wrong!', err.error.message);
-          this.isLoading.set(false);
-          return throwError(() => err);
-        }),
+        catchError((err) => this.handleError(err)),
         switchMap((id) => {
           this.conversation = this.conversationService.activeConversation;
           const selectedUser: UserI | null = JSON.parse(
@@ -215,100 +208,12 @@ export class ChatboxComponent implements OnInit, OnDestroy {
               this.messageService.clearActiveMessages();
               return of(this.conversation()).pipe(
                 tap(() => this.isLoading.set(false)),
-                switchMap(
-                  () =>
-                    this.webSocketService.onMessage()!.pipe(
-                      tap((res) => {
-                        console.log(res);
-                        switch (res.type) {
-                          case 'typing':
-                            this.isTyping.set({
-                              typer: res.sender ?? {},
-                              is_typing: !!res.is_typing,
-                              conversationId: res.conversation,
-                            });
-                            break;
-                          case 'message':
-                            console.log('Received message:', res.message);
-                            const user = this.currentUser();
-                            const message: MessageI = res.message;
-
-                            if (res.message.sender === user?._id) {
-                              this.messageService.fillInMessageDetails(message);
-
-                              return;
-                            }
-
-                            this.messageService.addMessage(message);
-                            if (
-                              message._id &&
-                              user?._id !== message.sender._id
-                            ) {
-                              this.markMessagesAsRead(message._id);
-                            }
-
-                            return;
-                          case 'user-status':
-                            const { userId, status: userStatus } = res;
-
-                            let { last_seen } = res;
-
-                            if (!last_seen) {
-                              last_seen = new Date().toISOString();
-                            }
-
-                            this.conversationService.updateParticipantStatus(
-                              userId,
-                              userStatus,
-                              last_seen
-                            );
-                            break;
-                          case 'message-status':
-                            const { read_receipt, status: messageStatus } = res;
-
-                            const {
-                              last_message_read_id: last_message_id,
-                              user_id: sender_id,
-                              read_at,
-                            } = read_receipt;
-
-                            const readReceipt: ReadReceiptI = {
-                              user_id: sender_id,
-                              last_message_read_id: last_message_id,
-                              read_at: new Date(read_at ?? ''),
-                            };
-
-                            this.conversationService.updateReadReceipts(
-                              readReceipt
-                            );
-
-                            this.messageService.updateMessageStatus(
-                              last_message_id,
-                              messageStatus as MessageStatus
-                            );
-                            break;
-                        }
-                      }),
-                      catchError((err) => {
-                        this.toast.error(
-                          'Something went wrong!',
-                          err.error.message
-                        );
-                        this.isLoading.set(false);
-                        return throwError(() => err);
-                      })
-                    ) || EMPTY
-                )
+                switchMap(() => this.handleWebSocketMessages())
               );
             }
           }
           return this.conversationService.getConversationById(id).pipe(
-            catchError((err) => {
-              this.router.navigate(['/messages']);
-              this.toast.error('Something went wrong!', err.error.message);
-              this.isLoading.set(false);
-              return throwError(() => err);
-            }),
+            catchError((err) => this.handleError(err, true)),
             switchMap((c) => {
               if (!c) {
                 return EMPTY;
@@ -347,95 +252,8 @@ export class ChatboxComponent implements OnInit, OnDestroy {
 
                   this.isLoading.set(false);
                 }),
-                catchError((err) => {
-                  this.toast.error('Something went wrong!', err.error?.message);
-                  this.isLoading.set(false);
-                  return throwError(() => err);
-                }),
-                switchMap(
-                  () =>
-                    this.webSocketService.onMessage()!.pipe(
-                      tap((res) => {
-                        console.log(res);
-                        switch (res.type) {
-                          case 'typing':
-                            this.isTyping.set({
-                              typer: res.sender ?? {},
-                              is_typing: !!res.is_typing,
-                              conversationId: res.conversation,
-                            });
-                            break;
-                          case 'message':
-                            console.log('Received message:', res.message);
-                            const user = this.currentUser();
-                            const message: MessageI = res.message;
-
-                            if (res.message.sender === user?._id) {
-                              this.messageService.fillInMessageDetails(message);
-
-                              return;
-                            }
-
-                            this.messageService.addMessage(message);
-                            if (
-                              message._id &&
-                              user?._id !== message.sender._id
-                            ) {
-                              this.markMessagesAsRead(message._id);
-                            }
-
-                            return;
-                          case 'user-status':
-                            const { userId, status: userStatus } = res;
-
-                            let { last_seen } = res;
-
-                            if (!last_seen) {
-                              last_seen = new Date().toISOString();
-                            }
-
-                            this.conversationService.updateParticipantStatus(
-                              userId,
-                              userStatus,
-                              last_seen
-                            );
-                            break;
-                          case 'message-status':
-                            const { read_receipt, status: messageStatus } = res;
-
-                            const {
-                              last_message_read_id: last_message_id,
-                              user_id: sender_id,
-                              read_at,
-                            } = read_receipt;
-
-                            const readReceipt: ReadReceiptI = {
-                              user_id: sender_id,
-                              last_message_read_id: last_message_id,
-                              read_at: new Date(read_at ?? ''),
-                            };
-
-                            this.conversationService.updateReadReceipts(
-                              readReceipt
-                            );
-
-                            this.messageService.updateMessageStatus(
-                              last_message_id,
-                              messageStatus as MessageStatus
-                            );
-                            break;
-                        }
-                      }),
-                      catchError((err) => {
-                        this.toast.error(
-                          'Something went wrong!',
-                          err.error.message
-                        );
-                        this.isLoading.set(false);
-                        return throwError(() => err);
-                      })
-                    ) || EMPTY
-                )
+                catchError((err) => this.handleError(err)),
+                switchMap(() => this.handleWebSocketMessages())
               );
             })
           );
@@ -455,6 +273,78 @@ export class ChatboxComponent implements OnInit, OnDestroy {
     }
   }
 
+  private handleWebSocketMessages(): Observable<WebSocketMessageT> {
+    return (
+      this.webSocketService.onMessage()!.pipe(
+        tap((res) => {
+          switch (res.type) {
+            case 'typing':
+              this.isTyping.set({
+                typer: res.sender ?? {},
+                is_typing: !!res.is_typing,
+                conversationId: res.conversation,
+              });
+              break;
+            case 'message':
+              const user = this.currentUser();
+              const message: MessageI = res.message;
+
+              if (res.message.sender === user?._id) {
+                this.messageService.fillInMessageDetails(message);
+
+                return;
+              }
+
+              this.messageService.addMessage(message);
+              if (message._id && user?._id !== message.sender._id) {
+                this.markMessagesAsRead(message._id);
+              }
+
+              return;
+            case 'user-status':
+              const { userId, status: userStatus } = res;
+
+              let { last_seen } = res;
+
+              if (!last_seen) {
+                last_seen = new Date().toISOString();
+              }
+
+              this.conversationService.updateParticipantStatus(
+                userId,
+                userStatus,
+                last_seen
+              );
+              break;
+            case 'message-status':
+              const { read_receipt, status: messageStatus } = res;
+
+              const {
+                last_message_read_id: last_message_id,
+                user_id: sender_id,
+                read_at,
+              } = read_receipt;
+
+              const readReceipt: ReadReceiptI = {
+                user_id: sender_id,
+                last_message_read_id: last_message_id,
+                read_at: new Date(read_at ?? ''),
+              };
+
+              this.conversationService.updateReadReceipts(readReceipt);
+
+              this.messageService.updateMessageStatus(
+                last_message_id,
+                messageStatus as MessageStatus
+              );
+              break;
+          }
+        }),
+        catchError((err) => this.handleError(err))
+      ) || EMPTY
+    );
+  }
+
   sendMessage(): void {
     const sender = this.userService.currentUser();
     const convo = this.conversation();
@@ -467,11 +357,7 @@ export class ChatboxComponent implements OnInit, OnDestroy {
       this.conversationService
         .createConversation([sender._id, this.selectedUser()!._id])
         .pipe(
-          catchError((err) => {
-            this.toast.error('Something went wrong!', err.error.message);
-            this.isLoading.set(false);
-            return throwError(() => err);
-          }),
+          catchError((err) => this.handleError(err)),
           switchMap((conversation) => {
             this.conversation = this.conversationService.activeConversation;
             const message: MessageI = {
@@ -487,19 +373,17 @@ export class ChatboxComponent implements OnInit, OnDestroy {
               (u) => u._id !== sender?._id
             );
 
-            // this.router.navigateByUrl(`/messages/${conversation._id}`);
+            this.router.navigateByUrl(`/messages/${conversation._id}`);
 
-            return this.messageService.sendMessage(message, participants).pipe(
-              catchError((err) => {
-                this.toast.error('Something went wrong!', err.error.message);
-                this.isLoading.set(false);
-                return throwError(() => err);
-              }),
-              tap(() => {
-                this.isLoading.set(false);
-                this.messageControl.reset();
-              })
-            );
+            return this.messageService
+              .sendMessage(message, participants, true)
+              .pipe(
+                catchError((err) => this.handleError(err)),
+                tap(() => {
+                  this.isLoading.set(false);
+                  this.messageControl.reset();
+                })
+              );
           })
         )
         .subscribe();
@@ -521,11 +405,7 @@ export class ChatboxComponent implements OnInit, OnDestroy {
       this.messageService
         .sendMessage(message, participants)
         .pipe(
-          catchError((err) => {
-            this.toast.error('Something went wrong!', err.error.message);
-            this.isLoading.set(false);
-            return throwError(() => err);
-          }),
+          catchError((err) => this.handleError(err)),
           tap(() => {
             this.conversation = this.conversationService.activeConversation;
             this.isLoading.set(false);
@@ -692,5 +572,17 @@ export class ChatboxComponent implements OnInit, OnDestroy {
         })
       )
       .subscribe();
+  }
+
+  private handleError(
+    err: any,
+    navigation: boolean = false
+  ): Observable<never> {
+    this.isLoading.set(false);
+    this.toast.error('Something went wrong!', err.message);
+    if (navigation) {
+      this.router.navigate(['/messages']);
+    }
+    return throwError(() => err);
   }
 }

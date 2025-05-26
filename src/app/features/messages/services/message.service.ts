@@ -40,7 +40,8 @@ export class MessageService {
 
   sendMessage(
     message: MessageI,
-    participants: Partial<ParticipantI>[]
+    participants: Partial<ParticipantI>[],
+    isNewest: boolean = false
   ): Observable<MessageI> {
     const data: ChatMessage = {
       type: 'message',
@@ -48,7 +49,7 @@ export class MessageService {
       participants,
     };
 
-    this.#activeMessages.update((messages) => [message, ...messages]);
+    this.addMessage(message, isNewest);
     this.webSocketService.sendMessage(data);
 
     return of(message);
@@ -100,8 +101,14 @@ export class MessageService {
   }
 
   // Add a single message to the active messages (useful for real-time updates)
-  addMessage(message: MessageI): void {
-    this.#activeMessages.update((messages) => [message, ...messages]);
+  addMessage(message: MessageI, isNewest: boolean = false): void {
+    this.#activeMessages.update((currentMessages) => {
+      if (isNewest) {
+        return currentMessages;
+      } else {
+        return [message, ...currentMessages];
+      }
+    });
   }
 
   // Clear active messages (useful when changing conversations)
