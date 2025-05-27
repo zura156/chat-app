@@ -275,7 +275,7 @@ export class ChatboxComponent implements OnInit, OnDestroy {
 
   private handleWebSocketMessages(): Observable<WebSocketMessageT> {
     return (
-      this.webSocketService.onMessage()!.pipe(
+      this.webSocketService.onMessage()?.pipe(
         tap((res) => {
           switch (res.type) {
             case 'typing':
