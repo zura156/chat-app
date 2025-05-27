@@ -246,6 +246,7 @@ export class ChatboxComponent implements OnInit, OnDestroy {
                     )[0]?._id;
 
                     if (lastMessageId) {
+                      console.log('marking');
                       this.markMessagesAsRead(lastMessageId);
                     }
                   }
@@ -295,8 +296,12 @@ export class ChatboxComponent implements OnInit, OnDestroy {
                 return;
               }
 
-              this.messageService.addMessage(message);
+              const conversation = this.conversation();
+
+              if (conversation && conversation._id === res.message.conversation)
+                this.messageService.addMessage(message);
               if (message._id && user?._id !== message.sender._id) {
+                console.log('marking onmessage');
                 this.markMessagesAsRead(message._id);
               }
 
@@ -454,7 +459,11 @@ export class ChatboxComponent implements OnInit, OnDestroy {
 
     if (
       conversation &&
-      conversation.read_receipts.some((r) => r.user_id === currentUserId)
+      conversation.read_receipts.some(
+        (r) =>
+          r.user_id === currentUserId &&
+          r.last_message_read_id === lastMessageId
+      )
     )
       return;
 

@@ -194,6 +194,7 @@ export class NewChatComponent implements OnInit, OnDestroy {
     this.isLoading.set(true);
     this.fetchUsersIfNeeded();
   }
+
   // toggleUserList(): void {
   //   this.showUserList.update((value) => !value);
   //   this.isLoading.set(true);
@@ -202,6 +203,12 @@ export class NewChatComponent implements OnInit, OnDestroy {
 
   closeUserList(): void {
     this.userListFlag.set(false);
+  }
+
+  isUserSelected(userId: string): boolean {
+    if (!userId) return false;
+    const selectedUserIds = this.selectedUsers().map((u) => u._id);
+    return selectedUserIds.includes(userId);
   }
 
   private fetchUsersIfNeeded(query: string = ''): void {

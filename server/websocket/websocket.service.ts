@@ -230,7 +230,7 @@ class MessageHandler {
         type,
       });
 
-      if(!savedMessage) {
+      if (!savedMessage) {
         logger.error('Failed to save message to database');
         ws.send(
           JSON.stringify({
@@ -332,9 +332,7 @@ class MessageHandler {
         return;
       }
 
-      const conversation = await Conversation.findById(
-        conversation_id
-      ).populate('participants');
+      const conversation = await Conversation.findById(conversation_id);
 
       if (!conversation) {
         logger.warn(`Conversation id: ${conversation_id} is not found.`);
@@ -383,6 +381,8 @@ class MessageHandler {
         const userId = recipientId.toString();
 
         logger.info(`Sending message status update to user ${userId}`);
+
+        logger.info(this.clientManager.getConnections());
 
         if (this.clientManager.isConnected(userId)) {
           this.clientManager.sendToUser(userId, {
