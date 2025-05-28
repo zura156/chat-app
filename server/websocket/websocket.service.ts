@@ -17,6 +17,8 @@ type WebSocketMessageType =
   | 'authenticate'
   | 'typing'
   | 'message'
+  | 'conversation-join'
+  | 'conversation-leave'
   | 'message-status'
   | MessageContentType
   | 'user-status';
@@ -36,6 +38,20 @@ interface TypingMessage extends BaseWebSocketMessage {
   sender: Partial<UserInterface>;
   participants: Partial<UserInterface>[];
   conversation: string;
+}
+
+interface ConversationJoinMessage extends BaseWebSocketMessage {
+  type: 'conversation-join';
+  conversation_id: string;
+  added_by: Partial<UserInterface>;
+  added_user: Partial<UserInterface>;
+}
+
+interface ConversationLeaveMessage extends BaseWebSocketMessage {
+  type: 'conversation-leave';
+  conversation_id: string;
+  removed_by: Partial<UserInterface>;
+  removed_user: Partial<UserInterface>;
 }
 
 interface ChatMessage extends BaseWebSocketMessage {

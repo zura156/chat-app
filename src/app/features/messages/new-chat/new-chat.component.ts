@@ -127,16 +127,33 @@ export class NewChatComponent implements OnInit, OnDestroy {
   }
 
   onSubmit(): void {
+    const currentUser = this.userService.currentUser();
     const selectedUsers = this.selectedUsers();
 
-    if (!selectedUsers.length) return;
+    if (!currentUser || selectedUsers.length === 0) return;
 
-    if (selectedUsers.length < 2) {
-      this.conversationService.selectUserForConversation(selectedUsers[0]);
-      this.router.navigate(['/messages/', selectedUsers[0]._id]);
+    if (selectedUsers.length === 1) {
+      const targetUserId = selectedUsers[0]._id;
+      const allConversations =
+        this.conversationService.conversationList()?.conversations || [];
+
+      const existingConversation = allConversations.find((c) => {
+        const participantIds = c.participants.map((p) => p._id);
+        return (
+          c.participants.length === 2 &&
+          participantIds.includes(currentUser._id) &&
+          participantIds.includes(targetUserId)
+        );
+      });
+
+      if (existingConversation) {
+        this.router.navigateByUrl('/messages/' + existingConversation._id);
+      } else {
+        this.conversationService.selectUserForConversation(selectedUsers[0]);
+        this.router.navigate(['/messages/', targetUserId]);
+      }
     } else {
       this.createConversation();
-      return;
     }
   }
 

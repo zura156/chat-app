@@ -8,10 +8,15 @@ import {
 } from '../interfaces/conversation.interface';
 import { ConversationListI } from '../interfaces/conversation-list.interface';
 import { UserI } from '../../user/interfaces/user.interface';
+import { WebSocketService } from './web-socket.service';
+import { ConversationJoinMessage } from '../interfaces/web-socket-message.interface';
+import { UserService } from '../../user/services/user.service';
 
 @Injectable()
 export class ConversationService {
   private http = inject(HttpClient);
+  private webSocketService = inject(WebSocketService);
+  private userService = inject(UserService);
 
   private readonly apiUrl = environment.apiUrl;
 
@@ -122,6 +127,21 @@ export class ConversationService {
           this.#selectedUser.set(null);
           sessionStorage.removeItem('selectedUser');
           this.#activeConversation.set(newConversation);
+
+          const currentUserId = this.userService.currentUser()?._id;
+
+          for (let participant of newConversation.participants) {
+            if (!currentUserId) continue;
+
+            const conversationCreateMessage: ConversationJoinMessage = {
+              type: 'conversation-join',
+              conversation_id: newConversation._id,
+              added_by: { _id: currentUserId },
+              added_user: participant,
+            };
+
+            this.webSocketService.sendMessage(conversationCreateMessage);
+          }
 
           const conversationList = this.conversationList();
           if (conversationList && conversationList.conversations.length > 0) {

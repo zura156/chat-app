@@ -2,7 +2,6 @@ import { Injectable } from '@angular/core';
 import { webSocket, WebSocketSubject } from 'rxjs/webSocket';
 import { environment } from '../../../../environments/environment';
 import { WebSocketMessageT } from '../interfaces/web-socket-message.interface';
-import { tap } from 'rxjs';
 
 @Injectable({
   providedIn: 'root',
