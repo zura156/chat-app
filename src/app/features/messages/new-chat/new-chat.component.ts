@@ -26,7 +26,7 @@ import { FormControl, ReactiveFormsModule, Validators } from '@angular/forms';
 import { HlmInputDirective } from '@spartan-ng/ui-input-helm';
 import { HlmSeparatorDirective } from '@spartan-ng/ui-separator-helm';
 import { UserI } from '../../user/interfaces/user.interface';
-import { NgFor, NgIf } from '@angular/common';
+
 import { NgScrollbarModule } from 'ngx-scrollbar';
 import { UserCardComponent } from '../../user/components/card/user-card.component';
 import { ClickOutsideDirective } from '../../../shared/directives/click-outside.directive';
@@ -42,28 +42,17 @@ import { ToastrService } from 'ngx-toastr';
   selector: 'app-new-chat',
   imports: [
     ReactiveFormsModule,
-
-    NgIf,
-    NgFor,
-
     HlmSeparatorDirective,
-
     HlmLabelDirective,
-
     HlmInputDirective,
     HlmErrorDirective,
-
     NgScrollbarModule,
-
     UserCardComponent,
-
     ClickOutsideDirective,
-
     HlmIconDirective,
     NgIcon,
-
-    HlmButtonDirective,
-  ],
+    HlmButtonDirective
+],
   providers: [provideIcons({ lucideX, lucideCircleAlert })],
   templateUrl: './new-chat.component.html',
   changeDetection: ChangeDetectionStrategy.OnPush,

@@ -7,7 +7,7 @@ import { HlmIconModule } from '../../../../../libs/ui/ui-icon-helm/src/index';
 import { HlmIconDirective } from '../../../../../libs/ui/ui-icon-helm/src/lib/hlm-icon.directive';
 import { NgIcon, provideIcons } from '@ng-icons/core';
 import { lucideUsersRound } from '@ng-icons/lucide';
-import { NgFor } from '@angular/common';
+
 import {
   HlmAvatarComponent,
   HlmAvatarImageDirective,
@@ -23,13 +23,10 @@ import { TimeAgoPipe } from '../../../shared/pipes/time-ago.pipe';
     HlmIconModule,
     NgIcon,
     HlmIconDirective,
-    NgFor,
-
     HlmAvatarImageDirective,
     HlmAvatarComponent,
-
     TimeAgoPipe
-  ],
+],
   providers: [provideIcons({ lucideUsersRound })],
   templateUrl: './conversation-card.component.html',
 })

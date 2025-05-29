@@ -9,7 +9,7 @@ import {
 import { ReactiveFormsModule } from '@angular/forms';
 import { HlmSeparatorDirective } from '@spartan-ng/ui-separator-helm';
 import { BrnSeparatorComponent } from '@spartan-ng/brain/separator';
-import { NgIf, NgTemplateOutlet } from '@angular/common';
+import { NgTemplateOutlet } from '@angular/common';
 import { filter, Subject, takeUntil } from 'rxjs';
 import { NavigationEnd, Router, RouterOutlet } from '@angular/router';
 import { MessageListComponent } from '../list/messages-list.component';
@@ -22,7 +22,6 @@ import { lucideChevronLeft } from '@ng-icons/lucide';
 @Component({
   selector: 'app-messages',
   imports: [
-    NgIf,
     RouterOutlet,
     ReactiveFormsModule,
     HlmSeparatorDirective,
@@ -31,8 +30,8 @@ import { lucideChevronLeft } from '@ng-icons/lucide';
     NgIcon,
     HlmButtonDirective,
     HlmIconDirective,
-    MessageListComponent,
-  ],
+    MessageListComponent
+],
   providers: [
     LayoutService,
     provideIcons({

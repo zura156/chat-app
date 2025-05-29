@@ -1,11 +1,11 @@
 import { Component, inject } from '@angular/core';
 import { ThemeService } from '../../services/theme.service';
-import { AsyncPipe, NgIf } from '@angular/common';
+import { AsyncPipe } from '@angular/common';
 import { AuthService } from '../../../features/auth/services/auth.service';
 
 @Component({
   selector: 'app-header',
-  imports: [NgIf, AsyncPipe],
+  imports: [AsyncPipe],
   templateUrl: './header.component.html',
 })
 export class HeaderComponent {

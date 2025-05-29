@@ -1,14 +1,12 @@
-<ng-container *ngIf="isMobile(); else desktopLayout">
+@if (isMobile()) {
   <main>
     @if(!isChatView()){
-    <ng-container *ngTemplateOutlet="leftSide"></ng-container>
-    }@else {
-    <ng-container *ngTemplateOutlet="rightSide"></ng-container>
+      <ng-container *ngTemplateOutlet="leftSide"></ng-container>
+      }@else {
+      <ng-container *ngTemplateOutlet="rightSide"></ng-container>
     }
   </main>
-</ng-container>
-
-<ng-template #desktopLayout>
+} @else {
   <main class="flex space-x-4 h-full w-full">
     <section class="w-2/5 mx-0">
       <ng-container *ngTemplateOutlet="leftSide"></ng-container>
@@ -18,7 +16,8 @@
       <ng-container *ngTemplateOutlet="rightSide"></ng-container>
     </section>
   </main>
-</ng-template>
+}
+
 
 <ng-template #leftSide>
   <app-messages-list></app-messages-list>
@@ -26,17 +25,17 @@
 
 <ng-template #rightSide>
   @if(isMobile()){
-  <div class="p-2">
-    <button
-      type="button"
-      (click)="goBack()"
-      hlmBtn
-      variant="secondary"
-      class="cursor-pointer rounded-full"
-    >
-      <ng-icon hlm size="sm" name="lucideChevronLeft" />
-    </button>
-  </div>
+    <div class="p-2">
+      <button
+        type="button"
+        (click)="goBack()"
+        hlmBtn
+        variant="secondary"
+        class="cursor-pointer rounded-full"
+        >
+        <ng-icon hlm size="sm" name="lucideChevronLeft" />
+      </button>
+    </div>
   }
   <router-outlet></router-outlet>
 </ng-template>

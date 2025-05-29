@@ -1,32 +1,19 @@
 <div class="flex min-h-full flex-col justify-center px-6 py-12 lg:px-8">
   <div class="sm:mx-auto sm:w-full sm:max-w-sm">
     <!-- <img
-      class="mx-auto h-10 w-auto"
-      src=""
-      alt="Your Company"
+    class="mx-auto h-10 w-auto"
+    src=""
+    alt="Your Company"
     /> -->
     <h2
       class="mb-5 text-center text-2xl/9 font-medium tracking-tight text-black dark:text-gray-200"
-    >
+      >
       Sign in to your account
     </h2>
   </div>
 
-  <ng-template #errorAlert>
-    <div
-      *ngIf="error()"
-      class="mx-auto w-full max-w-sm cursor-pointer"
-      (click)="clearError()"
-    >
-      <div hlmAlert variant="destructive">
-        <ng-icon hlm hlmAlertIcon name="lucideTriangleAlert" />
-        <h4 hlmAlertTitle>Unexpected Error</h4>
-        <p hlmAlertDesc>{{ error() }}</p>
-      </div>
-    </div>
-  </ng-template>
 
-  <ng-container *ngIf="isLoading(); else errorAlert">
+  @if (isLoading()) {
     <div class="mx-auto w-full max-w-sm">
       <div hlmAlert>
         <ng-icon hlm hlmAlertIcon name="lucideLoader" />
@@ -34,136 +21,153 @@
         <p hlmAlertDesc>Please wait...</p>
       </div>
     </div>
-  </ng-container>
+  } @else {
+    @if (error()) {
+      <div
+        class="mx-auto w-full max-w-sm cursor-pointer"
+        (click)="clearError()"
+        >
+        <div hlmAlert variant="destructive">
+          <ng-icon hlm hlmAlertIcon name="lucideTriangleAlert" />
+          <h4 hlmAlertTitle>Unexpected Error</h4>
+          <p hlmAlertDesc>{{ error() }}</p>
+        </div>
+      </div>
+    }
+  }
 
   <div class="mt-5 sm:mx-auto sm:w-full sm:max-w-sm">
     <form [formGroup]="form" (ngSubmit)="onSubmit()">
       <fieldset class="mb-2">
         <label hlmLabel for="email" class="text-gray-800 dark:text-gray-300"
           >Email address</label
-        >
-        <hlm-form-field>
-          <input
-            type="email"
-            name="email"
-            formControlName="email"
-            id="email"
-            autocomplete="email"
-            required
-            class="w-full"
-            hlmInput
-            placeholder="Email"
-          />
-          <hlm-error
-            *ngIf="form.controls['email'].hasError('required')"
-            class="flex items-center gap-x-1"
-            ><ng-icon hlm size="sm" name="lucideCircleAlert"></ng-icon> Email
-            required!</hlm-error
           >
-          <hlm-error
-            *ngIf="form.controls['email'].hasError('email')"
-            class="flex items-center gap-x-1"
-            ><ng-icon hlm size="sm" name="lucideCircleAlert"></ng-icon> Email
-            invalid!
-          </hlm-error>
-        </hlm-form-field>
-      </fieldset>
-      <fieldset class="mb-2">
-        <label hlmLabel for="password" class="text-gray-800 dark:text-gray-300"
-          >Password</label
-        >
-        <div class="text-sm"></div>
-        <div class="relative">
           <hlm-form-field>
             <input
-              [type]="showPass() ? 'text' : 'password'"
-              name="password"
-              formControlName="password"
-              id="password"
-              class="w-full rounded-r-[calc(var(--radius))]"
-              placeholder="Password"
-              autocomplete="current-password"
+              type="email"
+              name="email"
+              formControlName="email"
+              id="email"
+              autocomplete="email"
               required
+              class="w-full"
               hlmInput
-            />
-            <hlm-error
-              *ngIf="
-                form.controls['password'].hasError('required');
-                else passwordStrengthErrors
-              "
-              class="flex items-center gap-x-1 mt-2 mb-px"
-              ><ng-icon hlm size="sm" name="lucideCircleAlert"></ng-icon>
-              Password required!</hlm-error
-            >
-            <ng-template #passwordStrengthErrors>
-              <hlm-error
-                class="flex items-center gap-x-1 mt-2 mb-px"
-                *ngIf="!form.get('password')?.errors?.['passwordStrength']?.hasLength"
+              placeholder="Email"
+              />
+              @if (form.controls['email'].hasError('required')) {
+                <hlm-error
+                  class="flex items-center gap-x-1"
+                  ><ng-icon hlm size="sm" name="lucideCircleAlert"></ng-icon> Email
+                  required!</hlm-error
+                  >
+              }
+              @if (form.controls['email'].hasError('email')) {
+                <hlm-error
+                  class="flex items-center gap-x-1"
+                  ><ng-icon hlm size="sm" name="lucideCircleAlert"></ng-icon> Email
+                  invalid!
+                </hlm-error>
+              }
+            </hlm-form-field>
+          </fieldset>
+          <fieldset class="mb-2">
+            <label hlmLabel for="password" class="text-gray-800 dark:text-gray-300"
+              >Password</label
               >
-                <ng-icon hlm size="sm" name="lucideCircleAlert"></ng-icon>
-                Password must be at least 8 characters long.</hlm-error
-              >
-              <hlm-error
-                class="flex items-center gap-x-1 mt-2 mb-px"
-                *ngIf="!form.get('password')?.errors?.['passwordStrength']?.hasUppercase"
-              >
-                <ng-icon hlm size="sm" name="lucideCircleAlert"></ng-icon>
-                Password must contain at least one uppercase letter.</hlm-error
-              >
-              <hlm-error
-                class="flex items-center gap-x-1 mt-2 mb-px"
-                *ngIf="!form.get('password')?.errors?.['passwordStrength']?.hasNumeric"
-              >
-                <ng-icon hlm size="sm" name="lucideCircleAlert"></ng-icon>
-                Password must contain at least one number.</hlm-error
-              >
-              <hlm-error
-                class="flex items-center gap-x-1 mt-2 mb-px"
-                *ngIf="!form.get('password')?.errors?.['passwordStrength']?.hasSpecial"
-              >
-                <ng-icon hlm size="sm" name="lucideCircleAlert"></ng-icon>
-                Password must contain at least one special character.</hlm-error
-              >
-            </ng-template>
-          </hlm-form-field>
-          <p class="text-end text-sm/6 text-gray-500">
-            <a
-              [routerLink]="['/forgot-password']"
-              class="font-medium text-black dark:text-white"
-              >Forgot password?</a
-            >
-          </p>
-          <button
-            type="button"
-            hlmBtn
-            variant="secondary"
-            class="absolute top-0 right-0 rounded-l-none duration-300 min-h-10 min-w-16 cursor-pointer"
-            (click)="togglePasswordVisibility()"
-          >
-            {{ showPass() ? "Hide" : "Show" }}
-          </button>
-        </div>
-      </fieldset>
+              <div class="text-sm"></div>
+              <div class="relative">
+                <hlm-form-field>
+                  <input
+                    [type]="showPass() ? 'text' : 'password'"
+                    name="password"
+                    formControlName="password"
+                    id="password"
+                    class="w-full rounded-r-[calc(var(--radius))]"
+                    placeholder="Password"
+                    autocomplete="current-password"
+                    required
+                    hlmInput
+                    />
+                    @if (
+                      form.controls['password'].hasError('required')) {
+                      <hlm-error
+                        class="flex items-center gap-x-1 mt-2 mb-px"
+                        ><ng-icon hlm size="sm" name="lucideCircleAlert"></ng-icon>
+                        Password required!</hlm-error
+                        >
+                    } @else {
+                      @if (!form.get('password')?.errors?.['passwordStrength']?.hasLength) {
+                        <hlm-error
+                          class="flex items-center gap-x-1 mt-2 mb-px"
+                          >
+                          <ng-icon hlm size="sm" name="lucideCircleAlert"></ng-icon>
+                          Password must be at least 8 characters long.</hlm-error
+                          >
+                        }
+                        @if (!form.get('password')?.errors?.['passwordStrength']?.hasUppercase) {
+                          <hlm-error
+                            class="flex items-center gap-x-1 mt-2 mb-px"
+                            >
+                            <ng-icon hlm size="sm" name="lucideCircleAlert"></ng-icon>
+                            Password must contain at least one uppercase letter.</hlm-error
+                            >
+                          }
+                          @if (!form.get('password')?.errors?.['passwordStrength']?.hasNumeric) {
+                            <hlm-error
+                              class="flex items-center gap-x-1 mt-2 mb-px"
+                              >
+                              <ng-icon hlm size="sm" name="lucideCircleAlert"></ng-icon>
+                              Password must contain at least one number.</hlm-error
+                              >
+                            }
+                            @if (!form.get('password')?.errors?.['passwordStrength']?.hasSpecial) {
+                              <hlm-error
+                                class="flex items-center gap-x-1 mt-2 mb-px"
+                                >
+                                <ng-icon hlm size="sm" name="lucideCircleAlert"></ng-icon>
+                                Password must contain at least one special character.</hlm-error
+                                >
+                              }
+                            }
+                          </hlm-form-field>
+                          <p class="text-end text-sm/6 text-gray-500">
+                            <a
+                              [routerLink]="['/forgot-password']"
+                              class="font-medium text-black dark:text-white"
+                              >Forgot password?</a
+                              >
+                            </p>
+                            <button
+                              type="button"
+                              hlmBtn
+                              variant="secondary"
+                              class="absolute top-0 right-0 rounded-l-none duration-300 min-h-10 min-w-16 cursor-pointer"
+                              (click)="togglePasswordVisibility()"
+                              >
+                              {{ showPass() ? "Hide" : "Show" }}
+                            </button>
+                          </div>
+                        </fieldset>
 
-      <fieldset class="dark">
-        <button
-          type="submit"
-          hlmBtn
-          variant="default"
-          class="w-full cursor-pointer"
-        >
-          Sign in
-        </button>
-      </fieldset>
-    </form>
+                        <fieldset class="dark">
+                          <button
+                            type="submit"
+                            hlmBtn
+                            variant="default"
+                            class="w-full cursor-pointer"
+                            >
+                            Sign in
+                          </button>
+                        </fieldset>
+                      </form>
 
-    <p class="mt-2 text-center text-sm/6 text-gray-500">
-      Not a member?
-      <a
-        [routerLink]="['/register']"
-        class="font-semibold text-black dark:text-white"
-        >Register now</a
-      >
-    </p>
-  </div>
-</div>
+                      <p class="mt-2 text-center text-sm/6 text-gray-500">
+                        Not a member?
+                        <a
+                          [routerLink]="['/register']"
+                          class="font-semibold text-black dark:text-white"
+                          >Register now</a
+                          >
+                        </p>
+                      </div>
+                    </div>

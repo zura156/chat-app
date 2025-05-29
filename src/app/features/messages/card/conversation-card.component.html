@@ -4,13 +4,13 @@
   routerLinkActive="bg-active"
   hlmCard
   class="p-2 flex items-center gap-x-2 cursor-pointer hover:bg-accent"
->
+  >
   <!-- AVATAR -->
   <div class="size-lg flex justify-center items-center border rounded-full">
-    @if(conversation()?.is_group) { 
+    @if(conversation()?.is_group) {
       @if(!conversation()?.group_picture) {
         <ng-icon hlm size="lg" name="lucideUsersRound" />
-      } 
+      }
     } @else {
       <!-- AVATAR -->
       <hlm-avatar variant="medium">
@@ -18,46 +18,48 @@
           [src]="imageUrl ?? '/icons/avatar.svg'"
           alt="profile picture"
           hlmAvatarImage
-        />
-      </hlm-avatar>
-    }
-  </div>
+          />
+        </hlm-avatar>
+      }
+    </div>
 
-  <section>
-    <!-- Group title -->
-    <h1 class="font-medium">{{ conversation()?.group_name }}</h1>
-    <!-- Last message -->
-    <p class="text-sm">
-      @if(conversation()?.is_group) {
-        <span *ngFor="let user of conversation()?.participants; let i = index">
-          {{
-            i + 1 === conversation()?.participants?.length
+    <section>
+      <!-- Group title -->
+      <h1 class="font-medium">{{ conversation()?.group_name }}</h1>
+      <!-- Last message -->
+      <p class="text-sm">
+        @if(conversation()?.is_group) {
+          @for (user of conversation()?.participants; track user; let i = $index) {
+            <span>
+              {{
+              i + 1 === conversation()?.participants?.length
               ? user.username + ""
               : user.username + ","
-          }}
-        </span>
-      } @else { 
-        @for(participant of conversation()!.participants; track $index) { 
-          @if(participant._id !== currentUser()?._id) {
-            <span class="text-lg">
-              {{ participant.username }}
+              }}
             </span>
-          } 
-        } 
-      }
-    </p>
-    <p class="text-sm">
-      @if(conversation()?.last_message?.sender?._id === currentUser()?._id) {
-        You: 
-      } 
-      @if(conversation()?.last_message?.content) {
-      <span class="text-gray-400">
-        <span class="max-w-3/4 overflow-ellipsis w-32">
-          {{ conversation()?.last_message?.content }} &middot;
-        </span>
-        {{ conversation()?.last_message?.createdAt ?? "" | timeAgo }}
-      </span>
-      }
-    </p>
-  </section>
-</main>
+          }
+        } @else {
+          @for(participant of conversation()!.participants; track $index) {
+            @if(participant._id !== currentUser()?._id) {
+              <span class="text-lg">
+                {{ participant.username }}
+              </span>
+            }
+          }
+        }
+      </p>
+      <p class="text-sm">
+        @if(conversation()?.last_message?.sender?._id === currentUser()?._id) {
+          You:
+        }
+        @if(conversation()?.last_message?.content) {
+          <span class="text-gray-400">
+            <span class="max-w-3/4 overflow-ellipsis w-32">
+              {{ conversation()?.last_message?.content }} &middot;
+            </span>
+            {{ conversation()?.last_message?.createdAt ?? "" | timeAgo }}
+          </span>
+        }
+      </p>
+    </section>
+  </main>

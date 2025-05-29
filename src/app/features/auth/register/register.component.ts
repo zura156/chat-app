@@ -13,7 +13,7 @@ import { HlmButtonDirective } from '@spartan-ng/ui-button-helm';
 import { HlmFormFieldModule } from '@spartan-ng/ui-formfield-helm';
 import { HlmInputDirective } from '@spartan-ng/ui-input-helm';
 import { HlmLabelDirective } from '@spartan-ng/ui-label-helm';
-import { NgIf } from '@angular/common';
+
 import { HlmIconDirective } from '@spartan-ng/ui-icon-helm';
 import { NgIcon, provideIcons } from '@ng-icons/core';
 import {
@@ -32,7 +32,6 @@ import { passwordValidator } from '../validators/password.validator';
 @Component({
   selector: 'app-register',
   imports: [
-    NgIf,
     RouterLink,
     ReactiveFormsModule,
     HlmFormFieldModule,
@@ -43,8 +42,8 @@ import { passwordValidator } from '../validators/password.validator';
     NgIcon,
     HlmAlertDescriptionDirective,
     HlmAlertDirective,
-    HlmAlertIconDirective,
-  ],
+    HlmAlertIconDirective
+],
   providers: [
     provideIcons({ lucideCircleAlert, lucideTriangleAlert, lucideLoader }),
   ],

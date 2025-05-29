@@ -19,7 +19,7 @@ import {
 } from '@ng-icons/lucide';
 import { HlmIconDirective } from '@spartan-ng/ui-icon-helm';
 import { ConversationService } from '../services/conversation.service';
-import { NgFor, NgIf } from '@angular/common';
+
 import { Router, RouterLink } from '@angular/router';
 import { HlmInputDirective } from '@spartan-ng/ui-input-helm';
 import { HlmBadgeDirective } from '@spartan-ng/ui-badge-helm';
@@ -62,7 +62,6 @@ import { AuthService } from '../../auth/services/auth.service';
     HlmTabsListComponent,
     HlmTabsTriggerDirective,
     HlmTabsContentDirective,
-
     HlmBadgeDirective,
     ConversationCardComponent,
     HlmSeparatorDirective,
@@ -73,12 +72,9 @@ import { AuthService } from '../../auth/services/auth.service';
     HlmIconDirective,
     ReactiveFormsModule,
     NgIcon,
-    NgIf,
-    NgFor,
     RouterLink,
-
-    HlmSkeletonComponent,
-  ],
+    HlmSkeletonComponent
+],
   providers: [
     provideIcons({ lucidePencil, lucideMenu, lucideChevronLeft, lucideLoader }),
   ],

@@ -20,7 +20,7 @@ import {
   lucideLoader,
   lucideTriangleAlert,
 } from '@ng-icons/lucide';
-import { NgIf } from '@angular/common';
+
 import { passwordValidator } from '../validators/password.validator';
 import { catchError, tap, throwError } from 'rxjs';
 import {
@@ -32,7 +32,6 @@ import {
 @Component({
   selector: 'app-login',
   imports: [
-    NgIf,
     RouterLink,
     ReactiveFormsModule,
     HlmFormFieldModule,
@@ -43,8 +42,8 @@ import {
     NgIcon,
     HlmAlertDescriptionDirective,
     HlmAlertDirective,
-    HlmAlertIconDirective,
-  ],
+    HlmAlertIconDirective
+],
   providers: [
     provideIcons({ lucideCircleAlert, lucideTriangleAlert, lucideLoader }),
   ],
