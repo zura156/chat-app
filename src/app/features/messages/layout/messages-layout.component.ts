@@ -30,8 +30,8 @@ import { lucideChevronLeft } from '@ng-icons/lucide';
     NgIcon,
     HlmButtonDirective,
     HlmIconDirective,
-    MessageListComponent
-],
+    MessageListComponent,
+  ],
   providers: [
     LayoutService,
     provideIcons({

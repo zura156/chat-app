@@ -65,6 +65,7 @@ import {
 import { TimeAgoPipe } from '../../../shared/pipes/time-ago.pipe';
 import { MessageCardComponent } from '../message/message-card.component';
 import { ToastrService } from 'ngx-toastr';
+import { JsonPipe } from '@angular/common';
 
 @Component({
   selector: 'app-chatbox',
@@ -341,6 +342,18 @@ export class ChatboxComponent implements OnInit, OnDestroy {
               this.messageService.updateMessageStatus(
                 last_message_id,
                 messageStatus as MessageStatus
+              );
+              break;
+
+            case 'conversation-leave':
+              const {
+                removed_by,
+                removed_user,
+                conversation: leftConversation,
+              } = res;
+
+              this.conversationService.removeConversationFromList(
+                leftConversation as ConversationI
               );
               break;
           }

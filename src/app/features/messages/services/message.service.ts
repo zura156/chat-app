@@ -64,14 +64,14 @@ export class MessageService {
     const url = `${this.GET_MESSAGES_URL}/${conversationId}/messages?offset=${offset}&limit=${limit}`;
 
     return this.http.get<MessageListI>(url).pipe(
-      tap((messages) => {
-        this.#activeMessages.update((val) => [...val, ...messages.messages]);
+      tap((response) => {
         if (
           this.activeMessages().length > 0 &&
           conversationId !== (this.activeMessages()[0].conversation as string)
         ) {
-          this.#activeMessages.set(messages.messages);
+          this.#activeMessages.update((val) => [...val, ...response.messages]);
         }
+        this.#activeMessages.set(response.messages);
       }),
       catchError((error) => {
         console.error('Error fetching messages:', error);

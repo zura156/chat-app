@@ -33,12 +33,12 @@ import {
   EMPTY,
   Observable,
   of,
-  pipe,
   startWith,
   Subject,
   switchMap,
   takeUntil,
   tap,
+  throwError,
 } from 'rxjs';
 import { FormControl, ReactiveFormsModule } from '@angular/forms';
 import { UserI } from '../../user/interfaces/user.interface';
@@ -54,6 +54,10 @@ import { ConversationListI } from '../interfaces/conversation-list.interface';
 import { UserListI } from '../../user/interfaces/user-list.interface';
 import { toObservable } from '@angular/core/rxjs-interop';
 import { AuthService } from '../../auth/services/auth.service';
+import { WebSocketMessageT } from '../interfaces/web-socket-message.interface';
+import { WebSocketService } from '../services/web-socket.service';
+import { ToastrService } from 'ngx-toastr';
+import { ConversationI } from '../interfaces/conversation.interface';
 
 @Component({
   selector: 'app-messages-list',
@@ -73,8 +77,8 @@ import { AuthService } from '../../auth/services/auth.service';
     ReactiveFormsModule,
     NgIcon,
     RouterLink,
-    HlmSkeletonComponent
-],
+    HlmSkeletonComponent,
+  ],
   providers: [
     provideIcons({ lucidePencil, lucideMenu, lucideChevronLeft, lucideLoader }),
   ],
@@ -83,6 +87,8 @@ import { AuthService } from '../../auth/services/auth.service';
 export class MessageListComponent {
   // Injected services
   private conversationService = inject(ConversationService);
+  private webSocketService = inject(WebSocketService);
+  private toast = inject(ToastrService);
   private userService = inject(UserService);
   private router = inject(Router);
   private layoutService = inject(LayoutService);
@@ -107,21 +113,6 @@ export class MessageListComponent {
 
   // Cleanup subject
   private readonly destroy$ = new Subject<void>();
-
-  // constructor() {
-  //   effect(() => {
-  //     switch (this.activeView()) {
-  //       case 'conversations':
-  //         this.fetchConversations();
-  //         break;
-  //       case 'users':
-  //         this.fetchUsers();
-  //         break;
-  //       default:
-  //         break;
-  //     }
-  //   });
-  // }
 
   ngOnInit(): void {
     this.searchForData();
@@ -190,7 +181,9 @@ export class MessageListComponent {
         switchMap(([query, view]) => {
           switch (view) {
             case 'conversations':
-              return this.fetchConversations(query || '');
+              return this.fetchConversations(query || '').pipe(
+                switchMap(() => this.handleWebSocketMessages())
+              );
             case 'users':
               return this.fetchUsers(query || '');
             default:
@@ -220,12 +213,7 @@ export class MessageListComponent {
 
     return request$.pipe(
       takeUntil(this.destroy$),
-      catchError((err) => {
-        this.error.set('Failed to load conversations.');
-        console.error('Error fetching users:', err);
-        this.isLoading.set(false);
-        return EMPTY;
-      }),
+      catchError((err) => this.handleError(err)),
       tap(() => this.isLoading.set(false))
     );
   }
@@ -245,13 +233,59 @@ export class MessageListComponent {
 
     return request$.pipe(
       takeUntil(this.destroy$),
-      catchError((err) => {
-        this.error.set('Failed to load users');
-        console.error('Error fetching users:', err);
-        this.isLoading.set(false);
-        return EMPTY;
-      }),
+      catchError((err) => this.handleError(err)),
       tap(() => this.isLoading.set(false))
     );
+  }
+
+  private handleWebSocketMessages(): Observable<WebSocketMessageT> {
+    return (
+      this.webSocketService.onMessage()?.pipe(
+        tap((res) => {
+          switch (res.type) {
+            case 'conversation-join':
+              const {
+                added_by,
+                added_user,
+                conversation: joinedConversation,
+              } = res;
+
+              if (added_by._id === this.currentUser()?._id) {
+                break;
+              } else {
+                this.conversationService.addConversationToList(
+                  joinedConversation as ConversationI
+                );
+              }
+              break;
+
+            case 'conversation-leave':
+              const {
+                removed_by,
+                removed_user,
+                conversation: leftConversation,
+              } = res;
+
+              this.conversationService.removeConversationFromList(
+                leftConversation as ConversationI
+              );
+              break;
+          }
+        }),
+        catchError((err) => this.handleError(err))
+      ) || EMPTY
+    );
+  }
+
+  private handleError(
+    err: any,
+    navigation: boolean = false
+  ): Observable<never> {
+    this.isLoading.set(false);
+    this.toast.error('Something went wrong!', err.message);
+    if (navigation) {
+      this.router.navigate(['/messages']);
+    }
+    return throwError(() => err);
   }
 }

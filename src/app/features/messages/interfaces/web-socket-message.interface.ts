@@ -1,5 +1,5 @@
 import { UserI } from '../../user/interfaces/user.interface';
-import { ReadReceiptI } from './conversation.interface';
+import { ConversationI, ReadReceiptI } from './conversation.interface';
 import { MessageI } from './message.interface';
 import { ParticipantI } from './participant.interface';
 
@@ -33,14 +33,14 @@ export interface TypingMessage extends BaseWebSocketMessage {
 
 export interface ConversationJoinMessage extends BaseWebSocketMessage {
   type: 'conversation-join';
-  conversation_id: string;
+  conversation: Partial<ConversationI>;
   added_by: Partial<UserI>;
   added_user: Partial<UserI>;
 }
 
 export interface ConversationLeaveMessage extends BaseWebSocketMessage {
   type: 'conversation-leave';
-  conversation_id: string;
+  conversation: Partial<ConversationI>;
   removed_by: Partial<UserI>;
   removed_user: Partial<UserI>;
 }

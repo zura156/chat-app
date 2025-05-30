@@ -11,6 +11,8 @@ import {
 import { UserInterface } from '../user/interfaces/user.interface';
 import { now, Types } from 'mongoose';
 import { Conversation } from '../messenger/models/conversation.model';
+import { ConversationI } from '../messenger/interfaces/conversation.interface';
+import { ReadReceiptI } from '../messenger/interfaces/read-receipt.interface';
 
 type MessageContentType = 'text' | 'image' | 'video' | 'file';
 type WebSocketMessageType =
@@ -42,14 +44,14 @@ interface TypingMessage extends BaseWebSocketMessage {
 
 interface ConversationJoinMessage extends BaseWebSocketMessage {
   type: 'conversation-join';
-  conversation_id: string;
+  conversation: Partial<ConversationI>;
   added_by: Partial<UserInterface>;
   added_user: Partial<UserInterface>;
 }
 
 interface ConversationLeaveMessage extends BaseWebSocketMessage {
   type: 'conversation-leave';
-  conversation_id: string;
+  conversation: Partial<ConversationI>;
   removed_by: Partial<UserInterface>;
   removed_user: Partial<UserInterface>;
 }
@@ -62,11 +64,7 @@ interface ChatMessage extends BaseWebSocketMessage {
 
 interface MessageStatusMessage extends BaseWebSocketMessage {
   type: 'message-status';
-  read_receipt: {
-    user_id: string;
-    last_message_read_id: string;
-    read_at?: Date;
-  };
+  read_receipt: ReadReceiptI;
   status: 'sent' | 'delivered' | 'read';
   conversation_id: string;
 }
@@ -81,6 +79,8 @@ interface UserStatusMessage extends BaseWebSocketMessage {
 type WebSocketMessage =
   | AuthenticateMessage
   | TypingMessage
+  | ConversationJoinMessage
+  | ConversationLeaveMessage
   | ChatMessage
   | MessageStatusMessage
   | UserStatusMessage;
@@ -149,6 +149,10 @@ class MessageHandler {
       this.handleAuthenticateMessage(ws, data);
     } else if (this.isTypingMessage(data)) {
       this.handleTypingMessage(data);
+    } else if (this.isConversationJoinMessage(data)) {
+      this.handleConversationJoin(ws, data);
+    } else if (this.isConversationLeaveMessage(data)) {
+      this.handleConversationLeave(ws, data);
     } else if (this.isChatMessage(data)) {
       await this.handleChatMessage(ws, data);
     } else if (this.isUserStatusMessage(data)) {
@@ -175,11 +179,40 @@ class MessageHandler {
 
   protected isChatMessage(data: any): data is ChatMessage {
     return (
-      (data.type === 'message' || data.type === 'text') &&
+      (data.type === 'message' ||
+        data.type === 'text' ||
+        data.type === 'file') &&
       data.message.sender &&
       Array.isArray(data.participants) &&
       typeof data.message.content === 'string' &&
       typeof data.message.conversation === 'string'
+    );
+  }
+
+  protected isConversationJoinMessage(
+    data: any
+  ): data is ConversationJoinMessage {
+    return (
+      data.type === 'conversation-join' &&
+      typeof data.conversation === 'object' &&
+      typeof data.conversation._id === 'string' &&
+      typeof data.added_by === 'object' &&
+      data.added_by !== null &&
+      typeof data.added_user === 'object' &&
+      data.added_user !== null
+    );
+  }
+  protected isConversationLeaveMessage(
+    data: any
+  ): data is ConversationLeaveMessage {
+    return (
+      data.type === 'conversation-leave' &&
+      typeof data.conversation === 'object' &&
+      typeof data.conversation._id === 'string' &&
+      typeof data.removed_by === 'object' &&
+      data.removed_by !== null &&
+      typeof data.removed_user === 'object' &&
+      data.removed_user !== null
     );
   }
 
@@ -327,6 +360,93 @@ class MessageHandler {
     this._finalizeUserStatus(ws, data);
   }
 
+  protected async handleConversationJoin(
+    ws: WebSocket,
+    data: ConversationJoinMessage
+  ): Promise<void> {
+    const { added_by, added_user, conversation } = data;
+    const conversation_id = conversation._id;
+
+    try {
+      const savedConversation = await Conversation.findById(
+        conversation_id
+      ).populate(
+        'participants',
+        'first_name last_name username profile_picture status last_seen'
+      );
+
+      if (!savedConversation) {
+        logger.error(`Conversation with id: ${conversation_id} not found`);
+        ws.send(
+          JSON.stringify({
+            error: `Conversation with id: ${conversation_id} not found`,
+          })
+        );
+        return;
+      }
+
+      for (let participant of savedConversation.participants) {
+        const payload = {
+          type: 'conversation-join',
+          conversation: savedConversation,
+          added_by,
+          added_user,
+        };
+
+        this.clientManager.sendToUser(participant._id.toString(), payload);
+      }
+    } catch (err) {
+      logger.error('Invalid query id for conversation: ', err);
+      ws.send(
+        JSON.stringify({
+          error: 'Server error!',
+          details: err instanceof Error ? err.message : 'Unknown error',
+        })
+      );
+    }
+  }
+
+  protected async handleConversationLeave(
+    ws: WebSocket,
+    data: ConversationLeaveMessage
+  ): Promise<void> {
+    const { removed_by, removed_user, conversation } = data;
+    const conversation_id = conversation._id;
+
+    try {
+      const savedConversation = await Conversation.findById(conversation_id);
+
+      if (!savedConversation) {
+        logger.error(`Conversation with id: ${conversation_id} not found`);
+        ws.send(
+          JSON.stringify({
+            error: `Conversation with id: ${conversation_id} not found`,
+          })
+        );
+        return;
+      }
+
+      for (let participantId of savedConversation.participants) {
+        const payload: ConversationLeaveMessage = {
+          type: 'conversation-leave',
+          conversation,
+          removed_by,
+          removed_user,
+        };
+
+        this.clientManager.sendToUser(participantId.toString(), payload);
+      }
+    } catch (err) {
+      logger.error('Invalid query id for conversation: ', err);
+      ws.send(
+        JSON.stringify({
+          error: 'Server error!',
+          details: err instanceof Error ? err.message : 'Unknown error',
+        })
+      );
+    }
+  }
+
   protected async handleMessageStatus(
     ws: WebSocket,
     data: MessageStatusMessage
@@ -383,7 +503,19 @@ class MessageHandler {
         last_message_read_id: last_message_read_id,
         read_at: now(),
       };
-      conversation.read_receipts.push(readReceipt);
+
+      const existingReceiptIndex = conversation.read_receipts.findIndex(
+        (r) => r.user_id === readReceipt.user_id
+      );
+      const newReceipts = [...conversation.read_receipts];
+
+      if (existingReceiptIndex > -1) {
+        newReceipts[existingReceiptIndex] = readReceipt;
+      } else {
+        newReceipts.push(readReceipt);
+      }
+
+      conversation.read_receipts = newReceipts;
       await conversation.save();
 
       logger.info(

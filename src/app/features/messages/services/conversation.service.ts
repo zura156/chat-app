@@ -135,7 +135,7 @@ export class ConversationService {
 
             const conversationCreateMessage: ConversationJoinMessage = {
               type: 'conversation-join',
-              conversation_id: newConversation._id,
+              conversation: { _id: newConversation._id },
               added_by: { _id: currentUserId },
               added_user: participant,
             };
@@ -152,6 +152,32 @@ export class ConversationService {
           }
         })
       );
+  }
+
+  addConversationToList(conversation: ConversationI): void {
+    this.#conversationList.update((val) => {
+      if (!val) return null;
+
+      const newList = {
+        conversations: [...val.conversations, conversation],
+        totalCount: val.totalCount + 1,
+      };
+      return newList;
+    });
+  }
+
+  removeConversationFromList(conversation: ConversationI): void {
+    this.#conversationList.update((val) => {
+      if (!val) return null;
+
+      const newList = {
+        conversations: val.conversations.filter(
+          (c) => c._id !== conversation._id
+        ),
+        totalCount: val.totalCount - 1,
+      };
+      return newList;
+    });
   }
 
   updateParticipantStatus(
@@ -188,6 +214,7 @@ export class ConversationService {
       } else {
         newReceipts.push(readReceipt);
       }
+
       return { ...convo, read_receipts: newReceipts };
     });
   }
