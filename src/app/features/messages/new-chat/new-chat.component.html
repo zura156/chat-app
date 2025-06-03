@@ -61,7 +61,7 @@
                     <div
                       class="absolute flex gap-y-1 flex-wrap gap-x-2 bottom-2 left-0 right-0 ml-4 text-sm cursor-pointer"
                       >
-                      @for(user of selectedUsers(); track user) {
+                      @for(user of selectedUsers(); track user._id) {
                         <div
                           class="border relative rounded-full pl-2 pr-5 bg-white dark:bg-black hover:bg-accent"
                           >

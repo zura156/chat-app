@@ -1,4 +1,4 @@
-import { Component, inject, input } from '@angular/core';
+import { Component, inject, input, linkedSignal } from '@angular/core';
 import { HlmCardDirective } from '@spartan-ng/ui-card-helm';
 import { ConversationI } from '../interfaces/conversation.interface';
 import { RouterLink } from '@angular/router';
@@ -25,18 +25,23 @@ import { TimeAgoPipe } from '../../../shared/pipes/time-ago.pipe';
     HlmIconDirective,
     HlmAvatarImageDirective,
     HlmAvatarComponent,
-    TimeAgoPipe
-],
+    TimeAgoPipe,
+  ],
   providers: [provideIcons({ lucideUsersRound })],
   templateUrl: './conversation-card.component.html',
 })
 export class ConversationCardComponent {
   layoutService = inject(LayoutService);
-
   userService = inject(UserService);
 
   conversation = input<ConversationI>();
-  currentUser = this.userService.currentUser
+
+  currentUser = this.userService.currentUser;
+  participants = linkedSignal(() =>
+    this.conversation()?.participants?.filter(
+      (p) => p._id !== this.currentUser()?._id
+    )
+  );
 
   imageUrl = this.conversation()?.group_picture;
 

@@ -158,6 +158,10 @@ export class ConversationService {
     this.#conversationList.update((val) => {
       if (!val) return null;
 
+      if (val.conversations.some((c) => c._id === conversation._id)) {
+        return val;
+      }
+
       const newList = {
         conversations: [...val.conversations, conversation],
         totalCount: val.totalCount + 1,

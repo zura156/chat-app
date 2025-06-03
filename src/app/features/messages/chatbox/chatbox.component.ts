@@ -301,7 +301,6 @@ export class ChatboxComponent implements OnInit, OnDestroy {
               if (conversation && conversation._id === res.message.conversation)
                 this.messageService.addMessage(message);
               if (message._id && user?._id !== message.sender._id) {
-                console.log('marking onmessage');
                 this.markMessagesAsRead(message._id);
               }
 
