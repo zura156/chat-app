@@ -247,7 +247,6 @@ export class ChatboxComponent implements OnInit, OnDestroy {
                     )[0]?._id;
 
                     if (lastMessageId) {
-                      console.log('marking');
                       this.markMessagesAsRead(lastMessageId);
                     }
                   }
