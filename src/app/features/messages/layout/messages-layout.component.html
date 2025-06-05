@@ -1,12 +1,23 @@
-@if (isMobile()) {
+<div class="overflow-x-hidden">
+  @if (isMobile()) {
   <main>
     @if(!isChatView()){
-      <ng-container *ngTemplateOutlet="leftSide"></ng-container>
-      }@else {
+    <ng-container *ngTemplateOutlet="leftSide"></ng-container>
+    } @else { @if(activeView() === 'chatbox'){
+    <div [@slideAnimation]="animationDirection()">
+      <button hlmBtn (click)="setActiveView('chatbox-settings')">
+        go to settings
+      </button>
       <ng-container *ngTemplateOutlet="rightSide"></ng-container>
-    }
+    </div>
+    } @else if(activeView() === 'chatbox-settings') {
+    <div [@slideAnimation]="animationDirection()">
+      <button hlmBtn (click)="setActiveView('chatbox')">go to chat</button>
+      <app-chatbox-settings></app-chatbox-settings>
+    </div>
+    } }
   </main>
-} @else {
+  } @else {
   <main class="flex space-x-4 h-full w-full">
     <section class="w-2/5 mx-0">
       <ng-container *ngTemplateOutlet="leftSide"></ng-container>
@@ -16,26 +27,30 @@
       <ng-container *ngTemplateOutlet="rightSide"></ng-container>
     </section>
   </main>
-}
-
-
-<ng-template #leftSide>
-  <app-messages-list></app-messages-list>
-</ng-template>
-
-<ng-template #rightSide>
-  @if(isMobile()){
-    <div class="p-2">
-      <button
-        type="button"
-        (click)="goBack()"
-        hlmBtn
-        variant="secondary"
-        class="cursor-pointer rounded-full"
-        >
-        <ng-icon hlm size="sm" name="lucideChevronLeft" />
-      </button>
-    </div>
   }
-  <router-outlet></router-outlet>
-</ng-template>
+
+  <ng-template #leftSide>
+    <div [@slideAnimation]="animationDirection()">
+      <app-messages-list></app-messages-list>
+    </div>
+  </ng-template>
+
+  <ng-template #rightSide>
+    <div [@slideAnimation]="animationDirection()">
+      @if(isMobile()){
+      <div class="p-2">
+        <button
+          type="button"
+          (click)="goBack()"
+          hlmBtn
+          variant="secondary"
+          class="cursor-pointer rounded-full"
+        >
+          <ng-icon hlm size="sm" name="lucideChevronLeft" />
+        </button>
+      </div>
+      }
+      <router-outlet></router-outlet>
+    </div>
+  </ng-template>
+</div>

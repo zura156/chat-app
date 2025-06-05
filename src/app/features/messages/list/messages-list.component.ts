@@ -58,6 +58,7 @@ import { WebSocketMessageT } from '../interfaces/web-socket-message.interface';
 import { WebSocketService } from '../services/web-socket.service';
 import { ToastrService } from 'ngx-toastr';
 import { ConversationI } from '../interfaces/conversation.interface';
+import { ActiveViewType } from '../interfaces/active-view.type';
 
 @Component({
   selector: 'app-messages-list',
@@ -107,9 +108,7 @@ export class MessageListComponent {
   readonly users = this.userService.users;
   readonly currentUser = this.userService.currentUser;
 
-  activeView$: Observable<'conversations' | 'users' | 'chatbox'> = toObservable(
-    this.activeView
-  );
+  activeView$: Observable<ActiveViewType> = toObservable(this.activeView);
 
   // Cleanup subject
   private readonly destroy$ = new Subject<void>();
@@ -136,7 +135,6 @@ export class MessageListComponent {
 
   // Navigation methods
   navigateToNewConversation(): void {
-    this.layoutService.switchView();
     this.layoutService.setActiveView('chatbox');
     this.router.navigate(['/messages/new']);
   }
@@ -160,8 +158,6 @@ export class MessageListComponent {
       this.conversationService.selectUserForConversation(user);
       this.router.navigate(['/messages', user._id]);
     }
-
-    this.layoutService.switchView();
   }
 
   private searchForData(): void {

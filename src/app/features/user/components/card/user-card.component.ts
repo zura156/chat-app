@@ -21,10 +21,4 @@ import {
 export class UserCardComponent {
   user = input<UserI>();
   imageUrl = this.user()?.profile_picture;
-
-  switchView(): void {
-    inject(LayoutService).switchView();
-  }
-
-  startConversation(): void {}
 }

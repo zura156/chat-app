@@ -45,7 +45,7 @@ export class ConversationCardComponent {
 
   imageUrl = this.conversation()?.group_picture;
 
-  switchView(): void {
-    this.layoutService.switchView();
-  }
+  // switchView(): void {
+  //   this.layoutService.switchView();
+  // }
 }

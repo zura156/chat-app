@@ -65,7 +65,9 @@ import {
 import { TimeAgoPipe } from '../../../shared/pipes/time-ago.pipe';
 import { MessageCardComponent } from '../message/message-card.component';
 import { ToastrService } from 'ngx-toastr';
-import { JsonPipe } from '@angular/common';
+import { ChatboxSettingsComponent } from '../chatbox-settings/chatbox-settings.component';
+import { LayoutService } from '../layout/layout.service';
+import { trigger, transition, style, animate } from '@angular/animations';
 
 @Component({
   selector: 'app-chatbox',
@@ -180,7 +182,6 @@ export class ChatboxComponent implements OnInit, OnDestroy {
 
   isVisible = signal<boolean>(false);
   isVisibilityObserving = signal<boolean>(false);
-  private visibleMessageIds = new Set<string>();
 
   private divTopIntersectionObserver?: IntersectionObserver;
   private messageIntersectionObserver?: IntersectionObserver;

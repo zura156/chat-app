@@ -1,18 +1,28 @@
-import { computed, Injectable, signal } from '@angular/core';
+import { computed, Injectable, linkedSignal, signal } from '@angular/core';
+import { ActiveViewType } from '../interfaces/active-view.type';
 
 @Injectable()
 export class LayoutService {
-  #isRightView = signal<boolean>(false);
+  #isRightView = linkedSignal<boolean>(() => {
+    const activeView = this.activeView();
+
+    switch (activeView) {
+      case 'conversations':
+      case 'users':
+        return false;
+      case 'chatbox':
+      case 'chatbox-settings':
+        return true;
+      default:
+        return false;
+    }
+  });
   isRightView = computed(this.#isRightView);
 
-  #activeView = signal<'conversations' | 'users' | 'chatbox'>('conversations');
+  #activeView = signal<ActiveViewType>('conversations');
   activeView = computed(this.#activeView);
 
-  switchView(): void {
-    this.#isRightView.update((val) => !val);
-  }
-
-  setActiveView(view: 'conversations' | 'users' | 'chatbox'): void {
+  setActiveView(view: ActiveViewType): void {
     this.#activeView.set(view);
   }
 }
