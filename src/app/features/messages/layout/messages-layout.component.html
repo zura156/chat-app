@@ -4,21 +4,21 @@
     @if(!isChatView()){
     <ng-container *ngTemplateOutlet="leftSide"></ng-container>
     } @else { @if(activeView() === 'chatbox'){
-    <div [@slideAnimation]="animationDirection()">
+    <div [@slideAnimation]="'left'">
       <button hlmBtn (click)="setActiveView('chatbox-settings')">
         go to settings
       </button>
       <ng-container *ngTemplateOutlet="rightSide"></ng-container>
     </div>
     } @else if(activeView() === 'chatbox-settings') {
-    <div [@slideAnimation]="animationDirection()">
+    <div [@slideAnimation]="'right'">
       <button hlmBtn (click)="setActiveView('chatbox')">go to chat</button>
       <app-chatbox-settings></app-chatbox-settings>
     </div>
     } }
   </main>
   } @else {
-  <main class="flex space-x-4 h-full w-full">
+  <main class="flex space-x-4 h-screen w-full">
     <section class="w-2/5 mx-0">
       <ng-container *ngTemplateOutlet="leftSide"></ng-container>
     </section>
@@ -30,13 +30,13 @@
   }
 
   <ng-template #leftSide>
-    <div [@slideAnimation]="animationDirection()">
+    <div [@slideAnimation]="'left'" class="h-full">
       <app-messages-list></app-messages-list>
     </div>
   </ng-template>
 
   <ng-template #rightSide>
-    <div [@slideAnimation]="animationDirection()">
+    <div [@slideAnimation]="'right'" class="h-full">
       @if(isMobile()){
       <div class="p-2">
         <button

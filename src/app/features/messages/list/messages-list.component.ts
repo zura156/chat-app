@@ -176,14 +176,14 @@ export class MessageListComponent {
         }),
         switchMap(([query, view]) => {
           switch (view) {
+            case 'users':
+              return this.fetchUsers(query || '');
             case 'conversations':
+            default:
+              console.log('test');
               return this.fetchConversations(query || '').pipe(
                 switchMap(() => this.handleWebSocketMessages())
               );
-            case 'users':
-              return this.fetchUsers(query || '');
-            default:
-              return EMPTY;
           }
         })
       )

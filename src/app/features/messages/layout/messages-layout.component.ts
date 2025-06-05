@@ -92,7 +92,6 @@ export class MessagesLayoutComponent implements OnInit, OnDestroy {
   isMobile = signal<boolean>(false);
   isChatView = this.layoutService.isRightView;
   activeView = this.layoutService.activeView;
-  animationDirection = signal<'left' | 'right' | null>(null);
 
   windowWidth: number = window.innerWidth;
 
@@ -154,32 +153,6 @@ export class MessagesLayoutComponent implements OnInit, OnDestroy {
   }
 
   setActiveView(destination: ActiveViewType) {
-    const current = this.activeView();
-
     this.layoutService.setActiveView(destination);
-
-    if (current === destination) {
-      return;
-    }
-
-    switch (current) {
-      case 'chatbox':
-        if (destination === 'conversations' || destination === 'users') {
-          this.animationDirection.set('left');
-        } else if (destination === 'chatbox-settings') {
-          this.animationDirection.set('right');
-        }
-        break;
-
-      case 'chatbox-settings':
-        this.animationDirection.set('left');
-        break;
-      case 'conversations':
-      case 'users':
-        if (destination === 'chatbox' || destination === 'chatbox-settings') {
-          this.animationDirection.set('right');
-        }
-        break;
-    }
   }
 }
