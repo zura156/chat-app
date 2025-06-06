@@ -1,6 +1,6 @@
-<main class="p-3 w-full min-h-screen">
-  <header class="pt-2 flex flex-col gap-y-3">
-    <section class="flex justify-between items-center">
+<main class="p-3 w-full max-h-screen pb-24 h-full flex flex-col">
+  <header class="h-fit">
+    <section class="mb-3 flex justify-between items-center">
       <div>
         <h1 class="text-2xl font-bold">Chats</h1>
       </div>
@@ -28,96 +28,97 @@
           class="w-full"
           placeholder="Search..."
           [formControl]="searchControl"
-          />
-        </div>
+        />
       </div>
-    </header>
+    </div>
+  </header>
 
-    <brn-separator decorative hlmSeparator />
-
-    <hlm-tabs tab="conversations">
+  
+  <hlm-tabs tab="conversations" class="flex flex-col h-full">
+    <div class="w-full h-fit">
+      <brn-separator decorative hlmSeparator />
+    </div>
+  
+    <div>
       <hlm-tabs-list
-        class="w-full grid grid-cols-2"
+        class="w-full h-fit grid grid-cols-2"
         aria-label="switch between conversations and users"
         >
         <button
           hlmTabsTrigger="conversations"
           class="cursor-pointer"
           (click)="switchToConversations()"
-          >
+        >
           Conversations
         </button>
         <button
           hlmTabsTrigger="users"
           class="cursor-pointer"
           (click)="switchToUsers()"
-          >
+        >
           Users
         </button>
       </hlm-tabs-list>
-      <section hlmTabsContent="users">
-        @if (users() && (users()?.users?.length ?? 0 > 0)) {
-          <main>
-            <section class="h-full w-full flex flex-col gap-y-2">
-              @for (user of users()?.users; track user._id) {
-                <app-user-card
-                  [user]="user"
-                  (click)="selectUser(user)"
-                ></app-user-card>
-              }
-            </section>
-          </main>
-        } @else {
-          @if(isLoading()){
-            <div class="flex items-center p-2 w-full space-x-4">
-              <hlm-skeleton class="size-12 rounded-full" />
-              <div class="space-y-2 w-9/12 md:w-10/12">
-                <hlm-skeleton class="h-4 w-full" />
-              </div>
-            </div>
-            }@else {
-            <div class="flex flex-col justify-center items-center pt-2 gap-y-2">
-              <p>No users found.</p>
-              <p class="text-sm">Try different keywords.</p>
-            </div>
+    </div>
+    <section hlmTabsContent="users" class="flex-1 overflow-y-auto">
+      @if (users() && (users()?.users?.length ?? 0 > 0)) {
+        <section class="flex flex-col gap-y-2">
+          @for (user of users()?.users; track user._id) {
+            <app-user-card
+            [user]="user"
+            (click)="selectUser(user)"
+            ></app-user-card>
           }
+        </section>
+      } @else {
+        
+        @if(isLoading()){
+          <div class="flex items-center p-2 w-full space-x-4">
+            <hlm-skeleton class="size-12 rounded-full" />
+            <div class="space-y-2 w-9/12 md:w-10/12">
+              <hlm-skeleton class="h-4 w-full" />
+            </div>
+          </div>
+        } @else {
+          <div class="flex flex-col justify-center items-center pt-2 gap-y-2">
+            <p>No users found.</p>
+            <p class="text-sm">Try different keywords.</p>
+          </div>
         }
+      }
+    </section>
 
-      </section>
-      <section hlmTabsContent="conversations">
-        @if (
-          conversations() && (conversations()?.conversations?.length ?? 0 > 0)) {
-          <main>
-            <section class="h-full w-full flex flex-col gap-y-2">
-              @for (conversation of conversations()?.conversations; track conversation._id) {
-                <app-conversation-card
-                  class="conversation-item"
-                  [conversation]="conversation"
-                  >
-                </app-conversation-card>
-              }
-            </section>
-          </main>
-        } @else {
-          @if(isLoading()){
-            <div class="flex items-center p-2 w-full space-x-4">
-              <hlm-skeleton class="size-12 rounded-full" />
-              <div class="space-y-2 w-9/12 md:w-10/12">
-                <hlm-skeleton class="h-4 w-full" />
-                <hlm-skeleton class="h-4 w-3/4" />
-              </div>
-            </div>
-            }@else {
-            <div
-              class="flex flex-col justify-center items-center text-center pt-2 gap-y-2"
-              >
-              <p>You have no conversations going on.</p>
-              <a class="text-sm" [routerLink]="['/messages/new']" hlmBadge>
-                Start messaging now!
-              </a>
-            </div>
+    <section hlmTabsContent="conversations" class="flex-1 overflow-y-auto">
+      @if (conversations() && (conversations()?.conversations?.length ?? 0 > 0)) {
+        <section class="h-full w-full flex flex-col gap-y-2">
+          @for (conversation of conversations()?.conversations; track conversation._id) {
+            <app-conversation-card
+              class="conversation-item"
+              [conversation]="conversation"
+            >
+            </app-conversation-card>
           }
+        </section>
+      } @else {
+        @if(isLoading()){
+          <div class="flex items-center p-2 w-full space-x-4">
+            <hlm-skeleton class="size-12 rounded-full" />
+            <div class="space-y-2 w-9/12 md:w-10/12">
+              <hlm-skeleton class="h-4 w-full" />
+              <hlm-skeleton class="h-4 w-3/4" />
+            </div>
+          </div>
+        } @else {
+          <div
+            class="flex flex-col justify-center items-center text-center pt-2 gap-y-2"
+            >
+            <p>You have no conversations going on.</p>
+            <a class="text-sm" [routerLink]="['/messages/new']" hlmBadge>
+              Start messaging now!
+            </a>
+          </div>
         }
-      </section>
-    </hlm-tabs>
-  </main>
+      }
+    </section>
+  </hlm-tabs>
+</main>

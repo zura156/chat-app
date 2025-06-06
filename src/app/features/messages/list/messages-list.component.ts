@@ -180,7 +180,6 @@ export class MessageListComponent {
               return this.fetchUsers(query || '');
             case 'conversations':
             default:
-              console.log('test');
               return this.fetchConversations(query || '').pipe(
                 switchMap(() => this.handleWebSocketMessages())
               );
