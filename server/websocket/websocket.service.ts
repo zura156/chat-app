@@ -468,7 +468,7 @@ class MessageHandler {
         return;
       }
 
-      const conversation = await Conversation.findById(conversation_id);
+      const conversation = await Conversation.findById(conversation_id).populate('read_receipts');
 
       if (!conversation) {
         logger.warn(`Conversation id: ${conversation_id} is not found.`);
