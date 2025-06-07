@@ -66,12 +66,18 @@ import { TimeAgoPipe } from '../../../shared/pipes/time-ago.pipe';
 import { MessageCardComponent } from '../message/message-card.component';
 import { ToastrService } from 'ngx-toastr';
 import { ChatboxSettingsComponent } from '../chatbox-settings/chatbox-settings.component';
-import { LayoutService } from '../layout/layout.service';
-import { trigger, transition, style, animate } from '@angular/animations';
+import { NgClass } from '@angular/common';
+import { NgIcon, provideIcons } from '@ng-icons/core';
+import { lucideInfo } from '@ng-icons/lucide';
+import { HlmIconDirective } from '@spartan-ng/ui-icon-helm';
 
 @Component({
   selector: 'app-chatbox',
   imports: [
+    NgClass,
+    ChatboxSettingsComponent,
+    NgIcon,
+    HlmIconDirective,
     TimeAgoPipe,
     HlmCardDirective,
     HlmInputDirective,
@@ -85,6 +91,7 @@ import { trigger, transition, style, animate } from '@angular/animations';
     BrnSeparatorComponent,
     ReactiveFormsModule,
   ],
+  providers: [provideIcons({ lucideInfo })],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './chatbox.component.html',
   styleUrl: './chatbox.component.css',
@@ -97,6 +104,8 @@ export class ChatboxComponent implements OnInit, OnDestroy {
   private readonly messageService = inject(MessageService);
   private readonly webSocketService = inject(WebSocketService);
   private readonly toast = inject(ToastrService);
+
+  messageControl = new FormControl<string>('');
 
   private readonly destroy$ = new Subject<void>();
 
@@ -123,6 +132,8 @@ export class ChatboxComponent implements OnInit, OnDestroy {
   });
 
   messages = this.messageService.activeMessages;
+  totalMessagesCount = signal<number>(0);
+
   groupedMessages = linkedSignal<GroupedMessages[]>(() => {
     let groupedMessages: GroupedMessages[] = [];
     const messages = this.messages();
@@ -159,29 +170,28 @@ export class ChatboxComponent implements OnInit, OnDestroy {
     }
     return groupedMessages;
   });
-  totalMessagesCount = signal<number>(0);
-
-  messageControl = new FormControl<string>('');
 
   currentUser = this.userService.currentUser;
   selectedUser = this.conversationService.selectedUser;
 
   offset = signal<number>(0);
   limit = 20;
-  hasMoreMessages = signal<boolean>(true);
+  hasMoreMessages = linkedSignal<boolean>(
+    () => this.totalMessagesCount() > this.offset()
+  );
 
+  isSettingsPanelOpen = signal<boolean>(false);
   isLoading = signal<boolean>(false);
   isTyping = signal<{
     typer: Partial<ParticipantI>;
     is_typing: boolean;
     conversationId: string;
   } | null>(null);
+  isVisible = signal<boolean>(false);
+  isVisibilityObserving = signal<boolean>(false);
 
   @ViewChild('topTracker') observedElement?: ElementRef;
   @ViewChildren('messageItem') messageItems?: QueryList<ElementRef>;
-
-  isVisible = signal<boolean>(false);
-  isVisibilityObserving = signal<boolean>(false);
 
   private divTopIntersectionObserver?: IntersectionObserver;
   private messageIntersectionObserver?: IntersectionObserver;
@@ -236,12 +246,6 @@ export class ChatboxComponent implements OnInit, OnDestroy {
                     if (duplicateIds.length > 0) {
                       console.warn('Duplicate _id values found:', duplicateIds);
                     }
-                    if (messagesList.totalCount > this.offset()) {
-                      this.hasMoreMessages.set(true);
-                      this.offset.update((val) => val + this.limit);
-                    } else {
-                      this.hasMoreMessages.set(false);
-                    }
 
                     const lastMessageId = messagesList.messages.filter(
                       (m) => user?._id !== m.sender._id
@@ -273,6 +277,168 @@ export class ChatboxComponent implements OnInit, OnDestroy {
     if (this.messageIntersectionObserver) {
       this.messageIntersectionObserver.disconnect();
     }
+  }
+
+  sendMessage(): void {
+    const sender = this.userService.currentUser();
+    const convo = this.conversation();
+
+    if (!convo || !sender || !this.messageControl.value) return;
+
+    if (!convo.createdAt) {
+      this.isLoading.set(true);
+
+      this.conversationService
+        .createConversation([sender._id, this.selectedUser()!._id])
+        .pipe(
+          catchError((err) => this.handleError(err)),
+          switchMap((conversation) => {
+            this.conversation = this.conversationService.activeConversation;
+            const message: MessageI = {
+              sender: sender,
+              conversation: conversation._id,
+              content: this.messageControl.value!,
+              type: MessageType.TEXT,
+              status: MessageStatus.SENDING,
+              createdAt: new Date().toISOString(),
+            };
+
+            const participants = conversation.participants.filter(
+              (u) => u._id !== sender?._id
+            );
+
+            this.router.navigateByUrl(`/messages/${conversation._id}`);
+
+            return this.messageService
+              .sendMessage(message, participants, true)
+              .pipe(
+                catchError((err) => this.handleError(err)),
+                tap(() => {
+                  this.isLoading.set(false);
+                  this.messageControl.reset();
+                })
+              );
+          })
+        )
+        .subscribe();
+    } else {
+      this.isLoading.set(true);
+
+      const message: MessageI = {
+        sender: sender,
+        conversation: convo._id,
+        content: this.messageControl.value,
+        type: MessageType.TEXT,
+        status: MessageStatus.SENDING,
+        createdAt: new Date().toISOString(),
+      };
+      const participants = convo.participants.filter(
+        (u) => u._id !== sender?._id
+      );
+
+      this.messageService
+        .sendMessage(message, participants)
+        .pipe(
+          catchError((err) => this.handleError(err)),
+          tap(() => {
+            this.conversation = this.conversationService.activeConversation;
+            this.isLoading.set(false);
+            this.messageControl.reset();
+          })
+        )
+        .subscribe();
+    }
+  }
+
+  loadMessages(conversationId: string) {
+    console.log(this.hasMoreMessages());
+    console.log(this.totalMessagesCount());
+    console.log(this.offset());
+    if (!this.hasMoreMessages()) return EMPTY;
+
+    this.isLoading.set(true);
+
+    if (!conversationId) return EMPTY;
+
+    return this.messageService
+      .getMessagesByConversationId(conversationId, this.offset(), this.limit)
+      .pipe(
+        debounceTime(500),
+        tap(() => {
+          this.offset.update((val) => val + this.limit);
+          this.isLoading.set(false);
+        })
+      );
+  }
+
+  onChatTopVisible(): void {
+    if (this.observedElement && !this.isVisibilityObserving()) {
+      this.isVisibilityObserving.set(true);
+      this.divTopIntersectionObserver = new IntersectionObserver(
+        ([entry]) => {
+          this.isVisible.set(entry.isIntersecting && !this.isLoading());
+          if (this.hasMoreMessages() && this.isVisible()) {
+            this.loadMessages(String(this.conversation()?._id))?.subscribe();
+          }
+          if (this.totalMessagesCount() < this.offset()) {
+            this.divTopIntersectionObserver?.disconnect();
+          }
+        },
+        {
+          threshold: 0.1, // 10% of the element must be visible to trigger
+        }
+      );
+
+      this.divTopIntersectionObserver.observe(
+        this.observedElement.nativeElement
+      );
+    }
+  }
+
+  formatTimestamp(isoString: string): string {
+    if (!isoString) return '';
+
+    const timestamp = new Date(isoString);
+    const now = new Date();
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const yesterday = new Date(today);
+    yesterday.setDate(yesterday.getDate() - 1);
+
+    const messageDate = new Date(
+      timestamp.getFullYear(),
+      timestamp.getMonth(),
+      timestamp.getDate()
+    );
+
+    // Format time component
+    const timeFormat = new Intl.DateTimeFormat('en', {
+      hour: 'numeric',
+      minute: 'numeric',
+      hour12: true,
+    });
+    const timeString = timeFormat.format(timestamp);
+
+    // Today's messages
+    if (messageDate.getTime() === today.getTime()) {
+      return timeString;
+    }
+
+    // Yesterday's messages
+    if (messageDate.getTime() === yesterday.getTime()) {
+      return `Yesterday at ${timeString}`;
+    }
+
+    // Older messages
+    const dateFormat = new Intl.DateTimeFormat('en', {
+      month: 'short',
+      day: 'numeric',
+    });
+    const dateString = dateFormat.format(timestamp);
+    return `${dateString} at ${timeString}`;
+  }
+
+  toggleSettingsView(): void {
+    this.isSettingsPanelOpen.update((val) => !val);
   }
 
   private handleWebSocketMessages(): Observable<WebSocketMessageT> {
@@ -362,101 +528,6 @@ export class ChatboxComponent implements OnInit, OnDestroy {
     );
   }
 
-  sendMessage(): void {
-    const sender = this.userService.currentUser();
-    const convo = this.conversation();
-
-    if (!convo || !sender || !this.messageControl.value) return;
-
-    if (!convo.createdAt) {
-      this.isLoading.set(true);
-
-      this.conversationService
-        .createConversation([sender._id, this.selectedUser()!._id])
-        .pipe(
-          catchError((err) => this.handleError(err)),
-          switchMap((conversation) => {
-            this.conversation = this.conversationService.activeConversation;
-            const message: MessageI = {
-              sender: sender,
-              conversation: conversation._id,
-              content: this.messageControl.value!,
-              type: MessageType.TEXT,
-              status: MessageStatus.SENDING,
-              createdAt: new Date().toISOString(),
-            };
-
-            const participants = conversation.participants.filter(
-              (u) => u._id !== sender?._id
-            );
-
-            this.router.navigateByUrl(`/messages/${conversation._id}`);
-
-            return this.messageService
-              .sendMessage(message, participants, true)
-              .pipe(
-                catchError((err) => this.handleError(err)),
-                tap(() => {
-                  this.isLoading.set(false);
-                  this.messageControl.reset();
-                })
-              );
-          })
-        )
-        .subscribe();
-    } else {
-      this.isLoading.set(true);
-
-      const message: MessageI = {
-        sender: sender,
-        conversation: convo._id,
-        content: this.messageControl.value,
-        type: MessageType.TEXT,
-        status: MessageStatus.SENDING,
-        createdAt: new Date().toISOString(),
-      };
-      const participants = convo.participants.filter(
-        (u) => u._id !== sender?._id
-      );
-
-      this.messageService
-        .sendMessage(message, participants)
-        .pipe(
-          catchError((err) => this.handleError(err)),
-          tap(() => {
-            this.conversation = this.conversationService.activeConversation;
-            this.isLoading.set(false);
-            this.messageControl.reset();
-          })
-        )
-        .subscribe();
-    }
-  }
-
-  loadMessages(conversationId: string) {
-    if (!this.hasMoreMessages()) return EMPTY;
-
-    this.isLoading.set(true);
-
-    if (!conversationId) return EMPTY;
-
-    return this.messageService
-      .getMessagesByConversationId(conversationId, this.offset(), this.limit)
-      .pipe(
-        debounceTime(500),
-        tap((msgs) => {
-          this.offset.set(this.offset() + this.limit);
-          if (msgs.totalCount > this.offset()) {
-            this.hasMoreMessages.set(true);
-            this.offset.update((val) => val + this.limit);
-          } else {
-            this.hasMoreMessages.set(false);
-          }
-          this.isLoading.set(false);
-        })
-      );
-  }
-
   private markMessagesAsRead(lastMessageId: string): void {
     if (!lastMessageId) return;
 
@@ -493,72 +564,6 @@ export class ChatboxComponent implements OnInit, OnDestroy {
     };
 
     this.webSocketService.sendMessage(readData);
-  }
-
-  onChatTopVisible(): void {
-    if (this.observedElement && !this.isVisibilityObserving()) {
-      this.isVisibilityObserving.set(true);
-      this.divTopIntersectionObserver = new IntersectionObserver(
-        ([entry]) => {
-          this.isVisible.set(entry.isIntersecting && !this.isLoading());
-          if (this.hasMoreMessages() && this.isVisible()) {
-            this.loadMessages(String(this.conversation()?._id))?.subscribe();
-          }
-          if (this.totalMessagesCount() < this.offset()) {
-            this.divTopIntersectionObserver?.disconnect();
-          }
-        },
-        {
-          threshold: 0.1, // 10% of the element must be visible to trigger
-        }
-      );
-
-      this.divTopIntersectionObserver.observe(
-        this.observedElement.nativeElement
-      );
-    }
-  }
-
-  formatTimestamp(isoString: string): string {
-    if (!isoString) return '';
-
-    const timestamp = new Date(isoString);
-    const now = new Date();
-    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-    const yesterday = new Date(today);
-    yesterday.setDate(yesterday.getDate() - 1);
-
-    const messageDate = new Date(
-      timestamp.getFullYear(),
-      timestamp.getMonth(),
-      timestamp.getDate()
-    );
-
-    // Format time component
-    const timeFormat = new Intl.DateTimeFormat('en', {
-      hour: 'numeric',
-      minute: 'numeric',
-      hour12: true,
-    });
-    const timeString = timeFormat.format(timestamp);
-
-    // Today's messages
-    if (messageDate.getTime() === today.getTime()) {
-      return timeString;
-    }
-
-    // Yesterday's messages
-    if (messageDate.getTime() === yesterday.getTime()) {
-      return `Yesterday at ${timeString}`;
-    }
-
-    // Older messages
-    const dateFormat = new Intl.DateTimeFormat('en', {
-      month: 'short',
-      day: 'numeric',
-    });
-    const dateString = dateFormat.format(timestamp);
-    return `${dateString} at ${timeString}`;
   }
 
   private findMessageById(messageId: string): MessageI | undefined {

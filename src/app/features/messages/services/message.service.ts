@@ -67,11 +67,14 @@ export class MessageService {
       tap((response) => {
         if (
           this.activeMessages().length > 0 &&
-          conversationId !== (this.activeMessages()[0].conversation as string)
+          this.activeMessages().some(
+            (m) => m.conversation === response.messages[0].conversation
+          )
         ) {
           this.#activeMessages.update((val) => [...val, ...response.messages]);
+        } else {
+          this.#activeMessages.set(response.messages);
         }
-        this.#activeMessages.set(response.messages);
       }),
       catchError((error) => {
         console.error('Error fetching messages:', error);

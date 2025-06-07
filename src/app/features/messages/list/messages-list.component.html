@@ -62,7 +62,7 @@
     </div>
     <section hlmTabsContent="users" class="flex-1 overflow-y-auto">
       @if (users() && (users()?.users?.length ?? 0 > 0)) {
-        <section class="flex flex-col gap-y-2">
+        <section class="flex flex-col gap-y-2 py-2 px-1">
           @for (user of users()?.users; track user._id) {
             <app-user-card
             [user]="user"
@@ -90,7 +90,7 @@
 
     <section hlmTabsContent="conversations" class="flex-1 overflow-y-auto">
       @if (conversations() && (conversations()?.conversations?.length ?? 0 > 0)) {
-        <section class="h-full w-full flex flex-col gap-y-2">
+        <section class="h-full w-full flex flex-col gap-y-2 py-2 px-1">
           @for (conversation of conversations()?.conversations; track conversation._id) {
             <app-conversation-card
               class="conversation-item"

@@ -4,8 +4,6 @@ import { Component } from '@angular/core';
   selector: 'app-chatbox-settings',
   imports: [],
   templateUrl: './chatbox-settings.component.html',
-  styleUrl: './chatbox-settings.component.css'
+  styleUrl: './chatbox-settings.component.css',
 })
-export class ChatboxSettingsComponent {
-
-}
+export class ChatboxSettingsComponent {}

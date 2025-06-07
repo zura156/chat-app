@@ -1,154 +1,181 @@
 @let conversation = this.conversation();
 
-<main class="relative h-full flex flex-col py-2">
-  <brn-separator decorative hlmSeparator />
-  <header class="flex w-full items-start py-2 px-4 md:px-0 justify-between">
-    <div class="flex items-center gap-x-2">
-      <hlm-avatar variant="medium">
-        <img
-          [src]="groupImageUrl() ?? '/icons/avatar.svg'"
-          alt="pfp"
-          hlmAvatarImage
-        />
-      </hlm-avatar>
-      <h1 class="font-medium text-2xl flex-col justify-center gap-x-4">
-        @if(conversation) { 
-          @for(participant of conversation?.participants; let i = $index; track participant._id) {
-            <span>
-              {{
-                participant.first_name +
-                " " +
-                participant.last_name +
-                (i + 1 !== conversation.participants.length ? "," : "")
-              }}
-            </span>
-            @if(!conversation.is_group) { 
-              @if(participant.status === 'offline') {
-                <span class="text-sm block text-gray-500">
-                  Last active {{ participant.last_seen ?? "" | timeAgo }}
-                </span>
-              } @else {
-                <span class="size-2.5 inline-block bg-green-700 rounded-full"></span>
+<div class="w-full h-full flex">
+  <main 
+    class="relative w-full h-full flex flex-col py-2"
+    [ngClass]="{
+      'w-full': !isSettingsPanelOpen(),
+      'w-1/2' : isSettingsPanelOpen()
+      }"
+  >
+    <brn-separator decorative hlmSeparator />
+    <header class="flex w-full items-start py-2 px-4 md:px-0 justify-between">
+      <div class="flex items-center gap-x-2">
+        <hlm-avatar variant="medium">
+          <img
+            [src]="groupImageUrl() ?? '/icons/avatar.svg'"
+            alt="pfp"
+            hlmAvatarImage
+          />
+        </hlm-avatar>
+        <h1 class="font-medium text-2xl flex-col justify-center gap-x-4">
+          @if(conversation) { 
+            @for(participant of conversation?.participants; let i = $index; track participant._id) {
+              <span>
+                {{
+                  participant.first_name +
+                  " " +
+                  participant.last_name +
+                  (i + 1 !== conversation.participants.length ? "," : "")
+                }}
+              </span>
+              @if(!conversation.is_group) { 
+                @if(participant.status === 'offline') {
+                  <span class="text-sm block text-gray-500">
+                    Last active {{ participant.last_seen ?? "" | timeAgo }}
+                  </span>
+                } @else {
+                  <span class="size-2.5 inline-block bg-green-700 rounded-full"></span>
+                } 
               } 
             } 
-          } 
-        }
-      </h1>
-    </div>
-  </header>
-  <brn-separator decorative hlmSeparator />
-  
-  @if(hasMoreMessages() && isLoading()) {
-    <div class="flex justify-center py-2 border-b border-input">
-      <p class="text-sm text-slate-400">Loading messages...</p>
-    </div>
-  }
-  <section 
-    (scroll)="onChatTopVisible()" 
-    class="h-full overflow-y-auto flex-1 flex flex-col-reverse"
-  >
-    <!-- visibility event -->
-     <div id="chat-messages" class="flex flex-col-reverse p-4 space-y-4 space-y-reverse">
-      @let currentUser = this.currentUser(); 
-      @let sender = this.isTyping()?.typer;
-      @let isTyping = this.isTyping()?.is_typing; 
-      @let isTypingConversationId = this.isTyping()?.conversationId;
-
-      @if(
-        currentUser && 
-        currentUser._id !== sender?._id &&
-        isTyping &&
-        isTypingConversationId === conversation?._id
-      ) {
-        <div class="flex-col items-start justify-center">
-          @if(conversation?.is_group){
-            <span class="text-gray-500">
-              {{ sender?.username }}
-            </span>
           }
-          <div class="flex items-center justify-start">
-            <hlm-avatar variant="small" class="min-w-fit mr-1.5">
-              <img
-                [src]="sender?.profile_picture ?? '/icons/avatar.svg'"
-                [alt]="sender?.username"
-                hlmAvatarImage
-              />
-              <span class="bg-[#FD005B] text-white" hlmAvatarFallback> PFP </span>
-            </hlm-avatar>
-            <hlm-card class="flex py-2 items-center h-full" hlmCard>
-              <div class="py-1 px-3 max-w-xs md:max-w-sm lg:max-w-md">
-                <div class="typing-indicator">
-                  <span></span>
-                  <span></span>
-                  <span></span>
+        </h1>
+      </div>
+      <div class="px-2 h-full flex items-center">
+        <button 
+          hlmBtn 
+          variant="secondary" 
+          class="rounded-full py-2 cursor-pointer" 
+          type="button"
+          (click)="toggleSettingsView()"
+        >
+          <ng-icon hlm size='sm' name="lucideInfo" />
+        </button>
+      </div>
+    </header>
+    <brn-separator decorative hlmSeparator />
+    
+    @if(hasMoreMessages() && isLoading()) {
+      <div class="flex justify-center py-2 border-b border-input">
+        <p class="text-sm text-slate-400">Loading messages...</p>
+      </div>
+    }
+    <section 
+      (scroll)="onChatTopVisible()" 
+      class="h-full overflow-y-auto flex-1 flex flex-col-reverse"
+    >
+      <!-- visibility event -->
+      <div id="chat-messages" class="flex flex-col-reverse p-4 space-y-4 space-y-reverse">
+        @let currentUser = this.currentUser(); 
+        @let sender = this.isTyping()?.typer;
+        @let isTyping = this.isTyping()?.is_typing; 
+        @let isTypingConversationId = this.isTyping()?.conversationId;
+
+        @if(
+          currentUser && 
+          currentUser._id !== sender?._id &&
+          isTyping &&
+          isTypingConversationId === conversation?._id
+        ) {
+          <div class="flex-col items-start justify-center">
+            @if(conversation?.is_group){
+              <span class="text-gray-500">
+                {{ sender?.username }}
+              </span>
+            }
+            <div class="flex items-center justify-start">
+              <hlm-avatar variant="small" class="min-w-fit mr-1.5">
+                <img
+                  [src]="sender?.profile_picture ?? '/icons/avatar.svg'"
+                  [alt]="sender?.username"
+                  hlmAvatarImage
+                />
+                <span class="bg-[#FD005B] text-white" hlmAvatarFallback> PFP </span>
+              </hlm-avatar>
+              <hlm-card class="flex py-2 items-center h-full" hlmCard>
+                <div class="py-1 px-3 max-w-xs md:max-w-sm lg:max-w-md">
+                  <div class="typing-indicator">
+                    <span></span>
+                    <span></span>
+                    <span></span>
+                  </div>
+                </div>
+              </hlm-card>
+            </div>
+          </div>
+        }
+          
+        @if(messages().length > 0 && currentUser) { 
+          @for(group of groupedMessages(); track group.timeframe) {
+            <ng-container>
+              <div class="flex-1 mt-2">
+                <div hlmCardDescription class="text-xs text-center mt-1 opacity-70 mb-4">
+                  {{ group.timeframe }}
+                </div>
+                <div class="flex flex-col-reverse gap-y-2">
+                  @for(message of group.messages; track message._id) { 
+                    @if(message) {
+                      <message-card
+                        #messageItem
+                        [attr.data-message-id]="message._id"
+                        [message]="message"
+                        [readReceipts]="conversation?.read_receipts ?? []"
+                        [currentUser]="currentUser"
+                        [isGroup]="conversation?.is_group"
+                        [isLastMessage]="message?._id === this.messages()[0]._id"
+                        [imageUrl]="message.sender.profile_picture ?? ''"
+                      ></message-card>
+                    }
+                  }
                 </div>
               </div>
-            </hlm-card>
-          </div>
-        </div>
-      }
-        
-      @if(messages().length > 0 && currentUser) { 
-        @for(group of groupedMessages(); track group.timeframe) {
-          <ng-container>
-            <div class="flex-1 mt-2">
-              <div hlmCardDescription class="text-xs text-center mt-1 opacity-70 mb-4">
-                {{ group.timeframe }}
-              </div>
-              <div class="flex flex-col-reverse gap-y-2">
-                @for(message of group.messages; track message._id) { 
-                  @if(message) {
-                    <message-card
-                      #messageItem
-                      [attr.data-message-id]="message._id"
-                      [message]="message"
-                      [readReceipts]="conversation?.read_receipts ?? []"
-                      [currentUser]="currentUser"
-                      [isGroup]="conversation?.is_group"
-                      [isLastMessage]="message?._id === this.messages()[0]._id"
-                      [imageUrl]="message.sender.profile_picture ?? ''"
-                        ></message-card>
-                  }
-                }
-              </div>
-            </div>
-          </ng-container>
-        } 
-      } @else {
-         
-        @if(isLoading()) {
-          <div class="mx-auto">
-            <hlm-spinner />
-          </div>
+            </ng-container>
+          } 
         } @else {
-          <ng-container>
-            <div class="flex justify-center h-full items-center">
-              <p class="text-slate-400">No messages yet. Start the conversation!</p>
+          
+          @if(isLoading()) {
+            <div class="mx-auto">
+              <hlm-spinner />
             </div>
-          </ng-container> 
-        }  
-      }
+          } @else {
+            <ng-container>
+              <div class="flex justify-center h-full items-center">
+                <p class="text-slate-400">No messages yet. Start the conversation!</p>
+              </div>
+            </ng-container> 
+          }  
+        }
+      </div>
       <div #topTracker></div>
-    </div>
-  </section>
+    </section>
+      
+    <brn-separator decorative hlmSeparator />
+      
+    <footer>
+      <!-- Message Input -->
+      <div class="p-2 flex justify-center items-center gap-x-4">
+        <input
+          id="sender-input"
+          autocomplete="off"
+          hlmInput
+          class="w-full"
+          placeholder="Type a message..."
+          [formControl]="messageControl"
+          (keydown.enter)="$event.preventDefault(); sendMessage()"
+        />
+        <button hlmBtn (click)="sendMessage()" class="cursor-pointer">
+          Send
+        </button>
+      </div>
+    </footer>
+  </main>
+
+
+  @if(isSettingsPanelOpen()) {
+    <section class="w-1/2">
+      <app-chatbox-settings></app-chatbox-settings>
+    </section>
+  }
     
-  <brn-separator decorative hlmSeparator />
-    
-  <footer>
-    <!-- Message Input -->
-    <div class="p-2 flex justify-center items-center gap-x-4">
-      <input
-        id="sender-input"
-        autocomplete="off"
-        hlmInput
-        class="w-full"
-        placeholder="Type a message..."
-        [formControl]="messageControl"
-        (keydown.enter)="$event.preventDefault(); sendMessage()"
-      />
-      <button hlmBtn (click)="sendMessage()" class="cursor-pointer">
-        Send
-      </button>
-    </div>
-  </footer>
-</main>
+</div>
