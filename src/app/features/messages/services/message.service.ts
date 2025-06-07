@@ -38,6 +38,9 @@ export class MessageService {
   #activeMessages = signal<MessageI[]>([]);
   activeMessages = computed(this.#activeMessages);
 
+  #totalMessagesCount = signal<number>(0);
+  totalMessagesCount = computed(this.#totalMessagesCount);
+
   sendMessage(
     message: MessageI,
     participants: Partial<ParticipantI>[],
@@ -75,6 +78,7 @@ export class MessageService {
         } else {
           this.#activeMessages.set(response.messages);
         }
+        this.#totalMessagesCount.set(response.totalCount);
       }),
       catchError((error) => {
         console.error('Error fetching messages:', error);

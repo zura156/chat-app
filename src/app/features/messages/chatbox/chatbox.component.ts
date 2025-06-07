@@ -132,7 +132,9 @@ export class ChatboxComponent implements OnInit, OnDestroy {
   });
 
   messages = this.messageService.activeMessages;
-  totalMessagesCount = signal<number>(0);
+  totalMessagesCount = linkedSignal<number>(() =>
+    this.messageService.totalMessagesCount()
+  );
 
   groupedMessages = linkedSignal<GroupedMessages[]>(() => {
     let groupedMessages: GroupedMessages[] = [];
@@ -237,7 +239,6 @@ export class ChatboxComponent implements OnInit, OnDestroy {
               return this.loadMessages(c._id).pipe(
                 tap((messagesList) => {
                   const user = this.currentUser();
-                  this.totalMessagesCount.set(messagesList.totalCount);
 
                   if (messagesList.messages.length > 0) {
                     const duplicateIds = messagesList.messages.filter(
@@ -351,9 +352,6 @@ export class ChatboxComponent implements OnInit, OnDestroy {
   }
 
   loadMessages(conversationId: string) {
-    console.log(this.hasMoreMessages());
-    console.log(this.totalMessagesCount());
-    console.log(this.offset());
     if (!this.hasMoreMessages()) return EMPTY;
 
     this.isLoading.set(true);
