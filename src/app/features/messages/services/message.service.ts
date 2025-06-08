@@ -70,8 +70,9 @@ export class MessageService {
       tap((response) => {
         if (
           this.activeMessages().length > 0 &&
+          this.activeMessages().length !== response.totalCount &&
           this.activeMessages().some(
-            (m) => m.conversation === response.messages[0].conversation
+            (m) => m.conversation === conversationId
           )
         ) {
           this.#activeMessages.update((val) => [...val, ...response.messages]);

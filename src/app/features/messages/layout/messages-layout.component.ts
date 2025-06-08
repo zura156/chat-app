@@ -20,10 +20,7 @@ import {
 } from '@angular/router';
 import { MessageListComponent } from '../list/messages-list.component';
 import { LayoutService } from './layout.service';
-import { NgIcon, provideIcons } from '@ng-icons/core';
 import { HlmButtonDirective } from '@spartan-ng/ui-button-helm';
-import { HlmIconDirective } from '@spartan-ng/ui-icon-helm';
-import { lucideChevronLeft } from '@ng-icons/lucide';
 import {
   trigger,
   state,
@@ -43,16 +40,8 @@ import { ActiveViewType } from '../interfaces/active-view.type';
     HlmSeparatorDirective,
     BrnSeparatorComponent,
     NgTemplateOutlet,
-    NgIcon,
     HlmButtonDirective,
-    HlmIconDirective,
     MessageListComponent,
-  ],
-  providers: [
-    LayoutService,
-    provideIcons({
-      lucideChevronLeft,
-    }),
   ],
   templateUrl: './messages-layout.component.html',
   animations: [

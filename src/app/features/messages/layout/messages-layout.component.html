@@ -1,32 +1,30 @@
 <div class="overflow-hidden h-full">
   @if (isMobile()) {
-  <main>
-    @if(!isChatView()){
-    <ng-container *ngTemplateOutlet="leftSide"></ng-container>
-    } @else { @if(activeView() === 'chatbox'){
-    <div [@slideAnimation]="'left'">
-      <button hlmBtn (click)="setActiveView('chatbox-settings')">
-        go to settings
-      </button>
-      <ng-container *ngTemplateOutlet="rightSide"></ng-container>
-    </div>
-    } @else if(activeView() === 'chatbox-settings') {
-    <div [@slideAnimation]="'right'">
-      <button hlmBtn (click)="setActiveView('chatbox')">go to chat</button>
-      <app-chatbox-settings></app-chatbox-settings>
-    </div>
-    } }
-  </main>
+    <main>
+      @if(!isChatView()){
+        <ng-container *ngTemplateOutlet="leftSide"></ng-container>
+      } @else {
+        @if(activeView() === 'chatbox'){
+          <div [@slideAnimation]="'left'" class="h-screen">
+            <ng-container *ngTemplateOutlet="rightSide"></ng-container>
+          </div>
+        } @else if(activeView() === 'chatbox-settings') {
+          <div [@slideAnimation]="'right'" class="w-full md:w-1/2">
+            <app-chatbox-settings></app-chatbox-settings>
+          </div>
+        } 
+      }
+    </main>
   } @else {
-  <main class="flex space-x-4 h-screen w-full">
-    <section class="w-1/3 mx-0">
-      <ng-container *ngTemplateOutlet="leftSide"></ng-container>
-    </section>
-    <brn-separator decorative hlmSeparator orientation="vertical" />
-    <section class="w-2/3">
-      <ng-container *ngTemplateOutlet="rightSide"></ng-container>
-    </section>
-  </main>
+    <main class="flex space-x-4 h-screen w-full">
+      <section class="w-1/3 mx-0">
+        <ng-container *ngTemplateOutlet="leftSide"></ng-container>
+      </section>
+      <brn-separator decorative hlmSeparator orientation="vertical" />
+      <section class="w-2/3">
+        <ng-container *ngTemplateOutlet="rightSide"></ng-container>
+      </section>
+    </main>
   }
 
   <ng-template #leftSide>
@@ -37,7 +35,9 @@
 
   <ng-template #rightSide>
     <div [@slideAnimation]="'right'" class="h-full">
-      @if(isMobile()){
+
+      <!-- ? intstead adding swipe support -->
+      <!-- @if(isMobile()){
       <div class="p-2">
         <button
           type="button"
@@ -49,7 +49,7 @@
           <ng-icon hlm size="sm" name="lucideChevronLeft" />
         </button>
       </div>
-      }
+      } -->
       <router-outlet></router-outlet>
     </div>
   </ng-template>

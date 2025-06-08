@@ -65,17 +65,14 @@ import {
 import { TimeAgoPipe } from '../../../shared/pipes/time-ago.pipe';
 import { MessageCardComponent } from '../message/message-card.component';
 import { ToastrService } from 'ngx-toastr';
-import { ChatboxSettingsComponent } from '../chatbox-settings/chatbox-settings.component';
-import { NgClass } from '@angular/common';
 import { NgIcon, provideIcons } from '@ng-icons/core';
 import { lucideInfo } from '@ng-icons/lucide';
 import { HlmIconDirective } from '@spartan-ng/ui-icon-helm';
+import { LayoutService } from '../layout/layout.service';
 
 @Component({
   selector: 'app-chatbox',
   imports: [
-    NgClass,
-    ChatboxSettingsComponent,
     NgIcon,
     HlmIconDirective,
     TimeAgoPipe,
@@ -99,6 +96,7 @@ import { HlmIconDirective } from '@spartan-ng/ui-icon-helm';
 export class ChatboxComponent implements OnInit, OnDestroy {
   private readonly router = inject(Router);
   private readonly route = inject(ActivatedRoute);
+  private readonly layoutService = inject(LayoutService);
   private readonly userService = inject(UserService);
   private readonly conversationService = inject(ConversationService);
   private readonly messageService = inject(MessageService);
@@ -182,7 +180,6 @@ export class ChatboxComponent implements OnInit, OnDestroy {
     () => this.totalMessagesCount() > this.offset()
   );
 
-  isSettingsPanelOpen = signal<boolean>(false);
   isLoading = signal<boolean>(false);
   isTyping = signal<{
     typer: Partial<ParticipantI>;
@@ -436,7 +433,11 @@ export class ChatboxComponent implements OnInit, OnDestroy {
   }
 
   toggleSettingsView(): void {
-    this.isSettingsPanelOpen.update((val) => !val);
+    if (this.layoutService.activeView() === 'chatbox') {
+      this.layoutService.setActiveView('chatbox-settings');
+    } else {
+      this.layoutService.setActiveView('chatbox');
+    }
   }
 
   private handleWebSocketMessages(): Observable<WebSocketMessageT> {
