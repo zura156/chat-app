@@ -1,15 +1,34 @@
 <div class="overflow-hidden h-full">
   @if (isMobile()) {
-    <main>
-      @if(!isChatView()){
-        <ng-container *ngTemplateOutlet="leftSide"></ng-container>
+    <main 
+      appSwipe
+      (swipeLeft)="onSwipeLeft()"
+      (swipeRight)="onSwipeRight()"
+      class="relative w-full h-screen overflow-hidden md:flex"
+    >
+      @if(activeView() === 'conversations' || activeView() === 'users'){
+        <div 
+          [@slideAnimation]="activeView()" 
+        >
+        {{activeView()}}
+          <ng-container *ngTemplateOutlet="leftSide" ></ng-container>
+        </div>
       } @else {
         @if(activeView() === 'chatbox'){
-          <div [@slideAnimation]="'left'" class="h-screen">
+        
+        {{activeView()}}
+          <div 
+            [@slideAnimation]="activeView()" 
+            class="h-screen"
+          >
             <ng-container *ngTemplateOutlet="rightSide"></ng-container>
           </div>
         } @else if(activeView() === 'chatbox-settings') {
-          <div [@slideAnimation]="'right'" class="w-full md:w-1/2">
+        {{activeView()}}
+          <div 
+            [@slideAnimation]="activeView()" 
+            class="w-full md:w-1/2" 
+          >
             <app-chatbox-settings></app-chatbox-settings>
           </div>
         } 

@@ -30,6 +30,8 @@ import {
 } from '@angular/animations';
 import { ChatboxSettingsComponent } from '../chatbox-settings/chatbox-settings.component';
 import { ActiveViewType } from '../interfaces/active-view.type';
+import { SwipeDirective } from '../../../shared/directives/swipe.directive';
+import { slideTo } from '../../../shared/animations/swipe.animation';
 
 @Component({
   selector: 'app-messages',
@@ -40,36 +42,17 @@ import { ActiveViewType } from '../interfaces/active-view.type';
     HlmSeparatorDirective,
     BrnSeparatorComponent,
     NgTemplateOutlet,
-    HlmButtonDirective,
+    SwipeDirective,
     MessageListComponent,
   ],
   templateUrl: './messages-layout.component.html',
   animations: [
     trigger('slideAnimation', [
-      state('left', style({ transform: 'translateX(0%)', opacity: 1 })),
-      state('right', style({ transform: 'translateX(0%)', opacity: 1 })),
+      transition('conversations => chatbox', slideTo('left')),
+      transition('chatbox => chatbox-settings', slideTo('left')),
 
-      transition('void => left', [
-        style({ transform: 'translateX(-100%)', opacity: 0 }),
-        animate('300ms ease-out'),
-      ]),
-      transition('left => void', [
-        animate(
-          '300ms ease-in',
-          style({ transform: 'translateX(-100%)', opacity: 0 })
-        ),
-      ]),
-
-      transition('void => right', [
-        style({ transform: 'translateX(100%)', opacity: 0 }),
-        animate('300ms ease-out'),
-      ]),
-      transition('right => void', [
-        animate(
-          '300ms ease-in',
-          style({ transform: 'translateX(100%)', opacity: 0 })
-        ),
-      ]),
+      transition('chatbox-settings => chatbox', slideTo('right')),
+      transition('chatbox => conversations', slideTo('right')),
     ]),
   ],
 })
@@ -79,8 +62,8 @@ export class MessagesLayoutComponent implements OnInit, OnDestroy {
   private route = inject(ActivatedRoute);
 
   isMobile = signal<boolean>(false);
-  isChatView = this.layoutService.isRightView;
   activeView = this.layoutService.activeView;
+  chatboxAnimationDirection = signal<'right' | 'left'>('right');
 
   windowWidth: number = window.innerWidth;
 
@@ -136,9 +119,24 @@ export class MessagesLayoutComponent implements OnInit, OnDestroy {
     this.isMobile.set(this.windowWidth < 640);
   }
 
-  goBack(): void {
-    this.setActiveView('conversations');
-    this.router.navigate(['..']);
+  onSwipeLeft() {
+    if (this.isMobile()) {
+      if (this.activeView() === 'conversations') {
+        this.setActiveView('chatbox');
+      } else if (this.activeView() === 'chatbox') {
+        this.setActiveView('chatbox-settings');
+      }
+    }
+  }
+
+  onSwipeRight() {
+    if (this.isMobile()) {
+      if (this.activeView() === 'chatbox-settings') {
+        this.setActiveView('chatbox');
+      } else if (this.activeView() === 'chatbox') {
+        this.setActiveView('conversations');
+      }
+    }
   }
 
   setActiveView(destination: ActiveViewType) {
