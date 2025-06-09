@@ -7,31 +7,14 @@
       class="relative w-full h-screen overflow-hidden md:flex"
     >
       @if(activeView() === 'conversations' || activeView() === 'users'){
-        <div 
-          [@slideAnimation]="activeView()" 
-        >
+        <div>
         {{activeView()}}
           <ng-container *ngTemplateOutlet="leftSide" ></ng-container>
         </div>
       } @else {
-        @if(activeView() === 'chatbox'){
-        
-        {{activeView()}}
-          <div 
-            [@slideAnimation]="activeView()" 
-            class="h-screen"
-          >
-            <ng-container *ngTemplateOutlet="rightSide"></ng-container>
-          </div>
-        } @else if(activeView() === 'chatbox-settings') {
-        {{activeView()}}
-          <div 
-            [@slideAnimation]="activeView()" 
-            class="w-full md:w-1/2" 
-          >
-            <app-chatbox-settings></app-chatbox-settings>
-          </div>
-        } 
+        <div class="h-screen">
+          <ng-container *ngTemplateOutlet="rightSide"></ng-container>
+        </div> 
       }
     </main>
   } @else {
@@ -47,13 +30,13 @@
   }
 
   <ng-template #leftSide>
-    <div [@slideAnimation]="'left'" class="h-full">
+    <div class="h-full">
       <app-messages-list></app-messages-list>
     </div>
   </ng-template>
 
   <ng-template #rightSide>
-    <div [@slideAnimation]="'right'" class="h-full">
+    <div class="h-full">
 
       <!-- ? intstead adding swipe support -->
       <!-- @if(isMobile()){

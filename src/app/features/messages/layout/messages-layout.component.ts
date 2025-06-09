@@ -20,23 +20,13 @@ import {
 } from '@angular/router';
 import { MessageListComponent } from '../list/messages-list.component';
 import { LayoutService } from './layout.service';
-import { HlmButtonDirective } from '@spartan-ng/ui-button-helm';
-import {
-  trigger,
-  state,
-  style,
-  transition,
-  animate,
-} from '@angular/animations';
 import { ChatboxSettingsComponent } from '../chatbox-settings/chatbox-settings.component';
 import { ActiveViewType } from '../interfaces/active-view.type';
 import { SwipeDirective } from '../../../shared/directives/swipe.directive';
-import { slideTo } from '../../../shared/animations/swipe.animation';
 
 @Component({
   selector: 'app-messages',
   imports: [
-    ChatboxSettingsComponent,
     RouterOutlet,
     ReactiveFormsModule,
     HlmSeparatorDirective,
@@ -46,15 +36,6 @@ import { slideTo } from '../../../shared/animations/swipe.animation';
     MessageListComponent,
   ],
   templateUrl: './messages-layout.component.html',
-  animations: [
-    trigger('slideAnimation', [
-      transition('conversations => chatbox', slideTo('left')),
-      transition('chatbox => chatbox-settings', slideTo('left')),
-
-      transition('chatbox-settings => chatbox', slideTo('right')),
-      transition('chatbox => conversations', slideTo('right')),
-    ]),
-  ],
 })
 export class MessagesLayoutComponent implements OnInit, OnDestroy {
   private layoutService = inject(LayoutService);

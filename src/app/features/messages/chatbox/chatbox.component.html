@@ -1,9 +1,15 @@
 @let conversation = this.conversation();
+@let activeView = this.activeView();
 
 <div class="w-full h-full flex">
   <main 
-    class="relative w-full h-full flex flex-col py-2">
-    <brn-separator decorative hlmSeparator />
+    class="duration-300 md:translate-0 md:opacity-100 relative w-full h-full flex flex-col py-2"
+    [ngClass]="{
+      '-translate-x-full opacity-0 pointer-events-none': activeView === 'chatbox-settings',
+      'translate-x-full opacity-0 pointer-events-none': activeView === 'users' || activeView === 'conversations'
+      }"
+  >
+  <brn-separator decorative hlmSeparator />
     <header class="flex w-full items-start py-2 px-4 md:px-0 justify-between">
       <div class="flex items-center gap-x-2">
         <hlm-avatar variant="medium">
@@ -37,7 +43,7 @@
           }
         </h1>
       </div>
-      <div class="px-2 h-full flex items-center">
+      <div class="px-2 h-full hidden md:flex items-center">
         <button 
           hlmBtn 
           variant="secondary" 

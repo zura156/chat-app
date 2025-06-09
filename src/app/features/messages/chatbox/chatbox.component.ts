@@ -69,11 +69,13 @@ import { NgIcon, provideIcons } from '@ng-icons/core';
 import { lucideInfo } from '@ng-icons/lucide';
 import { HlmIconDirective } from '@spartan-ng/ui-icon-helm';
 import { LayoutService } from '../layout/layout.service';
+import { NgClass } from '@angular/common';
 
 @Component({
   selector: 'app-chatbox',
   imports: [
     NgIcon,
+    NgClass,
     HlmIconDirective,
     TimeAgoPipe,
     HlmCardDirective,
@@ -180,6 +182,7 @@ export class ChatboxComponent implements OnInit, OnDestroy {
     () => this.totalMessagesCount() > this.offset()
   );
 
+  activeView = this.layoutService.activeView;
   isLoading = signal<boolean>(false);
   isTyping = signal<{
     typer: Partial<ParticipantI>;
