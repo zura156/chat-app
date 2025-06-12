@@ -6,6 +6,7 @@ import {
 
 export interface IFile {
   url: string;
+  placeholder_url?: string;
   name: string;
   mime_type: string;
   size_in_bytes: number;
@@ -32,6 +33,7 @@ const MessageSchema = new Schema<IMessage>({
 
   file: {
     url: { type: String },
+    placeholder_url: { type: String, required: false },
     name: { type: String },
     mime_type: { type: String },
     size_in_bytes: { type: Number },

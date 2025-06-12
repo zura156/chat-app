@@ -15,11 +15,19 @@ export enum MessageStatus {
   DELIVERED = 'delivered',
   READ = 'read',
 }
+export interface FileI {
+  url: string;
+  placeholder_url?: string;
+  name: string;
+  mime_type: string;
+  size_in_bytes: number;
+}
 
 export interface MessageI {
   _id?: string;
   sender: Partial<ParticipantI>;
   conversation: ConversationI | string;
+  file?: FileI;
   content: string;
   type: MessageType;
   status: MessageStatus;

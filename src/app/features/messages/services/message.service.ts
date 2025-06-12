@@ -23,6 +23,7 @@ export class MessageService {
 
   private readonly SEND_MESSAGE_URL = `${this.apiUrl}/send`;
   private readonly GET_MESSAGES_URL = `${this.apiUrl}`;
+  private readonly UPLOAD_FILE_MESSAGE_URL = `${this.apiUrl}/upload`;
 
   // ! old idea
   // #activeMessages = linkedSignal<MessageI[]>(() => {
@@ -71,9 +72,7 @@ export class MessageService {
         if (
           this.activeMessages().length > 0 &&
           this.activeMessages().length !== response.totalCount &&
-          this.activeMessages().some(
-            (m) => m.conversation === conversationId
-          )
+          this.activeMessages().some((m) => m.conversation === conversationId)
         ) {
           this.#activeMessages.update((val) => [...val, ...response.messages]);
         } else {
@@ -117,6 +116,14 @@ export class MessageService {
         return [message, ...currentMessages];
       }
     });
+  }
+
+  uploadFileMessage(file: File, conversationId: string): Observable<any> {
+    const formData = new FormData();
+    formData.append('file', file, file.name);
+    formData.append('conversationId', conversationId);
+
+    return this.http.post(this.UPLOAD_FILE_MESSAGE_URL, formData);
   }
 
   // Clear active messages (useful when changing conversations)

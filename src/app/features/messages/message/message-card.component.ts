@@ -17,6 +17,7 @@ import {
 import { TimeAgoPipe } from '../../../shared/pipes/time-ago.pipe';
 import { ConversationService } from '../services/conversation.service';
 import { ReadReceiptI } from '../interfaces/conversation.interface';
+import { environment } from '../../../../environments/environment';
 
 @Component({
   selector: 'message-card',
@@ -43,6 +44,8 @@ export class MessageCardComponent {
   isGroup = input<boolean>();
 
   conversationService = inject(ConversationService);
+
+  readonly apiUrl = environment.apiUrl;
 
   isCurrentUserMessage(message: MessageI): boolean {
     return (message.sender._id || message.sender) === this.currentUser()?._id;

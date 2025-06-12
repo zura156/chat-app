@@ -287,8 +287,13 @@ export class ChatboxComponent implements OnInit, OnDestroy {
 
     if (input.files && input.files[0] && sender) {
       const file = input.files[0];
+      const conversation = this.conversation();
 
-      // this.webSocketService.sendFile(file);
+      if (conversation) {
+        this.messageService
+          .uploadFileMessage(file, conversation._id)
+          .subscribe();
+      }
     }
   }
 

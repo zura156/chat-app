@@ -12,5 +12,5 @@ export const errorMiddleware = (
   }
   return res
     .status(500)
-    .json({ message: 'Something went wrong! Please try again later...' });
+    .json({ message: 'Something went wrong! Please try again later...', err });
 };

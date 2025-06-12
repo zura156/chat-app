@@ -1,4 +1,5 @@
 import { UserInterface } from '../../user/interfaces/user.interface';
+import { IFile } from '../models/message.model';
 
 export enum MessageTypeEnum {
   TEXT = 'text',
@@ -9,6 +10,7 @@ export enum MessageTypeEnum {
 }
 
 export enum MessageStatusEnum {
+  FAILED = 'failed',
   SENT = 'sent',
   DELIVERED = 'delivered',
   READ = 'read',
@@ -18,6 +20,7 @@ export interface MessageI {
   sender: Partial<UserInterface>;
   conversation: string;
   content: string;
+  file: IFile;
   type: MessageTypeEnum;
   status: MessageStatusEnum;
   readBy?: string[];

@@ -13,6 +13,7 @@ import {
   getBroadcastFunction,
   setupWebSocket,
 } from './websocket/websocket.setup';
+import path from 'path';
 
 const app: Application = express();
 const port: number | 3000 = parseInt(config.port.toString());
@@ -26,6 +27,7 @@ app.set('broadcastMessage', broadcastMessage);
 // ---------------------------------------------
 connectDB();
 
+app.use('/uploads', express.static(path.resolve('uploads')));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(

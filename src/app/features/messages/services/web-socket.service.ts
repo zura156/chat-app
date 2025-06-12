@@ -39,7 +39,6 @@ export class WebSocketService {
     }
   }
 
-
   onMessage(): WebSocketSubject<WebSocketMessageT> | undefined {
     return this.socket$;
   }

@@ -53,6 +53,18 @@
         "strategy": "freshness",
         "timeout": "5s"
       }
+    },
+    {
+      "name": "file-api",
+      "urls": [
+        "/uploads/**"
+      ],
+      "cacheConfig": {
+        "maxSize": 200,
+        "maxAge": "7d",
+        "strategy": "freshness",
+        "timeout": "5s"
+      }
     }
   ]
 }
