@@ -36,7 +36,7 @@ export class UserService {
 
         const data: UserStatusMessage = {
           type: 'user-status',
-          userId: _id,
+          user_id: _id,
           status: 'online',
           last_seen: new Date().toISOString(),
         };

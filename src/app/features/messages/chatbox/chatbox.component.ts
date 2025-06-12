@@ -58,6 +58,7 @@ import { HlmSpinnerComponent } from '@spartan-ng/ui-spinner-helm';
 import { UserI } from '../../user/interfaces/user.interface';
 import { ParticipantI } from '../interfaces/participant.interface';
 import {
+  FileUploadMessage,
   MessageStatusMessage,
   TypingMessage,
   WebSocketMessageT,
@@ -66,7 +67,7 @@ import { TimeAgoPipe } from '../../../shared/pipes/time-ago.pipe';
 import { MessageCardComponent } from '../message/message-card.component';
 import { ToastrService } from 'ngx-toastr';
 import { NgIcon, provideIcons } from '@ng-icons/core';
-import { lucideInfo } from '@ng-icons/lucide';
+import { lucideCirclePlus, lucideInfo } from '@ng-icons/lucide';
 import { HlmIconDirective } from '@spartan-ng/ui-icon-helm';
 import { LayoutService } from '../layout/layout.service';
 import { NgClass } from '@angular/common';
@@ -90,7 +91,7 @@ import { NgClass } from '@angular/common';
     BrnSeparatorComponent,
     ReactiveFormsModule,
   ],
-  providers: [provideIcons({ lucideInfo })],
+  providers: [provideIcons({ lucideInfo, lucideCirclePlus })],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './chatbox.component.html',
   styleUrl: './chatbox.component.css',
@@ -277,6 +278,17 @@ export class ChatboxComponent implements OnInit, OnDestroy {
     }
     if (this.messageIntersectionObserver) {
       this.messageIntersectionObserver.disconnect();
+    }
+  }
+
+  onFileSelected(event: Event): void {
+    const input = event.target as HTMLInputElement;
+    const sender = this.currentUser();
+
+    if (input.files && input.files[0] && sender) {
+      const file = input.files[0];
+
+      this.webSocketService.sendFile(file);
     }
   }
 
@@ -475,7 +487,7 @@ export class ChatboxComponent implements OnInit, OnDestroy {
 
               return;
             case 'user-status':
-              const { userId, status: userStatus } = res;
+              const { user_id, status: userStatus } = res;
 
               let { last_seen } = res;
 
@@ -484,7 +496,7 @@ export class ChatboxComponent implements OnInit, OnDestroy {
               }
 
               this.conversationService.updateParticipantStatus(
-                userId,
+                user_id,
                 userStatus,
                 last_seen
               );

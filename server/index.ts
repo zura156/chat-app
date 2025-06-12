@@ -5,10 +5,13 @@ import userRouter from './user/routers/user.router';
 import { errorMiddleware } from './error-handling/middlewares/error.middleware';
 import { connectDB } from './config/db';
 import config from './config/config';
-import { setupWebSocket } from './websocket/websocket.service';
 import { logger } from './utils/logger';
 import messageRouter from './messenger/message.router';
 import http from 'http';
+import {
+  getBroadcastFunction,
+  setupWebSocket,
+} from './websocket/websocket.setup';
 
 const app: Application = express();
 const port: number | 3000 = parseInt(config.port.toString());
@@ -16,6 +19,10 @@ const port: number | 3000 = parseInt(config.port.toString());
 const server = http.createServer(app);
 
 setupWebSocket(server);
+// ---------------------------------------------
+const broadcastMessage = getBroadcastFunction();
+app.set('broadcastMessage', broadcastMessage);
+// ---------------------------------------------
 connectDB();
 
 app.use(express.json());

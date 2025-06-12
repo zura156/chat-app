@@ -1,9 +1,10 @@
-import { UserInterface } from "../../user/interfaces/user.interface";
+import { UserInterface } from '../../user/interfaces/user.interface';
 
 export enum MessageTypeEnum {
   TEXT = 'text',
   IMAGE = 'image',
   VIDEO = 'video',
+  AUDIO = 'audio',
   FILE = 'file',
 }
 
@@ -23,3 +24,17 @@ export interface MessageI {
   timestamp: Date;
   edited_at?: Date;
 }
+
+export const getMessageTypeFromMime = (mimeType: string): MessageTypeEnum => {
+  const type = mimeType.split('/')[0];
+  switch (type) {
+    case 'image':
+      return MessageTypeEnum.IMAGE;
+    case 'video':
+      return MessageTypeEnum.VIDEO;
+    case 'audio':
+      return MessageTypeEnum.AUDIO;
+    default:
+      return MessageTypeEnum.FILE;
+  }
+};

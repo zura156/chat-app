@@ -24,7 +24,7 @@ export class WebSocketService {
             // Register the user immediately after connection
             this.socket$?.next({
               type: 'authenticate',
-              userId: userId,
+              user_id: userId,
             });
           },
         },
@@ -33,17 +33,18 @@ export class WebSocketService {
     }
   }
 
-  sendMessage(data: WebSocketMessageT) {
+  sendMessage(data: WebSocketMessageT): void {
     if (this.socket$) {
       this.socket$?.next(data);
     }
   }
 
-  onMessage() {
+
+  onMessage(): WebSocketSubject<WebSocketMessageT> | undefined {
     return this.socket$;
   }
 
-  close() {
+  close(): void {
     if (this.socket$) {
       this.socket$?.complete();
     }

@@ -1,21 +1,20 @@
-import { UserI } from '../../user/interfaces/user.interface';
-import { ConversationI, ReadReceiptI } from './conversation.interface';
-import { MessageI } from './message.interface';
-import { ParticipantI } from './participant.interface';
+import { MessageI } from '../../messenger/interfaces/message.interface';
+import { ConversationI } from '../../messenger/interfaces/conversation.interface';
+import { ReadReceiptI } from '../../messenger/interfaces/read-receipt.interface';
+import { UserInterface } from '../../user/interfaces/user.interface';
 
-type MessageContentType = 'text' | 'image' | 'video' | 'file';
+export type MessageContentType = 'text' | 'image' | 'video' | 'file';
 
-type WebSocketMessageType =
+export type WebSocketMessageType =
   | 'authenticate'
   | 'typing'
   | 'message'
   | 'conversation-join'
   | 'conversation-leave'
   | 'message-status'
-  | MessageContentType
-  | 'user-status'
-  | 'file-upload';
-interface BaseWebSocketMessage {
+  | 'user-status';
+
+export interface BaseWebSocketMessage {
   type: WebSocketMessageType;
 }
 
@@ -27,35 +26,32 @@ export interface AuthenticateMessage extends BaseWebSocketMessage {
 export interface TypingMessage extends BaseWebSocketMessage {
   type: 'typing';
   is_typing: boolean;
-  sender: Partial<UserI>;
-  participants: Partial<UserI>[];
-  conversation: string;
+  sender: Partial<UserInterface>;
+  conversation_id: string;
 }
 
 export interface ConversationJoinMessage extends BaseWebSocketMessage {
   type: 'conversation-join';
   conversation: Partial<ConversationI>;
-  added_by: Partial<UserI>;
-  added_user: Partial<UserI>;
+  added_by: Partial<UserInterface>;
+  added_user: Partial<UserInterface>;
 }
 
 export interface ConversationLeaveMessage extends BaseWebSocketMessage {
   type: 'conversation-leave';
   conversation: Partial<ConversationI>;
-  removed_by: Partial<UserI>;
-  removed_user: Partial<UserI>;
+  removed_by: Partial<UserInterface>;
+  removed_user: Partial<UserInterface>;
 }
 
 export interface ChatMessage extends BaseWebSocketMessage {
-  type: 'message' | MessageContentType;
+  type: 'message';
   message: MessageI;
-  participants: Partial<ParticipantI>[];
 }
 
 export interface MessageStatusMessage extends BaseWebSocketMessage {
   type: 'message-status';
   read_receipt: ReadReceiptI;
-  status: 'sent' | 'delivered' | 'read';
   conversation_id: string;
 }
 
@@ -66,17 +62,11 @@ export interface UserStatusMessage extends BaseWebSocketMessage {
   last_seen?: string;
 }
 
-export interface FileUploadMessage extends BaseWebSocketMessage {
-  type: 'file-upload';
-  user_id: string;
-}
-
-export type WebSocketMessageT =
+export type WebSocketMessage =
   | AuthenticateMessage
   | TypingMessage
-  | ChatMessage
-  | UserStatusMessage
-  | MessageStatusMessage
   | ConversationJoinMessage
   | ConversationLeaveMessage
-  | FileUploadMessage;
+  | ChatMessage
+  | MessageStatusMessage
+  | UserStatusMessage;
