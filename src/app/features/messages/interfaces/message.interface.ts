@@ -23,8 +23,8 @@ export interface MessageI {
   content: string;
   type: MessageType;
   status: MessageStatus;
-  createdAt: string;
-  updatedAt?: string;
+  timestamp: string;
+  edited_at?: string;
 }
 
 export interface GroupedMessages {

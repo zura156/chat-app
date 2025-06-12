@@ -20,6 +20,6 @@ export interface MessageI {
   type: MessageTypeEnum;
   status: MessageStatusEnum;
   readBy?: string[];
-  createdAt?: Date;
-  updatedAt?: Date;
+  timestamp: Date;
+  edited_at?: Date;
 }

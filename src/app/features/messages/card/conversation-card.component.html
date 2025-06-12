@@ -60,7 +60,7 @@
             <span class="max-w-3/4 overflow-ellipsis w-32">
               {{ conversation.last_message?.content }} &middot;
             </span>
-            {{ conversation.last_message?.createdAt ?? "" | timeAgo }}
+            {{ conversation.last_message?.timestamp ?? "" | timeAgo }}
           </span>
         }
       </p>

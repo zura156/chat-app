@@ -21,7 +21,7 @@ export const getMessagesByConversationId = async (
 
     const [messages, totalCount] = await Promise.all([
       Message.find({ conversation: conversationId })
-        .sort({ createdAt: -1 })
+        .sort({ timestamp: -1 })
         .skip(offset)
         .limit(limit)
         .populate('sender', 'username profile_picture'),

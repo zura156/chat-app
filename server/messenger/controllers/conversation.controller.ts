@@ -29,7 +29,7 @@ export const getConversations = async (
         .populate('participants', 'username profile_picture')
         .populate({
           path: 'last_message',
-          select: 'content sender createdAt',
+          select: 'content sender timestamp',
           populate: { path: 'sender', select: 'username profilePicture' },
         }),
       Conversation.countDocuments({ participants: userId }),
@@ -79,7 +79,7 @@ export const searchConversations = async (
         .populate('participants', 'username profile_picture')
         .populate({
           path: 'last_message',
-          select: 'content sender createdAt',
+          select: 'content sender timestamp',
           populate: { path: 'sender', select: 'username profile_picture' },
         })
         .sort({ updatedAt: -1 }),
@@ -177,7 +177,7 @@ export const createConversation = async (
       .populate('participants', 'first_name last_name username profile_picture')
       .populate({
         path: 'last_message',
-        select: 'content sender createdAt',
+        select: 'content sender timestamp',
         populate: {
           path: 'sender',
           select: 'first_name last_name username profilePicture',

@@ -148,7 +148,7 @@ export class ChatboxComponent implements OnInit, OnDestroy {
 
       if (lastTimestamp) {
         const timeDifference =
-          (lastTimestamp.getTime() - new Date(message.createdAt).getTime()) /
+          (lastTimestamp.getTime() - new Date(message.timestamp).getTime()) /
           (1000 * 60); // in minutes
 
         if (timeDifference >= this.TIME_GAP_THRESHOLD) {
@@ -161,7 +161,7 @@ export class ChatboxComponent implements OnInit, OnDestroy {
       }
 
       currentGroup.push(message);
-      lastTimestamp = new Date(message.createdAt);
+      lastTimestamp = new Date(message.timestamp);
     }
 
     if (currentGroup.length > 0) {
@@ -301,7 +301,7 @@ export class ChatboxComponent implements OnInit, OnDestroy {
               content: this.messageControl.value!,
               type: MessageType.TEXT,
               status: MessageStatus.SENDING,
-              createdAt: new Date().toISOString(),
+              timestamp: new Date().toISOString(),
             };
 
             const participants = conversation.participants.filter(
@@ -331,7 +331,7 @@ export class ChatboxComponent implements OnInit, OnDestroy {
         content: this.messageControl.value,
         type: MessageType.TEXT,
         status: MessageStatus.SENDING,
-        createdAt: new Date().toISOString(),
+        timestamp: new Date().toISOString(),
       };
       const participants = convo.participants.filter(
         (u) => u._id !== sender?._id
