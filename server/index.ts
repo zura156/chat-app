@@ -6,7 +6,8 @@ import { errorMiddleware } from './error-handling/middlewares/error.middleware';
 import { connectDB } from './config/db';
 import config from './config/config';
 import { logger } from './utils/logger';
-import messageRouter from './messenger/message.router';
+import messageRouter from './messenger/routers/message.router';
+import conversationRouter from './messenger/routers/conversation.router';
 import http from 'http';
 import {
   getBroadcastFunction,
@@ -36,7 +37,8 @@ app.use(
 
 app.use('/auth', authRouter);
 app.use('/user', userRouter);
-app.use('/message', messageRouter);
+app.use('/conversations', conversationRouter);
+app.use('/messages', messageRouter);
 
 app.use((err: Error, req: Request, res: Response, next: NextFunction) => {
   errorMiddleware(err, req, res, next);
@@ -45,3 +47,17 @@ app.use((err: Error, req: Request, res: Response, next: NextFunction) => {
 server.listen(port, () => {
   logger.info(`Server is listening at port ${port}`);
 });
+
+declare global {
+  namespace Express {
+    export interface Request {
+      messageController: import('./messenger/controllers/message.controller').MessageController;
+      messageService: import('./messenger/services/message.service').MessageService;
+
+      conversationController: import('./messenger/controllers/conversation.controller').ConversationController;
+      conversationService: import('./messenger/services/conversation.service').ConversationService;
+    }
+  }
+}
+
+export {};

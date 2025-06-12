@@ -21,10 +21,10 @@ export class ConversationService {
   private readonly apiUrl = environment.apiUrl;
 
   // API endpoints
-  private readonly GET_CONVERSATIONS_URL = `${this.apiUrl}/message/conversation`;
-  private readonly SEARCH_CONVERSATIONS_URL = `${this.apiUrl}/message/conversation/search`;
-  private readonly CREATE_CONVERSATION_URL = `${this.apiUrl}/message/conversation`;
-  private readonly GET_CONVERSATION_URL = `${this.apiUrl}/message/conversation`;
+  private readonly GET_CONVERSATIONS_URL = `${this.apiUrl}/conversations`;
+  private readonly SEARCH_CONVERSATIONS_URL = `${this.apiUrl}/conversations/search`;
+  private readonly CREATE_CONVERSATION_URL = `${this.apiUrl}/conversations`;
+  private readonly GET_CONVERSATION_URL = `${this.apiUrl}/conversations`;
 
   // Cache for active conversation data (messages, etc.)
   #activeConversation = signal<ConversationI | null>(null);

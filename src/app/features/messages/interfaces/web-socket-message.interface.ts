@@ -3,7 +3,7 @@ import { ConversationI, ReadReceiptI } from './conversation.interface';
 import { MessageI } from './message.interface';
 import { ParticipantI } from './participant.interface';
 
-type MessageContentType = 'text' | 'image' | 'video' | 'file';
+type MessageContentType = 'text' | 'image' | 'audio' | 'video' | 'file';
 
 type WebSocketMessageType =
   | 'authenticate'
@@ -15,6 +15,7 @@ type WebSocketMessageType =
   | MessageContentType
   | 'user-status'
   | 'file-upload';
+
 interface BaseWebSocketMessage {
   type: WebSocketMessageType;
 }

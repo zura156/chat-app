@@ -19,10 +19,10 @@ export class MessageService {
   private conversationService = inject(ConversationService);
   private webSocketService = inject(WebSocketService);
 
-  private apiUrl = `${environment.apiUrl}/message`;
+  private apiUrl = `${environment.apiUrl}/messages`;
 
   private readonly SEND_MESSAGE_URL = `${this.apiUrl}/send`;
-  private readonly GET_MESSAGES_URL = `${this.apiUrl}/conversation`;
+  private readonly GET_MESSAGES_URL = `${this.apiUrl}`;
 
   // ! old idea
   // #activeMessages = linkedSignal<MessageI[]>(() => {

@@ -288,7 +288,7 @@ export class ChatboxComponent implements OnInit, OnDestroy {
     if (input.files && input.files[0] && sender) {
       const file = input.files[0];
 
-      this.webSocketService.sendFile(file);
+      // this.webSocketService.sendFile(file);
     }
   }
 
@@ -471,9 +471,12 @@ export class ChatboxComponent implements OnInit, OnDestroy {
               const user = this.currentUser();
               const message: MessageI = res.message;
 
-              if (res.message.sender === user?._id) {
-                this.messageService.fillInMessageDetails(message);
+              if (message._id && user?._id !== message.sender._id) {
+                this.markMessagesAsRead(message._id);
+              }
 
+              if (res.message.sender._id === user?._id) {
+                this.messageService.fillInMessageDetails(message);
                 return;
               }
 
@@ -481,9 +484,6 @@ export class ChatboxComponent implements OnInit, OnDestroy {
 
               if (conversation && conversation._id === res.message.conversation)
                 this.messageService.addMessage(message);
-              if (message._id && user?._id !== message.sender._id) {
-                this.markMessagesAsRead(message._id);
-              }
 
               return;
             case 'user-status':

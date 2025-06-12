@@ -1,5 +1,3 @@
-// src/websockets/websocket.controller.ts
-
 import { WebSocket } from 'ws';
 import { logger } from '../../utils/logger';
 import { WebSocketService } from '../services/websocket.service';
@@ -95,7 +93,7 @@ export class WebSocketController {
       // The controller delegates the core task of creating a message to the MessageService.
       // The MessageService will save it and then call the broadcast function itself.
       await this.messageService.createTextMessage(
-        sender.toString(),
+        sender._id!.toString() ?? sender.toString(),
         conversation.toString(),
         content as string
       );

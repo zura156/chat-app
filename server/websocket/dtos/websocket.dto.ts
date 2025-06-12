@@ -3,7 +3,7 @@ import { ConversationI } from '../../messenger/interfaces/conversation.interface
 import { ReadReceiptI } from '../../messenger/interfaces/read-receipt.interface';
 import { UserInterface } from '../../user/interfaces/user.interface';
 
-export type MessageContentType = 'text' | 'image' | 'video' | 'file';
+export type MessageContentType = 'text' | 'audio' | 'image' | 'video' | 'file';
 
 export type WebSocketMessageType =
   | 'authenticate'
@@ -27,6 +27,7 @@ export interface TypingMessage extends BaseWebSocketMessage {
   type: 'typing';
   is_typing: boolean;
   sender: Partial<UserInterface>;
+  participants: Partial<UserInterface>[];
   conversation_id: string;
 }
 
@@ -47,6 +48,7 @@ export interface ConversationLeaveMessage extends BaseWebSocketMessage {
 export interface ChatMessage extends BaseWebSocketMessage {
   type: 'message';
   message: MessageI;
+  participants: Partial<UserInterface>[];
 }
 
 export interface MessageStatusMessage extends BaseWebSocketMessage {
