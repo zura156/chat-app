@@ -28,7 +28,14 @@
                 <p>{{ message.content }}</p>
               }
               @case ('image') {
-                <img [src]="apiUrl + message.file?.url" [alt]="message.content">
+                <div class="py-1.5 w-full h-full">
+                    <img
+                      class="object-contain max-h-96 w-full rounded-lg"
+                      [src]="isImageLoaded() ? apiUrl + message.file?.url : apiUrl + message.file?.placeholder_url" 
+                      (load)="onFullImageLoad()" 
+                      [alt]="message.content"
+                    />
+                </div>
               }
             }
           </div>
@@ -58,9 +65,9 @@
           <button type="button" matTooltipClass="dark:bg-gray-300 text-start text-xs rounded-md dark:text-black" matTooltipPosition="above" aria-label="Button that displays a date when hovered user has read a message" matTooltip="Seen by {{ userCredentials.username }} at {{ readReceipt.read_at | date: 'short' }}" class="w-fit">
             <hlm-avatar variant="2xs" class="min-w-fit">
               <img
-              [src]="userCredentials.profile_picture || '/icons/avatar.svg'"
-              [alt]="userCredentials.username"
-              hlmAvatarImage
+                [src]="userCredentials.profile_picture || '/icons/avatar.svg'"
+                [alt]="userCredentials.username"
+                hlmAvatarImage
               />
             </hlm-avatar>
           </button>

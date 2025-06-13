@@ -292,6 +292,11 @@ export class ChatboxComponent implements OnInit, OnDestroy {
       if (conversation) {
         this.messageService
           .uploadFileMessage(file, conversation._id)
+          .pipe(
+            tap((res) => {
+              this.messageService.addMessage(res);
+            })
+          )
           .subscribe();
       }
     }

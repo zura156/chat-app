@@ -3,6 +3,7 @@ import {
   ChangeDetectionStrategy,
   input,
   inject,
+  signal,
 } from '@angular/core';
 import { UserI } from '../../user/interfaces/user.interface';
 import { MessageI } from '../interfaces/message.interface';
@@ -43,6 +44,7 @@ export class MessageCardComponent {
   isLastMessage = input.required<boolean>();
   isGroup = input<boolean>();
 
+  isImageLoaded = signal<boolean>(false);
   conversationService = inject(ConversationService);
 
   readonly apiUrl = environment.apiUrl;
@@ -62,5 +64,9 @@ export class MessageCardComponent {
       username: user?.username || 'Unknown',
       profile_picture: user?.profile_picture || '/icons/avatar.svg',
     };
+  }
+
+  onFullImageLoad(): void {
+    this.isImageLoaded.set(true);
   }
 }

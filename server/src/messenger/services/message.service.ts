@@ -6,6 +6,8 @@ import {
   MessageTypeEnum,
   getMessageTypeFromMime,
 } from '../interfaces/message.interface';
+import path from 'path';
+import sharp from 'sharp';
 
 export class MessageService {
   private broadcast: BroadcastFunction;
@@ -98,8 +100,30 @@ export class MessageService {
     conversationId: string
   ): Promise<IMessage> {
     const conversationObjectId = new Types.ObjectId(conversationId);
-
     const messageType = getMessageTypeFromMime(file.mimetype);
+
+    let placeholderUrl: string | undefined = undefined;
+
+    if (file.mimetype.startsWith('image/')) {
+      try {
+        const fileInfo = path.parse(file.filename);
+        const placeholderFilename = `${fileInfo.name}-placeholder`;
+        const placeholderPath = path.resolve(
+          file.destination,
+          placeholderFilename
+        );
+
+        await sharp(file.path)
+          .resize(32)
+          .jpeg({ quality: 50 })
+          .toFile(placeholderPath);
+
+        placeholderUrl = `/uploads/${placeholderFilename}`;
+        console.log(`Placeholder created: ${placeholderUrl}`);
+      } catch (error) {
+        console.error('Failed to create image placeholder: ', error);
+      }
+    }
 
     const message = new Message({
       sender: senderId,
@@ -107,6 +131,7 @@ export class MessageService {
       type: messageType,
       file: {
         url: `/uploads/${file.filename}`,
+        placeholder_url: placeholderUrl,
         name: file.originalname,
         mime_type: file.mimetype,
         size_in_bytes: file.size,
