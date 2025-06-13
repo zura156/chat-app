@@ -30,7 +30,7 @@
               @case ('image') {
                 <div class="py-1.5 w-full h-full">
                     <img
-                      class="object-contain max-h-96 w-full rounded-lg"
+                      class="object-contain max-h-96 h-96 w-full rounded-lg"
                       [src]="isImageLoaded() ? apiUrl + message.file?.url : apiUrl + message.file?.placeholder_url" 
                       (load)="onFullImageLoad()" 
                       [alt]="message.content"

@@ -67,7 +67,13 @@ import { TimeAgoPipe } from '../../../shared/pipes/time-ago.pipe';
 import { MessageCardComponent } from '../message/message-card.component';
 import { ToastrService } from 'ngx-toastr';
 import { NgIcon, provideIcons } from '@ng-icons/core';
-import { lucideCirclePlus, lucideInfo } from '@ng-icons/lucide';
+import {
+  lucideAudioLines,
+  lucideCirclePlus,
+  lucideInfo,
+  lucidePaperclip,
+  lucideSend,
+} from '@ng-icons/lucide';
 import { HlmIconDirective } from '@spartan-ng/ui-icon-helm';
 import { LayoutService } from '../layout/layout.service';
 import { NgClass } from '@angular/common';
@@ -91,7 +97,15 @@ import { NgClass } from '@angular/common';
     BrnSeparatorComponent,
     ReactiveFormsModule,
   ],
-  providers: [provideIcons({ lucideInfo, lucideCirclePlus })],
+  providers: [
+    provideIcons({
+      lucideInfo,
+      lucideCirclePlus,
+      lucideSend,
+      lucidePaperclip,
+      lucideAudioLines,
+    }),
+  ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './chatbox.component.html',
   styleUrl: './chatbox.component.css',
