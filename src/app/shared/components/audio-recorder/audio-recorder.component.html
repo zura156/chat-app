@@ -1,4 +1,34 @@
 <div #record>
   <button hlmBtn (click)="startRecording()">record</button>
-  <button hlmBtn (click)="stopRecording()">stop</button>
 </div>
+
+<!-- <div
+  class="bg-black h-5 ease-linear"
+  [style.width.%]="recordingPercentage()"
+  [style.transitionDuration]="recordingPercentage() < 100 ? '200ms' : '0s'"
+></div> -->
+
+<brn-progress
+  hlm
+  aria-labelledby="loading"
+  class="w-80 bg-secondary h-4 inline-flex overflow-hidden relative rounded-full"
+  [value]="recordingPercentage()"
+>
+  <brn-progress-indicator
+    hlm
+    class="bg-primary flex-1 h-full inline-flex transform-gpu transition-all w-full ease-linear"
+  />
+</brn-progress>
+
+<audio #audioPlayer [src]="audioUrl()"></audio>
+@if(mediaRecorder?.state === 'recording') {
+<button (click)="stopRecording()">Stop</button>
+} @else if (mediaRecorder?.state === 'inactive') {
+  @if(audioUrl()) {
+    <button (click)="audioPlayer.play()">Play</button>
+  }@else {
+    <button (click)="startRecording()">
+      Start Recording
+    </button>
+  }
+}
