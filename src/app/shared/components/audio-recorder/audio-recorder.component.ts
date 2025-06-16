@@ -3,27 +3,49 @@ import {
   ElementRef,
   linkedSignal,
   OnDestroy,
+  output,
   signal,
   ViewChild,
 } from '@angular/core';
+import { NgIcon, provideIcons } from '@ng-icons/core';
+import {
+  lucideCirclePause,
+  lucideCirclePlay,
+  lucideCircleStop,
+  lucideCircleX,
+} from '@ng-icons/lucide';
 import {
   BrnProgressComponent,
   BrnProgressIndicatorComponent,
 } from '@spartan-ng/brain/progress';
 import { HlmButtonDirective } from '@spartan-ng/ui-button-helm';
+import { HlmIconDirective } from '@spartan-ng/ui-icon-helm';
 import { HlmProgressIndicatorDirective } from '@spartan-ng/ui-progress-helm';
 
 @Component({
   selector: 'app-audio-recorder',
   templateUrl: './audio-recorder.component.html',
   imports: [
+    NgIcon,
     HlmButtonDirective,
+    HlmIconDirective,
     BrnProgressComponent,
     BrnProgressIndicatorComponent,
     HlmProgressIndicatorDirective,
   ],
+  providers: [
+    provideIcons({
+      lucideCircleStop,
+      lucideCirclePause,
+      lucideCirclePlay,
+      lucideCircleX,
+    }),
+  ],
 })
 export class AudioRecorderComponent implements OnDestroy {
+  recordingDeleted = output<void>();
+  recordingDone = output<Blob>();
+
   @ViewChild('record') record!: ElementRef<HTMLDivElement>;
 
   private readonly TIME_LIMIT = 60; // seconds
@@ -36,6 +58,10 @@ export class AudioRecorderComponent implements OnDestroy {
     Math.min((this.recordingTime() / this.TIME_LIMIT) * 100, 100)
   );
   audioUrl = signal<string>('');
+
+  async ngOnInit() {
+    this.startRecording();
+  }
 
   async startRecording() {
     if (this.mediaRecorder) {
@@ -72,9 +98,9 @@ export class AudioRecorderComponent implements OnDestroy {
         clearInterval(this.timerId); // stop timer
         this.recordingPercentage.set(100);
 
-        this.displayRecording(e);
         const blob = new Blob(chunks, { type: 'audio/webm' });
         this.audioUrl.set(URL.createObjectURL(blob));
+        this.recordingDone.emit(blob);
 
         stream.getTracks().forEach((track) => track.stop());
       };
@@ -92,13 +118,13 @@ export class AudioRecorderComponent implements OnDestroy {
     }
   }
 
-  displayRecording(event: Event): void {
-    console.log(event);
-  }
-
   deleteRecording(): void {
+    this.stopRecording();
     this.mediaRecorder = undefined;
+    this.recordingDeleted.emit();
   }
 
-  ngOnDestroy(): void {}
+  ngOnDestroy(): void {
+    this.deleteRecording();
+  }
 }

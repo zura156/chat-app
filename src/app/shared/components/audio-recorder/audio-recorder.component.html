@@ -1,34 +1,56 @@
-<div #record>
-  <button hlmBtn (click)="startRecording()">record</button>
-</div>
-
-<!-- <div
-  class="bg-black h-5 ease-linear"
-  [style.width.%]="recordingPercentage()"
-  [style.transitionDuration]="recordingPercentage() < 100 ? '200ms' : '0s'"
-></div> -->
-
-<brn-progress
-  hlm
-  aria-labelledby="loading"
-  class="w-80 bg-secondary h-4 inline-flex overflow-hidden relative rounded-full"
-  [value]="recordingPercentage()"
->
-  <brn-progress-indicator
+<div class="flex gap-x-2 items-center h-full relative">
+  <button
+    hlmBtn
+    variant="ghost"
+    class="absolute text-secondary top-1/2 -translate-y-1/2 -left-1 z-10 flex items-center justify-center cursor-pointer rounded-full p-2"
+    (click)="deleteRecording()"
+  >
+    <ng-icon hlm size="base" name="lucideCircleX"></ng-icon>
+  </button>
+  
+  <brn-progress
     hlm
-    class="bg-primary flex-1 h-full inline-flex transform-gpu transition-all w-full ease-linear"
-  />
-</brn-progress>
+    aria-labelledby="loading"
+    class="w-full h-7 bg-secondary inline-flex overflow-hidden relative rounded-full"
+    [value]="recordingPercentage()"
+  >
+    <brn-progress-indicator
+      hlm
+      class="bg-primary flex-1 h-full inline-flex transform-gpu transition-all w-full ease-linear"
+    />
+  </brn-progress>
 
-<audio #audioPlayer [src]="audioUrl()"></audio>
-@if(mediaRecorder?.state === 'recording') {
-<button (click)="stopRecording()">Stop</button>
-} @else if (mediaRecorder?.state === 'inactive') {
-  @if(audioUrl()) {
-    <button (click)="audioPlayer.play()">Play</button>
-  }@else {
-    <button (click)="startRecording()">
-      Start Recording
+  <audio #audioPlayer [src]="audioUrl()"></audio>
+  @if(mediaRecorder?.state === 'recording') {
+    <button
+      hlmBtn
+      variant="ghost"
+      class="flex items-center justify-center cursor-pointer rounded-full p-2"
+      (click)="stopRecording()"
+    >
+      <ng-icon hlm size="base" name="lucideCircleStop"></ng-icon>
     </button>
+  } @else if (mediaRecorder?.state === 'inactive') { 
+    @if(audioUrl()) {
+      @if(audioPlayer.paused) {
+          <button
+            hlmBtn
+            variant="ghost"
+            class="flex items-center justify-center cursor-pointer rounded-full p-2"
+            (click)="audioPlayer.play()"
+          >
+            <ng-icon hlm size="base" name="lucideCirclePlay"></ng-icon>
+          </button>
+      } @else {
+          <button
+            hlmBtn
+            variant="ghost"
+            class="flex items-center justify-center cursor-pointer rounded-full p-2"
+            (click)="audioPlayer.pause()"
+          >
+            <ng-icon hlm size="base" name="lucideCirclePause"></ng-icon>
+          </button>
+      }
+    }
   }
-}
+</div>

@@ -37,6 +37,9 @@
                     />
                 </div>
               }
+              @case ('audio') {
+                <audio [src]="`${apiUrl}${message.file?.url}`" controls></audio>
+              }
             }
           </div>
         </hlm-card>

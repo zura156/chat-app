@@ -77,6 +77,7 @@ import {
 import { HlmIconDirective } from '@spartan-ng/ui-icon-helm';
 import { LayoutService } from '../layout/layout.service';
 import { NgClass } from '@angular/common';
+import { AudioRecorderComponent } from '../../../shared/components/audio-recorder/audio-recorder.component';
 
 @Component({
   selector: 'app-chatbox',
@@ -96,6 +97,7 @@ import { NgClass } from '@angular/common';
     MessageCardComponent,
     BrnSeparatorComponent,
     ReactiveFormsModule,
+    AudioRecorderComponent,
   ],
   providers: [
     provideIcons({
@@ -206,6 +208,9 @@ export class ChatboxComponent implements OnInit, OnDestroy {
   } | null>(null);
   isVisible = signal<boolean>(false);
   isVisibilityObserving = signal<boolean>(false);
+  isRecording = signal<boolean>(false);
+
+  private audioFile?: File;
 
   @ViewChild('topTracker') observedElement?: ElementRef;
   @ViewChildren('messageItem') messageItems?: QueryList<ElementRef>;
@@ -295,6 +300,23 @@ export class ChatboxComponent implements OnInit, OnDestroy {
     }
   }
 
+  startRecording(): void {
+    this.isRecording.set(true);
+    this.audioFile = undefined;
+  }
+
+  deleteRecording(): void {
+    this.isRecording.set(false);
+    this.audioFile = undefined;
+  }
+
+  onStopRecording(blob: Blob): void {
+    this.audioFile = new File([blob], 'audio.webm', {
+      type: 'audio/webm',
+      lastModified: Date.now(),
+    });
+  }
+
   onFileSelected(event: Event): void {
     const input = event.target as HTMLInputElement;
     const sender = this.currentUser();
@@ -319,8 +341,17 @@ export class ChatboxComponent implements OnInit, OnDestroy {
   sendMessage(): void {
     const sender = this.userService.currentUser();
     const convo = this.conversation();
+    if (!convo || !sender) return;
 
-    if (!convo || !sender || !this.messageControl.value) return;
+    if (this.audioFile) {
+      this.messageService
+        .uploadFileMessage(this.audioFile, convo._id)
+        .pipe(tap((res) => this.messageService.addMessage(res)))
+        .subscribe();
+      return;
+    }
+
+    if (!this.messageControl.value) return;
 
     if (!convo.createdAt) {
       this.isLoading.set(true);
