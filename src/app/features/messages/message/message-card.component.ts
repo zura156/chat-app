@@ -4,10 +4,12 @@ import {
   input,
   inject,
   signal,
+  viewChild,
+  ElementRef,
 } from '@angular/core';
 import { UserI } from '../../user/interfaces/user.interface';
 import { MessageI } from '../interfaces/message.interface';
-import { DatePipe, NgClass, TitleCasePipe } from '@angular/common';
+import { DatePipe, JsonPipe, NgClass, TitleCasePipe } from '@angular/common';
 import { HlmCardDirective } from '@spartan-ng/ui-card-helm';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import {
@@ -19,6 +21,18 @@ import { TimeAgoPipe } from '../../../shared/pipes/time-ago.pipe';
 import { ConversationService } from '../services/conversation.service';
 import { ReadReceiptI } from '../interfaces/conversation.interface';
 import { environment } from '../../../../environments/environment';
+import { provideIcons } from '@ng-icons/core';
+import {
+  lucideCircleStop,
+  lucideCirclePause,
+  lucideCirclePlay,
+  lucideCircleX,
+} from '@ng-icons/lucide';
+import {
+  BrnProgressComponent,
+  BrnProgressIndicatorComponent,
+} from '@spartan-ng/brain/progress';
+import { HlmProgressIndicatorDirective } from '@spartan-ng/ui-progress-helm';
 
 @Component({
   selector: 'message-card',
@@ -27,11 +41,22 @@ import { environment } from '../../../../environments/environment';
     TimeAgoPipe,
     NgClass,
     DatePipe,
+    BrnProgressComponent,
+    BrnProgressIndicatorComponent,
+    HlmProgressIndicatorDirective,
     MatTooltipModule,
     HlmCardDirective,
     HlmAvatarFallbackDirective,
     HlmAvatarImageDirective,
     HlmAvatarComponent,
+  ],
+  providers: [
+    provideIcons({
+      lucideCircleStop,
+      lucideCirclePause,
+      lucideCirclePlay,
+      lucideCircleX,
+    }),
   ],
   templateUrl: './message-card.component.html',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -46,6 +71,11 @@ export class MessageCardComponent {
 
   isImageLoaded = signal<boolean>(false);
   conversationService = inject(ConversationService);
+
+  audioCurrentTime = signal<number>(0);
+  audioDuration = signal<number>(0);
+
+  audioPlayerRef = viewChild<ElementRef>('audioPlayer');
 
   readonly apiUrl = environment.apiUrl;
 
@@ -68,5 +98,43 @@ export class MessageCardComponent {
 
   onFullImageLoad(): void {
     this.isImageLoaded.set(true);
+  }
+
+  onTimeUpdate(audio: HTMLAudioElement): void {
+    this.audioCurrentTime.set(audio.currentTime);
+  }
+
+  onMetadataLoaded() {
+    const audioPlayer = this.audioPlayerRef();
+    if (audioPlayer) {
+      const timer = setInterval(() => {
+        if (
+          !isNaN(audioPlayer.nativeElement.duration) ||
+          audioPlayer.nativeElement.duration !== Infinity
+        ) {
+          this.audioDuration.set(audioPlayer.nativeElement.duration);
+          console.log('Audio duration:', this.audioDuration());
+        }
+      }, 100);
+    }
+  }
+
+  getProgressBarPercentage(): number {
+    return Math.floor((this.audioCurrentTime() / this.audioDuration()) * 100);
+  }
+
+  seekAudio(event: Event, audio: HTMLAudioElement): void {
+    const input = event.target as HTMLInputElement;
+    const seekTime = parseFloat(input.value);
+    audio.currentTime = seekTime;
+    this.audioCurrentTime.set(seekTime);
+  }
+
+  formatTime(time: number): string {
+    const minutes = Math.floor(time / 60);
+    const seconds = Math.floor(time % 60)
+      .toString()
+      .padStart(2, '0');
+    return `${minutes}:${seconds}`;
   }
 }

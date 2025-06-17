@@ -45,6 +45,7 @@ import { HlmProgressIndicatorDirective } from '@spartan-ng/ui-progress-helm';
 export class AudioRecorderComponent implements OnDestroy {
   recordingDeleted = output<void>();
   recordingDone = output<Blob>();
+  isMicAllowed = output<boolean>();
 
   @ViewChild('record') record!: ElementRef<HTMLDivElement>;
 
@@ -72,9 +73,14 @@ export class AudioRecorderComponent implements OnDestroy {
       let recordingStartTime = Date.now();
       let chunks: Blob[] = [];
 
-      const stream = await navigator.mediaDevices.getUserMedia({
-        audio: true,
-      });
+      const stream = await navigator.mediaDevices
+        .getUserMedia({
+          audio: true,
+        })
+        .then((stream) => {
+          this.isMicAllowed.emit(true);
+          return stream;
+        });
 
       this.mediaRecorder = new MediaRecorder(stream);
 

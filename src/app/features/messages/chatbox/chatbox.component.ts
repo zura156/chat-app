@@ -346,7 +346,13 @@ export class ChatboxComponent implements OnInit, OnDestroy {
     if (this.audioFile) {
       this.messageService
         .uploadFileMessage(this.audioFile, convo._id)
-        .pipe(tap((res) => this.messageService.addMessage(res)))
+        .pipe(
+          tap((res) => {
+            this.messageService.addMessage(res);
+            this.isRecording.set(false);
+            this.audioFile = undefined;
+          })
+        )
         .subscribe();
       return;
     }
