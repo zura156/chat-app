@@ -6,6 +6,7 @@ import {
   signal,
   viewChild,
   ElementRef,
+  linkedSignal,
 } from '@angular/core';
 import { UserI } from '../../user/interfaces/user.interface';
 import { MessageI } from '../interfaces/message.interface';
@@ -73,9 +74,10 @@ export class MessageCardComponent {
   conversationService = inject(ConversationService);
 
   audioCurrentTime = signal<number>(0);
-  audioDuration = signal<number>(0);
-
-  audioPlayerRef = viewChild<ElementRef>('audioPlayer');
+  audioDuration = linkedSignal<number>(
+    () => this.message()?.file?.duration || 0
+  );
+  audioLoaded = signal<boolean>(false);
 
   readonly apiUrl = environment.apiUrl;
 
@@ -104,23 +106,11 @@ export class MessageCardComponent {
     this.audioCurrentTime.set(audio.currentTime);
   }
 
-  onMetadataLoaded() {
-    const audioPlayer = this.audioPlayerRef();
-    if (audioPlayer) {
-      const timer = setInterval(() => {
-        if (
-          !isNaN(audioPlayer.nativeElement.duration) ||
-          audioPlayer.nativeElement.duration !== Infinity
-        ) {
-          this.audioDuration.set(audioPlayer.nativeElement.duration);
-          console.log('Audio duration:', this.audioDuration());
-        }
-      }, 100);
-    }
-  }
-
   getProgressBarPercentage(): number {
-    return Math.floor((this.audioCurrentTime() / this.audioDuration()) * 100);
+    const duration = this.audioDuration();
+    return duration > 0
+      ? Math.floor((this.audioCurrentTime() / this.audioDuration()) * 100)
+      : 0;
   }
 
   seekAudio(event: Event, audio: HTMLAudioElement): void {

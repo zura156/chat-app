@@ -49,7 +49,7 @@ export class MessageController {
     next: NextFunction
   ): Promise<void> => {
     try {
-      const { conversationId } = req.body; // Assuming conversationId is sent in the form data
+      const { conversationId, duration } = req.body; // Assuming conversationId is sent in the form data
       const senderId = req.user?.userId;
 
       if (!req.file) {
@@ -61,11 +61,18 @@ export class MessageController {
         );
       }
 
+      if (req.file.mimetype.startsWith('audio/') && !duration) {
+        console.warn(
+          'Warning: Audio file received without a duration from the client.'
+        );
+      }
+
       // Delegate the core logic to the service
       const savedMessage = await this.messageService.createFileMessage(
         req.file,
         senderId,
-        conversationId
+        conversationId,
+        duration // Pass the duration to the service
       );
 
       res.status(201).json(savedMessage);

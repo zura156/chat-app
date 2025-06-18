@@ -118,11 +118,7 @@ export class MessageService {
     });
   }
 
-  uploadFileMessage(file: File, conversationId: string): Observable<any> {
-    const formData = new FormData();
-    formData.append('file', file, file.name);
-    formData.append('conversationId', conversationId);
-
+  uploadFileMessage(formData: FormData): Observable<any> {
     return this.http.post(this.UPLOAD_FILE_MESSAGE_URL, formData);
   }
 

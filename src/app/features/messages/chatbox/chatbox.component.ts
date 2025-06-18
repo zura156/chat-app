@@ -78,6 +78,7 @@ import { HlmIconDirective } from '@spartan-ng/ui-icon-helm';
 import { LayoutService } from '../layout/layout.service';
 import { NgClass } from '@angular/common';
 import { AudioRecorderComponent } from '../../../shared/components/audio-recorder/audio-recorder.component';
+import { RecordingResult } from '../../../shared/interfaces/audio-message.interface';
 
 @Component({
   selector: 'app-chatbox',
@@ -210,7 +211,7 @@ export class ChatboxComponent implements OnInit, OnDestroy {
   isVisibilityObserving = signal<boolean>(false);
   isRecording = signal<boolean>(false);
 
-  private audioFile?: File;
+  private recordingResult?: RecordingResult;
 
   @ViewChild('topTracker') observedElement?: ElementRef;
   @ViewChildren('messageItem') messageItems?: QueryList<ElementRef>;
@@ -302,19 +303,16 @@ export class ChatboxComponent implements OnInit, OnDestroy {
 
   startRecording(): void {
     this.isRecording.set(true);
-    this.audioFile = undefined;
+    this.recordingResult = undefined;
   }
 
   deleteRecording(): void {
     this.isRecording.set(false);
-    this.audioFile = undefined;
+    this.recordingResult = undefined;
   }
 
-  onStopRecording(blob: Blob): void {
-    this.audioFile = new File([blob], 'audio.webm', {
-      type: 'audio/webm',
-      lastModified: Date.now(),
-    });
+  onStopRecording(result: RecordingResult): void {
+    this.recordingResult = result;
   }
 
   onFileSelected(event: Event): void {
@@ -326,8 +324,11 @@ export class ChatboxComponent implements OnInit, OnDestroy {
       const conversation = this.conversation();
 
       if (conversation) {
+        const formData = new FormData();
+        formData.append('file', file, file.name);
+        formData.append('conversationId', conversation._id);
         this.messageService
-          .uploadFileMessage(file, conversation._id)
+          .uploadFileMessage(formData)
           .pipe(
             tap((res) => {
               this.messageService.addMessage(res);
@@ -343,14 +344,22 @@ export class ChatboxComponent implements OnInit, OnDestroy {
     const convo = this.conversation();
     if (!convo || !sender) return;
 
-    if (this.audioFile) {
+    if (this.recordingResult) {
+      const result = this.recordingResult;
+
+      const formData = new FormData();
+      formData.append('file', result.blob, 'recording.webm');
+      formData.append('duration', result.duration.toString());
+      formData.append('senderId', sender._id);
+      formData.append('conversationId', convo._id);
+
       this.messageService
-        .uploadFileMessage(this.audioFile, convo._id)
+        .uploadFileMessage(formData)
         .pipe(
           tap((res) => {
             this.messageService.addMessage(res);
             this.isRecording.set(false);
-            this.audioFile = undefined;
+            this.recordingResult = undefined;
           })
         )
         .subscribe();

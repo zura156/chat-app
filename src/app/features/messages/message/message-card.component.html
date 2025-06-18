@@ -39,7 +39,7 @@
               }
               @case ('audio') {
                 <div class="max-w-xs w-xs">
-                  <audio #audioPlayer [src]="`${apiUrl}${message.file?.url}`" (timeupdate)="onTimeUpdate(audioPlayer)"  (loadedmetadata)="onMetadataLoaded()"></audio>
+                  <audio #audioPlayer [src]="`${apiUrl}${message.file?.url}`" (timeupdate)="onTimeUpdate(audioPlayer)"></audio>
                   <brn-progress
                     hlm
                     aria-labelledby="loading"

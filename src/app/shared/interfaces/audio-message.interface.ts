@@ -1,6 +1,4 @@
-export interface AudioMessage {
+export interface RecordingResult {
   blob: Blob;
   duration: number;
-  timestamp: Date;
-  size: number;
 }

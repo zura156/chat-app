@@ -8,6 +8,7 @@ import {
 } from '../interfaces/message.interface';
 import path from 'path';
 import sharp from 'sharp';
+import { parseFile } from 'music-metadata';
 
 export class MessageService {
   private broadcast: BroadcastFunction;
@@ -97,12 +98,14 @@ export class MessageService {
   public async createFileMessage(
     file: Express.Multer.File,
     senderId: string,
-    conversationId: string
+    conversationId: string,
+    durationFromClient?: string
   ): Promise<IMessage> {
     const conversationObjectId = new Types.ObjectId(conversationId);
     const messageType = getMessageTypeFromMime(file.mimetype);
 
     let placeholderUrl: string | undefined = undefined;
+    let duration: number | undefined = undefined;
 
     if (file.mimetype.startsWith('image/')) {
       try {
@@ -125,6 +128,12 @@ export class MessageService {
       }
     }
 
+    // Handle audio duration extraction
+    if (file.mimetype.startsWith('audio/') && durationFromClient) {
+      // Simply parse the duration sent from the client
+      duration = parseFloat(durationFromClient);
+    }
+
     const message = new Message({
       sender: senderId,
       conversation: conversationObjectId,
@@ -132,6 +141,7 @@ export class MessageService {
       file: {
         url: `/uploads/${file.filename}`,
         placeholder_url: placeholderUrl,
+        duration: duration,
         name: file.originalname,
         mime_type: file.mimetype,
         size_in_bytes: file.size,
