@@ -21,8 +21,8 @@
       </hlm-avatar>
       }
       <div class="flex flex-col">
-        <hlm-card hlmCard>
-          <div class="py-1 px-3 text-ellipsis max-w-xs md:max-w-sm lg:max-w-md">
+        <hlm-card hlmCard [class]="message.type === 'audio' ? 'border-none' : '' ">
+          <div class="py-1 text-ellipsis max-w-xs md:max-w-sm lg:max-w-md" [class]="message.type === 'audio' ? '' : 'px-3'">
             @switch(message.type){
               @case ('text') {
                 <p>{{ message.content }}</p>
@@ -38,23 +38,39 @@
                 </div>
               }
               @case ('audio') {
-                <div class="max-w-xs w-xs">
+                <div class="max-w-xs w-xs flex items-center">
                   <audio #audioPlayer [src]="`${apiUrl}${message.file?.url}`" (timeupdate)="onTimeUpdate(audioPlayer)"></audio>
                   <brn-progress
                     hlm
                     aria-labelledby="loading"
-                    class="w-full h-7 bg-secondary inline-flex overflow-hidden relative rounded-full"
-                    [value]="getProgressBarPercentage()"
+                    class="w-full h-10 bg-secondary inline-flex overflow-hidden relative rounded-full"
+                    [value]="audioProgressPercentage()"
                   >
                     <brn-progress-indicator
                       hlm
                       class="bg-primary flex-1 h-full inline-flex transform-gpu transition-all w-full ease-linear duration-300"
                     />
-                  </brn-progress>
-                    <span>{{ formatTime(audioCurrentTime()) }} / {{ formatTime(audioDuration()) }}</span>
-                  <button (click)="audioPlayer.play()">
-                    play
-                  </button>
+                    <span class="absolute top-1/2 -translate-y-1/2 right-2 text-gray-500 text-sm">{{ formatTime(audioCurrentTime()) }} / {{ formatTime(audioDuration()) }}</span>
+                    @if(audioPlayer.paused) {
+                      <button 
+                        hlmBtn 
+                        [variant]="'ghost'" 
+                        (click)="audioPlayer.play()"
+                        class="cursor-pointer absolute top-1/2 -translate-y-1/2 left-0 text-gray-400 py-0.5 px-1.5 rounded-full" 
+                      >
+                        <ng-icon hlm name="lucideCirclePlay" />
+                      </button>
+                    } @else {
+                      <button 
+                        hlmBtn 
+                        [variant]="'ghost'" 
+                        (click)="audioPlayer.pause()"
+                        class="cursor-pointer absolute top-1/2 -translate-y-1/2 left-0 text-gray-400 py-0.5 px-1.5 rounded-full" 
+                      >
+                        <ng-icon hlm name="lucideCirclePause" />
+                      </button>
+                    }
+                    </brn-progress>
               </div>
               }
             }

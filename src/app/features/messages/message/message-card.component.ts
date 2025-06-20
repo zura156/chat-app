@@ -22,7 +22,7 @@ import { TimeAgoPipe } from '../../../shared/pipes/time-ago.pipe';
 import { ConversationService } from '../services/conversation.service';
 import { ReadReceiptI } from '../interfaces/conversation.interface';
 import { environment } from '../../../../environments/environment';
-import { provideIcons } from '@ng-icons/core';
+import { NgIcon, provideIcons } from '@ng-icons/core';
 import {
   lucideCircleStop,
   lucideCirclePause,
@@ -34,6 +34,8 @@ import {
   BrnProgressIndicatorComponent,
 } from '@spartan-ng/brain/progress';
 import { HlmProgressIndicatorDirective } from '@spartan-ng/ui-progress-helm';
+import { HlmButtonDirective } from '@spartan-ng/ui-button-helm';
+import { HlmIconDirective } from '@spartan-ng/ui-icon-helm';
 
 @Component({
   selector: 'message-card',
@@ -41,10 +43,13 @@ import { HlmProgressIndicatorDirective } from '@spartan-ng/ui-progress-helm';
     TitleCasePipe,
     TimeAgoPipe,
     NgClass,
+    NgIcon,
     DatePipe,
     BrnProgressComponent,
     BrnProgressIndicatorComponent,
     HlmProgressIndicatorDirective,
+    HlmIconDirective,
+    HlmButtonDirective,
     MatTooltipModule,
     HlmCardDirective,
     HlmAvatarFallbackDirective,
@@ -77,7 +82,13 @@ export class MessageCardComponent {
   audioDuration = linkedSignal<number>(
     () => this.message()?.file?.duration || 0
   );
-  audioLoaded = signal<boolean>(false);
+  audioProgressPercentage = linkedSignal<number>(() => {
+    const duration = this.audioDuration();
+
+    return duration > 0
+      ? Math.floor((this.audioCurrentTime() / this.audioDuration()) * 100)
+      : 0;
+  });
 
   readonly apiUrl = environment.apiUrl;
 
@@ -104,20 +115,10 @@ export class MessageCardComponent {
 
   onTimeUpdate(audio: HTMLAudioElement): void {
     this.audioCurrentTime.set(audio.currentTime);
-  }
 
-  getProgressBarPercentage(): number {
-    const duration = this.audioDuration();
-    return duration > 0
-      ? Math.floor((this.audioCurrentTime() / this.audioDuration()) * 100)
-      : 0;
-  }
-
-  seekAudio(event: Event, audio: HTMLAudioElement): void {
-    const input = event.target as HTMLInputElement;
-    const seekTime = parseFloat(input.value);
-    audio.currentTime = seekTime;
-    this.audioCurrentTime.set(seekTime);
+    if (audio.paused || audio.ended) {
+      this.audioProgressPercentage.set(100);
+    }
   }
 
   formatTime(time: number): string {
