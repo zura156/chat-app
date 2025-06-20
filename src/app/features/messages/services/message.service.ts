@@ -1,7 +1,23 @@
-import { computed, inject, Injectable, signal } from '@angular/core';
+import {
+  computed,
+  inject,
+  Injectable,
+  linkedSignal,
+  Signal,
+  signal,
+  WritableSignal,
+} from '@angular/core';
 import { environment } from '../../../../environments/environment';
-import { HttpClient } from '@angular/common/http';
-import { catchError, map, Observable, of, tap, throwError } from 'rxjs';
+import { HttpClient, httpResource } from '@angular/common/http';
+import {
+  catchError,
+  debounceTime,
+  map,
+  Observable,
+  of,
+  tap,
+  throwError,
+} from 'rxjs';
 import {
   MessageI,
   MessageStatus,
@@ -21,26 +37,36 @@ export class MessageService {
 
   private apiUrl = `${environment.apiUrl}/messages`;
 
-  private readonly SEND_MESSAGE_URL = `${this.apiUrl}/send`;
+  // private readonly SEND_MESSAGE_URL = `${this.apiUrl}/send`;
   private readonly GET_MESSAGES_URL = `${this.apiUrl}`;
   private readonly UPLOAD_FILE_MESSAGE_URL = `${this.apiUrl}/upload`;
 
-  // ! old idea
-  // #activeMessages = linkedSignal<MessageI[]>(() => {
-  //   const conversationId = this.conversationService.activeConversation()?._id;
-  //   if (conversationId) {
-  //     this.getMessagesByConversationId(conversationId)
-  //       .pipe(map((convo) => convo.messages))
-  //       .subscribe();
-  //   }
-  //   return [];
-  // });
+  // flags
+  offset = signal<number>(0);
+  limit = 20;
+  hasMoreMessages = linkedSignal<boolean>(() => {
+    const totalCount = this.activeMessagesResource.value()?.totalCount;
+    if (totalCount === undefined) {
+      return false;
+    }
 
-  #activeMessages = signal<MessageI[]>([]);
+    return this.offset() < totalCount;
+  });
+
+  // signals for message management
+  #activeMessages = linkedSignal<MessageI[]>(
+    () => this.activeMessagesResource.value()?.messages || []
+  );
   activeMessages = computed(this.#activeMessages);
 
-  #totalMessagesCount = signal<number>(0);
-  totalMessagesCount = computed(this.#totalMessagesCount);
+  #totalMessagesCount: WritableSignal<number> = linkedSignal<number>(() => {
+    const totalCount = this.activeMessagesResource.value()?.totalCount;
+
+    return totalCount || 0;
+  });
+  totalMessagesCount: Signal<number> = computed<number>(
+    this.#totalMessagesCount
+  );
 
   sendMessage(
     message: MessageI,
@@ -59,35 +85,46 @@ export class MessageService {
     return of(message);
   }
 
-  // Get messages for a conversation
-  getMessagesByConversationId(
-    conversationId: string,
-    offset = 0,
-    limit = 20
-  ): Observable<MessageListI> {
-    const url = `${this.GET_MESSAGES_URL}/${conversationId}/messages?offset=${offset}&limit=${limit}`;
+  // // Get messages for a conversation
+  // getMessagesByConversationId(
+  //   conversationId: string,
+  //   offset = 0,
+  //   limit = 20
+  // ): Observable<MessageListI> {
+  //   const url = `${this.GET_MESSAGES_URL}/${conversationId}/messages?offset=${offset}&limit=${limit}`;
 
-    return this.http.get<MessageListI>(url).pipe(
-      tap((response) => {
-        if (
-          this.activeMessages().length > 0 &&
-          this.activeMessages().length !== response.totalCount &&
-          this.activeMessages().some((m) => m.conversation === conversationId)
-        ) {
-          this.#activeMessages.update((val) => [...val, ...response.messages]);
-        } else {
-          this.#activeMessages.set(response.messages);
-        }
-        this.#totalMessagesCount.set(response.totalCount);
-      }),
-      catchError((error) => {
-        console.error('Error fetching messages:', error);
-        return throwError(
-          () => new Error(error.message || 'Failed to fetch messages')
-        );
-      })
-    );
-  }
+  //   return this.http.get<MessageListI>(url).pipe(
+  //     tap((response) => {
+  //       if (
+  //         this.activeMessages().length > 0 &&
+  //         this.activeMessages().length !== response.totalCount &&
+  //         this.activeMessages().some((m) => m.conversation === conversationId)
+  //       ) {
+  //         this.#activeMessages.update((val) => [...val, ...response.messages]);
+  //       } else {
+  //         this.#activeMessages.set(response.messages);
+  //       }
+  //       this.#totalMessagesCount.set(response.totalCount);
+  //     }),
+  //     catchError((error) => {
+  //       console.error('Error fetching messages:', error);
+  //       return throwError(
+  //         () => new Error(error.message || 'Failed to fetch messages')
+  //       );
+  //     })
+  //   );
+  // }
+
+  activeMessagesResource = httpResource<MessageListI>(() => {
+    const conversationId = this.conversationService.activeConversation()?._id;
+    if (!conversationId) {
+      return;
+    }
+    const url = `${
+      this.GET_MESSAGES_URL
+    }/${conversationId}/messages?offset=${this.offset()}&limit=${this.limit}`;
+    return url;
+  });
 
   updateMessageStatus(messageId: string, status: MessageStatus): void {
     this.#activeMessages.update((messages) => {

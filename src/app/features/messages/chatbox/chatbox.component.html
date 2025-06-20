@@ -57,14 +57,14 @@
     </header>
     <brn-separator decorative hlmSeparator />
     
-    @if(hasMoreMessages() && isLoading()) {
+    @if(messagesResource.isLoading()) {
       <div class="flex justify-center py-2 border-b border-input">
         <p class="text-sm text-slate-400">Loading messages...</p>
       </div>
     }
     <section 
       (scroll)="onChatTopVisible()" 
-      class="h-full overflow-y-auto flex-1 flex flex-col-reverse"
+      class="h-full relative overflow-y-auto flex-1 flex flex-col-reverse"
     >
       <!-- visibility event -->
       <div id="chat-messages" class="flex flex-col-reverse p-4 space-y-4 space-y-reverse">
@@ -107,10 +107,10 @@
           </div>
         }
           
-        @if(messages().length > 0 && currentUser) { 
+        @if(messagesResource.hasValue() && currentUser) { 
           @for(group of groupedMessages(); track group.timeframe) {
             <ng-container>
-              <div class="flex-1 mt-2">
+              <div class="flex-1 mt-2 h-fit">
                 <div hlmCardDescription class="text-xs text-center mt-1 opacity-70 mb-4">
                   {{ group.timeframe }}
                 </div>
@@ -136,7 +136,7 @@
         } @else {
           
           @if(isLoading()) {
-            <div class="mx-auto">
+            <div class="absolute left-0 top-0 flex items-center justify-center h-full w-full ">
               <hlm-spinner />
             </div>
           } @else {

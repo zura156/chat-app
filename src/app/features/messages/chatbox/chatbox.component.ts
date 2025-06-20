@@ -125,6 +125,8 @@ export class ChatboxComponent implements OnInit, OnDestroy {
 
   messageControl = new FormControl<string>('');
 
+  messagesResource = this.messageService.activeMessagesResource;
+
   private readonly destroy$ = new Subject<void>();
 
   private readonly TIME_GAP_THRESHOLD: number = 15;
@@ -196,9 +198,7 @@ export class ChatboxComponent implements OnInit, OnDestroy {
 
   offset = signal<number>(0);
   limit = 20;
-  hasMoreMessages = linkedSignal<boolean>(
-    () => this.totalMessagesCount() > this.offset()
-  );
+  hasMoreMessages = this.messageService.hasMoreMessages;
 
   activeView = this.layoutService.activeView;
   isLoading = signal<boolean>(false);
@@ -248,42 +248,44 @@ export class ChatboxComponent implements OnInit, OnDestroy {
             }
           }
           return this.conversationService.getConversationById(id).pipe(
-            catchError((err) => this.handleError(err, true)),
-            switchMap((c) => {
-              if (!c) {
-                return EMPTY;
-              }
+            catchError((err) => this.handleError(err, true))
+            // switchMap((c) => {
+            //   if (!c) {
+            //     return EMPTY;
+            //   }
 
-              this.hasMoreMessages.set(true);
-              this.offset.set(0);
+            //   this.hasMoreMessages.set(true);
+            //   this.offset.set(0);
 
-              return this.loadMessages(c._id).pipe(
-                tap((messagesList) => {
-                  const user = this.currentUser();
+            //   return of(this.loadMessages(c._id))
 
-                  if (messagesList.messages.length > 0) {
-                    const duplicateIds = messagesList.messages.filter(
-                      (id, index) => messagesList.messages.indexOf(id) !== index
-                    );
-                    if (duplicateIds.length > 0) {
-                      console.warn('Duplicate _id values found:', duplicateIds);
-                    }
+            //   // .pipe(
+            //   //   tap((messagesList) => {
+            //   //     const user = this.currentUser();
 
-                    const lastMessageId = messagesList.messages.filter(
-                      (m) => user?._id !== m.sender._id
-                    )[0]?._id;
+            //   //     if (messagesList.messages.length > 0) {
+            //   //       const duplicateIds = messagesList.messages.filter(
+            //   //         (id, index) => messagesList.messages.indexOf(id) !== index
+            //   //       );
+            //   //       if (duplicateIds.length > 0) {
+            //   //         console.warn('Duplicate _id values found:', duplicateIds);
+            //   //       }
 
-                    if (lastMessageId) {
-                      this.markMessagesAsRead(lastMessageId);
-                    }
-                  }
+            //   //       const lastMessageId = messagesList.messages.filter(
+            //   //         (m) => user?._id !== m.sender._id
+            //   //       )[0]?._id;
 
-                  this.isLoading.set(false);
-                }),
-                catchError((err) => this.handleError(err)),
-                switchMap(() => this.handleWebSocketMessages())
-              );
-            })
+            //   //       if (lastMessageId) {
+            //   //         this.markMessagesAsRead(lastMessageId);
+            //   //       }
+            //   //     }
+
+            //   //     this.isLoading.set(false);
+            //   //   }),
+            //   //   catchError((err) => this.handleError(err)),
+            //   //   switchMap(() => this.handleWebSocketMessages())
+            //   // );
+            // })
           );
         })
       )
@@ -435,20 +437,21 @@ export class ChatboxComponent implements OnInit, OnDestroy {
 
   loadMessages(conversationId: string) {
     if (!this.hasMoreMessages()) return EMPTY;
-
-    this.isLoading.set(true);
+    this.messageService.offset.update((val) => val + this.limit);
 
     if (!conversationId) return EMPTY;
 
-    return this.messageService
-      .getMessagesByConversationId(conversationId, this.offset(), this.limit)
-      .pipe(
-        debounceTime(500),
-        tap(() => {
-          this.offset.update((val) => val + this.limit);
-          this.isLoading.set(false);
-        })
-      );
+    return this.messageService.activeMessagesResource.value();
+
+    // return this.messageService
+    //   .getMessagesByConversationId(conversationId, this.offset(), this.limit)
+    //   .pipe(
+    //     debounceTime(500),
+    //     tap(() => {
+    //       this.offset.update((val) => val + this.limit);
+    //       this.isLoading.set(false);
+    //     })
+    //   );
   }
 
   onChatTopVisible(): void {
@@ -458,7 +461,7 @@ export class ChatboxComponent implements OnInit, OnDestroy {
         ([entry]) => {
           this.isVisible.set(entry.isIntersecting && !this.isLoading());
           if (this.hasMoreMessages() && this.isVisible()) {
-            this.loadMessages(String(this.conversation()?._id))?.subscribe();
+            this.loadMessages(String(this.conversation()?._id));
           }
           if (this.totalMessagesCount() < this.offset()) {
             this.divTopIntersectionObserver?.disconnect();
