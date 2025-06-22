@@ -248,6 +248,7 @@ export class ChatboxComponent implements OnInit, OnDestroy {
             }
           }
           return this.conversationService.getConversationById(id).pipe(
+            switchMap(() => this.handleWebSocketMessages()),
             catchError((err) => this.handleError(err, true))
             // switchMap((c) => {
             //   if (!c) {
@@ -283,7 +284,6 @@ export class ChatboxComponent implements OnInit, OnDestroy {
             //   //     this.isLoading.set(false);
             //   //   }),
             //   //   catchError((err) => this.handleError(err)),
-            //   //   switchMap(() => this.handleWebSocketMessages())
             //   // );
             // })
           );

@@ -4,16 +4,13 @@ import { ConversationI } from '../interfaces/conversation.interface';
 import { RouterLink } from '@angular/router';
 import { LayoutService } from '../layout/layout.service';
 import { HlmIconModule } from '../../../../../libs/ui/ui-icon-helm/src/index';
-import { HlmIconDirective } from '../../../../../libs/ui/ui-icon-helm/src/lib/hlm-icon.directive';
-import { NgIcon, provideIcons } from '@ng-icons/core';
-import { lucideUsersRound } from '@ng-icons/lucide';
-
 import {
   HlmAvatarComponent,
   HlmAvatarImageDirective,
 } from '@spartan-ng/ui-avatar-helm';
 import { UserService } from '../../user/services/user.service';
 import { TimeAgoPipe } from '../../../shared/pipes/time-ago.pipe';
+import { environment } from '../../../../environments/environment';
 
 @Component({
   selector: 'app-conversation-card',
@@ -21,13 +18,10 @@ import { TimeAgoPipe } from '../../../shared/pipes/time-ago.pipe';
     HlmCardDirective,
     RouterLink,
     HlmIconModule,
-    NgIcon,
-    HlmIconDirective,
     HlmAvatarImageDirective,
     HlmAvatarComponent,
     TimeAgoPipe,
   ],
-  providers: [provideIcons({ lucideUsersRound })],
   templateUrl: './conversation-card.component.html',
 })
 export class ConversationCardComponent {
@@ -35,6 +29,8 @@ export class ConversationCardComponent {
   userService = inject(UserService);
 
   conversation = input<ConversationI>();
+
+  apiUrl = environment.apiUrl
 
   currentUser = this.userService.currentUser;
   participants = linkedSignal(() =>

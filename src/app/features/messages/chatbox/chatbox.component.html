@@ -20,7 +20,7 @@
           />
         </hlm-avatar>
         <h1 class="font-medium text-2xl flex-col justify-center gap-x-4">
-          @if(conversation) { 
+          @if(conversation) {
             @for(participant of conversation?.participants; let i = $index; track participant._id) {
               <span>
                 {{
@@ -107,7 +107,7 @@
           </div>
         }
           
-        @if(messagesResource.hasValue() && currentUser) { 
+        @if(messages().length > 0 && currentUser) {
           @for(group of groupedMessages(); track group.timeframe) {
             <ng-container>
               <div class="flex-1 mt-2 h-fit">
@@ -132,10 +132,9 @@
                 </div>
               </div>
             </ng-container>
-          } 
+          }
         } @else {
-          
-          @if(isLoading()) {
+          @if(messagesResource.isLoading()) {
             <div class="absolute left-0 top-0 flex items-center justify-center h-full w-full ">
               <hlm-spinner />
             </div>
@@ -145,7 +144,7 @@
                 <p class="text-slate-400">No messages yet. Start the conversation!</p>
               </div>
             </ng-container> 
-          }  
+          }
         }
       </div>
       <div #topTracker></div>

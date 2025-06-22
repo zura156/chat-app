@@ -117,6 +117,7 @@ export class MessageService {
 
   activeMessagesResource = httpResource<MessageListI>(() => {
     const conversationId = this.conversationService.activeConversation()?._id;
+    console.log(conversationId)
     if (!conversationId) {
       return;
     }
@@ -169,5 +170,6 @@ export class MessageService {
       val.shift();
       return [message, ...val];
     });
+    console.log(this.activeMessages())
   }
 }
