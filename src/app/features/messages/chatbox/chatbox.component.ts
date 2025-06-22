@@ -232,6 +232,7 @@ export class ChatboxComponent implements OnInit, OnDestroy {
         map((params) => params['id']),
         catchError((err) => this.handleError(err)),
         switchMap((id) => {
+          this.conversationService.selectedConversationId.set(id);
           this.conversation = this.conversationService.activeConversation;
           const selectedUser: UserI | null = JSON.parse(
             sessionStorage.getItem('selectedUser') ?? 'null'
@@ -442,7 +443,7 @@ export class ChatboxComponent implements OnInit, OnDestroy {
     this.messageService.offset.update((val) => val + this.limit);
 
     if (!conversationId) return EMPTY;
-    
+
     this.isLoading.set(false);
     return this.messageService.activeMessages();
 
@@ -463,7 +464,9 @@ export class ChatboxComponent implements OnInit, OnDestroy {
       this.divTopIntersectionObserver = new IntersectionObserver(
         ([entry]) => {
           console.log('Top tracker visibility:', entry.isIntersecting);
-          this.isVisible.set(entry.isIntersecting && !this.messagesResource.isLoading());
+          this.isVisible.set(
+            entry.isIntersecting && !this.messagesResource.isLoading()
+          );
           if (this.hasMoreMessages() && this.isVisible()) {
             this.loadMessages(String(this.conversation()?._id));
           }

@@ -146,7 +146,7 @@ export class MessageService {
   // }
 
   activeMessagesResource = httpResource<MessageListI>(() => {
-    const conversationId = this.conversationService.activeConversation()?._id;
+    const conversationId = this.conversationService.selectedConversationId();
     if (!conversationId) {
       return;
     }

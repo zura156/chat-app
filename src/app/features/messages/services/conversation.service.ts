@@ -1,5 +1,11 @@
 import { HttpClient } from '@angular/common/http';
-import { computed, inject, Injectable, signal } from '@angular/core';
+import {
+  computed,
+  inject,
+  Injectable,
+  linkedSignal,
+  signal,
+} from '@angular/core';
 import { Observable, of, tap, catchError, throwError } from 'rxjs';
 import { environment } from '../../../../environments/environment';
 import {
@@ -27,6 +33,7 @@ export class ConversationService {
   private readonly GET_CONVERSATION_URL = `${this.apiUrl}/conversations`;
 
   // Cache for active conversation data (messages, etc.)
+  selectedConversationId = signal<string | null>(null);
   #activeConversation = signal<ConversationI | null>(null);
   activeConversation = computed<ConversationI | null>(this.#activeConversation);
 
@@ -49,9 +56,9 @@ export class ConversationService {
     if (data && data._id === id) {
       return of(data);
     }
-
     return this.http.get<ConversationI>(url).pipe(
       tap((data) => {
+        this.selectedConversationId.set(data._id);
         this.#activeConversation.set(data);
       }),
       catchError((error) => {
