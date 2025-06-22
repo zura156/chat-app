@@ -54,10 +54,40 @@ export class MessageService {
   });
 
   // signals for message management
-  #activeMessages = linkedSignal<MessageI[]>(
-    () => this.activeMessagesResource.value()?.messages || []
+  #activeMessages = linkedSignal<MessageListI, MessageI[]>({
+    source: () =>
+      this.activeMessagesResource.value() || { messages: [], totalCount: 0 },
+    computation: (newResource, previous) => {
+      const conversationId = this.conversationService.activeConversation()?._id;
+      const previousMessages = previous?.value ?? [];
+
+      if (!conversationId || !newResource) {
+        return [];
+      }
+
+      const isInitialLoad = previousMessages.length === 0;
+      const isDifferentConversation =
+        !isInitialLoad && previousMessages[0]?.conversation !== conversationId;
+
+      if (isInitialLoad || isDifferentConversation) {
+        return newResource.messages;
+      } else {
+        const messageMap = new Map<string, MessageI>();
+        previousMessages.forEach((msg) =>
+          msg._id ? messageMap.set(msg._id, msg) : ''
+        );
+        newResource.messages.forEach((msg) =>
+          msg._id ? messageMap.set(msg._id, msg) : ''
+        );
+
+        return Array.from(messageMap.values());
+      }
+    },
+  });
+
+  activeMessages: Signal<MessageI[]> = computed<MessageI[]>(
+    this.#activeMessages
   );
-  activeMessages = computed(this.#activeMessages);
 
   #totalMessagesCount: WritableSignal<number> = linkedSignal<number>(() => {
     const totalCount = this.activeMessagesResource.value()?.totalCount;
@@ -117,7 +147,6 @@ export class MessageService {
 
   activeMessagesResource = httpResource<MessageListI>(() => {
     const conversationId = this.conversationService.activeConversation()?._id;
-    console.log(conversationId)
     if (!conversationId) {
       return;
     }
@@ -157,7 +186,9 @@ export class MessageService {
   }
 
   uploadFileMessage(formData: FormData): Observable<any> {
-    return this.http.post(this.UPLOAD_FILE_MESSAGE_URL, formData);
+    return this.http
+      .post(this.UPLOAD_FILE_MESSAGE_URL, formData)
+      .pipe(debounceTime(500));
   }
 
   // Clear active messages (useful when changing conversations)
@@ -170,6 +201,5 @@ export class MessageService {
       val.shift();
       return [message, ...val];
     });
-    console.log(this.activeMessages())
   }
 }

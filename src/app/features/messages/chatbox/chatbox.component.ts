@@ -249,7 +249,8 @@ export class ChatboxComponent implements OnInit, OnDestroy {
           }
           return this.conversationService.getConversationById(id).pipe(
             switchMap(() => this.handleWebSocketMessages()),
-            catchError((err) => this.handleError(err, true))
+            catchError((err) => this.handleError(err, true)),
+            tap(() => this.isLoading.set(false))
             // switchMap((c) => {
             //   if (!c) {
             //     return EMPTY;
@@ -397,6 +398,7 @@ export class ChatboxComponent implements OnInit, OnDestroy {
             return this.messageService
               .sendMessage(message, participants, true)
               .pipe(
+                debounceTime(500),
                 catchError((err) => this.handleError(err)),
                 tap(() => {
                   this.isLoading.set(false);
@@ -440,8 +442,9 @@ export class ChatboxComponent implements OnInit, OnDestroy {
     this.messageService.offset.update((val) => val + this.limit);
 
     if (!conversationId) return EMPTY;
-
-    return this.messageService.activeMessagesResource.value();
+    
+    this.isLoading.set(false);
+    return this.messageService.activeMessages();
 
     // return this.messageService
     //   .getMessagesByConversationId(conversationId, this.offset(), this.limit)
@@ -459,7 +462,8 @@ export class ChatboxComponent implements OnInit, OnDestroy {
       this.isVisibilityObserving.set(true);
       this.divTopIntersectionObserver = new IntersectionObserver(
         ([entry]) => {
-          this.isVisible.set(entry.isIntersecting && !this.isLoading());
+          console.log('Top tracker visibility:', entry.isIntersecting);
+          this.isVisible.set(entry.isIntersecting && !this.messagesResource.isLoading());
           if (this.hasMoreMessages() && this.isVisible()) {
             this.loadMessages(String(this.conversation()?._id));
           }
