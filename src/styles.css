@@ -6,6 +6,10 @@
 
 @custom-variant dark (&:where(.dark, .dark *));
 
+@variant fullscreen (&:fullscreen);
+@variant group-fullscreen (.group:fullscreen &);
+@variant peer-fullscreen (.peer:fullscreen &);
+
 :root {
   --background: 0 0% 100%;
   --foreground: 240 10% 3.9%;

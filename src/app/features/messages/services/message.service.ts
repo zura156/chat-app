@@ -43,7 +43,7 @@ export class MessageService {
 
   // flags
   offset = signal<number>(0);
-  limit = 20;
+  messageLimit = signal<number>(20);
   hasMoreMessages = linkedSignal<boolean>(() => {
     const totalCount = this.activeMessagesResource.value()?.totalCount;
     if (totalCount === undefined) {
@@ -115,6 +115,8 @@ export class MessageService {
     return of(message);
   }
 
+  // old approach to get messages by conversation ID
+  // This method is commented out because we are now using the new httpResource approach (activeMessagesResource)
   // // Get messages for a conversation
   // getMessagesByConversationId(
   //   conversationId: string,
@@ -152,7 +154,7 @@ export class MessageService {
     }
     const url = `${
       this.GET_MESSAGES_URL
-    }/${conversationId}/messages?offset=${this.offset()}&limit=${this.limit}`;
+    }/${conversationId}/messages?offset=${this.offset()}&limit=${this.messageLimit()}`;
     return url;
   });
 

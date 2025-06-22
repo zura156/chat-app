@@ -1,0 +1,98 @@
+@let video = this.video(); @let size = this.size();
+
+<div
+  #playerContainer
+  class="relative w-full flex items-center justify-center py-0 sm:py-3"
+  tabindex="0"
+  (focus)="isFocused.set(true)"
+  (blur)="isFocused.set(false)"
+>
+  <video
+    class="rounded-xl h-full"
+    #videoPlayer
+    [src]="`${apiUrl}${video.url}`"
+    [volume]="volume()"
+    (timeupdate)="onTimeUpdate(videoPlayer)"
+    (loadedmetadata)="duration.set(videoPlayer.duration)"
+  >
+    <source [src]="`${apiUrl}${video.url}`" type="video/mp4" />
+    Your browser does not support the video tag.
+  </video>
+  <div
+    [ngClass]="{
+      'h-full w-full absolute top-0 left-0 flex items-end': size === 'sm'
+    }"
+  >
+    <div class="flex flex-col w-full justify-end p-2">
+      <section class="w-full h-2">
+        <div class="flex gap-x-2 items-center h-full w-full relative">
+          <div
+            class="w-full h-full bg-primary rounded-full relative overflow-hidden"
+          >
+            <div
+              class="bg-secondary h-full rounded-full transform-gpu transition-all w-full duration-[1.5s] ease-linear"
+              [style.width.%]="progressPercentage()"
+              (click)="
+                videoPlayer.currentTime = (currentTime() / 100) * duration()
+              "
+            ></div>
+          </div>
+        </div>
+      </section>
+      <section class="flex w-full h-full items-end">
+        <button
+          hlmBtn
+          size="sm"
+          variant="ghost"
+          class="flex items-center rounded-full px-1.5 fullscreen:h-11 fullscreen:px-8 cursor-pointer"
+          (click)="
+            videoPlayer.paused ? videoPlayer.play() : videoPlayer.pause()
+          "
+        >
+          <ng-icon
+            hlm
+            [name]="
+              videoPlayer.paused ? 'lucideCirclePlay' : 'lucideCirclePause'
+            "
+          ></ng-icon>
+        </button>
+        <button
+          hlmBtn
+          size="sm"
+          variant="ghost"
+          class="flex items-center rounded-full px-1.5 fullscreen:h-11 fullscreen:px-8"
+          (mouseover)="audioControl.classList.remove('hidden')"
+          (mouseout)="audioControl.classList.add('hidden')"
+        >
+          <button
+            (click)="videoPlayer.muted = !videoPlayer.muted"
+            class="flex items-center rounded-full cursor-pointer"
+          >
+            @if(volume() === 0 || videoPlayer.muted) {
+            <ng-icon hlm name="lucideVolumeX"></ng-icon>
+            } @else if(volume() < 0.33) {
+            <ng-icon hlm name="lucideVolume"></ng-icon>
+            } @else if(volume() < 0.66) {
+            <ng-icon hlm name="lucideVolume1"></ng-icon>
+            } @else {
+            <ng-icon hlm name="lucideVolume2"></ng-icon>
+            }
+          </button>
+
+          <div #audioControl class="hidden">
+            <input
+              type="range"
+              min="0"
+              max="1"
+              step="0.01"
+              [value]="volume()"
+              (change)="setVolume($event)"
+              (wheel)="onVolumeScroll($event)"
+              class="w-24 h-2 bg-gray-200 rounded-lg appearance-none dark:bg-gray-700 cursor-ns-resize"
+            />
+          </div>
+        </button>
+      </section>
+    </div>
+  </div>
+</div>

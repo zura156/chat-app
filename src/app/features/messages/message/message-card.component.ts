@@ -4,13 +4,11 @@ import {
   input,
   inject,
   signal,
-  viewChild,
-  ElementRef,
   linkedSignal,
 } from '@angular/core';
 import { UserI } from '../../user/interfaces/user.interface';
 import { MessageI } from '../interfaces/message.interface';
-import { DatePipe, JsonPipe, NgClass, TitleCasePipe } from '@angular/common';
+import { DatePipe, NgClass, TitleCasePipe } from '@angular/common';
 import { HlmCardDirective } from '@spartan-ng/ui-card-helm';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import {
@@ -28,6 +26,10 @@ import {
   lucideCirclePause,
   lucideCirclePlay,
   lucideCircleX,
+  lucideDownload,
+  lucideVolume,
+  lucideVolume2,
+  lucideVolume1,
 } from '@ng-icons/lucide';
 import {
   BrnProgressComponent,
@@ -36,6 +38,10 @@ import {
 import { HlmProgressIndicatorDirective } from '@spartan-ng/ui-progress-helm';
 import { HlmButtonDirective } from '@spartan-ng/ui-button-helm';
 import { HlmIconDirective } from '@spartan-ng/ui-icon-helm';
+import { FileSizePipe } from '../../../shared/pipes/file-size.pipe';
+import { VideoPlayerComponent } from '../../../shared/components/video-player/video-player.component';
+import { HlmSkeletonComponent } from '../../../../../libs/ui/ui-skeleton-helm/src/lib/hlm-skeleton.component';
+import { FormatTimePipe } from '../../../shared/pipes/format-time.pipe';
 
 @Component({
   selector: 'message-card',
@@ -45,6 +51,8 @@ import { HlmIconDirective } from '@spartan-ng/ui-icon-helm';
     NgClass,
     NgIcon,
     DatePipe,
+    FileSizePipe,
+    FormatTimePipe,
     BrnProgressComponent,
     BrnProgressIndicatorComponent,
     HlmProgressIndicatorDirective,
@@ -55,6 +63,8 @@ import { HlmIconDirective } from '@spartan-ng/ui-icon-helm';
     HlmAvatarFallbackDirective,
     HlmAvatarImageDirective,
     HlmAvatarComponent,
+    VideoPlayerComponent,
+    HlmSkeletonComponent,
   ],
   providers: [
     provideIcons({
@@ -62,6 +72,10 @@ import { HlmIconDirective } from '@spartan-ng/ui-icon-helm';
       lucideCirclePause,
       lucideCirclePlay,
       lucideCircleX,
+      lucideVolume,
+      lucideVolume1,
+      lucideVolume2,
+      lucideDownload,
     }),
   ],
   templateUrl: './message-card.component.html',
@@ -119,13 +133,5 @@ export class MessageCardComponent {
     if (audio.paused || audio.ended) {
       this.audioProgressPercentage.set(100);
     }
-  }
-
-  formatTime(time: number): string {
-    const minutes = Math.floor(time / 60);
-    const seconds = Math.floor(time % 60)
-      .toString()
-      .padStart(2, '0');
-    return `${minutes}:${seconds}`;
   }
 }

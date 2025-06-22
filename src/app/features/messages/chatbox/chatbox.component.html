@@ -10,7 +10,7 @@
       }"
   >
   <brn-separator decorative hlmSeparator />
-    <header class="flex w-full items-start py-2 px-4 md:px-0 justify-between">
+    <header class="flex w-full items-start py-2 px-2 sm:px-4 md:px-0 justify-between">
       <div class="flex items-center gap-x-2">
         <hlm-avatar variant="medium">
           <img
@@ -67,7 +67,7 @@
       class="h-full relative overflow-y-auto flex-1 flex flex-col-reverse"
     >
       <!-- visibility event -->
-      <div id="chat-messages" class="flex flex-col-reverse p-4 space-y-4 space-y-reverse">
+      <div id="chat-messages" class="flex flex-col-reverse p-2 sm:p-4 space-y-4 space-y-reverse">
         @let currentUser = this.currentUser(); 
         @let sender = this.isTyping()?.typer;
         @let isTyping = this.isTyping()?.is_typing; 
@@ -92,7 +92,7 @@
                   [alt]="sender?.username"
                   hlmAvatarImage
                 />
-                <span class="bg-[#FD005B] text-white" hlmAvatarFallback> PFP </span>
+                <span class="bg-black text-white" hlmAvatarFallback> PFP </span>
               </hlm-avatar>
               <hlm-card class="flex py-2 items-center h-full" hlmCard>
                 <div class="py-1 px-3 max-w-xs md:max-w-sm lg:max-w-md">
@@ -140,7 +140,7 @@
             </div>
           } @else {
             <ng-container>
-              <div class="flex justify-center h-full items-center">
+              <div class="h-full text-center">
                 <p class="text-slate-400">No messages yet. Start the conversation!</p>
               </div>
             </ng-container> 

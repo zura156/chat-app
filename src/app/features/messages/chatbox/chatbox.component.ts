@@ -197,7 +197,7 @@ export class ChatboxComponent implements OnInit, OnDestroy {
   selectedUser = this.conversationService.selectedUser;
 
   offset = signal<number>(0);
-  limit = 20;
+  limit = this.messageService.messageLimit;
   hasMoreMessages = this.messageService.hasMoreMessages;
 
   activeView = this.layoutService.activeView;
@@ -221,7 +221,7 @@ export class ChatboxComponent implements OnInit, OnDestroy {
 
   ngOnInit(): void {
     if (window.visualViewport && window.visualViewport?.height > 1000) {
-      this.limit = 40;
+      this.limit.set(40);
     }
 
     this.trackTypingStatus();
@@ -440,22 +440,12 @@ export class ChatboxComponent implements OnInit, OnDestroy {
 
   loadMessages(conversationId: string) {
     if (!this.hasMoreMessages()) return EMPTY;
-    this.messageService.offset.update((val) => val + this.limit);
+    this.messageService.offset.update((val) => val + this.limit());
 
     if (!conversationId) return EMPTY;
 
     this.isLoading.set(false);
     return this.messageService.activeMessages();
-
-    // return this.messageService
-    //   .getMessagesByConversationId(conversationId, this.offset(), this.limit)
-    //   .pipe(
-    //     debounceTime(500),
-    //     tap(() => {
-    //       this.offset.update((val) => val + this.limit);
-    //       this.isLoading.set(false);
-    //     })
-    //   );
   }
 
   onChatTopVisible(): void {

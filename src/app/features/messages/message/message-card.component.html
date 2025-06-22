@@ -9,20 +9,20 @@
       {{ message.sender.username }}
     </span>
     }
-    <div class="flex items-center justify-start">
+    <div class="flex justify-start items-end">
       @if(!isCurrentUserMessage(message)){
-      <hlm-avatar variant="small" class="min-w-fit mr-1.5">
+      <hlm-avatar variant="small" class="min-w-fit mr-1.5 mb-2">
         <img
           [src]="imageUrl() || '/icons/avatar.svg'"
           [alt]="message.sender.username"
           hlmAvatarImage
         />
-        <span class="bg-[#FD005B] text-white" hlmAvatarFallback>RG</span>
+        <span class="bg-black text-white" hlmAvatarFallback> PFP </span>
       </hlm-avatar>
       }
       <div class="flex flex-col">
         <hlm-card hlmCard [class]="message.type === 'audio' ? 'border-none' : '' ">
-          <div class="py-1 text-ellipsis max-w-xs md:max-w-sm lg:max-w-md" [class]="message.type === 'audio' ? '' : 'px-3'">
+          <div class="py-1 text-ellipsis max-w-xs md:max-w-sm lg:max-w-md" [class]="message.type === 'audio' ? '' : 'px-1 sm:px-3'">
             @switch(message.type){
               @case ('text') {
                 <p>{{ message.content }}</p>
@@ -37,8 +37,25 @@
                     />
                 </div>
               }
+              @case ('video') {
+                @if(message.file) {
+                  <div class="max-w-3xs sm:max-w-xs">
+                    <app-video-player [video]="message.file"></app-video-player>
+                  </div>
+                } @else {
+                  <div class="w-full h-full py-2 relative">
+                    <hlm-skeleton class="w-96 h-96" />
+                    <div class="absolute top-1/2 left-1/2 -translate-1/2 flex flex-col gap-y-2 items-center justify-center">
+                      <ng-icon hlm name="lucideCirclePlay" size="xl" />
+                      <span>  
+                        Loading
+                      </span>
+                    </div>
+                  </div>
+                }
+              }
               @case ('audio') {
-                <div class="max-w-xs w-xs flex items-center">
+                <div class="max-w-3xs sm:max-w-xs w-3xs sm:w-xs flex items-center">
                   <audio #audioPlayer [src]="`${apiUrl}${message.file?.url}`" (timeupdate)="onTimeUpdate(audioPlayer)"></audio>
                   <brn-progress
                     hlm
@@ -50,7 +67,7 @@
                       hlm
                       class="bg-primary flex-1 h-full inline-flex transform-gpu transition-all w-full ease-linear duration-300"
                     />
-                    <span class="absolute top-1/2 -translate-y-1/2 right-2 text-gray-500 text-sm">{{ formatTime(audioCurrentTime()) }} / {{ formatTime(audioDuration()) }}</span>
+                    <span class="absolute top-1/2 -translate-y-1/2 right-2 text-gray-500 text-sm">{{ audioCurrentTime() | formatTime }} / {{ audioDuration() | formatTime }}</span>
                     @if(audioPlayer.paused) {
                       <button 
                         hlmBtn 
@@ -70,7 +87,29 @@
                         <ng-icon hlm name="lucideCirclePause" />
                       </button>
                     }
-                    </brn-progress>
+                  </brn-progress>
+                </div>
+              }
+              @case ('file') {
+                <div class="flex items-center p-2">
+                  <a
+                    [href]="apiUrl + message.file?.url"
+                    target="_blank"
+                    [download]="message.file?.name"
+                    class="flex items-center justify-start"
+                  >
+                  <span 
+                    class="text-blue-500 flex items-center justify-center mr-3 rounded-xl bg-blue-100 p-1.5"
+                  >
+                    <ng-icon hlm name="lucideDownload" size="base" />
+                  </span>
+                  <div class="flex flex-col items-start justify-center text-sm">
+                    {{ message.file?.name }}
+                    <span class="text-blue-500 hover:underline">
+                      {{ (message.file?.size_in_bytes || 0) | fileSize }}
+                    </span>
+                  </div>
+                  </a>
               </div>
               }
             }

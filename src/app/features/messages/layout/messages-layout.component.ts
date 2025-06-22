@@ -20,7 +20,6 @@ import {
 } from '@angular/router';
 import { MessageListComponent } from '../list/messages-list.component';
 import { LayoutService } from './layout.service';
-import { ChatboxSettingsComponent } from '../chatbox-settings/chatbox-settings.component';
 import { ActiveViewType } from '../interfaces/active-view.type';
 import { SwipeDirective } from '../../../shared/directives/swipe.directive';
 
