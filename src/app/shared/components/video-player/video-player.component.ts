@@ -1,9 +1,13 @@
 import {
   Component,
+  DOCUMENT,
   ElementRef,
   HostListener,
+  Inject,
   input,
   linkedSignal,
+  OnDestroy,
+  OnInit,
   signal,
   viewChild,
 } from '@angular/core';
@@ -12,6 +16,8 @@ import {
   lucideCirclePause,
   lucideCirclePlay,
   lucideCircleStop,
+  lucideFullscreen,
+  lucideMinimize,
   lucideVolume,
   lucideVolume1,
   lucideVolume2,
@@ -23,10 +29,17 @@ import { HlmButtonDirective } from '@spartan-ng/ui-button-helm';
 import { MediaPlayerSizesT } from '../../types/media-player-sizes.type';
 import { NgClass } from '@angular/common';
 import { environment } from '../../../../environments/environment';
+import { FormatTimePipe } from '../../pipes/format-time.pipe';
 
 @Component({
   selector: 'app-video-player',
-  imports: [NgIcon, NgClass, HlmButtonDirective, HlmIconDirective],
+  imports: [
+    NgIcon,
+    NgClass,
+    HlmButtonDirective,
+    HlmIconDirective,
+    FormatTimePipe,
+  ],
   providers: [
     provideIcons({
       lucideCirclePlay,
@@ -36,6 +49,8 @@ import { environment } from '../../../../environments/environment';
       lucideVolume1,
       lucideVolume2,
       lucideVolumeX,
+      lucideMinimize,
+      lucideFullscreen,
     }),
   ],
   templateUrl: './video-player.component.html',
@@ -45,6 +60,7 @@ export class VideoPlayerComponent {
   size = input<MediaPlayerSizesT>('sm');
   videoPlayer = viewChild<ElementRef<HTMLMediaElement>>('videoPlayer');
   playerContainer = viewChild<ElementRef<HTMLDivElement>>('playerContainer');
+  timeline = viewChild<ElementRef<HTMLDivElement>>('timeline');
 
   apiUrl = environment.apiUrl;
 
@@ -58,13 +74,33 @@ export class VideoPlayerComponent {
   currentTime = signal<number>(0);
   progressPercentage = linkedSignal<number>(() => {
     const duration = this.duration();
+    const currentTime = this.currentTime();
 
-    return duration > 0
-      ? Math.floor((this.currentTime() / this.duration()) * 100)
-      : 0;
+    return duration > 0 ? Math.floor((currentTime / duration) * 100) : 0;
   });
 
   isFocused = signal<boolean>(false);
+  isFullscreen = signal<boolean>(false);
+  isDragging = signal<boolean>(false);
+
+  constructor(@Inject(DOCUMENT) private document: Document) {}
+
+  @HostListener('document:fullscreenchange')
+  @HostListener('document:webkitfullscreenchange')
+  @HostListener('document:mozfullscreenchange')
+  @HostListener('document:msfullscreenchange')
+  onFullscreenChange() {
+    this.isFullscreen.set(!!this.getFullscreenElement());
+  }
+
+  private getFullscreenElement(): Element | null {
+    return (
+      this.document.fullscreenElement ||
+      (this.document as any).webkitFullscreenElement ||
+      (this.document as any).mozFullScreenElement ||
+      (this.document as any).msFullscreenElement
+    );
+  }
 
   onTimeUpdate(videoElement: HTMLVideoElement): void {
     this.currentTime.set(videoElement.currentTime);
@@ -103,6 +139,52 @@ export class VideoPlayerComponent {
     this.volume.set(Number(newVolume));
   }
 
+  toggleFullscreen(): void {
+    const fullScreenElement = this.document.fullscreenElement;
+
+    if (fullScreenElement) {
+      this.document.exitFullscreen();
+    } else {
+      this.playerContainer()?.nativeElement.requestFullscreen();
+    }
+  }
+
+  setCurrentTime(event: MouseEvent) {
+    const timelineElement = this.timeline();
+    if (!timelineElement) return;
+
+    const rect = timelineElement.nativeElement.getBoundingClientRect();
+    const x = event.clientX - rect.left; // x position within the element.
+    const width = rect.width;
+    const percentage = Math.max(0, Math.min(1, x / width)); // Ensure value is between 0 and 1
+    const newTime = percentage * this.duration();
+
+    this.currentTime.set(newTime);
+    const videoPlayerEl = this.videoPlayer()?.nativeElement;
+
+    if (videoPlayerEl) {
+      videoPlayerEl.currentTime = newTime;
+    }
+  }
+
+  onTimelineMousedown(event: MouseEvent): void {
+    this.isDragging.set(true);
+    this.setCurrentTime(event);
+  }
+
+  @HostListener('window:mousemove', ['$event'])
+  onWindowMousemove(event: MouseEvent): void {
+    const timelineElement = this.timeline();
+    if (this.isDragging() && timelineElement) {
+      this.setCurrentTime(event);
+    }
+  }
+
+  @HostListener('window:mouseup', ['$event'])
+  onWindowMouseup(event: MouseEvent): void {
+    this.isDragging.set(false);
+  }
+
   @HostListener('window:keydown', ['$event'])
   handleKeyDown(event: KeyboardEvent) {
     if (!this.isFocused()) {
@@ -138,12 +220,7 @@ export class VideoPlayerComponent {
         break;
       case 'f':
         event.preventDefault();
-        const fullScreenElement = document.fullscreenElement;
-        if (fullScreenElement) {
-          document.exitFullscreen();
-        } else {
-          this.playerContainer()?.nativeElement.requestFullscreen();
-        }
+        this.toggleFullscreen();
         break;
       case 'ArrowLeft':
         event.preventDefault();
