@@ -370,7 +370,9 @@ export class ChatboxComponent implements OnInit, OnDestroy {
       return;
     }
 
-    if (!this.messageControl.value) return;
+    const content = this.messageControl.value;
+
+    if (!content || !content.trim()) return;
 
     if (!convo.createdAt) {
       this.isLoading.set(true);
@@ -384,7 +386,7 @@ export class ChatboxComponent implements OnInit, OnDestroy {
             const message: MessageI = {
               sender: sender,
               conversation: conversation._id,
-              content: this.messageControl.value!,
+              content,
               type: MessageType.TEXT,
               status: MessageStatus.SENDING,
               timestamp: new Date().toISOString(),
@@ -415,7 +417,7 @@ export class ChatboxComponent implements OnInit, OnDestroy {
       const message: MessageI = {
         sender: sender,
         conversation: convo._id,
-        content: this.messageControl.value,
+        content,
         type: MessageType.TEXT,
         status: MessageStatus.SENDING,
         timestamp: new Date().toISOString(),
