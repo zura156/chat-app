@@ -31,17 +31,11 @@ import {
   lucideVolume2,
   lucideVolume1,
 } from '@ng-icons/lucide';
-import {
-  BrnProgressComponent,
-  BrnProgressIndicatorComponent,
-} from '@spartan-ng/brain/progress';
-import { HlmProgressIndicatorDirective } from '@spartan-ng/ui-progress-helm';
-import { HlmButtonDirective } from '@spartan-ng/ui-button-helm';
 import { HlmIconDirective } from '@spartan-ng/ui-icon-helm';
 import { FileSizePipe } from '../../../shared/pipes/file-size.pipe';
 import { VideoPlayerComponent } from '../../../shared/components/video-player/video-player.component';
 import { HlmSkeletonComponent } from '../../../../../libs/ui/ui-skeleton-helm/src/lib/hlm-skeleton.component';
-import { FormatTimePipe } from '../../../shared/pipes/format-time.pipe';
+import { AudioPlayerComponent } from '../../../shared/components/audio-player/audio-player.component';
 
 @Component({
   selector: 'message-card',
@@ -52,12 +46,8 @@ import { FormatTimePipe } from '../../../shared/pipes/format-time.pipe';
     NgIcon,
     DatePipe,
     FileSizePipe,
-    FormatTimePipe,
-    BrnProgressComponent,
-    BrnProgressIndicatorComponent,
-    HlmProgressIndicatorDirective,
+    AudioPlayerComponent,
     HlmIconDirective,
-    HlmButtonDirective,
     MatTooltipModule,
     HlmCardDirective,
     HlmAvatarFallbackDirective,
@@ -92,17 +82,7 @@ export class MessageCardComponent {
   isImageLoaded = signal<boolean>(false);
   conversationService = inject(ConversationService);
 
-  audioCurrentTime = signal<number>(0);
-  audioDuration = linkedSignal<number>(
-    () => this.message()?.file?.duration || 0
-  );
-  audioProgressPercentage = linkedSignal<number>(() => {
-    const duration = this.audioDuration();
-
-    return duration > 0
-      ? Math.floor((this.audioCurrentTime() / this.audioDuration()) * 100)
-      : 0;
-  });
+  
 
   readonly apiUrl = environment.apiUrl;
 
@@ -125,13 +105,5 @@ export class MessageCardComponent {
 
   onFullImageLoad(): void {
     this.isImageLoaded.set(true);
-  }
-
-  onTimeUpdate(audio: HTMLAudioElement): void {
-    this.audioCurrentTime.set(audio.currentTime);
-
-    if (audio.paused || audio.ended) {
-      this.audioProgressPercentage.set(100);
-    }
   }
 }
