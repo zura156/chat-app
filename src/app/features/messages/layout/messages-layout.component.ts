@@ -21,17 +21,17 @@ import {
 import { MessageListComponent } from '../list/messages-list.component';
 import { LayoutService } from './layout.service';
 import { ActiveViewType } from '../interfaces/active-view.type';
-import { SwipeDirective } from '../../../shared/directives/swipe.directive';
+import { PanDirective } from '../../../shared/directives/pan.directive';
 
 @Component({
   selector: 'app-messages',
   imports: [
     RouterOutlet,
+    PanDirective,
     ReactiveFormsModule,
     HlmSeparatorDirective,
     BrnSeparatorComponent,
     NgTemplateOutlet,
-    SwipeDirective,
     MessageListComponent,
   ],
   templateUrl: './messages-layout.component.html',
@@ -99,25 +99,37 @@ export class MessagesLayoutComponent implements OnInit, OnDestroy {
     this.isMobile.set(this.windowWidth < 640);
   }
 
-  onSwipeLeft() {
-    if (this.isMobile()) {
-      if (this.activeView() === 'conversations') {
-        this.setActiveView('chatbox');
-      } else if (this.activeView() === 'chatbox') {
-        this.setActiveView('chatbox-settings');
-      }
-    }
+  onPanStart(data: any) {
+    console.log('Pan Start', data.startX, data.startY);
   }
 
-  onSwipeRight() {
-    if (this.isMobile()) {
-      if (this.activeView() === 'chatbox-settings') {
-        this.setActiveView('chatbox');
-      } else if (this.activeView() === 'chatbox') {
-        this.setActiveView('conversations');
-      }
-    }
+  onPanMove(data: any) {
+    console.log('Move', data.deltaX.toFixed(2), data.deltaY.toFixed(2));
   }
+
+  onPanEnd(data: any) {
+    console.log('Pan End', data.deltaX.toFixed(2), data.deltaY.toFixed(2));
+  }
+
+  // onSwipeLeft() {
+  //   if (this.isMobile()) {
+  //     if (this.activeView() === 'conversations') {
+  //       this.setActiveView('chatbox');
+  //     } else if (this.activeView() === 'chatbox') {
+  //       this.setActiveView('chatbox-settings');
+  //     }
+  //   }
+  // }
+
+  // onSwipeRight() {
+  //   if (this.isMobile()) {
+  //     if (this.activeView() === 'chatbox-settings') {
+  //       this.setActiveView('chatbox');
+  //     } else if (this.activeView() === 'chatbox') {
+  //       this.setActiveView('conversations');
+  //     }
+  //   }
+  // }
 
   setActiveView(destination: ActiveViewType) {
     this.layoutService.setActiveView(destination);

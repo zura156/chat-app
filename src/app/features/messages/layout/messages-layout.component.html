@@ -1,10 +1,11 @@
 <div class="overflow-hidden h-full">
   @if (isMobile()) {
-    <main 
-      appSwipe
-      (swipeLeft)="onSwipeLeft()"
-      (swipeRight)="onSwipeRight()"
-      class="relative w-full h-screen overflow-hidden md:flex"
+    <main
+      appPan
+      (panStart)="onPanStart($event)"
+      (panMove)="onPanMove($event)"
+      (panEnd)="onPanEnd($event)"
+      class="relative w-full h-screen overflow-hidden md:flex touch-none"
     >
       @if(activeView() === 'conversations' || activeView() === 'users'){
         <div>
