@@ -51,8 +51,8 @@ import { ToastrService } from 'ngx-toastr';
     ClickOutsideDirective,
     HlmIconDirective,
     NgIcon,
-    HlmButtonDirective
-],
+    HlmButtonDirective,
+  ],
   providers: [provideIcons({ lucideX, lucideCircleAlert })],
   templateUrl: './new-chat.component.html',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -63,20 +63,20 @@ export class NewChatComponent implements OnInit, OnDestroy {
   private readonly conversationService = inject(ConversationService);
   private readonly toast = inject(ToastrService);
 
-  readonly userListFlag = signal<boolean>(false);
-  readonly isLoading = signal<boolean>(false);
-  readonly error = signal<string | null>(null);
-  readonly searchQuery = signal<string>('');
+  userListFlag = signal<boolean>(false);
+  isLoading = signal<boolean>(false);
+  error = signal<string | null>(null);
+  searchQuery = signal<string>('');
 
   // Form control for search
-  readonly searchControl = new FormControl<string>('');
-  readonly groupNameControl = new FormControl<string>('', [
+  searchControl = new FormControl<string>('');
+  groupNameControl = new FormControl<string>('', [
     Validators.minLength(3),
     Validators.maxLength(32),
   ]);
 
-  readonly #users = signal<UserI[]>([]);
-  readonly #filteredUsers = computed(() => {
+  #users = signal<UserI[]>([]);
+  #filteredUsers = computed(() => {
     const query = this.searchQuery().toLowerCase();
     if (!query) return this.#users();
 

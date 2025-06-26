@@ -8,7 +8,6 @@
     >
       @if(activeView() === 'conversations' || activeView() === 'users'){
         <div>
-        {{activeView()}}
           <ng-container *ngTemplateOutlet="leftSide" ></ng-container>
         </div>
       } @else {

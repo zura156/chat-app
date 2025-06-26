@@ -53,7 +53,6 @@ import { HlmSkeletonComponent } from '@spartan-ng/ui-skeleton-helm';
 import { ConversationListI } from '../interfaces/conversation-list.interface';
 import { UserListI } from '../../user/interfaces/user-list.interface';
 import { toObservable } from '@angular/core/rxjs-interop';
-import { AuthService } from '../../auth/services/auth.service';
 import { WebSocketMessageT } from '../interfaces/web-socket-message.interface';
 import { WebSocketService } from '../services/web-socket.service';
 import { ToastrService } from 'ngx-toastr';

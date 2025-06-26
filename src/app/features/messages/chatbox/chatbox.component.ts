@@ -79,6 +79,7 @@ import { LayoutService } from '../layout/layout.service';
 import { NgClass } from '@angular/common';
 import { AudioRecorderComponent } from '../../../shared/components/audio-recorder/audio-recorder.component';
 import { RecordingResult } from '../../../shared/interfaces/audio-message.interface';
+import { ChatboxSettingsComponent } from '../chatbox-settings/chatbox-settings.component';
 
 @Component({
   selector: 'app-chatbox',
@@ -99,6 +100,7 @@ import { RecordingResult } from '../../../shared/interfaces/audio-message.interf
     BrnSeparatorComponent,
     ReactiveFormsModule,
     AudioRecorderComponent,
+    ChatboxSettingsComponent,
   ],
   providers: [
     provideIcons({
@@ -210,6 +212,7 @@ export class ChatboxComponent implements OnInit, OnDestroy {
   isVisible = signal<boolean>(false);
   isVisibilityObserving = signal<boolean>(false);
   isRecording = signal<boolean>(false);
+  isSettingsOpen = signal<boolean>(false);
 
   private recordingResult?: RecordingResult;
 
@@ -520,11 +523,7 @@ export class ChatboxComponent implements OnInit, OnDestroy {
   }
 
   toggleSettingsView(): void {
-    if (this.layoutService.activeView() === 'chatbox') {
-      this.layoutService.setActiveView('chatbox-settings');
-    } else {
-      this.layoutService.setActiveView('chatbox');
-    }
+    this.isSettingsOpen.update((val) => !val);
   }
 
   private handleWebSocketMessages(): Observable<WebSocketMessageT> {

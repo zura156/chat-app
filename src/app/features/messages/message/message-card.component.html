@@ -112,33 +112,36 @@
             [alt]="userCredentials.username"
             hlmAvatarImage
           />
-    </hlm-avatar>
+        </hlm-avatar>
+      }
+      <span class="text-xs text-gray-500">+{{ readReceipts().length - 4 }}</span>
+    } @else {
+      @for(readReceipt of readReceipts(); track readReceipt.user_id) {
+        @if(currentUser()._id !== readReceipt.user_id) {
+          @let userCredentials = this.getUserCredentials(readReceipt.user_id);
+          <button
+            type="button"
+            matTooltipClass="dark:bg-gray-300 text-start text-xs rounded-md dark:text-black"
+            matTooltipPosition="above"
+            aria-label="Button that displays a date when hovered user has read a message"
+            matTooltip="Seen by {{ userCredentials.username }} at {{
+              readReceipt.read_at | date : 'short'
+            }}"
+            class="w-fit"
+          >
+            <hlm-avatar variant="2xs" class="min-w-fit">
+              <img
+                [src]="userCredentials.profile_picture || '/icons/avatar.svg'"
+                [alt]="userCredentials.username"
+                hlmAvatarImage
+              />
+            </hlm-avatar>
+          </button>
+        }
+      }
     }
-    <span class="text-xs text-gray-500">+{{ readReceipts().length - 4 }}</span>
-    } @else{ @for(readReceipt of readReceipts(); track readReceipt.user_id) {
-    @if(currentUser()._id !== readReceipt.user_id) { @let userCredentials =
-    this.getUserCredentials(readReceipt.user_id);
-    <button
-      type="button"
-      matTooltipClass="dark:bg-gray-300 text-start text-xs rounded-md dark:text-black"
-      matTooltipPosition="above"
-      aria-label="Button that displays a date when hovered user has read a message"
-      matTooltip="Seen by {{ userCredentials.username }} at {{
-        readReceipt.read_at | date : 'short'
-      }}"
-      class="w-fit"
-    >
-      <hlm-avatar variant="2xs" class="min-w-fit">
-        <img
-          [src]="userCredentials.profile_picture || '/icons/avatar.svg'"
-          [alt]="userCredentials.username"
-          hlmAvatarImage
-        />
-      </hlm-avatar>
-    </button>
-    } } }
   </div>
-  } @else if(isCurrentUserMessage(message) && isLastMessage() && !isGroup()) {
+} @else if(isCurrentUserMessage(message) && isLastMessage() && !isGroup()) {
   <div hlmCardDescription class="text-xs text-end mt-1 opacity-70">
     <span
       >{{ `${(message.status | titlecase)} ${message.status !== 'sending' && message.status !== 'failed' ? (message.timestamp | timeAgo) : ''}` }}</span
