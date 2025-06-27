@@ -111,26 +111,6 @@ export class MessagesLayoutComponent implements OnInit, OnDestroy {
     console.log('Pan End', data.deltaX.toFixed(2), data.deltaY.toFixed(2));
   }
 
-  // onSwipeLeft() {
-  //   if (this.isMobile()) {
-  //     if (this.activeView() === 'conversations') {
-  //       this.setActiveView('chatbox');
-  //     } else if (this.activeView() === 'chatbox') {
-  //       this.setActiveView('chatbox-settings');
-  //     }
-  //   }
-  // }
-
-  // onSwipeRight() {
-  //   if (this.isMobile()) {
-  //     if (this.activeView() === 'chatbox-settings') {
-  //       this.setActiveView('chatbox');
-  //     } else if (this.activeView() === 'chatbox') {
-  //       this.setActiveView('conversations');
-  //     }
-  //   }
-  // }
-
   setActiveView(destination: ActiveViewType) {
     this.layoutService.setActiveView(destination);
   }

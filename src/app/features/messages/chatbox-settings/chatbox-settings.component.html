@@ -1,1 +1,126 @@
-<div class="h-full w-full bg-gray-800">test</div>
+@let conversation = this.conversation();
+
+<main class="h-full w-full py-12 p-2">
+  @if(conversation) {
+  <section class="space-y-4">
+    <div class="flex flex-col items-center space-y-2">
+      <div class="size-20 sm:size-30 border-2 rounded-full overflow-hidden">
+        @if(conversation.is_group) {
+        <img
+          [src]="
+            conversation.group_picture ? 
+            `${apiUrl}${conversation.group_picture}` : '/icons/group.svg'"
+          [alt]="conversation.group_name || 'group_picture'"
+          class="w-full h-full object-cover"
+        />
+        } @else {
+        <img
+          [src]="
+            conversation.participants[0].profile_picture ? 
+            `${apiUrl}${conversation.participants[0].profile_picture}` : '/icons/avatar.svg'"
+          [alt]="conversation.group_name || 'group_picture'"
+          class="w-full h-full object-cover"
+        />
+        }
+      </div>
+      <span class="font-medium text-xl text-center">
+        @for(participant of conversation?.participants; let i = $index; track
+        participant._id) {
+        <span>
+          {{
+            participant.first_name +
+              " " +
+              participant.last_name +
+              (i + 1 !== conversation.participants.length ? "," : "")
+          }}
+        </span>
+        }
+      </span>
+    </div>
+  </section>
+
+  @if(conversation.is_group) {
+    <section class="w-full h-full flex flex-col mt-12">
+        <div>
+            <button
+                (click)="toggleDropdown('chatInfo')"
+                class="w-full p-3 hover:bg-accent rounded-xl cursor-pointer"
+            >
+                <div class="flex items-center justify-between">
+                    <span class="font-medium"> Chat info </span>
+                    <ng-icon
+                        hlm
+                        [name]="
+                        isOpen('chatInfo') ? 'lucideChevronUp' : 'lucideChevronDown'
+                        "
+                    />
+                </div>
+            </button>
+
+            @if(isOpen('chatInfo')) {
+                <button (click)="onChatNameChange()" class="w-full text-sm p-3 hover:bg-accent rounded-xl cursor-pointer flex items-center text-start">
+                    <ng-icon hlm class="mr-1.5" name="lucidePencil"/> 
+                    <span>
+                        Change chat name
+                    </span>
+                </button>
+            }
+        </div>
+        <div>
+            <button
+                (click)="toggleDropdown('members')"
+                class="w-full p-3 hover:bg-accent rounded-xl cursor-pointer"
+            >
+                <div class="flex items-center justify-between">
+                    <span class="font-medium"> Members </span>
+                    <ng-icon
+                        hlm
+                        [name]="
+                        isOpen('members') ? 'lucideChevronUp' : 'lucideChevronDown'
+                        "
+                    />
+                </div>
+            </button>
+
+            @if(isOpen('members')) {
+                <button (click)="onAddMembers()" class="w-full text-sm p-3 hover:bg-accent rounded-xl cursor-pointer flex items-center text-start">
+                    <ng-icon hlm class="mr-1.5" name="lucidePencil"/> 
+                    <span>
+                        Add members
+                    </span>
+                </button>
+
+                <div class="w-full flex-col gap-x-2 space-y-2 mb-2">
+                    @for(participant of conversation.participants; track $index) {
+                        <div class="p-2 text-sm flex items-center justify-between hover:bg-accent rounded-full">
+                            <div class="flex items-center">
+                                <hlm-avatar variant="small" class="mr-2.5">
+                                    <img
+                                    [src]="participant.profile_picture ? `${apiUrl}${participant.profile_picture}` : '/icons/avatar.svg'"
+                                    [alt]="participant.username" hlmAvatarImage 
+                                    />
+                                </hlm-avatar>
+                                <span>
+                                    {{ `${participant.first_name} ${participant.last_name}` }}
+                                </span>
+                            </div>
+                            <button (click)="toggleUserMenu($index)" class="flex items-center p-1 rounded-full hover:bg-primary hover:text-secondary duration-150 cursor-pointer">
+                                <ng-icon hlm size="sm" name="lucideMenu" />
+                            </button>
+                        </div>
+                    }
+                </div>
+
+                <button (click)="onLeaveGroup()" class="w-full text-sm text-red-500 p-3 hover:bg-accent rounded-xl cursor-pointer flex items-center text-start">
+                    <ng-icon hlm class="mr-1.5" name="lucideDoorOpen" />
+                    <span>
+                        Leave group
+                    </span>
+                </button>
+            }
+        </div>
+    </section>
+    }
+
+} @else { Conversation is loading... }
+</main>

@@ -1,13 +1,9 @@
 @let conversation = this.conversation();
-@let activeView = this.activeView();
 
-<div class="w-full h-full flex">
-  <main 
-    class="duration-300 md:translate-0 md:opacity-100 relative w-full h-full flex flex-col py-2"
-    [ngClass]="{
-      '-translate-x-full opacity-0 pointer-events-none': isSettingsOpen(),
-      'translate-x-full opacity-0 pointer-events-none': activeView === 'users' || activeView === 'conversations'
-      }"
+<main class="w-full h-full flex">
+  <section 
+    class="duration-300 md:translate-0 md:opacity-100 relative h-full flex flex-col py-2"
+    [ngClass]="isSettingsOpen() ? 'w-1/2' : 'w-full'"
   >
   <brn-separator decorative hlmSeparator />
     <header class="flex w-full items-start py-2 px-2 sm:px-4 md:px-0 justify-between">
@@ -39,7 +35,7 @@
                   <span class="size-2.5 inline-block bg-green-700 rounded-full"></span>
                 } 
               } 
-            } 
+            }
           }
         </h1>
       </div>
@@ -194,7 +190,13 @@
         </button>
       </div>
     </footer>
-  </main>
+  </section>
 
-  <app-chatbox-settings></app-chatbox-settings> 
-</div>
+  <brn-separator decorative hlmSeparator orientation="vertical"/>
+
+  
+  <section class="duration-300 overflow-hidden max-w-1/2" [ngClass]="isSettingsOpen() ? 'w-1/2 opacity-100 pointer-events-auto': 'w-0 opacity-0 pointer-events-none'">
+    
+    <app-chatbox-settings [conversation]="conversation ?? undefined" /> 
+  </section>
+</main>
