@@ -71,10 +71,10 @@
         "./libs/ui/ui-sonner-helm/src/index.ts"
       ],
       "@spartan-ng/helm/menu": [
-        ".\\libs/ui/ui-menu-helm/src/index.ts"
+        "./libs/ui/ui-menu-helm/src/index.ts"
       ],
       "@spartan-ng/helm/icon": [
-        ".\\libs/ui/ui-icon-helm/src/index.ts"
+        "./libs/ui/ui-icon-helm/src/index.ts"
       ]
     }
   },
