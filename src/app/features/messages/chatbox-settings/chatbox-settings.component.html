@@ -92,7 +92,7 @@
 
                 <div class="w-full flex-col gap-x-2 space-y-2 mb-2">
                     @for(participant of conversation.participants; track $index) {
-                        <div class="p-2 text-sm flex items-center justify-between hover:bg-accent rounded-full">
+                        <div class="p-2 text-sm flex items-center justify-between hover:bg-accent rounded-full relative">
                             <div class="flex items-center">
                                 <hlm-avatar variant="small" class="mr-2.5">
                                     <img
@@ -104,9 +104,34 @@
                                     {{ `${participant.first_name} ${participant.last_name}` }}
                                 </span>
                             </div>
-                            <button (click)="toggleUserMenu($index)" class="flex items-center p-1 rounded-full hover:bg-primary hover:text-secondary duration-150 cursor-pointer">
+                            <button [brnMenuTriggerFor]="menu" class="flex items-center p-1 rounded-full hover:bg-primary hover:text-secondary duration-150 cursor-pointer">
                                 <ng-icon hlm size="sm" name="lucideMenu" />
                             </button>
+                            <ng-template #menu>
+                                <hlm-menu>
+                                    <hlm-menu-group>
+                                        <button (click)="onMessageMember(participant)" hlmMenuItem class="cursor-pointer">
+                                            <ng-icon hlm name="lucideMessageCircle" hlmMenuIcon />
+                                            <span>
+                                                Message
+                                            </span>
+                                        </button>
+                                        
+                                        <hlm-menu-separator />
+                                        
+                                        <button [routerLink]="`/${participant._id}`" hlmMenuItem class="cursor-pointer">
+                                            <ng-icon hlm name="lucideCircleUserRound" hlmMenuIcon />
+                                            View profile
+                                        </button>
+                                        <hlm-menu-separator />
+                                        
+                                        <button (click)="onRemoveMember(participant._id)" hlmMenuItem class="cursor-pointer">
+                                            <ng-icon hlm name="lucideUserRoundMinus" hlmMenuIcon />
+                                            Remove member
+                                        </button>
+                                    </hlm-menu-group>
+                                </hlm-menu>
+                            </ng-template>
                         </div>
                     }
                 </div>

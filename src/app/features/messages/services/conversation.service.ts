@@ -17,6 +17,7 @@ import { UserI } from '../../user/interfaces/user.interface';
 import { WebSocketService } from './web-socket.service';
 import { ConversationJoinMessage } from '../interfaces/web-socket-message.interface';
 import { UserService } from '../../user/services/user.service';
+import { ParticipantI } from '../interfaces/participant.interface';
 
 @Injectable()
 export class ConversationService {
@@ -37,13 +38,13 @@ export class ConversationService {
   #activeConversation = signal<ConversationI | null>(null);
   activeConversation = computed<ConversationI | null>(this.#activeConversation);
 
-  #selectedUser = signal<UserI | null>(null);
+  #selectedUser = signal<ParticipantI | null>(null);
   selectedUser = computed(this.#selectedUser);
 
   #conversationList = signal<ConversationListI | null>(null);
   conversationList = computed<ConversationListI | null>(this.#conversationList);
 
-  selectUserForConversation(user: UserI): void {
+  selectUserForConversation(user: ParticipantI): void {
     sessionStorage.setItem('selectedUser', JSON.stringify(user));
     this.#selectedUser.set(user);
   }

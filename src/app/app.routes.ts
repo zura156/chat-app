@@ -23,9 +23,14 @@ export const routes: Routes = [
     component: RegisterComponent,
     canActivate: [unauthenticatedGuard],
   },
-  // {
-  //   path: 'profile', // profile preference settings for the user (e.g. display name, profile picture, etc.)
-  // },
+  {
+    path: 'settings', // preference & user profile settings (e.g. display name, pfp, theme preferences, etc.)
+    loadChildren: () =>
+      import('./features/user/components/settings/settings.routes').then(
+        (m) => m.settingsRoutes
+      ),
+    canActivate: [authGuard],
+  },
   {
     path: 'messages',
     loadChildren: () =>
@@ -33,6 +38,14 @@ export const routes: Routes = [
         (m) => m.messagesRoutes
       ),
     providers: [MessageService, ConversationService, NotificationService],
+    canActivate: [authGuard],
+  },
+  {
+    path: ':id', // User page
+    loadComponent: () =>
+      import('./features/user/components/page/user-page.component').then(
+        (c) => c.UserPageComponent
+      ),
     canActivate: [authGuard],
   },
   {

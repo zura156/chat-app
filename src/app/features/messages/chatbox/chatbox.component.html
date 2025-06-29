@@ -18,23 +18,25 @@
         <h1 class="font-medium text-2xl flex-col justify-center gap-x-4">
           @if(conversation) {
             @for(participant of conversation?.participants; let i = $index; track participant._id) {
-              <span>
-                {{
-                  participant.first_name +
-                  " " +
-                  participant.last_name +
-                  (i + 1 !== conversation.participants.length ? "," : "")
-                }}
-              </span>
-              @if(!conversation.is_group) { 
-                @if(participant.status === 'offline') {
-                  <span class="text-sm block text-gray-500">
-                    Last active {{ participant.last_seen ?? "" | timeAgo }}
-                  </span>
-                } @else {
-                  <span class="size-2.5 inline-block bg-green-700 rounded-full"></span>
+              @if(participant._id !== currentUser?._id) {
+                <span>
+                  {{
+                    participant.first_name +
+                    " " +
+                    participant.last_name +
+                    (i + 1 !== conversation.participants.length ? "," : "")
+                  }}
+                </span>
+                @if(!conversation.is_group) { 
+                  @if(participant.status === 'online') {
+                    <span class="size-2.5 inline-block bg-green-700 rounded-full"></span>
+                  } @else {
+                    <span class="text-sm block text-gray-500">
+                      Last active {{ participant.last_seen ?? "" | timeAgo }}
+                    </span>
+                  } 
                 } 
-              } 
+              }
             }
           }
         </h1>
