@@ -1,1 +1,26 @@
-user page works
+@let user = this.selectedUser(); 
+@if(user) {
+    <div class="h-full w-full p-2 xs:p-4 sm:p-8 md:p-16">
+        <section hlmCard>
+            <div hlmCardHeader>
+                <div class="flex items-center justify-between">
+                    <div>
+                        <h3 hlmCardTitle class="font-medium">{{ `${user.first_name} ${user.last_name} (${user.username})` }}</h3>
+                        <p hlmCardDescription>{{ user.bio || "User doesn't have a bio" }}</p>
+                    </div>
+                    <div>
+                        <hlm-avatar>
+                            <img 
+                                [src]='user.profile_picture ? `${apiUrl}/${user.profile_picture}` : "/icons/avatar.svg"' 
+                                [alt]='user.username' hlmAvatarImage 
+                            />
+                        </hlm-avatar>
+                    </div>
+                </div>
+            </div>
+            <!-- <brn-separator decorative hlm />
+            <p hlmCardContent>{{ user.status }}</p>
+            <p hlmCardFooter>Card Footer</p> -->
+        </section>
+    </div>
+}

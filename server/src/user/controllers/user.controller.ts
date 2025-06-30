@@ -3,6 +3,42 @@ import { NextFunction, Response } from 'express';
 import { User } from '../../user/models/user.model';
 import { createCustomError } from '../../error-handling/models/custom-api-error.model';
 
+export const getUserById = async (
+  req: AuthRequest,
+  res: Response,
+  next: NextFunction
+): Promise<void> => {
+  const { id } = req.params;
+
+  try {
+    if (!req.user) {
+      next(createCustomError('Not authenticated!', 401));
+      return;
+    }
+
+    if (!id) {
+      next(createCustomError('User ID was not provided.', 400));
+      return;
+    }
+
+    const user = await User.findById(id).select([
+      '-password',
+      '-accessToken',
+      '-refreshToken',
+    ]);
+
+    if (!user) {
+      res.status(404).json({ message: 'User not found' });
+      return;
+    }
+
+    res.status(200).json(user);
+  } catch (error) {
+    console.error('Get current user error:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+};
+
 export const getCurrentUser = async (
   req: AuthRequest,
   res: Response,

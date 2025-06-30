@@ -3,6 +3,7 @@ export interface UserI {
   first_name: string;
   last_name: string;
   username: string;
+  bio: string;
   email: string;
   profile_picture?: string;
   status?: 'offline' | 'online';

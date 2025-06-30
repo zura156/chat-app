@@ -3,6 +3,7 @@ import { authenticate } from '../../auth/middlewares/auth.middleware';
 import {
   deleteUser,
   getCurrentUser,
+  getUserById,
   getUsers,
   searchUsers,
   updateUserDetails,
@@ -16,5 +17,6 @@ router.delete('/profile/delete', authenticate, deleteUser);
 
 router.get('/', authenticate, getUsers);
 router.get('/search', authenticate, searchUsers);
+router.get('/:id', authenticate, getUserById);
 
 export default router;

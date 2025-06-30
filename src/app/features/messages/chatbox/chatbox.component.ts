@@ -58,7 +58,6 @@ import { HlmSpinnerComponent } from '@spartan-ng/ui-spinner-helm';
 import { UserI } from '../../user/interfaces/user.interface';
 import { ParticipantI } from '../interfaces/participant.interface';
 import {
-  FileUploadMessage,
   MessageStatusMessage,
   TypingMessage,
   WebSocketMessageT,

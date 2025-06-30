@@ -10,6 +10,10 @@
 @variant group-fullscreen (.group:fullscreen &);
 @variant peer-fullscreen (.peer:fullscreen &);
 
+@theme {
+  --breakpoint-xs: 30rem;
+}
+
 :root {
   --background: 0 0% 100%;
   --foreground: 240 10% 3.9%;

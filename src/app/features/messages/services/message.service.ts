@@ -9,20 +9,8 @@ import {
 } from '@angular/core';
 import { environment } from '../../../../environments/environment';
 import { HttpClient, httpResource } from '@angular/common/http';
-import {
-  catchError,
-  debounceTime,
-  map,
-  Observable,
-  of,
-  tap,
-  throwError,
-} from 'rxjs';
-import {
-  MessageI,
-  MessageStatus,
-  MessageType,
-} from '../interfaces/message.interface';
+import { debounceTime, Observable, of } from 'rxjs';
+import { MessageI, MessageStatus } from '../interfaces/message.interface';
 import { MessageListI } from '../interfaces/message-list.interface';
 import { ParticipantI } from '../interfaces/participant.interface';
 import { ConversationService } from './conversation.service';

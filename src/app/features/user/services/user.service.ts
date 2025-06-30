@@ -2,7 +2,7 @@ import { HttpClient } from '@angular/common/http';
 import { computed, inject, Injectable, signal } from '@angular/core';
 import { environment } from '../../../../environments/environment';
 import { UserI } from '../interfaces/user.interface';
-import { Observable, tap } from 'rxjs';
+import { Observable, of, tap } from 'rxjs';
 import { UserListI } from '../interfaces/user-list.interface';
 import { WebSocketService } from '../../messages/services/web-socket.service';
 import { UserStatusMessage } from '../../messages/interfaces/web-socket-message.interface';
@@ -18,9 +18,11 @@ export class UserService {
 
   private readonly _GET_CURRENT_USER_URL = `${this.apiUrl}/user/profile`;
   private readonly _GET_USERS_URL = `${this.apiUrl}/user`;
+  private readonly _GET_USER_BY_ID = `${this.apiUrl}/user/:id`;
   private readonly _SEARCH_USERS_URL = `${this.apiUrl}/user/search`;
 
   currentUser = signal<UserI | null>(null);
+  selectedUser = signal<UserI | null>(null);
 
   #users = signal<UserListI | null>(null);
   users = computed(this.#users);
@@ -49,6 +51,16 @@ export class UserService {
     return this.http
       .get<UserI>(this._GET_CURRENT_USER_URL)
       .pipe(tap((res) => this.currentUser.set(res)));
+  }
+
+  getUserById(userId: string): Observable<UserI> {
+    const user = this.selectedUser();
+    if (user && user._id === userId) return of(user);
+
+    const url = `${this._GET_USER_BY_ID.split(':id')[0]}${userId}`;
+    return this.http
+      .get<UserI>(url)
+      .pipe(tap((res) => this.selectedUser.set(res)));
   }
 
   fetchUsers(offset = 0, limit = 20): Observable<UserListI> {

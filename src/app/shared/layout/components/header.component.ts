@@ -12,10 +12,10 @@ export class HeaderComponent {
   themeService = inject(ThemeService);
   authService = inject(AuthService);
 
-  darkMode$ = this.themeService.darkMode$;
+  themeMode$ = this.themeService.themeMode$;
 
-  toggleDarkMode(): void {
-    this.themeService.toggleDarkMode();
+  switchTheme(): void {
+    this.themeService.switchTheme();
   }
 
   logOut(): void {
