@@ -1,11 +1,11 @@
 import { Component, input } from '@angular/core';
 import { UserI } from '../../interfaces/user.interface';
-import { HlmCardDirective } from '@spartan-ng/ui-card-helm';
+import { HlmCardDirective } from '@spartan-ng/helm/card';
 import {
   HlmAvatarComponent,
   HlmAvatarFallbackDirective,
   HlmAvatarImageDirective,
-} from '@spartan-ng/ui-avatar-helm';
+} from '@spartan-ng/helm/avatar';
 
 @Component({
   selector: 'app-user-card',

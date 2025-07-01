@@ -37,9 +37,9 @@ import {
 import {
   HlmAvatarImageDirective,
   HlmAvatarComponent,
-} from '@spartan-ng/ui-avatar-helm';
+} from '@spartan-ng/helm/avatar';
 import { BrnSeparatorComponent } from '@spartan-ng/brain/separator';
-import { HlmSeparatorDirective } from '@spartan-ng/ui-separator-helm';
+import { HlmSeparatorDirective } from '@spartan-ng/helm/separator';
 import {
   GroupedMessages,
   MessageI,
@@ -49,12 +49,12 @@ import {
 import {
   HlmCardDescriptionDirective,
   HlmCardDirective,
-} from '@spartan-ng/ui-card-helm';
+} from '@spartan-ng/helm/card';
 import { FormControl, ReactiveFormsModule } from '@angular/forms';
-import { HlmButtonDirective } from '@spartan-ng/ui-button-helm';
-import { HlmInputDirective } from '@spartan-ng/ui-input-helm';
+import { HlmButtonDirective } from '@spartan-ng/helm/button';
+import { HlmInputDirective } from '@spartan-ng/helm/input';
 import { WebSocketService } from '../services/web-socket.service';
-import { HlmSpinnerComponent } from '@spartan-ng/ui-spinner-helm';
+import { HlmSpinnerComponent } from '@spartan-ng/helm/spinner';
 import { UserI } from '../../user/interfaces/user.interface';
 import { ParticipantI } from '../interfaces/participant.interface';
 import {
@@ -73,7 +73,7 @@ import {
   lucidePaperclip,
   lucideSend,
 } from '@ng-icons/lucide';
-import { HlmIconDirective } from '@spartan-ng/ui-icon-helm';
+import { HlmIconDirective } from '@spartan-ng/helm/icon';
 import { LayoutService } from '../layout/layout.service';
 import { NgClass } from '@angular/common';
 import { AudioRecorderComponent } from '../../../shared/components/audio-recorder/audio-recorder.component';

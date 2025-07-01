@@ -2,19 +2,19 @@
   "version": "6.0",
   "nxVersion": "20.6.0",
   "pathMappings": {
-    "@spartan-ng/ui-input-helm": [
+    "@spartan-ng/helm/input": [
       ".\\libs/ui/ui-input-helm/src/index.ts"
     ],
-    "@spartan-ng/ui-formfield-helm": [
+    "@spartan-ng/helm/form-field": [
       ".\\libs/ui/ui-formfield-helm/src/index.ts"
     ],
-    "@spartan-ng/ui-label-helm": [
+    "@spartan-ng/helm/label": [
       ".\\libs/ui/ui-label-helm/src/index.ts"
     ],
-    "@spartan-ng/ui-button-helm": [
+    "@spartan-ng/helm/button": [
       ".\\libs/ui/ui-button-helm/src/index.ts"
     ],
-    "@spartan-ng/ui-icon-helm": [
+    "@spartan-ng/helm/icon": [
       ".\\libs/ui/ui-icon-helm/src/index.ts"
     ]
   },

@@ -2,7 +2,7 @@ import { Component, inject, input } from '@angular/core';
 import { ConversationI } from '../interfaces/conversation.interface';
 import { environment } from '../../../../environments/environment';
 import { NgIcon, provideIcons } from '@ng-icons/core';
-import { HlmIconDirective } from '@spartan-ng/ui-icon-helm';
+import { HlmIconDirective } from '@spartan-ng/helm/icon';
 import {
   lucideChevronDown,
   lucideChevronUp,
@@ -16,7 +16,7 @@ import {
 import {
   HlmAvatarImageDirective,
   HlmAvatarComponent,
-} from '@spartan-ng/ui-avatar-helm';
+} from '@spartan-ng/helm/avatar';
 import { BrnMenuTriggerDirective } from '@spartan-ng/brain/menu';
 import {
   HlmMenuComponent,

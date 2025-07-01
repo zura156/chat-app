@@ -3,14 +3,14 @@ import {
   BrnProgressComponent,
   BrnProgressIndicatorComponent,
 } from '@spartan-ng/brain/progress';
-import { HlmProgressIndicatorDirective } from '@spartan-ng/ui-progress-helm';
+import { HlmProgressIndicatorDirective } from '@spartan-ng/helm/progress';
 import { FormatTimePipe } from '../../pipes/format-time.pipe';
-import { HlmButtonDirective } from '@spartan-ng/ui-button-helm';
+import { HlmButtonDirective } from '@spartan-ng/helm/button';
 import { MediaPlayerSizesT } from '../../types/media-player-sizes.type';
 import { FileI } from '../../../features/messages/interfaces/message.interface';
 import { environment } from '../../../../environments/environment';
 import { NgIcon } from '@ng-icons/core';
-import { HlmIconDirective } from '@spartan-ng/ui-icon-helm';
+import { HlmIconDirective } from '@spartan-ng/helm/icon';
 
 @Component({
   selector: 'app-audio-player',

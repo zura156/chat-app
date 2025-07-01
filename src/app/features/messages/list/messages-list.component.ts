@@ -7,9 +7,9 @@ import {
   signal,
 } from '@angular/core';
 import { ConversationCardComponent } from '../card/conversation-card.component';
-import { HlmSeparatorDirective } from '@spartan-ng/ui-separator-helm';
+import { HlmSeparatorDirective } from '@spartan-ng/helm/separator';
 import { BrnSeparatorComponent } from '@spartan-ng/brain/separator';
-import { HlmButtonDirective } from '@spartan-ng/ui-button-helm';
+import { HlmButtonDirective } from '@spartan-ng/helm/button';
 import { NgIcon, provideIcons } from '@ng-icons/core';
 import {
   lucideChevronLeft,
@@ -17,12 +17,12 @@ import {
   lucideMenu,
   lucidePencil,
 } from '@ng-icons/lucide';
-import { HlmIconDirective } from '@spartan-ng/ui-icon-helm';
+import { HlmIconDirective } from '@spartan-ng/helm/icon';
 import { ConversationService } from '../services/conversation.service';
 
 import { Router, RouterLink } from '@angular/router';
-import { HlmInputDirective } from '@spartan-ng/ui-input-helm';
-import { HlmBadgeDirective } from '@spartan-ng/ui-badge-helm';
+import { HlmInputDirective } from '@spartan-ng/helm/input';
+import { HlmBadgeDirective } from '@spartan-ng/helm/badge';
 import { UserService } from '../../user/services/user.service';
 import { UserCardComponent } from '../../user/components/card/user-card.component';
 import {
@@ -47,9 +47,9 @@ import {
   HlmTabsListComponent,
   HlmTabsTriggerDirective,
   HlmTabsContentDirective,
-} from '@spartan-ng/ui-tabs-helm';
+} from '@spartan-ng/helm/tabs';
 import { LayoutService } from '../layout/layout.service';
-import { HlmSkeletonComponent } from '@spartan-ng/ui-skeleton-helm';
+import { HlmSkeletonComponent } from '@spartan-ng/helm/skeleton';
 import { ConversationListI } from '../interfaces/conversation-list.interface';
 import { UserListI } from '../../user/interfaces/user-list.interface';
 import { toObservable } from '@angular/core/rxjs-interop';

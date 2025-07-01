@@ -28,8 +28,8 @@ import {
   lucideVolumeX,
 } from '@ng-icons/lucide';
 import { FileI } from '../../../features/messages/interfaces/message.interface';
-import { HlmIconDirective } from '@spartan-ng/ui-icon-helm';
-import { HlmButtonDirective } from '@spartan-ng/ui-button-helm';
+import { HlmIconDirective } from '@spartan-ng/helm/icon';
+import { HlmButtonDirective } from '@spartan-ng/helm/button';
 import { MediaPlayerSizesT } from '../../types/media-player-sizes.type';
 import { NgClass, NgTemplateOutlet } from '@angular/common';
 import { environment } from '../../../../environments/environment';

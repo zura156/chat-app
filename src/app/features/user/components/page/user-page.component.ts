@@ -15,9 +15,9 @@ import {
   HlmAvatarImageDirective,
   HlmAvatarComponent,
   HlmAvatarFallbackDirective,
-} from '@spartan-ng/ui-avatar-helm';
+} from '@spartan-ng/helm/avatar';
 import { BrnSeparatorComponent } from '@spartan-ng/brain/separator';
-import { HlmSeparatorDirective } from '@spartan-ng/ui-separator-helm';
+import { HlmSeparatorDirective } from '@spartan-ng/helm/separator';
 import { environment } from '../../../../../environments/environment';
 
 @Component({

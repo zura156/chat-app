@@ -1,7 +1,7 @@
 import { Component, inject } from '@angular/core';
 import { RouterOutlet } from '@angular/router';
 import { HeaderComponent } from './shared/layout/components/header.component';
-import { HlmToasterComponent } from '@spartan-ng/ui-sonner-helm';
+import { HlmToasterComponent } from '@spartan-ng/helm/sonner';
 import { ThemeService } from './shared/services/theme.service';
 import { AsyncPipe } from '@angular/common';
 

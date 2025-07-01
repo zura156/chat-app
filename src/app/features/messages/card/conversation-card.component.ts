@@ -1,5 +1,5 @@
 import { Component, inject, input, linkedSignal } from '@angular/core';
-import { HlmCardDirective } from '@spartan-ng/ui-card-helm';
+import { HlmCardDirective } from '@spartan-ng/helm/card';
 import { ConversationI } from '../interfaces/conversation.interface';
 import { RouterLink } from '@angular/router';
 import { LayoutService } from '../layout/layout.service';
@@ -7,7 +7,7 @@ import { HlmIconModule } from '../../../../../libs/ui/ui-icon-helm/src/index';
 import {
   HlmAvatarComponent,
   HlmAvatarImageDirective,
-} from '@spartan-ng/ui-avatar-helm';
+} from '@spartan-ng/helm/avatar';
 import { UserService } from '../../user/services/user.service';
 import { TimeAgoPipe } from '../../../shared/pipes/time-ago.pipe';
 import { environment } from '../../../../environments/environment';

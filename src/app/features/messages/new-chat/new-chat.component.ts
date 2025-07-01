@@ -23,8 +23,8 @@ import {
   throwError,
 } from 'rxjs';
 import { FormControl, ReactiveFormsModule, Validators } from '@angular/forms';
-import { HlmInputDirective } from '@spartan-ng/ui-input-helm';
-import { HlmSeparatorDirective } from '@spartan-ng/ui-separator-helm';
+import { HlmInputDirective } from '@spartan-ng/helm/input';
+import { HlmSeparatorDirective } from '@spartan-ng/helm/separator';
 import { UserI } from '../../user/interfaces/user.interface';
 
 import { NgScrollbarModule } from 'ngx-scrollbar';
@@ -32,10 +32,10 @@ import { UserCardComponent } from '../../user/components/card/user-card.componen
 import { ClickOutsideDirective } from '../../../shared/directives/click-outside.directive';
 import { NgIcon, provideIcons } from '@ng-icons/core';
 import { lucideCircleAlert, lucideX } from '@ng-icons/lucide';
-import { HlmIconDirective } from '@spartan-ng/ui-icon-helm';
-import { HlmButtonDirective } from '@spartan-ng/ui-button-helm';
-import { HlmLabelDirective } from '@spartan-ng/ui-label-helm';
-import { HlmErrorDirective } from '@spartan-ng/ui-formfield-helm';
+import { HlmIconDirective } from '@spartan-ng/helm/icon';
+import { HlmButtonDirective } from '@spartan-ng/helm/button';
+import { HlmLabelDirective } from '@spartan-ng/helm/label';
+import { HlmErrorDirective } from '@spartan-ng/helm/form-field';
 import { ToastrService } from 'ngx-toastr';
 
 @Component({

@@ -18,9 +18,9 @@ import {
   BrnProgressComponent,
   BrnProgressIndicatorComponent,
 } from '@spartan-ng/brain/progress';
-import { HlmButtonDirective } from '@spartan-ng/ui-button-helm';
-import { HlmIconDirective } from '@spartan-ng/ui-icon-helm';
-import { HlmProgressIndicatorDirective } from '@spartan-ng/ui-progress-helm';
+import { HlmButtonDirective } from '@spartan-ng/helm/button';
+import { HlmIconDirective } from '@spartan-ng/helm/icon';
+import { HlmProgressIndicatorDirective } from '@spartan-ng/helm/progress';
 import { OnInit } from '@angular/core';
 import { RecordingResult } from '../../interfaces/audio-message.interface';
 

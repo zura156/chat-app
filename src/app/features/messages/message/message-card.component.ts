@@ -9,13 +9,13 @@ import {
 import { UserI } from '../../user/interfaces/user.interface';
 import { MessageI } from '../interfaces/message.interface';
 import { DatePipe, NgClass, TitleCasePipe } from '@angular/common';
-import { HlmCardDirective } from '@spartan-ng/ui-card-helm';
+import { HlmCardDirective } from '@spartan-ng/helm/card';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import {
   HlmAvatarComponent,
   HlmAvatarFallbackDirective,
   HlmAvatarImageDirective,
-} from '@spartan-ng/ui-avatar-helm';
+} from '@spartan-ng/helm/avatar';
 import { TimeAgoPipe } from '../../../shared/pipes/time-ago.pipe';
 import { ConversationService } from '../services/conversation.service';
 import { ReadReceiptI } from '../interfaces/conversation.interface';
@@ -31,7 +31,7 @@ import {
   lucideVolume2,
   lucideVolume1,
 } from '@ng-icons/lucide';
-import { HlmIconDirective } from '@spartan-ng/ui-icon-helm';
+import { HlmIconDirective } from '@spartan-ng/helm/icon';
 import { FileSizePipe } from '../../../shared/pipes/file-size.pipe';
 import { VideoPlayerComponent } from '../../../shared/components/video-player/video-player.component';
 import { HlmSkeletonComponent } from '../../../../../libs/ui/ui-skeleton-helm/src/lib/hlm-skeleton.component';

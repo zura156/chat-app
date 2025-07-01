@@ -9,12 +9,12 @@ import { Router, RouterLink } from '@angular/router';
 import { repeatPasswordValidator } from '../validators/repeat-password.validator';
 import { AuthService } from '../services/auth.service';
 import { RegisterCredentialsI } from '../interfaces/register-credentials.interface';
-import { HlmButtonDirective } from '@spartan-ng/ui-button-helm';
-import { HlmFormFieldModule } from '@spartan-ng/ui-formfield-helm';
-import { HlmInputDirective } from '@spartan-ng/ui-input-helm';
-import { HlmLabelDirective } from '@spartan-ng/ui-label-helm';
+import { HlmButtonDirective } from '@spartan-ng/helm/button';
+import { HlmFormFieldModule } from '@spartan-ng/helm/form-field';
+import { HlmInputDirective } from '@spartan-ng/helm/input';
+import { HlmLabelDirective } from '@spartan-ng/helm/label';
 
-import { HlmIconDirective } from '@spartan-ng/ui-icon-helm';
+import { HlmIconDirective } from '@spartan-ng/helm/icon';
 import { NgIcon, provideIcons } from '@ng-icons/core';
 import {
   lucideCircleAlert,
@@ -26,7 +26,7 @@ import {
   HlmAlertDescriptionDirective,
   HlmAlertDirective,
   HlmAlertIconDirective,
-} from '@spartan-ng/ui-alert-helm';
+} from '@spartan-ng/helm/alert';
 import { passwordValidator } from '../validators/password.validator';
 
 @Component({
