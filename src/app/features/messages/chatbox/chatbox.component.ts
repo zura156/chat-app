@@ -209,7 +209,12 @@ export class ChatboxComponent implements OnInit, OnDestroy {
   isVisible = signal<boolean>(false);
   isVisibilityObserving = signal<boolean>(false);
   isRecording = signal<boolean>(false);
-  isSettingsOpen = signal<boolean>(false);
+
+  // handling chat settings open state
+  private readonly CHAT_PREFERENCE_STORAGE_KEY = 'prefers-chat-settings-open';
+  isSettingsOpen = signal<boolean>(
+    Boolean(localStorage.getItem(this.CHAT_PREFERENCE_STORAGE_KEY))
+  );
 
   private recordingResult?: RecordingResult;
 
@@ -484,7 +489,12 @@ export class ChatboxComponent implements OnInit, OnDestroy {
   }
 
   toggleSettingsView(): void {
-    this.isSettingsOpen.update((val) => !val);
+    this.isSettingsOpen.update((val) => {
+      const newValue = !val;
+      localStorage.setItem(this.CHAT_PREFERENCE_STORAGE_KEY, String(newValue));
+
+      return newValue;
+    });
   }
 
   private handleWebSocketMessages(): Observable<WebSocketMessageT> {

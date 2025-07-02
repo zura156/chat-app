@@ -36,6 +36,12 @@
         </span>
         }
       </span>
+      @if(!conversation.is_group) {
+        <button hlmBtn variant="outline" [routerLink]="`/${conversation.participants[0]._id}`" class="items-end cursor-pointer">
+            <ng-icon hlm name="lucideCircleUserRound" class="mr-2" />
+            View profile
+        </button>
+      }
     </div>
   </section>
 

@@ -28,6 +28,7 @@ import {
 import { Router, RouterLink } from '@angular/router';
 import { ConversationService } from '../services/conversation.service';
 import { ParticipantI } from '../interfaces/participant.interface';
+import { HlmButtonDirective } from '@spartan-ng/helm/button';
 
 @Component({
   selector: 'app-chatbox-settings',
@@ -39,6 +40,7 @@ import { ParticipantI } from '../interfaces/participant.interface';
     BrnMenuTriggerDirective,
     HlmMenuItemIconDirective,
     HlmMenuItemDirective,
+    HlmButtonDirective,
     HlmMenuComponent,
     HlmMenuGroupComponent,
     HlmMenuSeparatorComponent,
