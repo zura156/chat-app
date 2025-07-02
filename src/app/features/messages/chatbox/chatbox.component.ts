@@ -64,7 +64,6 @@ import {
 } from '../interfaces/web-socket-message.interface';
 import { TimeAgoPipe } from '../../../shared/pipes/time-ago.pipe';
 import { MessageCardComponent } from '../message/message-card.component';
-import { ToastrService } from 'ngx-toastr';
 import { NgIcon, provideIcons } from '@ng-icons/core';
 import {
   lucideAudioLines,
@@ -122,7 +121,6 @@ export class ChatboxComponent implements OnInit, OnDestroy {
   private readonly conversationService = inject(ConversationService);
   private readonly messageService = inject(MessageService);
   private readonly webSocketService = inject(WebSocketService);
-  private readonly toast = inject(ToastrService);
 
   messageControl = new FormControl<string>('');
 
@@ -254,42 +252,6 @@ export class ChatboxComponent implements OnInit, OnDestroy {
             switchMap(() => this.handleWebSocketMessages()),
             catchError((err) => this.handleError(err, true)),
             tap(() => this.isLoading.set(false))
-            // switchMap((c) => {
-            //   if (!c) {
-            //     return EMPTY;
-            //   }
-
-            //   this.hasMoreMessages.set(true);
-            //   this.offset.set(0);
-
-            //   return of(this.loadMessages(c._id))
-
-            //   // .pipe(
-            //   //   tap((messagesList) => {
-            //   //     const user = this.currentUser();
-
-            //   //     if (messagesList.messages.length > 0) {
-            //   //       const duplicateIds = messagesList.messages.filter(
-            //   //         (id, index) => messagesList.messages.indexOf(id) !== index
-            //   //       );
-            //   //       if (duplicateIds.length > 0) {
-            //   //         console.warn('Duplicate _id values found:', duplicateIds);
-            //   //       }
-
-            //   //       const lastMessageId = messagesList.messages.filter(
-            //   //         (m) => user?._id !== m.sender._id
-            //   //       )[0]?._id;
-
-            //   //       if (lastMessageId) {
-            //   //         this.markMessagesAsRead(lastMessageId);
-            //   //       }
-            //   //     }
-
-            //   //     this.isLoading.set(false);
-            //   //   }),
-            //   //   catchError((err) => this.handleError(err)),
-            //   // );
-            // })
           );
         })
       )
@@ -689,7 +651,6 @@ export class ChatboxComponent implements OnInit, OnDestroy {
     navigation: boolean = false
   ): Observable<never> {
     this.isLoading.set(false);
-    this.toast.error('Something went wrong!', err.message);
     if (navigation) {
       this.router.navigate(['/messages']);
     }

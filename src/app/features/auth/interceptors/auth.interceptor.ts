@@ -4,7 +4,8 @@ import {
   HttpInterceptorFn,
   HttpHandlerFn,
 } from '@angular/common/http';
-import { catchError, Observable } from 'rxjs';
+import { toast } from 'ngx-sonner';
+import { catchError, Observable, throwError } from 'rxjs';
 
 export const authInterceptor: HttpInterceptorFn = (
   request: HttpRequest<unknown>,
@@ -19,8 +20,22 @@ export const authInterceptor: HttpInterceptorFn = (
       },
     });
 
-    return next(authRequest).pipe();
+    return next(authRequest).pipe(
+      catchError((err) => {
+        toast.error('Something went wrong!', {
+          description: err.message || err,
+        });
+        return throwError(() => err);
+      })
+    );
   }
 
-  return next(request);
+  return next(request).pipe(
+    catchError((err) => {
+      toast.error('Something went wrong!', {
+        description: err.message || err,
+      });
+      return throwError(() => err);
+    })
+  );
 };

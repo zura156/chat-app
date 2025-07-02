@@ -26,7 +26,6 @@ import { FormControl, ReactiveFormsModule, Validators } from '@angular/forms';
 import { HlmInputDirective } from '@spartan-ng/helm/input';
 import { HlmSeparatorDirective } from '@spartan-ng/helm/separator';
 import { UserI } from '../../user/interfaces/user.interface';
-
 import { NgScrollbarModule } from 'ngx-scrollbar';
 import { UserCardComponent } from '../../user/components/card/user-card.component';
 import { ClickOutsideDirective } from '../../../shared/directives/click-outside.directive';
@@ -36,7 +35,6 @@ import { HlmIconDirective } from '@spartan-ng/helm/icon';
 import { HlmButtonDirective } from '@spartan-ng/helm/button';
 import { HlmLabelDirective } from '@spartan-ng/helm/label';
 import { HlmErrorDirective } from '@spartan-ng/helm/form-field';
-import { ToastrService } from 'ngx-toastr';
 
 @Component({
   selector: 'app-new-chat',
@@ -61,7 +59,6 @@ export class NewChatComponent implements OnInit, OnDestroy {
   private readonly router = inject(Router);
   private readonly userService = inject(UserService);
   private readonly conversationService = inject(ConversationService);
-  private readonly toast = inject(ToastrService);
 
   userListFlag = signal<boolean>(false);
   isLoading = signal<boolean>(false);
@@ -172,7 +169,6 @@ export class NewChatComponent implements OnInit, OnDestroy {
           this.isLoading.set(false);
         }),
         catchError((err) => {
-          this.toast.error('Something went wrong!', err.error.message);
           this.isLoading.set(false);
           return throwError(() => err);
         })

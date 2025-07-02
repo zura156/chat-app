@@ -10,7 +10,6 @@ import { provideAnimationsAsync } from '@angular/platform-browser/animations/asy
 import { provideHttpClient, withInterceptors } from '@angular/common/http';
 import { authInterceptor } from './features/auth/interceptors/auth.interceptor';
 import { refreshTokenInterceptor } from './features/auth/interceptors/refresh-token.interceptor';
-import { provideToastr } from 'ngx-toastr';
 import { provideServiceWorker } from '@angular/service-worker';
 
 export const appConfig: ApplicationConfig = {
@@ -18,12 +17,6 @@ export const appConfig: ApplicationConfig = {
     provideZoneChangeDetection({ eventCoalescing: true }),
     provideRouter(routes),
     provideAnimationsAsync(),
-    provideToastr({
-      timeOut: 5000,
-      titleClass: 'text-lg font-medium',
-      positionClass: 'toast-bottom-right',
-      preventDuplicates: true,
-    }),
     provideHttpClient(
       withInterceptors([authInterceptor, refreshTokenInterceptor])
     ),

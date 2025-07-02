@@ -55,7 +55,6 @@ import { UserListI } from '../../user/interfaces/user-list.interface';
 import { toObservable } from '@angular/core/rxjs-interop';
 import { WebSocketMessageT } from '../interfaces/web-socket-message.interface';
 import { WebSocketService } from '../services/web-socket.service';
-import { ToastrService } from 'ngx-toastr';
 import { ConversationI } from '../interfaces/conversation.interface';
 import { ActiveViewType } from '../interfaces/active-view.type';
 
@@ -88,7 +87,6 @@ export class MessageListComponent {
   // Injected services
   private conversationService = inject(ConversationService);
   private webSocketService = inject(WebSocketService);
-  private toast = inject(ToastrService);
   private userService = inject(UserService);
   private router = inject(Router);
   private layoutService = inject(LayoutService);
@@ -276,7 +274,6 @@ export class MessageListComponent {
     navigation: boolean = false
   ): Observable<never> {
     this.isLoading.set(false);
-    this.toast.error('Something went wrong!', err.message);
     if (navigation) {
       this.router.navigate(['/messages']);
     }
