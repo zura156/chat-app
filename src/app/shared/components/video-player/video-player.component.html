@@ -20,8 +20,6 @@
     (timeupdate)="onTimeUpdate(videoPlayer)"
     (loadeddata)="duration.set(videoPlayer.duration)"
   >
-    <source [src]="`${apiUrl}${video.url}`" type="video/mp4" />
-    Your browser does not support the video tag.
   </video>
 
   @if(currentTime() === duration()) {
@@ -182,9 +180,9 @@
                 [value]="volume()"
                 (input)="setVolume($event)"
                 (wheel)="onVolumeScroll($event)"
-                class="w-12 h-2 bg-primary rounded-lg appearance-none cursor-ns-resize"
-              />
-            </div>
+                class="w-12 h-1 flex items-center justify-center bg-primary/20 rounded-full appearance-none cursor-pointer"
+                />
+              </div>
           </button>
 
           <span class="ml-3 text-sm select-none">

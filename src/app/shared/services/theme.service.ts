@@ -27,7 +27,7 @@ export class ThemeService {
   setDarkMode(theme: ThemesT): void {
     this.themeMode.next(theme);
 
-    if (this.themeMode.value === theme) {
+    if (theme === 'dark') {
       this.renderer.addClass(document.documentElement, 'dark');
       localStorage.setItem('darkMode', 'dark');
     } else {

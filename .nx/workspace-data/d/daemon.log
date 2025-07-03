@@ -1,0 +1,12 @@
+[NX v21.2.2 Daemon Server] - 2025-07-03T10:14:54.522Z - Started listening on: \\.\pipe\nx\C:\Users\zurag\AppData\Local\Temp\adf2642420e9769352c4\d.sock
+[NX v21.2.2 Daemon Server] - 2025-07-03T10:14:54.537Z - [WATCHER]: Subscribed to changes within: C:\Users\zurag\code\chat-app (native)
+[NX v21.2.2 Daemon Server] - 2025-07-03T10:14:54.544Z - Established a connection. Number of open connections: 1
+[NX v21.2.2 Daemon Server] - 2025-07-03T10:14:54.548Z - Established a connection. Number of open connections: 2
+[NX v21.2.2 Daemon Server] - 2025-07-03T10:14:54.559Z - Closed a connection. Number of open connections: 1
+[NX v21.2.2 Daemon Server] - 2025-07-03T10:14:54.568Z - [REQUEST]: Responding to the client. Shutdown initiated
+[NX v21.2.2 Daemon Server] - 2025-07-03T10:14:54.573Z - Done responding to the client Shutdown initiated
+[NX v21.2.2 Daemon Server] - 2025-07-03T10:14:54.574Z - Handled FORCE_SHUTDOWN. Handling time: 2. Response time: 6.
+[NX v21.2.2 Daemon Server] - 2025-07-03T10:14:54.574Z - Closed a connection. Number of open connections: 0
+[NX v21.2.2 Daemon Server] - 2025-07-03T10:14:54.575Z - [WATCHER]: Stopping the watcher for C:\Users\zurag\code\chat-app (sources)
+[NX v21.2.2 Daemon Server] - 2025-07-03T10:14:54.576Z - [WATCHER]: Stopping the watcher for C:\Users\zurag\code\chat-app (outputs)
+[NX v21.2.2 Daemon Server] - 2025-07-03T10:14:54.578Z - Server stopped because: "Request to shutdown"

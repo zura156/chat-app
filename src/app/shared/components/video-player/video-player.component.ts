@@ -166,6 +166,7 @@ export class VideoPlayerComponent implements OnDestroy {
   }
 
   onTimeUpdate(videoElement: HTMLVideoElement): void {
+    console.log(videoElement.currentTime);
     this.currentTime.set(videoElement.currentTime);
   }
 
