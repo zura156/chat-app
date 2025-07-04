@@ -6,6 +6,7 @@ import {
   HlmAvatarFallbackDirective,
   HlmAvatarImageDirective,
 } from '@spartan-ng/helm/avatar';
+import { ParticipantI } from '../../../messages/interfaces/participant.interface';
 
 @Component({
   selector: 'app-user-card',
@@ -18,6 +19,6 @@ import {
   templateUrl: './user-card.component.html',
 })
 export class UserCardComponent {
-  user = input<UserI>();
+  user = input<UserI | ParticipantI>();
   imageUrl = this.user()?.profile_picture;
 }

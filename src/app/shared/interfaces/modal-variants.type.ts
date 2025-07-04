@@ -1,0 +1,1 @@
+export type ModalVariantsT = 'user-list' | 'form';

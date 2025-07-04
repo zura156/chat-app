@@ -61,13 +61,10 @@
   color-scheme: dark;
 }
 
-html,
-body {
-  height: 100%;
-}
-body {
-  margin: 0;
-  font-family: SF Pro, "Helvetica Neue";
+@layer components {
+  .glass-card {
+    @apply rounded-2xl border border-black/30 bg-black/7 shadow-xl backdrop-blur-sm dark:border-white/30 dark:bg-white/7;
+  }
 }
 
 html,
@@ -76,7 +73,7 @@ body {
 }
 body {
   margin: 0;
-  font-family: Roboto, "Helvetica Neue", sans-serif;
+  font-family: SF Pro, "Helvetica Neue";
 }
 
 .image-pixelated {
