@@ -213,7 +213,7 @@ export class ChatboxComponent implements OnInit, OnDestroy {
   // handling chat settings open state
   private readonly CHAT_PREFERENCE_STORAGE_KEY = 'prefers-chat-settings-open';
   isSettingsOpen = signal<boolean>(
-    Boolean(localStorage.getItem(this.CHAT_PREFERENCE_STORAGE_KEY))
+    localStorage.getItem(this.CHAT_PREFERENCE_STORAGE_KEY) === 'true'
   );
 
   private recordingResult?: RecordingResult;
