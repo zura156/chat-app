@@ -19,41 +19,45 @@
       </h2>
     </header>
     <!-- Modal Body -->
+    
+    @if(isLoading()) {
+      <div class="flex justify-center items-center py-16">
+        <hlm-spinner />
+      </div>
+    } @else {
 
-    
-    
-    @switch (variant()) {
+      @switch (variant()) {
         
         @case('user-list') {
-            <input
+          <input
                 type="text"
                 placeholder="Search people..."
                 class="flex h-10 w-full rounded-md transition-all border border-input bg-background px-3 py-2 text-sm text-foreground shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-offset-1 disabled:cursor-not-allowed disabled:opacity-50"
-            />
-            <brn-separator hlm decorative />
-            
-            <div
+                />
+                <brn-separator hlm decorative />
+                
+                <div
               class="max-h-[50vh] glass-card rounded-lg space-y-2 border-border p-4 size-full overflow-y-auto"
-            >
+              >
             @for(item of items(); let i = $index; track i) {
-
-                <main (click)="toggleCheckbox(i)" class="px-2 py-1 flex items-center glass-card hover:bg-accent transition-colors justify-between cursor-pointer hover:text-accent-foreground">
-                    <div class="flex items-center space-x-2">
-                        <!-- AVATAR -->
-                        <hlm-avatar variant="medium" class="select-none">
+              
+              <main (click)="toggleCheckbox(i)" class="px-2 py-1 flex items-center glass-card hover:bg-accent transition-colors justify-between cursor-pointer hover:text-accent-foreground">
+                <div class="flex items-center space-x-2">
+                  <!-- AVATAR -->
+                  <hlm-avatar variant="medium" class="select-none">
                             <img
                                 [src]="item.profile_picture ? `${apiUrl}${item.profile_picture}` : '/icons/avatar.svg'"
                                 [alt]="item.username"
                                 hlmAvatarImage
-                            />
-                            <span class="bg-black text-white text-sm" hlmAvatarFallback>PFP</span>
-                        </hlm-avatar>
-                        
-                        <section>
-                            <!-- Group title -->
-                            <h1 class="font-medium text-base">{{ `${item.first_name} ${item.last_name}` }}</h1>
-                            <h2 class="text-sm text-gray-500">
-                                {{ item.username }}
+                                />
+                                <span class="bg-black text-white text-sm" hlmAvatarFallback>PFP</span>
+                              </hlm-avatar>
+                              
+                              <section>
+                                <!-- Group title -->
+                                <h1 class="font-medium text-base">{{ `${item.first_name} ${item.last_name}` }}</h1>
+                                <h2 class="text-sm text-gray-500">
+                                  {{ item.username }}
                             </h2>
                         </section>
                     </div>
@@ -67,9 +71,9 @@
                             [class.scale-100]="isChecked(i)"
                             >
                             <svg
-                                viewBox="0 0 12 10"
+                            viewBox="0 0 12 10"
                                 class="size-3 stroke-white fill-none"
-                            >
+                                >
                                 <polyline
                                 points="1.5 6 4.5 9 10.5 1"
                                 stroke="currentColor"
@@ -77,25 +81,26 @@
                                 stroke-linecap="round"
                                 stroke-linejoin="round"
                                 class="[
-                                    stroke-dasharray:16px;
-                                    stroke-dashoffset:16px;
-                                    transition:stroke-dashoffset_0.4s_ease_150ms
+                                stroke-dasharray:16px;
+                                stroke-dashoffset:16px;
+                                transition:stroke-dashoffset_0.4s_ease_150ms
                                 ]"
                                 [attr.style]="isChecked(i) ? 'stroke-dashoffset: 0' : 'stroke-dashoffset: 16px'"
                                 />
-                            </svg>
-                        </button> 
+                              </svg>
+                            </button> 
                     </div>
-                </main>
+                  </main>
             }
 
-
-        </div>
+            
+          </div>
         }
 
-
+        
+      }
+      
     }
-
 
     <!-- Modal Footer -->
     <footer class="py-2 flex justify-end items-center gap-x-2">

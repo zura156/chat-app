@@ -39,7 +39,7 @@ import { ConversationService } from '../services/conversation.service';
 import { ParticipantI } from '../interfaces/participant.interface';
 import { HlmButtonDirective } from '@spartan-ng/helm/button';
 import { ItemManagerComponent } from '../../../shared/components/item-manager/item-manager.component';
-import { Subscription, tap } from 'rxjs';
+import { catchError, Subscription, tap, throwError } from 'rxjs';
 import { UserService } from '../../user/services/user.service';
 import { toast } from 'ngx-sonner';
 
@@ -143,22 +143,44 @@ export class ChatboxSettingsComponent implements OnDestroy {
     );
     this.#modalComponentRef?.setInput('variant', 'user-list');
 
-    const userList = this.userService.users;
+    const users = this.userService.users()?.users;
+    const participants = this.conversation()?.participants;
 
-    this.subscriptions.push(
-      this.userService
-        .fetchUsers()
-        .pipe(
-          tap((res) => this.#modalComponentRef?.setInput('items', res.users))
-        )
-        .subscribe()
-    );
+    this.#modalComponentRef?.setInput('isLoading', true);
+
+    if (!users?.length) {
+      this.subscriptions.push(
+        this.userService
+          .fetchUsers()
+          .pipe(
+            catchError((err) => {
+              this.#modalComponentRef?.setInput('isLoading', false);
+              this.#modalComponentRef?.setInput('error', err);
+              return throwError(() => err);
+            }),
+            tap((res) => {
+              const filteredUsers = res.users.filter(
+                (user) => !participants?.map((p) => p._id).includes(user._id)
+              );
+              this.#modalComponentRef?.setInput('isLoading', false);
+              this.#modalComponentRef?.setInput('items', filteredUsers);
+            })
+          )
+          .subscribe()
+      );
+    } else {
+      const filteredUsers = users.filter(
+        (user) => !participants?.map((p) => p._id).includes(user._id)
+      );
+      this.#modalComponentRef?.setInput('isLoading', false);
+      this.#modalComponentRef?.setInput('items', filteredUsers);
+    }
 
     const submitSubscription =
       this.#modalComponentRef?.instance.submit.subscribe((res) => {
         toast.info('Members were added successfully!', {
           description: `${this.formatUsernames(
-            userList()?.users.filter((user) => res.includes(user._id)) || []
+            users?.filter((user) => res.includes(user._id)) || []
           )} joined the ${this.conversation()?.group_name || 'conversation'}.`,
         });
 
