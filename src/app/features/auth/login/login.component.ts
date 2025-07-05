@@ -22,7 +22,7 @@ import {
 } from '@ng-icons/lucide';
 
 import { passwordValidator } from '../validators/password.validator';
-import { catchError, tap, throwError } from 'rxjs';
+import { catchError, Subject, takeUntil, tap, throwError } from 'rxjs';
 import {
   HlmAlertDescriptionDirective,
   HlmAlertDirective,
@@ -42,8 +42,8 @@ import {
     NgIcon,
     HlmAlertDescriptionDirective,
     HlmAlertDirective,
-    HlmAlertIconDirective
-],
+    HlmAlertIconDirective,
+  ],
   providers: [
     provideIcons({ lucideCircleAlert, lucideTriangleAlert, lucideLoader }),
   ],
@@ -62,6 +62,12 @@ export class LoginComponent {
     password: new FormControl('', [Validators.required, passwordValidator()]),
   });
 
+  private destroy$ = new Subject<void>();
+
+  ngOnDestroy(): void {
+    this.destroy$.next();
+    this.destroy$.complete();
+  }
   togglePasswordVisibility(): void {
     this.showPass.update((val) => !val);
   }
@@ -87,6 +93,7 @@ export class LoginComponent {
     this.authService
       .login(credentials)
       .pipe(
+        takeUntil(this.destroy$),
         tap(() => {
           this.clearError();
           this.isLoading.set(false);

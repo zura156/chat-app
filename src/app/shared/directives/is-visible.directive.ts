@@ -1,4 +1,11 @@
-import { Directive, ElementRef, HostListener, OnInit, OnDestroy, Output, EventEmitter } from '@angular/core';
+import {
+  Directive,
+  ElementRef,
+  OnInit,
+  OnDestroy,
+  Output,
+  EventEmitter,
+} from '@angular/core';
 import { Subject, fromEvent, takeUntil } from 'rxjs';
 import { auditTime } from 'rxjs/operators';
 

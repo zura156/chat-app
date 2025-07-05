@@ -145,10 +145,14 @@ export class ChatboxSettingsComponent implements OnDestroy {
 
     const userList = this.userService.users;
 
-    this.userService
-      .fetchUsers()
-      .pipe(tap((res) => this.#modalComponentRef?.setInput('items', res.users)))
-      .subscribe();
+    this.subscriptions.push(
+      this.userService
+        .fetchUsers()
+        .pipe(
+          tap((res) => this.#modalComponentRef?.setInput('items', res.users))
+        )
+        .subscribe()
+    );
 
     const submitSubscription =
       this.#modalComponentRef?.instance.submit.subscribe((res) => {

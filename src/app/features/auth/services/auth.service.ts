@@ -1,6 +1,14 @@
 import { inject, Injectable, Injector } from '@angular/core';
 import { environment } from '../../../../environments/environment';
-import { BehaviorSubject, catchError, Observable, tap, throwError } from 'rxjs';
+import {
+  BehaviorSubject,
+  catchError,
+  Observable,
+  tap,
+  throwError,
+  takeUntil,
+  Subject,
+} from 'rxjs';
 import {
   HttpClient,
   HttpErrorResponse,
@@ -53,6 +61,8 @@ export class AuthService {
   private readonly LAST_ACTIVE_TIME_KEY = 'lastActiveTime';
   private readonly AUTO_LOGOUT_TIME = Math.floor(3600 * 1000);
 
+  private destroy$ = new Subject<void>();
+
   /*
    * States determining user authorization
    */
@@ -71,7 +81,7 @@ export class AuthService {
    * Setting state for authorization and .
    */
   constructor() {
-    this.router.events.subscribe((event) => {
+    this.router.events.pipe(takeUntil(this.destroy$)).subscribe((event) => {
       if (event instanceof NavigationStart) {
         this.setLastActiveTime();
       }
@@ -84,6 +94,8 @@ export class AuthService {
   }
   ngOnDestroy(): void {
     document.removeEventListener('beforeunload', this.handleBeforeUnload);
+    this.destroy$.next();
+    this.destroy$.complete();
   }
 
   /*

@@ -1,7 +1,7 @@
-import { Component, inject, OnInit } from '@angular/core';
+import { Component, inject, OnDestroy, OnInit } from '@angular/core';
 import { ActivatedRoute, Router } from '@angular/router';
 import { UserService } from '../../services/user.service';
-import { map, Observable, switchMap } from 'rxjs';
+import { map, Observable, Subject, switchMap, takeUntil } from 'rxjs';
 import { UserI } from '../../interfaces/user.interface';
 import {
   HlmCardContentDirective,
@@ -37,7 +37,7 @@ import { environment } from '../../../../../environments/environment';
     // HlmSeparatorDirective,
   ],
 })
-export class UserPageComponent implements OnInit {
+export class UserPageComponent implements OnInit, OnDestroy {
   private router = inject(Router);
   private route = inject(ActivatedRoute);
   private userService = inject(UserService);
@@ -46,16 +46,24 @@ export class UserPageComponent implements OnInit {
 
   selectedUser = this.userService.selectedUser;
 
+  private destroy$ = new Subject<void>();
+
   ngOnInit(): void {
     this.route.params
       .pipe(
         map((params) => params['id']),
+        takeUntil(this.destroy$),
         switchMap((id) => this.fetchUserById(id))
       )
       .subscribe();
   }
 
   fetchUserById(userId: string): Observable<UserI> {
-    return this.userService.getUserById(userId);
+    return this.userService.getUserById(userId).pipe(takeUntil(this.destroy$));
+  }
+
+  ngOnDestroy(): void {
+    this.destroy$.next();
+    this.destroy$.complete();
   }
 }

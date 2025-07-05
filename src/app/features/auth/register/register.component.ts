@@ -1,4 +1,4 @@
-import { Component, inject, signal } from '@angular/core';
+import { Component, inject, OnDestroy, signal } from '@angular/core';
 import {
   FormControl,
   FormGroup,
@@ -21,7 +21,7 @@ import {
   lucideLoader,
   lucideTriangleAlert,
 } from '@ng-icons/lucide';
-import { catchError, tap, throwError } from 'rxjs';
+import { catchError, Subject, takeUntil, tap, throwError } from 'rxjs';
 import {
   HlmAlertDescriptionDirective,
   HlmAlertDirective,
@@ -42,14 +42,14 @@ import { passwordValidator } from '../validators/password.validator';
     NgIcon,
     HlmAlertDescriptionDirective,
     HlmAlertDirective,
-    HlmAlertIconDirective
-],
+    HlmAlertIconDirective,
+  ],
   providers: [
     provideIcons({ lucideCircleAlert, lucideTriangleAlert, lucideLoader }),
   ],
   templateUrl: './register.component.html',
 })
-export class RegisterComponent {
+export class RegisterComponent implements OnDestroy {
   authService = inject(AuthService);
   router = inject(Router);
 
@@ -84,6 +84,13 @@ export class RegisterComponent {
     }
   );
 
+  private destroy$ = new Subject<void>();
+
+  ngOnDestroy(): void {
+    this.destroy$.next();
+    this.destroy$.complete();
+  }
+
   togglePasswordVisibility(): void {
     this.showPass.update((val) => !val);
   }
@@ -115,6 +122,7 @@ export class RegisterComponent {
     this.authService
       .register(credentials)
       .pipe(
+        takeUntil(this.destroy$),
         tap(() => {
           this.clearError();
           this.isLoading.set(false);

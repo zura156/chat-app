@@ -242,6 +242,7 @@ export class ChatboxComponent implements OnInit, OnDestroy {
     this.isLoading.set(true);
     this.route.params
       .pipe(
+        takeUntil(this.destroy$),
         map((params) => params['id']),
         catchError((err) => this.handleError(err)),
         switchMap((id) => {
@@ -311,6 +312,7 @@ export class ChatboxComponent implements OnInit, OnDestroy {
         this.messageService
           .uploadFileMessage(formData)
           .pipe(
+            takeUntil(this.destroy$),
             tap((res) => {
               this.messageService.addMessage(res);
             })
@@ -337,6 +339,7 @@ export class ChatboxComponent implements OnInit, OnDestroy {
       this.messageService
         .uploadFileMessage(formData)
         .pipe(
+          takeUntil(this.destroy$),
           tap((res) => {
             this.messageService.addMessage(res);
             this.isRecording.set(false);
@@ -378,6 +381,7 @@ export class ChatboxComponent implements OnInit, OnDestroy {
             return this.messageService
               .sendMessage(message, participants, true)
               .pipe(
+                takeUntil(this.destroy$),
                 debounceTime(500),
                 catchError((err) => this.handleError(err)),
                 tap(() => {
@@ -406,6 +410,7 @@ export class ChatboxComponent implements OnInit, OnDestroy {
       this.messageService
         .sendMessage(message, participants)
         .pipe(
+          takeUntil(this.destroy$),
           catchError((err) => this.handleError(err)),
           tap(() => {
             this.conversation = this.conversationService.activeConversation;
@@ -674,7 +679,6 @@ export class ChatboxComponent implements OnInit, OnDestroy {
     }
     return throwError(() => err);
   }
-
 
   // This will be added after other important tasks are done.
   ////////////////////////////////////////////////////////////

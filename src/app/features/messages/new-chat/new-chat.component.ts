@@ -105,6 +105,7 @@ export class NewChatComponent implements OnInit, OnDestroy {
     this.searchControl.valueChanges
       .pipe(
         debounceTime(300),
+        takeUntil(this.destroy$),
         distinctUntilChanged(),
         map((q) => q?.toString()),
         tap((q) => this.fetchUsersIfNeeded(q))
@@ -164,6 +165,7 @@ export class NewChatComponent implements OnInit, OnDestroy {
         this.groupNameControl.value ?? ''
       )
       .pipe(
+        takeUntil(this.destroy$),
         tap((conversation) => {
           this.router.navigateByUrl(`/messages/${conversation._id}`);
           this.isLoading.set(false);
