@@ -1,91 +1,43 @@
-import { Directive, EventEmitter, HostListener, Output } from '@angular/core';
-
-export interface PanData {
-  event: PointerEvent;
-  startX: number;
-  startY: number;
-  deltaX: number;
-  deltaY: number;
-}
+import {
+  Directive,
+  ElementRef,
+  EventEmitter,
+  HostListener,
+  Output,
+} from '@angular/core';
 
 @Directive({
   selector: '[appPan]',
-  standalone: true,
 })
-export class PanDirective {
-  @Output() panStart = new EventEmitter<PanData>();
-  @Output() panMove = new EventEmitter<PanData>();
-  @Output() panEnd = new EventEmitter<PanData>();
+export class PanGestureDirective {
+  @Output() panStart = new EventEmitter<TouchEvent>();
+  @Output() panMove = new EventEmitter<TouchEvent>();
+  @Output() panEnd = new EventEmitter<{ deltaX: number; deltaY: number }>();
 
-  private isPanning = false;
-  private pointerId: number | null = null;
   private startX = 0;
   private startY = 0;
 
-  @HostListener('pointerdown', ['$event'])
-  onPointerDown(event: PointerEvent) {
-    if (this.isPanning) return;
-    this.isPanning = true;
-    this.pointerId = event.pointerId;
-    this.startX = event.clientX;
-    this.startY = event.clientY;
+  constructor(private el: ElementRef) {}
 
-    const target = event.target as Element;
-    target?.setPointerCapture?.(event.pointerId);
-
-    this.panStart.emit({
-      event,
-      startX: this.startX,
-      startY: this.startY,
-      deltaX: 0,
-      deltaY: 0,
-    });
+  @HostListener('touchstart', ['$event'])
+  onTouchStart(event: TouchEvent) {
+    if (event.touches.length === 1) {
+      this.startX = event.touches[0].clientX;
+      this.startY = event.touches[0].clientY;
+      this.panStart.emit(event);
+    }
   }
 
-  @HostListener('document:pointermove', ['$event'])
-  onPointerMove(event: PointerEvent) {
-    if (!this.isPanning || event.pointerId !== this.pointerId) return;
-
-    const deltaX = event.clientX - this.startX;
-    const deltaY = event.clientY - this.startY;
-
-    this.panMove.emit({
-      event,
-      startX: this.startX,
-      startY: this.startY,
-      deltaX,
-      deltaY,
-    });
+  @HostListener('touchmove', ['$event'])
+  onTouchMove(event: TouchEvent) {
+    this.panMove.emit(event);
   }
 
-  @HostListener('document:pointerup', ['$event'])
-  onPointerUp(event: PointerEvent) {
-    if (!this.isPanning || event.pointerId !== this.pointerId) return;
-
-    const deltaX = event.clientX - this.startX;
-    const deltaY = event.clientY - this.startY;
-
-    this.panEnd.emit({
-      event,
-      startX: this.startX,
-      startY: this.startY,
-      deltaX,
-      deltaY,
-    });
-
-    this.reset();
-  }
-
-  @HostListener('document:pointercancel', ['$event'])
-  onPointerCancel(event: PointerEvent) {
-    if (!this.isPanning || event.pointerId !== this.pointerId) return;
-    this.reset();
-  }
-
-  private reset() {
-    this.isPanning = false;
-    this.pointerId = null;
-    this.startX = 0;
-    this.startY = 0;
+  @HostListener('touchend', ['$event'])
+  onTouchEnd(event: TouchEvent) {
+    const touch = event.changedTouches[0];
+    const deltaX = touch.clientX - this.startX;
+    const deltaY = touch.clientY - this.startY;
+    this.panEnd.emit({ deltaX, deltaY });
   }
 }

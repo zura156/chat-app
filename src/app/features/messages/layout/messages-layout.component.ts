@@ -21,13 +21,11 @@ import {
 import { MessageListComponent } from '../list/messages-list.component';
 import { LayoutService } from './layout.service';
 import { ActiveViewType } from '../interfaces/active-view.type';
-import { PanDirective } from '../../../shared/directives/pan.directive';
 
 @Component({
   selector: 'app-messages',
   imports: [
     RouterOutlet,
-    PanDirective,
     ReactiveFormsModule,
     HlmSeparatorDirective,
     BrnSeparatorComponent,
@@ -97,18 +95,6 @@ export class MessagesLayoutComponent implements OnInit, OnDestroy {
 
   private checkScreenWidth(): void {
     this.isMobile.set(this.windowWidth < 640);
-  }
-
-  onPanStart(data: any) {
-    console.log('Pan Start', data.startX, data.startY);
-  }
-
-  onPanMove(data: any) {
-    console.log('Move', data.deltaX.toFixed(2), data.deltaY.toFixed(2));
-  }
-
-  onPanEnd(data: any) {
-    console.log('Pan End', data.deltaX.toFixed(2), data.deltaY.toFixed(2));
   }
 
   setActiveView(destination: ActiveViewType) {

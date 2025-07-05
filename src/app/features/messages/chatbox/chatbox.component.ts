@@ -1,4 +1,5 @@
 import {
+  AfterViewInit,
   ChangeDetectionStrategy,
   Component,
   ElementRef,
@@ -8,6 +9,7 @@ import {
   QueryList,
   Signal,
   signal,
+  viewChild,
   ViewChild,
   ViewChildren,
 } from '@angular/core';
@@ -78,14 +80,16 @@ import { NgClass } from '@angular/common';
 import { AudioRecorderComponent } from '../../../shared/components/audio-recorder/audio-recorder.component';
 import { RecordingResult } from '../../../shared/interfaces/audio-message.interface';
 import { ChatboxSettingsComponent } from '../chatbox-settings/chatbox-settings.component';
+import { PanGestureDirective } from '../../../shared/directives/pan.directive';
 
 @Component({
   selector: 'app-chatbox',
   imports: [
+    TimeAgoPipe,
     NgIcon,
     NgClass,
     HlmIconDirective,
-    TimeAgoPipe,
+    PanGestureDirective,
     HlmCardDirective,
     HlmInputDirective,
     HlmButtonDirective,
@@ -223,6 +227,10 @@ export class ChatboxComponent implements OnInit, OnDestroy {
 
   private divTopIntersectionObserver?: IntersectionObserver;
   private messageIntersectionObserver?: IntersectionObserver;
+
+  @ViewChild('slider') sliderRef?: ElementRef;
+  @ViewChild('sliderContainer') sliderContainerRef?: ElementRef;
+  sliderTransform = 'translateX(0px)';
 
   ngOnInit(): void {
     if (window.visualViewport && window.visualViewport?.height > 1000) {
@@ -665,5 +673,29 @@ export class ChatboxComponent implements OnInit, OnDestroy {
       this.router.navigate(['/messages']);
     }
     return throwError(() => err);
+  }
+
+
+  // This will be added after other important tasks are done.
+  ////////////////////////////////////////////////////////////
+  onPanStart(event: TouchEvent) {
+    // Optionally add visual feedback
+  }
+
+  onPanMove(event: TouchEvent) {
+    // Optionally implement drag effect with transform
+  }
+  ////////////////////////////////////////////////////////////
+
+  onPanEnd(event: { deltaX: number; deltaY: number }) {
+    const { deltaX } = event;
+
+    if (deltaX < -100 && !this.isSettingsOpen()) {
+      this.toggleSettingsView();
+    }
+
+    if (deltaX > 100 && this.isSettingsOpen()) {
+      this.toggleSettingsView();
+    }
   }
 }

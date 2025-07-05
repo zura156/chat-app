@@ -4,7 +4,6 @@ import {
   input,
   inject,
   signal,
-  linkedSignal,
 } from '@angular/core';
 import { UserI } from '../../user/interfaces/user.interface';
 import { MessageI } from '../interfaces/message.interface';
@@ -83,8 +82,6 @@ export class MessageCardComponent {
 
   isImageLoaded = signal<boolean>(false);
   conversationService = inject(ConversationService);
-
-  
 
   readonly apiUrl = environment.apiUrl;
 
