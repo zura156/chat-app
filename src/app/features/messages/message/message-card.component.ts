@@ -68,6 +68,8 @@ import { AudioPlayerComponent } from '../../../shared/components/audio-player/au
       lucideDownload,
     }),
   ],
+  styles: `
+  `,
   templateUrl: './message-card.component.html',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })

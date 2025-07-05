@@ -1,16 +1,17 @@
 @let message = this.message();
+@let isCurrentUserMessage = this.isCurrentUserMessage(message);
 <div
-  class="flex items-center mt-2"
-  [ngClass]="{ 'justify-end': isCurrentUserMessage(message) }"
->
-  <div class="flex flex-col">
-    @if(isGroup() && !isCurrentUserMessage(message)){
+  class="flex items-center mt-2 w-full"
+  [ngClass]="{ 'justify-end': isCurrentUserMessage }"
+  >
+  <div class="flex flex-col w-fit">
+    @if(isGroup() && !isCurrentUserMessage){
       <span class="text-gray-500">
         {{ message.sender.username }}
       </span>
     }
-    <div class="flex justify-start items-end">
-      @if(!isCurrentUserMessage(message)){
+    <div class="flex justify-start items-end w-full">
+      @if(!isCurrentUserMessage){
         <hlm-avatar variant="small" class="min-w-fit mr-1.5 mb-2">
           <img
             [src]="imageUrl() || '/icons/avatar.svg'"
@@ -26,8 +27,8 @@
           [class]="message.type === 'audio' ? 'border-none' : ''"
         >
           <div
-            class="py-1 text-ellipsis max-w-xs md:max-w-sm lg:max-w-md"
-            [class]="message.type === 'audio' ? '' : 'px-1 sm:px-3'"
+            class="py-1 text-ellipsis w-full"
+            [class]="message.type === 'audio' ? '' : 'px-1 sm:px-2 md:px-3'"
           >
             @switch(message.type){ 
               @case ('text') {
@@ -62,7 +63,9 @@
                 } 
               } @case ('audio') { 
                 @if(message.file) {
-                  <app-audio-player [audio]="message.file"></app-audio-player>
+                  <div class="w-3xs sm:w-40 md:w-52 sm:max-w-3xs">
+                    <app-audio-player [audio]="message.file"></app-audio-player>
+                  </div>
                 } @else {
                   <div class="w-full h-full py-2 relative">
                     <hlm-skeleton class="w-96 h-10 rounded-full" />
@@ -72,7 +75,7 @@
                   </div>
                 } 
               } @case ('file') {
-                <div class="flex items-center p-2">
+                <div class="flex items-center p-2 sm:p-0 md:p-2">
                   <a
                     [href]="apiUrl + message.file?.url"
                     target="_blank"
@@ -141,7 +144,7 @@
       }
     }
   </div>
-} @else if(isCurrentUserMessage(message) && isLastMessage() && !isGroup()) {
+} @else if(isCurrentUserMessage && isLastMessage() && !isGroup()) {
   <div hlmCardDescription class="text-xs text-end mt-1 opacity-70">
     <span
       >{{ `${(message.status | titlecase)} ${message.status !== 'sending' && message.status !== 'failed' ? (message.timestamp | timeAgo) : ''}` }}</span
