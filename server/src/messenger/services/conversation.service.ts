@@ -208,17 +208,22 @@ export class ConversationService {
       );
     }
 
-    const addedMemberIds = memberChanges.add;
-    const removedMemberIds = memberChanges.remove;
+    const removeSet = new Set(memberChanges.remove);
+    const addSet = new Set(memberChanges.add);
 
-    addedMemberIds.forEach((participantId) =>
-      conversation.participants.push(new ObjectId(participantId))
+    conversation.participants = conversation.participants.filter(
+      (participant) => !removeSet.has(participant.toString())
     );
-    removedMemberIds.forEach((removedIds) =>
-      conversation.participants.filter(
-        (participant) => participant.toString() !== removedIds
-      )
+
+    const currentParticipantIds = new Set(
+      conversation.participants.map((id) => id.toString())
     );
+
+    for (const id of addSet) {
+      if (!currentParticipantIds.has(id)) {
+        conversation.participants.push(new Types.ObjectId(id));
+      }
+    }
 
     await conversation.save();
     await conversation.populate(

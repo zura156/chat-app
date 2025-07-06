@@ -43,6 +43,7 @@ import { catchError, Subscription, tap, throwError } from 'rxjs';
 import { UserService } from '../../user/services/user.service';
 import { toast } from 'ngx-sonner';
 import { MemberChangesI } from '../interfaces/member-changes.interface';
+import { UserI } from '../../user/interfaces/user.interface';
 
 @Component({
   selector: 'app-chatbox-settings',
@@ -149,6 +150,8 @@ export class ChatboxSettingsComponent implements OnDestroy {
 
     this.#modalComponentRef?.setInput('isLoading', true);
 
+    let filteredUsers: UserI[];
+
     if (!users?.length) {
       this.subscriptions.push(
         this.userService
@@ -160,7 +163,7 @@ export class ChatboxSettingsComponent implements OnDestroy {
               return throwError(() => err);
             }),
             tap((res) => {
-              const filteredUsers = res.users.filter(
+              filteredUsers = res.users.filter(
                 (user) => !participants?.map((p) => p._id).includes(user._id)
               );
               this.#modalComponentRef?.setInput('isLoading', false);
@@ -170,7 +173,7 @@ export class ChatboxSettingsComponent implements OnDestroy {
           .subscribe()
       );
     } else {
-      const filteredUsers = users.filter(
+      filteredUsers = users.filter(
         (user) => !participants?.map((p) => p._id).includes(user._id)
       );
       this.#modalComponentRef?.setInput('isLoading', false);
@@ -178,7 +181,7 @@ export class ChatboxSettingsComponent implements OnDestroy {
     }
 
     const submitSubscription =
-      this.#modalComponentRef?.instance.submit.subscribe((res) => {
+      this.#modalComponentRef?.instance.submit.subscribe((res: string[]) => {
         const memberChanges: MemberChangesI = { add: res, remove: [] };
 
         this.subscriptions.push(
@@ -188,17 +191,21 @@ export class ChatboxSettingsComponent implements OnDestroy {
               String(this.conversation()?._id)
             )
             .pipe(
-              tap((res) =>
+              tap((response) => {
                 toast.info('Members were added successfully!', {
                   description: `${this.formatUsernames(
-                    users?.filter((user) =>
-                      res.participants.map((u) => u._id).includes(user._id)
+                    response.participants?.filter((user) =>
+                      res.includes(user._id)
                     ) || []
                   )} joined the ${
                     this.conversation()?.group_name || 'conversation'
                   }.`,
-                })
-              )
+                });
+                this.#modalComponentRef?.setInput(
+                  'items',
+                  filteredUsers.filter((u) => !res.includes(u._id))
+                );
+              })
             )
             .subscribe()
         );
@@ -217,8 +224,6 @@ export class ChatboxSettingsComponent implements OnDestroy {
     );
     this.#modalComponentRef?.setInput('variant', 'confirmation');
 
-    const users = this.conversation()?.participants;
-
     const submitSubscription =
       this.#modalComponentRef?.instance.submit.subscribe(() => {
         const memberChanges: MemberChangesI = {
@@ -233,11 +238,12 @@ export class ChatboxSettingsComponent implements OnDestroy {
               String(this.conversation()?._id)
             )
             .pipe(
-              tap(() =>
+              tap(() => {
                 toast.info(`Submission was successfull!`, {
                   description: `${user.username} was removed successfully!`,
-                })
-              )
+                });
+                this.#modalComponentRef?.instance.closed.emit();
+              })
             )
             .subscribe()
         );
