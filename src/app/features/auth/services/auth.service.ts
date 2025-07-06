@@ -221,7 +221,7 @@ export class AuthService {
     });
 
     return this.http
-      .post<RefreshTokenResponseI>(this._REFRESH_TOKEN_URL, {}, { headers })
+      .get<RefreshTokenResponseI>(this._REFRESH_TOKEN_URL, { headers })
       .pipe(
         tap((res) => {
           if (res.access_token && res.refresh_token) {

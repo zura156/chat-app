@@ -42,6 +42,7 @@ import { ItemManagerComponent } from '../../../shared/components/item-manager/it
 import { catchError, Subscription, tap, throwError } from 'rxjs';
 import { UserService } from '../../user/services/user.service';
 import { toast } from 'ngx-sonner';
+import { MemberChangesI } from '../interfaces/member-changes.interface';
 
 @Component({
   selector: 'app-chatbox-settings',
@@ -178,17 +179,72 @@ export class ChatboxSettingsComponent implements OnDestroy {
 
     const submitSubscription =
       this.#modalComponentRef?.instance.submit.subscribe((res) => {
-        toast.info('Members were added successfully!', {
-          description: `${this.formatUsernames(
-            users?.filter((user) => res.includes(user._id)) || []
-          )} joined the ${this.conversation()?.group_name || 'conversation'}.`,
-        });
+        const memberChanges: MemberChangesI = { add: res, remove: [] };
+
+        this.subscriptions.push(
+          this.conversationService
+            .manageConversationMembers(
+              memberChanges,
+              String(this.conversation()?._id)
+            )
+            .pipe(
+              tap((res) =>
+                toast.info('Members were added successfully!', {
+                  description: `${this.formatUsernames(
+                    users?.filter((user) =>
+                      res.participants.map((u) => u._id).includes(user._id)
+                    ) || []
+                  )} joined the ${
+                    this.conversation()?.group_name || 'conversation'
+                  }.`,
+                })
+              )
+            )
+            .subscribe()
+        );
 
         submitSubscription && this.subscriptions.push(submitSubscription);
       });
   }
 
-  onRemoveMember(user_id: string): void {}
+  onRemoveMember(user: ParticipantI): void {
+    this.createComponent();
+
+    this.#modalComponentRef?.setInput('headerText', 'Are you sure?');
+    this.#modalComponentRef?.setInput(
+      'description',
+      `Do you want to remove ${user.username} from conversation?`
+    );
+    this.#modalComponentRef?.setInput('variant', 'confirmation');
+
+    const users = this.conversation()?.participants;
+
+    const submitSubscription =
+      this.#modalComponentRef?.instance.submit.subscribe(() => {
+        const memberChanges: MemberChangesI = {
+          add: [],
+          remove: [user._id],
+        };
+
+        this.subscriptions.push(
+          this.conversationService
+            .manageConversationMembers(
+              memberChanges,
+              String(this.conversation()?._id)
+            )
+            .pipe(
+              tap(() =>
+                toast.info(`Submission was successfull!`, {
+                  description: `${user.username} was removed successfully!`,
+                })
+              )
+            )
+            .subscribe()
+        );
+
+        submitSubscription && this.subscriptions.push(submitSubscription);
+      });
+  }
 
   onLeaveGroup(): void {}
 

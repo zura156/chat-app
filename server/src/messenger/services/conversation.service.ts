@@ -3,6 +3,8 @@ import { Conversation } from '../models/conversation.model';
 import { MutedConversation } from '../models/muted-conversation.model';
 import { User } from '../../user/models/user.model';
 import { createCustomError } from '../../error-handling/models/custom-api-error.model';
+import { ObjectId } from 'mongodb';
+import { MemberChangesI } from '../interfaces/member-changes.interface';
 
 export class ConversationService {
   /**
@@ -187,5 +189,47 @@ export class ConversationService {
     if (!result) {
       throw createCustomError('Conversation was not muted to begin with', 404);
     }
+  }
+
+  public async manageConversationMembers(
+    userId: string,
+    memberChanges: MemberChangesI,
+    conversationId: string
+  ) {
+    const conversation = await Conversation.findOne({
+      _id: conversationId,
+      participants: userId,
+    });
+
+    if (!conversation) {
+      throw createCustomError(
+        'Conversation not found or you are not a participant',
+        404
+      );
+    }
+
+    const addedMemberIds = memberChanges.add;
+    const removedMemberIds = memberChanges.remove;
+
+    addedMemberIds.forEach((participantId) =>
+      conversation.participants.push(new ObjectId(participantId))
+    );
+    removedMemberIds.forEach((removedIds) =>
+      conversation.participants.filter(
+        (participant) => participant.toString() !== removedIds
+      )
+    );
+
+    await conversation.save();
+    await conversation.populate(
+      'participants',
+      'first_name last_name username profile_picture'
+    );
+
+    // Logic to filter the current user from the participants list for the client
+    const otherParticipants = conversation.participants.filter(
+      (p: any) => p._id.toString() !== userId.toString()
+    );
+    return { ...conversation.toObject(), participants: otherParticipants };
   }
 }

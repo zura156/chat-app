@@ -151,7 +151,7 @@ export const loginUser = async (
   }
 };
 
-export const refreshToken = async (
+export const refreshAccessToken = async (
   req: RefreshTokenDto,
   res: Response,
   next: NextFunction

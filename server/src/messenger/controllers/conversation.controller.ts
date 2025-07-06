@@ -1,6 +1,7 @@
 import { Response, NextFunction } from 'express';
 import { AuthRequest } from '../../auth/middlewares/auth.middleware';
 import { ConversationService } from '../services/conversation.service';
+import { Conversation } from '../models/conversation.model';
 
 export class ConversationController {
   private conversationService: ConversationService;
@@ -143,6 +144,39 @@ export class ConversationController {
       const userId = req.user!.userId;
       await this.conversationService.unmuteConversation(conversationId, userId);
       res.status(200).json({ message: 'Conversation unmuted successfully' });
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  public manageConversationMembers = async (
+    req: AuthRequest,
+    res: Response,
+    next: NextFunction
+  ) => {
+    const conversationId = req.params.id;
+    const userId = req.user?.userId;
+    const { add, remove } = req.body;
+
+    if (!userId) {
+      res.status(401).json({ message: 'User is not authorized!' });
+      return;
+    }
+
+    if (!conversationId || (!add.length && !remove.length)) {
+      res.status(400).json({ message: 'Bad requst' });
+      return;
+    }
+
+    try {
+      const conversation =
+        await this.conversationService.manageConversationMembers(
+          userId,
+          { add, remove },
+          conversationId
+        );
+
+      res.status(200).json(conversation);
     } catch (error) {
       next(error);
     }

@@ -1,1 +1,1 @@
-export type ModalVariantsT = 'user-list' | 'form';
+export type ModalVariantsT = 'user-list' | 'form' | 'confirmation';

@@ -2,9 +2,11 @@ import { Request, Response, NextFunction } from 'express';
 import { TokenPayload } from '../../auth/services/jwt.service';
 import jwt from 'jsonwebtoken';
 import config from '../../config/config';
+import { IConversation } from '../../messenger/models/conversation.model';
 
 export interface AuthRequest extends Request {
   user?: TokenPayload;
+  conversation?: IConversation;
 }
 
 export const authenticate = async (

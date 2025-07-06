@@ -19,6 +19,7 @@ import { HlmSeparatorDirective } from '../../../../../libs/ui/ui-separator-helm/
 import { BrnSeparatorComponent } from '@spartan-ng/brain/separator';
 import { HttpErrorResponse } from '@angular/common/http';
 import { HlmSpinnerComponent } from '@spartan-ng/helm/spinner';
+import { toast } from 'ngx-sonner';
 
 @Component({
   selector: 'app-item-manager',
@@ -30,7 +31,7 @@ import { HlmSpinnerComponent } from '@spartan-ng/helm/spinner';
     HlmAvatarFallbackDirective,
     HlmSeparatorDirective,
     BrnSeparatorComponent,
-    HlmSpinnerComponent
+    HlmSpinnerComponent,
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
@@ -65,8 +66,15 @@ export class ItemManagerComponent {
     let selectedItemIds: string[] = [];
     const items = this.items();
 
-    if (!items) {
+    if (this.variant() === 'confirmation') {
       this.submit.emit([]);
+      return;
+    }
+
+    if (!items || !items.length) {
+      toast.error('Submission was cancelled', {
+        description: 'due to nothing being selected',
+      });
       return;
     }
 

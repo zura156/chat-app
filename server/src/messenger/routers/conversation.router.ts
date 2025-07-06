@@ -1,7 +1,11 @@
 import { Router } from 'express';
-import { authenticate } from '../../auth/middlewares/auth.middleware';
+import {
+  authenticate,
+  AuthRequest,
+} from '../../auth/middlewares/auth.middleware';
 import { ConversationController } from '../controllers/conversation.controller';
 import { ConversationService } from '../services/conversation.service';
+import { validateConversation } from '../middlewares/validate-conversation.middleware';
 
 const router = Router();
 
@@ -35,10 +39,32 @@ router.get('/search', (req, res, next) =>
 );
 
 router
+  .route('/:id/members')
+  .patch((req, res, next) =>
+    req.conversationController.manageConversationMembers(req, res, next)
+  );
+
+router
   .route('/:id')
-  .get((req, res, next) =>
-    req.conversationController.getConversationById(req, res, next)
-  )
+  .all(validateConversation)
+  .get(async (req: AuthRequest, res) => {
+    const conversation = await req.conversation?.populate(
+      'participants',
+      'first_name last_name username profile_picture'
+    );
+
+    const otherParticipants = conversation?.participants.filter(
+      (p: any) => p._id.toString() !== req.user?.userId.toString()
+    );
+
+    const conversationWithFilteredParticipants = {
+      ...conversation?.toObject(),
+      participants: otherParticipants,
+    };
+
+    res.json(conversationWithFilteredParticipants);
+  })
+  // TODO: refactor functions
   .patch((req, res, next) =>
     req.conversationController.updateConversation(req, res, next)
   )

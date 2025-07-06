@@ -2,7 +2,7 @@ import { Router } from 'express';
 import {
   registerUser,
   loginUser,
-  refreshToken,
+  refreshAccessToken,
 } from '../controllers/auth.controller';
 import { authenticate } from '../middlewares/auth.middleware';
 
@@ -13,6 +13,6 @@ router.post('/register', registerUser);
 router.post('/login', loginUser);
 
 // Protected routes
-router.post('/refresh-token', authenticate, refreshToken);
+router.post('/refresh-token', authenticate, refreshAccessToken);
 
 export default router;

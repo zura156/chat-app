@@ -40,7 +40,7 @@ export class NotificationService {
   markAsRead(notificationId: string): Observable<NotificationI> {
     const url = `${this.MARK_AS_READ_URL}/${notificationId}/read`;
 
-    return this.http.post<NotificationI>(url, {}).pipe(
+    return this.http.patch<NotificationI>(url, {}).pipe(
       tap(() => {
         // Update local state
         this.#notifications.update((notifications) =>
@@ -64,7 +64,7 @@ export class NotificationService {
   markAllAsRead(): Observable<any> {
     const url = `${this.MARK_AS_READ_URL}/read-all`;
 
-    return this.http.post(url, {}).pipe(
+    return this.http.patch(url, {}).pipe(
       tap(() => {
         // Update local state
         this.#notifications.update((notifications) =>

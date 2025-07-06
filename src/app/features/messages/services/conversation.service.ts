@@ -1,11 +1,5 @@
 import { HttpClient } from '@angular/common/http';
-import {
-  computed,
-  inject,
-  Injectable,
-  linkedSignal,
-  signal,
-} from '@angular/core';
+import { computed, inject, Injectable, signal } from '@angular/core';
 import { Observable, of, tap, catchError, throwError } from 'rxjs';
 import { environment } from '../../../../environments/environment';
 import {
@@ -13,11 +7,11 @@ import {
   ReadReceiptI,
 } from '../interfaces/conversation.interface';
 import { ConversationListI } from '../interfaces/conversation-list.interface';
-import { UserI } from '../../user/interfaces/user.interface';
 import { WebSocketService } from './web-socket.service';
 import { ConversationJoinMessage } from '../interfaces/web-socket-message.interface';
 import { UserService } from '../../user/services/user.service';
 import { ParticipantI } from '../interfaces/participant.interface';
+import { MemberChangesI } from '../interfaces/member-changes.interface';
 
 @Injectable()
 export class ConversationService {
@@ -32,6 +26,7 @@ export class ConversationService {
   private readonly SEARCH_CONVERSATIONS_URL = `${this.apiUrl}/conversations/search`;
   private readonly CREATE_CONVERSATION_URL = `${this.apiUrl}/conversations`;
   private readonly GET_CONVERSATION_URL = `${this.apiUrl}/conversations`;
+  private readonly MANAGE_CONVERSATION_MEMBERS_URL = `${this.apiUrl}/conversations/:conversationId/members`;
 
   // Cache for active conversation data (messages, etc.)
   selectedConversationId = signal<string | null>(null);
@@ -229,5 +224,18 @@ export class ConversationService {
 
       return { ...convo, read_receipts: newReceipts };
     });
+  }
+
+  manageConversationMembers(
+    memberChanges: MemberChangesI,
+    conversationId: string
+  ): Observable<ConversationI> {
+    const splitUrl =
+      this.MANAGE_CONVERSATION_MEMBERS_URL.split(':conversationId');
+    const url = `${splitUrl[0]}${conversationId}${splitUrl[1]}`;
+    console.log(url)
+    return this.http
+      .patch<ConversationI>(url, memberChanges)
+      .pipe(tap((res) => this.#activeConversation.set(res)));
   }
 }
