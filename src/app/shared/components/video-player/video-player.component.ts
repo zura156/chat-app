@@ -111,7 +111,16 @@ export class VideoPlayerComponent implements OnDestroy {
   showIndicator = signal<boolean>(false);
   indicatorType = signal<VideoActionsT>(null);
 
-  constructor(@Inject(DOCUMENT) private document: Document) {}
+  constructor(@Inject(DOCUMENT) private document: Document) {
+    this.isFullscreen.set(
+      !!(
+        this.document.fullscreenElement ||
+        (this.document as any).webkitFullscreenElement ||
+        (this.document as any).mozFullScreenElement ||
+        (this.document as any).msFullscreenElement
+      )
+    );
+  }
 
   ngOnDestroy(): void {
     clearInterval(this.hideOverlayTimeout);
@@ -204,12 +213,53 @@ export class VideoPlayerComponent implements OnDestroy {
   }
 
   toggleFullscreen(): void {
-    const fullScreenElement = this.document.fullscreenElement;
+    const element = this.playerContainer()?.nativeElement;
+    if (!element) return;
 
-    if (fullScreenElement) {
-      this.document.exitFullscreen();
+    if (this.isFullscreen()) {
+      this.exitFullscreen();
     } else {
-      this.playerContainer()?.nativeElement.requestFullscreen();
+      this.enterFullscreen(element);
+    }
+  }
+
+  private enterFullscreen(element: HTMLElement): void {
+    try {
+      if (element.requestFullscreen) {
+        element.requestFullscreen();
+      } else if ((element as any).webkitRequestFullscreen) {
+        // Safari
+        (element as any).webkitRequestFullscreen();
+      } else if ((element as any).webkitRequestFullScreen) {
+        // Older Safari
+        (element as any).webkitRequestFullScreen();
+      } else if ((element as any).mozRequestFullScreen) {
+        // Firefox
+        (element as any).mozRequestFullScreen();
+      } else if ((element as any).msRequestFullscreen) {
+        // IE/Edge
+        (element as any).msRequestFullscreen();
+      }
+    } catch (error) {
+      console.warn('Fullscreen not supported or failed:', error);
+    }
+  }
+
+  private exitFullscreen(): void {
+    try {
+      if (this.document.exitFullscreen) {
+        this.document.exitFullscreen();
+      } else if ((this.document as any).webkitExitFullscreen) {
+        (this.document as any).webkitExitFullscreen();
+      } else if ((this.document as any).webkitCancelFullScreen) {
+        (this.document as any).webkitCancelFullScreen();
+      } else if ((this.document as any).mozCancelFullScreen) {
+        (this.document as any).mozCancelFullScreen();
+      } else if ((this.document as any).msExitFullscreen) {
+        (this.document as any).msExitFullscreen();
+      }
+    } catch (error) {
+      console.warn('Exit fullscreen failed:', error);
     }
   }
 
