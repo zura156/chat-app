@@ -29,7 +29,6 @@
     "class-variance-authority": "^0.7.0",
     "clsx": "^2.1.1",
     "firebase": "^11.2.0",
-    "hammerjs": "^2.0.8",
     "ngx-float-ui": "^20.0.0",
     "ngx-scrollbar": ">=16.0.0",
     "ngx-sonner": ">=3.0.0",
