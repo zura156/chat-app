@@ -67,6 +67,14 @@
   }
 }
 
+@supports (padding: env(safe-area-inset-top)) {
+  .safari-fullscreen-fix {
+    height: 100dvh; /* fallback for latest Safari 16+ */
+    height: calc(100vh - constant(safe-area-inset-bottom)); /* legacy Safari */
+    height: calc(100vh - env(safe-area-inset-bottom));
+  }
+}
+
 html,
 body {
   height: 100%;

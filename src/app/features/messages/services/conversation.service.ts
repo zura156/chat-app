@@ -233,7 +233,6 @@ export class ConversationService {
     const splitUrl =
       this.MANAGE_CONVERSATION_MEMBERS_URL.split(':conversationId');
     const url = `${splitUrl[0]}${conversationId}${splitUrl[1]}`;
-    console.log(url)
     return this.http
       .patch<ConversationI>(url, memberChanges)
       .pipe(tap((res) => this.#activeConversation.set(res)));
