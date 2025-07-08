@@ -105,9 +105,6 @@
 
           </div>
         }
-        @case('confirmation') {
-           
-        }
       }
     }
 
@@ -123,11 +120,11 @@
       </button>
       <button
         hlmBtn
-        variant="default"
+        [variant]="submitVariant()"
         (click)="onSubmit()"
-        class="cursor-pointer"
+        class="cursor-pointer capitalize"
       >
-        Submit
+        {{ actionName() }}
       </button>
     </footer>
   </main>

@@ -223,6 +223,8 @@ export class ChatboxSettingsComponent implements OnDestroy {
       `Do you want to remove ${user.username} from conversation?`
     );
     this.#modalComponentRef?.setInput('variant', 'confirmation');
+    this.#modalComponentRef?.setInput('submitVariant', 'destructive');
+    this.#modalComponentRef?.setInput('actionName', 'remove');
 
     const submitSubscription =
       this.#modalComponentRef?.instance.submit.subscribe(() => {
@@ -252,7 +254,49 @@ export class ChatboxSettingsComponent implements OnDestroy {
       });
   }
 
-  onLeaveGroup(): void {}
+  onLeaveGroup(): void {
+    this.createComponent();
+
+    this.#modalComponentRef?.setInput('headerText', 'Are you sure?');
+    this.#modalComponentRef?.setInput(
+      'description',
+      `Do you want to leave the conversation?`
+    );
+    this.#modalComponentRef?.setInput('variant', 'confirmation');
+    this.#modalComponentRef?.setInput('submitVariant', 'destructive');
+    this.#modalComponentRef?.setInput('actionName', 'leave');
+
+    const submitSubscription =
+      this.#modalComponentRef?.instance.submit.subscribe(() => {
+        const currentUser = this.userService.currentUser();
+
+        if (!currentUser) return;
+
+        const memberChanges: MemberChangesI = {
+          add: [],
+          remove: [currentUser._id],
+        };
+
+        this.subscriptions.push(
+          this.conversationService
+            .manageConversationMembers(
+              memberChanges,
+              String(this.conversation()?._id)
+            )
+            .pipe(
+              tap(() => {
+                toast.info(`Submission was successfull!`, {
+                  description: `${currentUser.username} was removed successfully!`,
+                });
+                this.#modalComponentRef?.instance.closed.emit();
+              })
+            )
+            .subscribe()
+        );
+
+        submitSubscription && this.subscriptions.push(submitSubscription);
+      });
+  }
 
   private createComponent() {
     this.modalVcr()?.clear();

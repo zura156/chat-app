@@ -13,6 +13,7 @@ export interface ConversationI {
   participants: ParticipantI[];
   last_message?: MessageI;
   read_receipts: ReadReceiptI[];
+  created_by?: string;
   createdAt?: string;
   updatedAt?: string;
   is_group: boolean;

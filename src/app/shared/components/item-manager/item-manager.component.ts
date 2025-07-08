@@ -41,6 +41,8 @@ export class ItemManagerComponent {
   variant = input<ModalVariantsT>('user-list');
   error = input<HttpErrorResponse>();
   isLoading = input<boolean>();
+  submitVariant = input<'default' | 'destructive'>('default');
+  actionName = input<string>('submit')
 
   items = input<(UserI | ParticipantI)[]>();
 

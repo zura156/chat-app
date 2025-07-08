@@ -8,6 +8,7 @@ export interface ConversationI {
   is_group: boolean;
   group_name?: string;
   group_picture?: string;
+  created_by?: string;
   createdAt?: Date;
   updatedAt?: Date;
 }

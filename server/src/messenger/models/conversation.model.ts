@@ -1,6 +1,7 @@
 import { model, Schema, Types, Document, now } from 'mongoose';
 
 export interface IConversation extends Document {
+  created_by?: Types.ObjectId;
   participants: Types.ObjectId[];
   last_message?: Types.ObjectId;
   read_receipts: {
@@ -17,6 +18,7 @@ export interface IConversation extends Document {
 
 const ConversationSchema = new Schema<IConversation>(
   {
+    created_by: { type: Schema.Types.ObjectId, ref: 'User', required: true },
     participants: [
       { type: Schema.Types.ObjectId, ref: 'User', required: true },
     ],
