@@ -19,10 +19,9 @@ export class LayoutService {
   // });
   // isRightView = computed(this.#isRightView);
 
-  #activeView = signal<ActiveViewType>('conversations');
-  activeView = computed(this.#activeView);
+  activeView = signal<ActiveViewType>('conversations');
 
   setActiveView(view: ActiveViewType): void {
-    this.#activeView.set(view);
+    this.activeView.update(() => view);
   }
 }

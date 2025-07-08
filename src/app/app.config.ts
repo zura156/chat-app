@@ -3,8 +3,11 @@ import {
   provideZoneChangeDetection,
   isDevMode,
 } from '@angular/core';
-import { provideRouter } from '@angular/router';
-
+import {
+  IonicRouteStrategy,
+  provideIonicAngular,
+} from '@ionic/angular/standalone';
+import { provideRouter, RouteReuseStrategy } from '@angular/router';
 import { routes } from './app.routes';
 import { provideAnimationsAsync } from '@angular/platform-browser/animations/async';
 import { provideHttpClient, withInterceptors } from '@angular/common/http';
@@ -14,8 +17,10 @@ import { provideServiceWorker } from '@angular/service-worker';
 
 export const appConfig: ApplicationConfig = {
   providers: [
+    provideIonicAngular(),
     provideZoneChangeDetection({ eventCoalescing: true }),
     provideRouter(routes),
+    { provide: RouteReuseStrategy, useClass: IonicRouteStrategy },
     provideAnimationsAsync(),
     provideHttpClient(
       withInterceptors([authInterceptor, refreshTokenInterceptor])

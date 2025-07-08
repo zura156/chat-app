@@ -1,8 +1,8 @@
 @import "./fonts.css";
-@import "@angular/cdk/overlay-prebuilt.css";
-@import "@spartan-ng/brain/hlm-tailwind-preset.css";
 
 @import "tailwindcss";
+@import "@angular/cdk/overlay-prebuilt.css";
+@import "@spartan-ng/brain/hlm-tailwind-preset.css";
 
 @custom-variant dark (&:where(.dark, .dark *));
 

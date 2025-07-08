@@ -30,7 +30,7 @@ export class ConversationCardComponent {
 
   conversation = input<ConversationI>();
 
-  apiUrl = environment.apiUrl
+  apiUrl = environment.apiUrl;
 
   currentUser = this.userService.currentUser;
   participants = linkedSignal(() =>

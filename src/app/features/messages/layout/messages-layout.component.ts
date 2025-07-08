@@ -10,11 +10,12 @@ import { ReactiveFormsModule } from '@angular/forms';
 import { HlmSeparatorDirective } from '@spartan-ng/helm/separator';
 import { BrnSeparatorComponent } from '@spartan-ng/brain/separator';
 import { NgTemplateOutlet } from '@angular/common';
-import { filter, Subject, takeUntil, tap } from 'rxjs';
+import { filter, map, Subject, switchMap, takeUntil, tap } from 'rxjs';
 import {
   ActivatedRoute,
   NavigationEnd,
   ParamMap,
+  Params,
   Router,
   RouterOutlet,
 } from '@angular/router';
@@ -48,38 +49,32 @@ export class MessagesLayoutComponent implements OnInit, OnDestroy {
   private destroy$ = new Subject<void>();
 
   ngOnInit() {
-    this.checkForIdParam(this.route);
     this.checkScreenWidth();
-
-    // Listen for router events
     this.router.events
       .pipe(
         filter((event) => event instanceof NavigationEnd),
-        tap(() => this.checkForIdParam(this.route)),
+        map(() => {
+          let route = this.router.routerState.root;
+          while (route.firstChild) {
+            route = route.firstChild;
+          }
+          return route;
+        }),
+        switchMap((route) =>
+          route.params.pipe(
+            tap((params: Params) => {
+              const id = params['id'];
+              if (id) {
+                this.setActiveView('chatbox');
+              } else {
+                this.setActiveView('conversations');
+              }
+            })
+          )
+        ),
         takeUntil(this.destroy$)
       )
       .subscribe();
-  }
-
-  private checkForIdParam(route: ActivatedRoute) {
-    let currentRoute = route;
-
-    // Traverse the nested routes
-    while (currentRoute.firstChild) {
-      currentRoute = currentRoute.firstChild;
-    }
-
-    // Access paramMap and check for :id
-    currentRoute.paramMap
-      .pipe(takeUntil(this.destroy$))
-      .subscribe((params: ParamMap) => {
-        const id = params.get('id');
-        if (id) {
-          this.setActiveView('chatbox');
-        } else {
-          this.setActiveView('conversations');
-        }
-      });
   }
 
   ngOnDestroy(): void {
