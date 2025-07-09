@@ -72,13 +72,15 @@ export class ConversationController {
     next: NextFunction
   ) => {
     try {
+      const { userId } = req.user!;
       const { participants, is_group, group_name, group_picture } =
         req.body.conversation;
       const conversation = await this.conversationService.createConversation(
         participants,
         is_group,
         group_name,
-        group_picture
+        group_picture,
+        userId
       );
       res.status(201).json(conversation);
     } catch (error) {

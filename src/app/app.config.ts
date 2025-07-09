@@ -7,7 +7,11 @@ import {
   IonicRouteStrategy,
   provideIonicAngular,
 } from '@ionic/angular/standalone';
-import { provideRouter, RouteReuseStrategy } from '@angular/router';
+import {
+  provideRouter,
+  RouteReuseStrategy,
+  withComponentInputBinding,
+} from '@angular/router';
 import { routes } from './app.routes';
 import { provideAnimationsAsync } from '@angular/platform-browser/animations/async';
 import { provideHttpClient, withInterceptors } from '@angular/common/http';
@@ -17,10 +21,10 @@ import { provideServiceWorker } from '@angular/service-worker';
 
 export const appConfig: ApplicationConfig = {
   providers: [
+    { provide: RouteReuseStrategy, useClass: IonicRouteStrategy },
     provideIonicAngular(),
     provideZoneChangeDetection({ eventCoalescing: true }),
-    provideRouter(routes),
-    { provide: RouteReuseStrategy, useClass: IonicRouteStrategy },
+    provideRouter(routes, withComponentInputBinding()),
     provideAnimationsAsync(),
     provideHttpClient(
       withInterceptors([authInterceptor, refreshTokenInterceptor])

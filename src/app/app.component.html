@@ -1,6 +1,6 @@
 @let theme = this.theme$ | async;
+<app-header></app-header>
 <ion-app>
-  <app-header></app-header>
   <ion-router-outlet></ion-router-outlet>
-  <hlm-toaster [theme]="theme ?? 'system'" />
 </ion-app>
+<hlm-toaster [theme]="theme ?? 'system'" />

@@ -94,7 +94,8 @@ export class ConversationService {
     participants: string[],
     is_group: boolean,
     group_name?: string,
-    group_picture?: string
+    group_picture?: string,
+    created_by?: string
   ) {
     // Business logic: Prevent duplicate 1-on-1 conversations
     if (!is_group && participants.length === 2) {
@@ -115,6 +116,7 @@ export class ConversationService {
       is_group,
       group_name,
       group_picture,
+      created_by,
     });
     return Conversation.findById(conversation._id).populate(
       'participants',
