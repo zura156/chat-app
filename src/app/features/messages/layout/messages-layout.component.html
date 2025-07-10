@@ -1,54 +1,17 @@
-<div class="overflow-hidden h-full">
-  @if (isMobile()) {
-    <main
-      class="relative w-full h-dvh overflow-hidden md:flex"
-    >
-      @if(activeView() === 'conversations' || activeView() === 'users'){
-        <div>
-          <ng-container *ngTemplateOutlet="leftSide" ></ng-container>
-        </div>
-      } @else {
-        <div class="h-dvh">
-          <ng-container *ngTemplateOutlet="rightSide"></ng-container>
-        </div> 
-      }
-    </main>
-  } @else {
-    <main class="flex space-x-2 md:space-x-4 h-dvh w-full">
-      <section class="w-1/3 mx-0">
-        <ng-container *ngTemplateOutlet="leftSide"></ng-container>
-      </section>
-      <brn-separator decorative hlmSeparator orientation="vertical" />
-      <section class="w-2/3">
-        <ng-container *ngTemplateOutlet="rightSide"></ng-container>
-      </section>
-    </main>
+<!-- <main class="overflow-hidden h-full flex">
+  @if(!isMobile()){
+  <section class="w-1/2 h-dvh overflow-hidden">
+    <app-conversation-list></app-conversation-list>
+  </section>
+  <brn-separator hlm decorative orientation="vertical" />
   }
+  <section
+    class="h-dvh overflow-hidden"
+    [ngClass]="isMobile() ? 'w-full' : 'w-1/2'"
+  >
+    <router-outlet [name]="isMobile() ? 'mobile' : 'desktop'"></router-outlet>
+</section>
+</main> -->
+<h1>UNDER DEVELOPMENT</h1>
 
-  <ng-template #leftSide>
-    <div class="h-full">
-      <app-messages-list></app-messages-list>
-    </div>
-  </ng-template>
-
-  <ng-template #rightSide>
-    <div class="h-full">
-
-      <!-- ? intstead adding swipe support -->
-      <!-- @if(isMobile()){
-      <div class="p-2">
-        <button
-          type="button"
-          (click)="goBack()"
-          hlmBtn
-          variant="secondary"
-          class="cursor-pointer rounded-full"
-        >
-          <ng-icon hlm size="sm" name="lucideChevronLeft" />
-        </button>
-      </div>
-      } -->
-      <router-outlet></router-outlet>
-    </div>
-  </ng-template>
-</div>
+<router-outlet name="mobile"></router-outlet>

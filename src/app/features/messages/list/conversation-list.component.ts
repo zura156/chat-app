@@ -59,7 +59,7 @@ import { ConversationI } from '../interfaces/conversation.interface';
 import { ActiveViewType } from '../interfaces/active-view.type';
 
 @Component({
-  selector: 'app-messages-list',
+  selector: 'app-conversation-list',
   imports: [
     HlmTabsComponent,
     HlmTabsListComponent,
@@ -81,9 +81,9 @@ import { ActiveViewType } from '../interfaces/active-view.type';
   providers: [
     provideIcons({ lucidePencil, lucideMenu, lucideChevronLeft, lucideLoader }),
   ],
-  templateUrl: './messages-list.component.html',
+  templateUrl: './conversation-list.component.html',
 })
-export class MessageListComponent {
+export class ConversationListComponent {
   // Injected services
   private conversationService = inject(ConversationService);
   private webSocketService = inject(WebSocketService);

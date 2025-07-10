@@ -10,7 +10,7 @@ import {
 import {
   provideRouter,
   RouteReuseStrategy,
-  withComponentInputBinding,
+  withDebugTracing,
 } from '@angular/router';
 import { routes } from './app.routes';
 import { provideAnimationsAsync } from '@angular/platform-browser/animations/async';
@@ -22,13 +22,17 @@ import { provideServiceWorker } from '@angular/service-worker';
 export const appConfig: ApplicationConfig = {
   providers: [
     { provide: RouteReuseStrategy, useClass: IonicRouteStrategy },
-    provideIonicAngular(),
+    provideIonicAngular({
+      mode: 'ios',
+      animated: true,
+    }),
+    provideRouter(routes),
     provideZoneChangeDetection({ eventCoalescing: true }),
-    provideRouter(routes, withComponentInputBinding()),
     provideAnimationsAsync(),
     provideHttpClient(
       withInterceptors([authInterceptor, refreshTokenInterceptor])
     ),
+
     provideServiceWorker('ngsw-worker.js', {
       enabled: !isDevMode(),
       registrationStrategy: 'registerWhenStable:30000',

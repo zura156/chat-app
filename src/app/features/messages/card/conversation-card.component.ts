@@ -11,6 +11,7 @@ import {
 import { UserService } from '../../user/services/user.service';
 import { TimeAgoPipe } from '../../../shared/pipes/time-ago.pipe';
 import { environment } from '../../../../environments/environment';
+import { NavController } from '@ionic/angular/standalone';
 
 @Component({
   selector: 'app-conversation-card',
@@ -27,6 +28,7 @@ import { environment } from '../../../../environments/environment';
 export class ConversationCardComponent {
   layoutService = inject(LayoutService);
   userService = inject(UserService);
+  navCtrl = inject(NavController);
 
   conversation = input<ConversationI>();
 
@@ -41,7 +43,10 @@ export class ConversationCardComponent {
 
   imageUrl = this.conversation()?.group_picture;
 
-  switchView(): void {
+  switchView(id: string): void {
     this.layoutService.setActiveView('chatbox');
+    this.navCtrl.navigateForward(['/messages', id], {
+      animationDirection: 'forward',
+    });
   }
 }

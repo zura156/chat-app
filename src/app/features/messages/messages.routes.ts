@@ -3,6 +3,8 @@ import { MessagesLayoutComponent } from './layout/messages-layout.component';
 import { ChatboxComponent } from './chatbox/chatbox.component';
 import { NewChatComponent } from './new-chat/new-chat.component';
 import { LayoutService } from './layout/layout.service';
+import { ConversationListComponent } from './list/conversation-list.component';
+import { MessagesStartComponent } from './start/messages-start.compoent';
 
 export const messagesRoutes: Routes = [
   {
@@ -11,17 +13,25 @@ export const messagesRoutes: Routes = [
     providers: [LayoutService],
     children: [
       {
+        path: '',
+        component: ConversationListComponent,
+        outlet: 'mobile',
+      },
+      {
+        path: '',
+        component: MessagesStartComponent,
+        outlet: 'desktop',
+      },
+      {
         path: 'new',
         component: NewChatComponent,
+        outlet: 'mobile',
       },
       {
         path: ':id',
         component: ChatboxComponent,
+        outlet: 'mobile',
       },
-      // { path: '', component: MessagesStartComponent, outlet: 'right' }, //Initial right side view.
-      // {
-      //   path: 'settings', // settings for specific chats. (e.g. mute, delete, theme, etc.)
-      // },
     ],
   },
 ];

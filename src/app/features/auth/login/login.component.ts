@@ -28,6 +28,7 @@ import {
   HlmAlertDirective,
   HlmAlertIconDirective,
 } from '@spartan-ng/helm/alert';
+import { NavController } from '@ionic/angular/standalone';
 
 @Component({
   selector: 'app-login',
@@ -52,6 +53,7 @@ import {
 export class LoginComponent {
   authService = inject(AuthService);
   router = inject(Router);
+  navCtrl = inject(NavController);
 
   showPass = signal<boolean>(false);
   error = signal<string>('');
@@ -97,7 +99,9 @@ export class LoginComponent {
         tap(() => {
           this.clearError();
           this.isLoading.set(false);
-          this.router.navigateByUrl('/messages');
+          this.navCtrl.navigateRoot('/messages', {
+            animationDirection: 'forward',
+          });
         }),
         catchError((err) => {
           this.error.set(err.message);

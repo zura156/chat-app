@@ -9,7 +9,7 @@ import {
 import { ReactiveFormsModule } from '@angular/forms';
 import { HlmSeparatorDirective } from '@spartan-ng/helm/separator';
 import { BrnSeparatorComponent } from '@spartan-ng/brain/separator';
-import { NgTemplateOutlet } from '@angular/common';
+import { NgClass, NgTemplateOutlet } from '@angular/common';
 import { filter, map, Subject, switchMap, takeUntil, tap } from 'rxjs';
 import {
   ActivatedRoute,
@@ -19,28 +19,30 @@ import {
   Router,
   RouterOutlet,
 } from '@angular/router';
-import { MessageListComponent } from '../list/messages-list.component';
+import { ConversationListComponent } from '../list/conversation-list.component';
 import { LayoutService } from './layout.service';
 import { ActiveViewType } from '../interfaces/active-view.type';
+import { BreakpointObserver } from '@angular/cdk/layout';
+import { IonRouterOutlet } from '@ionic/angular/standalone';
 
 @Component({
   selector: 'app-messages',
   imports: [
+    IonRouterOutlet,
     RouterOutlet,
     ReactiveFormsModule,
+    NgClass,
     HlmSeparatorDirective,
     BrnSeparatorComponent,
-    NgTemplateOutlet,
-    MessageListComponent,
+    ConversationListComponent,
   ],
   templateUrl: './messages-layout.component.html',
 })
 export class MessagesLayoutComponent implements OnInit, OnDestroy {
   private layoutService = inject(LayoutService);
   private router = inject(Router);
-  private route = inject(ActivatedRoute);
 
-  isMobile = signal<boolean>(false);
+  isMobile = this.layoutService.isMobile;
   activeView = this.layoutService.activeView;
   chatboxAnimationDirection = signal<'right' | 'left'>('right');
 
@@ -49,7 +51,6 @@ export class MessagesLayoutComponent implements OnInit, OnDestroy {
   private destroy$ = new Subject<void>();
 
   ngOnInit() {
-    this.checkScreenWidth();
     this.router.events
       .pipe(
         filter((event) => event instanceof NavigationEnd),
@@ -80,16 +81,6 @@ export class MessagesLayoutComponent implements OnInit, OnDestroy {
   ngOnDestroy(): void {
     this.destroy$.next();
     this.destroy$.complete();
-  }
-
-  @HostListener('window:resize', ['$event'])
-  onResize(event: any): void {
-    this.windowWidth = window.innerWidth;
-    this.checkScreenWidth();
-  }
-
-  private checkScreenWidth(): void {
-    this.isMobile.set(this.windowWidth < 640);
   }
 
   setActiveView(destination: ActiveViewType) {

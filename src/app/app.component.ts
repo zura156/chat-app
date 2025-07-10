@@ -13,7 +13,6 @@ import { RouterOutlet } from '@angular/router';
     HlmToasterComponent,
     HeaderComponent,
     IonRouterOutlet,
-    RouterOutlet,
     IonApp,
   ],
   templateUrl: './app.component.html',
