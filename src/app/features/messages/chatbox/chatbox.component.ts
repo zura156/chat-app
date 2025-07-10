@@ -1,5 +1,4 @@
 import {
-  AfterViewInit,
   ChangeDetectionStrategy,
   Component,
   ElementRef,
@@ -9,7 +8,6 @@ import {
   QueryList,
   Signal,
   signal,
-  viewChild,
   ViewChild,
   ViewChildren,
 } from '@angular/core';

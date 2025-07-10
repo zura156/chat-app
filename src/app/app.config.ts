@@ -8,9 +8,11 @@ import {
   provideIonicAngular,
 } from '@ionic/angular/standalone';
 import {
+  PreloadAllModules,
   provideRouter,
   RouteReuseStrategy,
   withDebugTracing,
+  withPreloading,
 } from '@angular/router';
 import { routes } from './app.routes';
 import { provideAnimationsAsync } from '@angular/platform-browser/animations/async';
@@ -26,7 +28,7 @@ export const appConfig: ApplicationConfig = {
       mode: 'ios',
       animated: true,
     }),
-    provideRouter(routes),
+    provideRouter(routes, withPreloading(PreloadAllModules)),
     provideZoneChangeDetection({ eventCoalescing: true }),
     provideAnimationsAsync(),
     provideHttpClient(

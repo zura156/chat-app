@@ -1,36 +1,21 @@
-import {
-  Component,
-  HostListener,
-  inject,
-  OnDestroy,
-  OnInit,
-  signal,
-} from '@angular/core';
+import { Component, inject, OnDestroy, OnInit, signal } from '@angular/core';
 import { ReactiveFormsModule } from '@angular/forms';
 import { HlmSeparatorDirective } from '@spartan-ng/helm/separator';
 import { BrnSeparatorComponent } from '@spartan-ng/brain/separator';
 import { NgClass, NgTemplateOutlet } from '@angular/common';
 import { filter, map, Subject, switchMap, takeUntil, tap } from 'rxjs';
-import {
-  ActivatedRoute,
-  NavigationEnd,
-  ParamMap,
-  Params,
-  Router,
-  RouterOutlet,
-} from '@angular/router';
+import { NavigationEnd, Params, Router, RouterOutlet } from '@angular/router';
 import { ConversationListComponent } from '../list/conversation-list.component';
 import { LayoutService } from './layout.service';
 import { ActiveViewType } from '../interfaces/active-view.type';
-import { BreakpointObserver } from '@angular/cdk/layout';
 import { IonRouterOutlet } from '@ionic/angular/standalone';
 
 @Component({
   selector: 'app-messages',
   imports: [
     IonRouterOutlet,
-    RouterOutlet,
     ReactiveFormsModule,
+    NgTemplateOutlet,
     NgClass,
     HlmSeparatorDirective,
     BrnSeparatorComponent,

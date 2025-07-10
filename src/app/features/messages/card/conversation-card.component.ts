@@ -17,7 +17,6 @@ import { NavController } from '@ionic/angular/standalone';
   selector: 'app-conversation-card',
   imports: [
     HlmCardDirective,
-    RouterLink,
     HlmIconModule,
     HlmAvatarImageDirective,
     HlmAvatarComponent,

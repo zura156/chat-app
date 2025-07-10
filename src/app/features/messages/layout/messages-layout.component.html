@@ -5,16 +5,21 @@
   </section>
   <brn-separator hlm decorative orientation="vertical" />
   <section
-    class="h-dvh overflow-hidden"
+    class="h-dvh overflow-hidden relative"
     [ngClass]="isMobile() ? 'w-full' : 'w-1/2'"
   >
     @if(isConversationListActive()) { Please select a conversation } @else {
-    <router-outlet></router-outlet>
+      <ng-container *ngTemplateOutlet="ionicOutlet"></ng-container>
     }
   </section>
   }@else {
   <section>
-    <ion-router-outlet></ion-router-outlet>
+    <ng-container *ngTemplateOutlet="ionicOutlet"></ng-container>
   </section>
   }
 </main>
+
+
+<ng-template #ionicOutlet>
+  <ion-router-outlet></ion-router-outlet>
+</ng-template>
