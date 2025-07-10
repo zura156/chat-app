@@ -15,22 +15,18 @@ export const messagesRoutes: Routes = [
       {
         path: '',
         component: ConversationListComponent,
-        outlet: 'mobile',
       },
-      {
-        path: '',
-        component: MessagesStartComponent,
-        outlet: 'desktop',
-      },
+      // {
+      //   path: '',
+      //   component: MessagesStartComponent,
+      // },
       {
         path: 'new',
         component: NewChatComponent,
-        outlet: 'mobile',
       },
       {
         path: ':id',
         component: ChatboxComponent,
-        outlet: 'mobile',
       },
     ],
   },

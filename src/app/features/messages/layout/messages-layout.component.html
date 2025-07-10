@@ -1,17 +1,20 @@
-<!-- <main class="overflow-hidden h-full flex">
+<main class="overflow-hidden h-full flex">
   @if(!isMobile()){
   <section class="w-1/2 h-dvh overflow-hidden">
     <app-conversation-list></app-conversation-list>
   </section>
   <brn-separator hlm decorative orientation="vertical" />
-  }
   <section
     class="h-dvh overflow-hidden"
     [ngClass]="isMobile() ? 'w-full' : 'w-1/2'"
   >
-    <router-outlet [name]="isMobile() ? 'mobile' : 'desktop'"></router-outlet>
-</section>
-</main> -->
-<h1>UNDER DEVELOPMENT</h1>
-
-<router-outlet name="mobile"></router-outlet>
+    @if(isConversationListActive()) { Please select a conversation } @else {
+    <router-outlet></router-outlet>
+    }
+  </section>
+  }@else {
+  <section>
+    <ion-router-outlet></ion-router-outlet>
+  </section>
+  }
+</main>

@@ -45,6 +45,7 @@ export class MessagesLayoutComponent implements OnInit, OnDestroy {
   isMobile = this.layoutService.isMobile;
   activeView = this.layoutService.activeView;
   chatboxAnimationDirection = signal<'right' | 'left'>('right');
+  isConversationListActive = signal<boolean>(true);
 
   windowWidth: number = window.innerWidth;
 
@@ -54,6 +55,11 @@ export class MessagesLayoutComponent implements OnInit, OnDestroy {
     this.router.events
       .pipe(
         filter((event) => event instanceof NavigationEnd),
+        tap((event: NavigationEnd) => {
+          this.isConversationListActive.set(
+            event.urlAfterRedirects === '/messages'
+          );
+        }),
         map(() => {
           let route = this.router.routerState.root;
           while (route.firstChild) {
