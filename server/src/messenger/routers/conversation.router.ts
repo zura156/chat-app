@@ -34,6 +34,10 @@ router
     req.conversationController.createConversation(req, res, next)
   );
 
+router.get('/find/:participantId', (req, res, next) =>
+  req.conversationController.findConversationIdByUserId(req, res, next)
+);
+
 router.get('/search', (req, res, next) =>
   req.conversationController.searchConversations(req, res, next)
 );

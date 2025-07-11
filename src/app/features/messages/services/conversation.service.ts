@@ -12,6 +12,7 @@ import { ConversationJoinMessage } from '../interfaces/web-socket-message.interf
 import { UserService } from '../../user/services/user.service';
 import { ParticipantI } from '../interfaces/participant.interface';
 import { MemberChangesI } from '../interfaces/member-changes.interface';
+import { ConversationIdResponseI } from '../interfaces/conversation-id-response.interface';
 
 @Injectable()
 export class ConversationService {
@@ -24,8 +25,9 @@ export class ConversationService {
   // API endpoints
   private readonly GET_CONVERSATIONS_URL = `${this.apiUrl}/conversations`;
   private readonly SEARCH_CONVERSATIONS_URL = `${this.apiUrl}/conversations/search`;
+  private readonly FIND_CONVERSATION_ID_BY_USER_ID_URL = `${this.apiUrl}/conversations/find/:participantId`;
   private readonly CREATE_CONVERSATION_URL = `${this.apiUrl}/conversations`;
-  private readonly GET_CONVERSATION_URL = `${this.apiUrl}/conversations`;
+  private readonly GET_CONVERSATION_URL = `${this.apiUrl}/conversations/:id`;
   private readonly MANAGE_CONVERSATION_MEMBERS_URL = `${this.apiUrl}/conversations/:conversationId/members`;
 
   // Cache for active conversation data (messages, etc.)
@@ -46,7 +48,7 @@ export class ConversationService {
 
   // Get a single conversation with messages
   getConversationById(id: string): Observable<ConversationI> {
-    const url = `${this.GET_CONVERSATION_URL}/${id}`;
+    const url = `${this.GET_CONVERSATION_URL.split(':id')[0]}${id}`;
     const data = this.activeConversation();
 
     if (data && data._id === id) {
@@ -92,6 +94,16 @@ export class ConversationService {
         return throwError(() => error);
       })
     );
+  }
+
+  findConversationIdByUserId(
+    participant_id: string
+  ): Observable<ConversationIdResponseI> {
+    const url = `${
+      this.FIND_CONVERSATION_ID_BY_USER_ID_URL.split(':participantId')[0]
+    }${participant_id}`;
+
+    return this.http.get<ConversationIdResponseI>(url);
   }
 
   // create mock conversation for efficiency

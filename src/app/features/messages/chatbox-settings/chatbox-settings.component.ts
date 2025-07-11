@@ -1,10 +1,16 @@
 import {
+  AfterViewInit,
+  ChangeDetectionStrategy,
   Component,
+  ComponentFactoryResolver,
   ComponentRef,
   inject,
+  Injector,
   input,
+  OnChanges,
   OnDestroy,
   OutputRefSubscription,
+  TemplateRef,
   viewChild,
   ViewContainerRef,
 } from '@angular/core';
@@ -44,6 +50,9 @@ import { UserService } from '../../user/services/user.service';
 import { toast } from 'ngx-sonner';
 import { MemberChangesI } from '../interfaces/member-changes.interface';
 import { UserI } from '../../user/interfaces/user.interface';
+import { CdkPortal } from '@angular/cdk/portal';
+import { PortalRegistryService } from '../../../shared/services/portal-registry.service';
+import { NavController } from '@ionic/angular/common';
 
 @Component({
   selector: 'app-chatbox-settings',
@@ -60,6 +69,7 @@ import { UserI } from '../../user/interfaces/user.interface';
     HlmMenuGroupComponent,
     HlmMenuSeparatorComponent,
     HlmAvatarComponent,
+    CdkPortal,
   ],
   providers: [
     provideIcons({
@@ -75,12 +85,14 @@ import { UserI } from '../../user/interfaces/user.interface';
   ],
   templateUrl: './chatbox-settings.component.html',
   styleUrl: './chatbox-settings.component.css',
+  changeDetection: ChangeDetectionStrategy.OnPush,
 })
-export class ChatboxSettingsComponent implements OnDestroy {
+export class ChatboxSettingsComponent implements OnChanges, OnDestroy {
   conversation = input<ConversationI>();
-  conversationService = inject(ConversationService);
-  userService = inject(UserService);
-  router = inject(Router);
+  private conversationService = inject(ConversationService);
+  private userService = inject(UserService);
+  private navCtrl = inject(NavController);
+  private portalRegistryService = inject(PortalRegistryService);
 
   readonly apiUrl = environment.apiUrl;
 
@@ -90,12 +102,22 @@ export class ChatboxSettingsComponent implements OnDestroy {
   };
   openUserMenuIndex: number | null = null;
 
+  portalContent = viewChild<CdkPortal>(CdkPortal);
+
   modalVcr = viewChild('modalContainer', { read: ViewContainerRef });
   #modalComponentRef?: ComponentRef<ItemManagerComponent>;
 
   private subscriptions: (Subscription | OutputRefSubscription)[] = [];
 
+  ngOnChanges(): void {
+    const content = this.portalContent();
+    if (content) {
+      this.portalRegistryService.setPortal(content);
+    }
+  }
+
   ngOnDestroy(): void {
+    this.portalRegistryService.clearPortal();
     this.subscriptions.forEach((sub) => sub.unsubscribe());
     this.subscriptions = [];
   }
@@ -126,7 +148,16 @@ export class ChatboxSettingsComponent implements OnDestroy {
         )?._id || null;
 
     if (conversationId) {
-      this.router.navigate(['/messages', conversationId]);
+      this.subscriptions.push(
+        this.conversationService
+          .findConversationIdByUserId(participant._id)
+          .pipe(
+            tap((res) =>
+              this.navCtrl.navigateRoot(['/messages', res.conversationId])
+            )
+          )
+          .subscribe()
+      );
     } else {
       this.conversationService.selectUserForConversation(participant);
       this.conversationService.createMockConversation();

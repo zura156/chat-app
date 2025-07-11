@@ -60,6 +60,32 @@ export class ConversationService {
     return conversations;
   }
 
+  public async findConversationIdByUserId(
+    userId: string,
+    participantId: string
+  ) {
+    const userObjectId = new Object(userId);
+    const participantObjectId = new Object(participantId);
+
+    if (
+      !Types.ObjectId.isValid(userId) ||
+      !Types.ObjectId.isValid(participantId)
+    ) {
+      throw createCustomError('Invalid user ID(s)', 400);
+    }
+
+    const conversation = await Conversation.findOne({
+      participants: { $all: [userObjectId, participantObjectId] },
+      $expr: { $eq: [{ $size: '$participants' }, 2] }, // ensures exactly two participants
+    });
+
+    if (!conversation) {
+      throw createCustomError('Conversation not found!', 404);
+    }
+
+    return conversation;
+  }
+
   /**
    * Fetches a single conversation by its ID, ensuring the user is a participant.
    */

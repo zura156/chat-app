@@ -48,6 +48,25 @@ export class ConversationController {
     }
   };
 
+  public findConversationIdByUserId = async (
+    req: AuthRequest,
+    res: Response,
+    next: NextFunction
+  ): Promise<void> => {
+    try {
+      const userId = req.user!.userId;
+      const participantId = req.params.participantId;
+      const conversation =
+        await this.conversationService.findConversationIdByUserId(
+          userId,
+          participantId
+        );
+      res.status(200).json({ conversationId: conversation._id });
+    } catch (error) {
+      next(error);
+    }
+  };
+
   public getConversationById = async (
     req: AuthRequest,
     res: Response,

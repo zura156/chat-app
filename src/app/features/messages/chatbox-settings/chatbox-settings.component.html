@@ -156,4 +156,6 @@
 } @else { Conversation is loading... }
 </main>
 
-<ng-container #modalContainer></ng-container>
+<ng-template cdkPortal>
+    <ng-container #modalContainer></ng-container>
+</ng-template>
