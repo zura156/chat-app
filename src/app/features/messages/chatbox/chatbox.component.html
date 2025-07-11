@@ -188,7 +188,7 @@
           </div>
         } @else {
           <input
-            id="sender-input"
+            [id]="`send_input/${conversation?._id}`"
             autocomplete="off"
             hlmInput
             size="sm"
