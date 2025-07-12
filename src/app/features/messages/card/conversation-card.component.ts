@@ -44,7 +44,7 @@ export class ConversationCardComponent {
 
   switchView(id: string): void {
     this.layoutService.setActiveView('chatbox');
-    this.navCtrl.navigateRoot(['/messages', id], {
+    this.navCtrl.navigateForward(['/messages', id], {
       animationDirection: 'forward',
     });
   }

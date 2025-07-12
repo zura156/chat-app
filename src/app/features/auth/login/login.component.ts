@@ -99,7 +99,7 @@ export class LoginComponent {
         tap(() => {
           this.clearError();
           this.isLoading.set(false);
-          this.navCtrl.navigateRoot('/messages', {
+          this.navCtrl.navigateForward('/messages', {
             animationDirection: 'forward',
           });
         }),

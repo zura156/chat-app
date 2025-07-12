@@ -24,10 +24,7 @@ import { provideServiceWorker } from '@angular/service-worker';
 export const appConfig: ApplicationConfig = {
   providers: [
     { provide: RouteReuseStrategy, useClass: IonicRouteStrategy },
-    provideIonicAngular({
-      mode: 'ios',
-      animated: true,
-    }),
+    provideIonicAngular(),
     provideRouter(routes, withPreloading(PreloadAllModules)),
     provideZoneChangeDetection({ eventCoalescing: true }),
     provideAnimationsAsync(),
