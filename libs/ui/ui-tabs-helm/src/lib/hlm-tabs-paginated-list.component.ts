@@ -1,13 +1,26 @@
 import { CdkObserveContent } from '@angular/cdk/observers';
-import { Component, type ElementRef, computed, contentChildren, input, viewChild } from '@angular/core';
+import {
+	ChangeDetectionStrategy,
+	Component,
+	type ElementRef,
+	computed,
+	contentChildren,
+	input,
+	viewChild,
+} from '@angular/core';
 import { toObservable } from '@angular/core/rxjs-interop';
 import { NgIcon, provideIcons } from '@ng-icons/core';
 import { lucideChevronLeft, lucideChevronRight } from '@ng-icons/lucide';
 import { hlm } from '@spartan-ng/brain/core';
-import { BrnTabsPaginatedListDirective, BrnTabsTriggerDirective } from '@spartan-ng/brain/tabs';
+import {
+	type BrnPaginatedTabHeaderItem,
+	BrnTabsPaginatedListDirective,
+	BrnTabsTriggerDirective,
+} from '@spartan-ng/brain/tabs';
 import { buttonVariants } from '@spartan-ng/helm/button';
 import { HlmIconDirective } from '@spartan-ng/helm/icon';
 import type { ClassValue } from 'clsx';
+import type { Observable } from 'rxjs';
 import { listVariants } from './hlm-tabs-list.component';
 
 @Component({
@@ -60,10 +73,12 @@ import { listVariants } from './hlm-tabs-list.component';
 	host: {
 		'[class]': '_computedClass()',
 	},
+	changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class HlmTabsPaginatedListComponent extends BrnTabsPaginatedListDirective {
 	public readonly _items = contentChildren(BrnTabsTriggerDirective, { descendants: false });
-	public readonly _itemsChanges = toObservable(this._items);
+	/** Explicitly annotating type to avoid non-portable inferred type */
+	public readonly _itemsChanges: Observable<ReadonlyArray<BrnPaginatedTabHeaderItem>> = toObservable(this._items);
 
 	public readonly _tabListContainer = viewChild.required<ElementRef<HTMLElement>>('tabListContainer');
 	public readonly _tabList = viewChild.required<ElementRef<HTMLElement>>('tabList');
@@ -76,10 +91,10 @@ export class HlmTabsPaginatedListComponent extends BrnTabsPaginatedListDirective
 		hlm('flex overflow-hidden relative gap-1 flex-shrink-0', this.userClass()),
 	);
 
-	public readonly tabLisClass = input<ClassValue>('', { alias: 'class' });
-	protected readonly _tabListClass = computed(() => hlm(listVariants(), this.tabLisClass()));
+	public readonly tabListClass = input<ClassValue>('', { alias: 'tabListClass' });
+	protected readonly _tabListClass = computed(() => hlm(listVariants(), this.tabListClass()));
 
-	public readonly paginationButtonClass = input<ClassValue>('', { alias: 'class' });
+	public readonly paginationButtonClass = input<ClassValue>('', { alias: 'paginationButtonClass' });
 	protected readonly _paginationButtonClass = computed(() =>
 		hlm(
 			'relative z-[2] select-none disabled:cursor-default',

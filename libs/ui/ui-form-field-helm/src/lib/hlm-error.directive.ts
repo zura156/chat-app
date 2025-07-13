@@ -1,17 +1,17 @@
 import { computed, Directive, input } from '@angular/core';
 import { hlm } from '@spartan-ng/brain/core';
-import { type ClassValue } from 'clsx';
+import { ClassValue } from 'clsx';
 
 @Directive({
-	selector: 'brn-input-otp[hlmInputOtp], brn-input-otp[hlm]',
+	// eslint-disable-next-line @angular-eslint/directive-selector
+	selector: 'hlm-error',
 	host: {
 		'[class]': '_computedClass()',
 	},
 })
-export class HlmInputOtpDirective {
+export class HlmErrorDirective {
 	public readonly userClass = input<ClassValue>('', { alias: 'class' });
-
 	protected readonly _computedClass = computed(() =>
-		hlm('flex items-center gap-2 has-disabled:opacity-50', this.userClass()),
+		hlm('block text-destructive text-sm font-medium', this.userClass()),
 	);
 }

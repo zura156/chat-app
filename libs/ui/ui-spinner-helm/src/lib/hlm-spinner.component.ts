@@ -1,4 +1,4 @@
-import { Component, computed, input } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, input } from '@angular/core';
 import { hlm } from '@spartan-ng/brain/core';
 import { type VariantProps, cva } from 'class-variance-authority';
 import type { ClassValue } from 'clsx';
@@ -25,7 +25,6 @@ export type SpinnerVariants = VariantProps<typeof spinnerVariants>;
 
 @Component({
 	selector: 'hlm-spinner',
-	standalone: true,
 	host: {
 		'[class]': '_computedClass()',
 		role: 'status',
@@ -43,6 +42,7 @@ export type SpinnerVariants = VariantProps<typeof spinnerVariants>;
 		</svg>
 		<span class="sr-only"><ng-content /></span>
 	`,
+	changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class HlmSpinnerComponent {
 	public readonly size = input<SpinnerVariants['size']>('default');

@@ -32,7 +32,7 @@
         "./libs/ui/ui-card-helm/src/index.ts"
       ],
       "@spartan-ng/helm/form-field": [
-        "./libs/ui/ui-formfield-helm/src/index.ts"
+        "./libs/ui/ui-form-field-helm/src/index.ts"
       ],
       "@spartan-ng/helm/icon": [
         "./libs/ui/ui-icon-helm/src/index.ts"
@@ -41,7 +41,7 @@
         "./libs/ui/ui-input-helm/src/index.ts"
       ],
       "@spartan-ng/helm/input-otp": [
-        ".\\libs/ui/ui-input-otp-helm/src/index.ts"
+        "./libs/ui/ui-input-otp-helm/src/index.ts"
       ],
       "@spartan-ng/helm/label": [
         "./libs/ui/ui-label-helm/src/index.ts"
@@ -53,7 +53,7 @@
         "./libs/ui/ui-progress-helm/src/index.ts"
       ],
       "@spartan-ng/helm/scroll-area": [
-        "./libs/ui/ui-scrollarea-helm/src/index.ts"
+        "./libs/ui/ui-scroll-area-helm/src/index.ts"
       ],
       "@spartan-ng/helm/separator": [
         "./libs/ui/ui-separator-helm/src/index.ts"

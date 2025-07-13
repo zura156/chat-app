@@ -147,6 +147,7 @@ export class ChatboxSettingsComponent implements OnChanges, OnDestroy {
           conversation.participants.some((p) => p._id === participant._id)
         )?._id || null;
 
+        debugger
     if (conversationId) {
       this.subscriptions.push(
         this.conversationService

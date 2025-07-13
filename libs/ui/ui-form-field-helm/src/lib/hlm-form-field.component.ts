@@ -1,27 +1,39 @@
-import { Component, computed, contentChild, contentChildren, effect } from '@angular/core';
+import {
+	ChangeDetectionStrategy,
+	Component,
+	computed,
+	contentChild,
+	contentChildren,
+	effect,
+	input,
+} from '@angular/core';
+import { hlm } from '@spartan-ng/brain/core';
 import { BrnFormFieldControl } from '@spartan-ng/brain/form-field';
+import { ClassValue } from 'clsx';
 import { HlmErrorDirective } from './hlm-error.directive';
 
 @Component({
 	selector: 'hlm-form-field',
 	template: `
-		<ng-content></ng-content>
+		<ng-content />
 
 		@switch (hasDisplayedMessage()) {
 			@case ('error') {
-				<ng-content select="hlm-error"></ng-content>
+				<ng-content select="hlm-error" />
 			}
 			@default {
-				<ng-content select="hlm-hint"></ng-content>
+				<ng-content select="hlm-hint" />
 			}
 		}
 	`,
-	standalone: true,
 	host: {
-		class: 'space-y-2 block',
+		'[class]': '_computedClass()',
 	},
+	changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class HlmFormFieldComponent {
+	public readonly userClass = input<ClassValue>('', { alias: 'class' });
+	protected readonly _computedClass = computed(() => hlm('space-y-2 block', this.userClass()));
 	public readonly control = contentChild(BrnFormFieldControl);
 
 	public readonly errorChildren = contentChildren(HlmErrorDirective);

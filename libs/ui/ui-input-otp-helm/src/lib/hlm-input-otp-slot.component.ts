@@ -21,12 +21,13 @@ import { HlmInputOtpFakeCaretComponent } from './hlm-input-otp-fake-caret.compon
 export class HlmInputOtpSlotComponent {
 	public readonly userClass = input<ClassValue>('', { alias: 'class' });
 
+	/** The index of the slot to render the char or a fake caret */
 	public readonly index = input.required<number, NumberInput>({ transform: numberAttribute });
 
 	protected readonly _computedClass = computed(() =>
 		hlm(
-			'relative flex h-10 w-10 items-center justify-center border-y border-r border-input text-sm transition-all first:rounded-l-md first:border-l last:rounded-r-md',
-			'has-[brn-input-otp-slot[data-active="true"]]:z-10 has-[brn-input-otp-slot[data-active="true"]]:ring-2 has-[brn-input-otp-slot[data-active="true"]]:ring-ring has-[brn-input-otp-slot[data-active="true"]]:ring-offset-background',
+			'dark:bg-input/30 border-input relative flex h-9 w-9 items-center justify-center border-y border-r text-sm shadow-xs transition-all outline-none first:rounded-l-md first:border-l last:rounded-r-md',
+			'has-[brn-input-otp-slot[data-active="true"]]:border-ring has-[brn-input-otp-slot[data-active="true"]]:z-10 has-[brn-input-otp-slot[data-active="true"]]:ring-[3px] has-[brn-input-otp-slot[data-active="true"]]:ring-ring/50',
 			this.userClass(),
 		),
 	);
