@@ -147,14 +147,13 @@ export class ChatboxSettingsComponent implements OnChanges, OnDestroy {
           conversation.participants.some((p) => p._id === participant._id)
         )?._id || null;
 
-        debugger
     if (conversationId) {
       this.subscriptions.push(
         this.conversationService
           .findConversationIdByUserId(participant._id)
           .pipe(
             tap((res) =>
-              this.navCtrl.navigateForward(['/messages', res.conversationId])
+              this.navCtrl.navigateRoot(['/messages', res.conversationId])
             )
           )
           .subscribe()

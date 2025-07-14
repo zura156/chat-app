@@ -122,10 +122,11 @@
                 <div hlmCardDescription class="text-xs text-center mt-1 opacity-70 mb-4">
                   {{ group.timeframe }}
                 </div>
-                <div class="flex flex-col-reverse gap-y-2">
-                  @for(message of group.messages; track $index) {
+                <div class="flex flex-col-reverse">
+                  @for(message of group.messages; track $index; let i = $index) {
                     @if(message) {
                       <message-card
+                        [ngClass]="message.sender._id === group?.messages?.[i > 0 ? i + 1: 1]?.sender?._id ? '' : 'mt-2'"
                         #messageItem
                         [attr.data-message-id]="message._id"
                         [message]="message"

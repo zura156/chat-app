@@ -1,6 +1,5 @@
 import { Component, input } from '@angular/core';
 import { UserI } from '../../interfaces/user.interface';
-import { HlmCardDirective } from '@spartan-ng/helm/card';
 import {
   HlmAvatarComponent,
   HlmAvatarFallbackDirective,
@@ -14,7 +13,6 @@ import { ParticipantI } from '../../../messages/interfaces/participant.interface
     HlmAvatarImageDirective,
     HlmAvatarComponent,
     HlmAvatarFallbackDirective,
-    HlmCardDirective,
   ],
   templateUrl: './user-card.component.html',
 })

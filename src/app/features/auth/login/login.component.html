@@ -35,6 +35,43 @@
       </div>
     }
   }
+  @if(form.get('password')?.errors?.['passwordStrength'] !== null && !form.controls['password'].hasError('required')) {
+    <div hlmAlert class="mx-auto md:max-w-sm hover:ring-[3px] hover:ring-ring/50 transition-all">
+      <ng-icon hlm hlmAlertIcon name="lucideCircleAlert" />
+      <h1 hlmAlertTitle> Password is invalid! </h1>
+      <ul hlmAlertDesc class="list-disc text-destructive">
+
+        @if (!form.get('password')?.errors?.['passwordStrength']?.hasLength) {
+          <li>
+            <hlm-error class="flex items-center gap-x-1 mt-2 mb-px">
+              Password must be at least 8 characters long.
+            </hlm-error>
+          </li>
+        }
+        @if (!form.get('password')?.errors?.['passwordStrength']?.hasUppercase) {
+          <li>
+            <hlm-error class="flex items-center gap-x-1 mt-2 mb-px">
+              Password must contain at least one uppercase letter.
+            </hlm-error>
+          </li>
+        }
+        @if (!form.get('password')?.errors?.['passwordStrength']?.hasNumeric) {
+          <li>
+            <hlm-error class="flex items-center gap-x-1 mt-2 mb-px">
+              Password must contain at least one number.
+            </hlm-error>
+          </li>
+        }
+        @if (!form.get('password')?.errors?.['passwordStrength']?.hasSpecial) {
+          <li>
+            <hlm-error class="flex items-center gap-x-1 mt-2 mb-px">
+              Password must contain at least one special character.
+            </hlm-error>
+          </li>
+        }
+      </ul>
+    </div>
+  }
 
   <div class="mt-5 sm:mx-auto sm:w-full sm:max-w-sm">
     <form [formGroup]="form" (ngSubmit)="onSubmit()">
@@ -57,16 +94,14 @@
           @if (form.controls['email'].hasError('required')) {
             <hlm-error
               class="flex items-center gap-x-1"
-            >
-              <ng-icon hlm size="sm" name="lucideCircleAlert"></ng-icon>
+            > 
               Email required!
             </hlm-error>
           }
           @if (form.controls['email'].hasError('email')) {
             <hlm-error
               class="flex items-center gap-x-1"
-            >
-              <ng-icon hlm size="sm" name="lucideCircleAlert"></ng-icon> 
+            >  
               Email invalid!
             </hlm-error>
           }
@@ -92,36 +127,23 @@
             />
             @if (form.controls['password'].hasError('required')) {
               <hlm-error class="flex items-center gap-x-1 mt-2 mb-px">
-                <ng-icon hlm size="sm" name="lucideCircleAlert"></ng-icon>
                 Password required!
               </hlm-error>
             } @else if(form.get('password')?.errors?.['passwordStrength'] !== null){
-              @if (!form.get('password')?.errors?.['passwordStrength']?.hasLength) {
-                <hlm-error class="flex items-center gap-x-1 mt-2 mb-px">
-                  <ng-icon hlm size="sm" name="lucideCircleAlert"></ng-icon>
-                  Password must be at least 8 characters long.
-                </hlm-error>
-              }
-              @if (!form.get('password')?.errors?.['passwordStrength']?.hasUppercase) {
-                <hlm-error class="flex items-center gap-x-1 mt-2 mb-px">
-                  <ng-icon hlm size="sm" name="lucideCircleAlert"></ng-icon>
-                  Password must contain at least one uppercase letter.
-                </hlm-error>
-              }
-              @if (!form.get('password')?.errors?.['passwordStrength']?.hasNumeric) {
-                <hlm-error class="flex items-center gap-x-1 mt-2 mb-px">
-                  <ng-icon hlm size="sm" name="lucideCircleAlert"></ng-icon>
-                  Password must contain at least one number.
-                </hlm-error>
-              }
-              @if (!form.get('password')?.errors?.['passwordStrength']?.hasSpecial) {
-                <hlm-error class="flex items-center gap-x-1 mt-2 mb-px">
-                  <ng-icon hlm size="sm" name="lucideCircleAlert"></ng-icon>
-                  Password must contain at least one special character.
-                </hlm-error>
-              }
+              <hlm-error>
+                Password is invalid!
+              </hlm-error>
             }
           </hlm-form-field>
+          <button
+            type="button"
+            hlmBtn
+            variant="secondary"
+            class="absolute top-0 right-0 rounded-l-none duration-300 min-w-16 cursor-pointer"
+            (click)="togglePasswordVisibility()"
+            >
+              {{ showPass() ? "Hide" : "Show" }}
+          </button>
           <p class="text-end text-sm/6 text-gray-500">
             <a 
               [routerLink]="['/forgot-password']" 
@@ -130,15 +152,6 @@
               Forgot password?
             </a>
           </p>
-          <button
-            type="button"
-            hlmBtn
-            variant="secondary"
-            class="absolute top-0 right-0 rounded-l-none duration-300 min-h-10 min-w-16 cursor-pointer"
-            (click)="togglePasswordVisibility()"
-            >
-              {{ showPass() ? "Hide" : "Show" }}
-          </button>
         </div>
       </fieldset>
         

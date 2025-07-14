@@ -22,9 +22,9 @@
         </hlm-avatar>
       }
       <div class="flex flex-col">
-        <hlm-card
-          hlmCard
-          [class]="message.type === 'audio' ? 'border-none' : ''"
+        <div
+          class="border border-border rounded-lg"
+          [class]="message.type === 'audio' || message.type === 'video' ? 'border-none' : ''"
         >
           <div
             class="py-1 text-ellipsis"
@@ -98,7 +98,7 @@
               } 
             }
           </div>
-        </hlm-card>
+        </div>
       </div>
     </div>
   </div>

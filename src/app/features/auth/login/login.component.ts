@@ -23,11 +23,7 @@ import {
 
 import { passwordValidator } from '../validators/password.validator';
 import { catchError, Subject, takeUntil, tap, throwError } from 'rxjs';
-import {
-  HlmAlertDescriptionDirective,
-  HlmAlertDirective,
-  HlmAlertIconDirective,
-} from '@spartan-ng/helm/alert';
+import { HlmAlertImports } from '@spartan-ng/helm/alert';
 import { NavController } from '@ionic/angular/standalone';
 
 @Component({
@@ -41,9 +37,7 @@ import { NavController } from '@ionic/angular/standalone';
     HlmButtonDirective,
     HlmIconDirective,
     NgIcon,
-    HlmAlertDescriptionDirective,
-    HlmAlertDirective,
-    HlmAlertIconDirective,
+    HlmAlertImports,
   ],
   providers: [
     provideIcons({ lucideCircleAlert, lucideTriangleAlert, lucideLoader }),
@@ -99,7 +93,7 @@ export class LoginComponent {
         tap(() => {
           this.clearError();
           this.isLoading.set(false);
-          this.navCtrl.navigateForward('/messages', {
+          this.navCtrl.navigateRoot('/messages', {
             animationDirection: 'forward',
           });
         }),

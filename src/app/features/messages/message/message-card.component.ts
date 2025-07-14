@@ -48,7 +48,6 @@ import { AudioPlayerComponent } from '../../../shared/components/audio-player/au
     AudioPlayerComponent,
     HlmIconDirective,
     MatTooltipModule,
-    HlmCardDirective,
     HlmAvatarFallbackDirective,
     HlmAvatarImageDirective,
     HlmAvatarComponent,

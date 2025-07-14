@@ -16,7 +16,6 @@ import { NavController } from '@ionic/angular/standalone';
 @Component({
   selector: 'app-conversation-card',
   imports: [
-    HlmCardDirective,
     HlmIconModule,
     HlmAvatarImageDirective,
     HlmAvatarComponent,
@@ -44,7 +43,7 @@ export class ConversationCardComponent {
 
   switchView(id: string): void {
     this.layoutService.setActiveView('chatbox');
-    this.navCtrl.navigateForward(['/messages', id], {
+    this.navCtrl.navigateRoot(['/messages', id], {
       animationDirection: 'forward',
     });
   }
