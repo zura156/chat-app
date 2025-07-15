@@ -79,6 +79,7 @@ import { AudioRecorderComponent } from '../../../shared/components/audio-recorde
 import { RecordingResult } from '../../../shared/interfaces/audio-message.interface';
 import { ChatboxSettingsComponent } from '../chatbox-settings/chatbox-settings.component';
 import { PanGestureDirective } from '../../../shared/directives/pan.directive';
+import { HlmSkeletonComponent } from '@spartan-ng/helm/skeleton';
 
 @Component({
   selector: 'app-chatbox',
@@ -101,6 +102,7 @@ import { PanGestureDirective } from '../../../shared/directives/pan.directive';
     ReactiveFormsModule,
     AudioRecorderComponent,
     ChatboxSettingsComponent,
+    HlmSkeletonComponent,
   ],
   providers: [
     provideIcons({
@@ -237,9 +239,9 @@ export class ChatboxComponent implements OnInit, OnDestroy {
 
     this.trackTypingStatus();
 
-    this.isLoading.set(true);
     this.route.params
       .pipe(
+        tap(() => this.isLoading.set(true)),
         takeUntil(this.destroy$),
         map((params) => params['id']),
         catchError((err) => this.handleError(err)),
@@ -261,9 +263,9 @@ export class ChatboxComponent implements OnInit, OnDestroy {
             }
           }
           return this.conversationService.getConversationById(id).pipe(
+            tap(() => this.isLoading.set(false)),
             switchMap(() => this.handleWebSocketMessages()),
-            catchError((err) => this.handleError(err, true)),
-            tap(() => this.isLoading.set(false))
+            catchError((err) => this.handleError(err, true))
           );
         })
       )

@@ -1,7 +1,7 @@
 @let conversation = this.conversation();
 @if(conversation) {
   <main
-    class="p-2 flex items-center gap-x-2 cursor-pointer border border-primary hover:ring-[3px] hover:ring-ring/50 transition-all rounded-lg"
+    class="p-2 flex items-center gap-x-2 cursor-pointer border border-border hover:ring-[3px] hover:ring-ring/50 transition-all rounded-lg"
     (click)="switchView(conversation._id)"
   >
   <!-- AVATAR -->
@@ -33,25 +33,15 @@
     <!-- Last message -->
     <p class="text-sm">
       @let participants = this.participants();
-      @if(conversation.is_group) {
-        @for (participant of participants; track participant._id; let i = $index) {
-          <span>
-            {{
-              i + 1 === participants?.length
-              ? participant.username + ""
-              : participant.username + ","
-            }}
+      @if(!conversation.is_group) {
+        @for(participant of participants; track $index) {
+          @if(participant._id !== currentUser()?._id) {
+            <span class="text-lg">
+              {{ participant.username }}
             </span>
           }
-        } @else {
-          @for(participant of participants; track $index) {
-            @if(participant._id !== currentUser()?._id) {
-              <span class="text-lg">
-                {{ participant.username }}
-              </span>
-            }
-          }
         }
+      }
       </p>
       <p class="text-sm">
         @if(conversation.last_message?.sender?._id === currentUser()?._id) {

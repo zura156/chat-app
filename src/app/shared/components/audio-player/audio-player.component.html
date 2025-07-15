@@ -20,24 +20,13 @@
       class="absolute top-1/2 -translate-y-1/2 right-2 text-gray-500 text-sm"
       >{{ currentTime() | formatTime }} / {{ duration() | formatTime }}</span
     >
-    @if(audioPlayer.paused) {
     <button
       hlmBtn
       [variant]="'ghost'"
-      (click)="audioPlayer.play()"
-      class="cursor-pointer absolute top-1/2 -translate-y-1/2 left-0 text-gray-400 py-0.5 px-1.5 rounded-full"
+      (click)="audioPlayer.paused ? audioPlayer.play() : audioPlayer.pause()"
+      class="cursor-pointer absolute top-1/2 -translate-y-1/2 left-0 text-gray-400 py-0.5 px-1.5! rounded-full"
     >
-      <ng-icon hlm name="lucideCirclePlay" />
+      <ng-icon hlm [name]="audioPlayer.paused ? 'lucideCirclePlay' : 'lucideCirclePause'" />
     </button>
-    } @else {
-    <button
-      hlmBtn
-      [variant]="'ghost'"
-      (click)="audioPlayer.pause()"
-      class="cursor-pointer absolute top-1/2 -translate-y-1/2 left-0 text-gray-400 py-0.5 px-1.5 rounded-full"
-    >
-      <ng-icon hlm name="lucideCirclePause" />
-    </button>
-    }
   </brn-progress>
 </div>
