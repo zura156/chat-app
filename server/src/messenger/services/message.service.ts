@@ -8,7 +8,6 @@ import {
 } from '../interfaces/message.interface';
 import path from 'path';
 import sharp from 'sharp';
-import { parseFile } from 'music-metadata';
 
 export class MessageService {
   private broadcast: BroadcastFunction;
