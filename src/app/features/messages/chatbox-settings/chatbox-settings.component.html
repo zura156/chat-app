@@ -24,16 +24,19 @@
         }
       </div>
       <span class="font-medium text-xl text-center">
-        @for(participant of conversation?.participants; let i = $index; track
-        participant._id) {
-        <span>
-          {{
-            participant.first_name +
-              " " +
-              participant.last_name +
-              (i + 1 !== conversation.participants.length ? "," : "")
-          }}
-        </span>
+        @if(conversation.group_name) {
+            {{ conversation.group_name }}
+        } @else {
+            @for(participant of conversation?.participants; let i = $index; track participant._id) {
+                <span>
+                {{
+                    participant.first_name +
+                    " " +
+                    participant.last_name +
+                    (i + 1 !== conversation.participants.length ? "," : "")
+                }}
+                </span>
+            }
         }
       </span>
       @if(!conversation.is_group) {
