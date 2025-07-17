@@ -169,6 +169,15 @@ export class ConversationService {
       );
   }
 
+  updateConversationName(
+    conversationId: string,
+    newGroupName: string | null
+  ): Observable<ConversationI> {
+    console.log(conversationId, newGroupName)
+    const url = '';
+    return this.http.patch<ConversationI>(url, { group_name: newGroupName });
+  }
+
   addConversationToList(conversation: ConversationI): void {
     this.#conversationList.update((val) => {
       if (!val) return null;

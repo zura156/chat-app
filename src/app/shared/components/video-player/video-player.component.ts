@@ -7,7 +7,6 @@ import {
   input,
   linkedSignal,
   OnDestroy,
-  OnInit,
   signal,
   viewChild,
 } from '@angular/core';
@@ -175,7 +174,7 @@ export class VideoPlayerComponent implements OnDestroy {
   }
 
   onTimeUpdate(videoElement: HTMLVideoElement): void {
-    console.log(videoElement.currentTime);
+    videoElement.currentTime;
     this.currentTime.set(videoElement.currentTime);
   }
 
@@ -230,9 +229,6 @@ export class VideoPlayerComponent implements OnDestroy {
       } else if ((element as any).webkitRequestFullscreen) {
         // Safari
         (element as any).webkitRequestFullscreen();
-      } else if ((element as any).webkitRequestFullScreen) {
-        // Older Safari
-        (element as any).webkitRequestFullScreen();
       } else if ((element as any).mozRequestFullScreen) {
         // Firefox
         (element as any).mozRequestFullScreen();

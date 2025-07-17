@@ -29,7 +29,7 @@
   --muted-foreground: 240 3.8% 46.1%;
   --accent: 240 4.8% 95.9%;
   --accent-foreground: 240 5.9% 10%;
-  --destructive: 0 100% 50%;
+  --destructive: 0 100% 40%;
   --destructive-foreground: 210 40% 98%;
   --border: 240 5.9% 90%;
   --input: 240 5.9% 90%;
@@ -63,7 +63,7 @@
 
 @layer components {
   .glass-card {
-    @apply rounded-2xl border border-black/30 bg-black/5 shadow-xl backdrop-blur-sm dark:border-white/30 dark:bg-white/5;
+    @apply rounded-2xl border border-gray-200 bg-white/75 shadow-xl backdrop-blur-sm dark:border-white/30 dark:bg-white/5;
   }
 }
 

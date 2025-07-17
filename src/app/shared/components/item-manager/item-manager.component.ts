@@ -20,11 +20,13 @@ import { BrnSeparatorComponent } from '@spartan-ng/brain/separator';
 import { HttpErrorResponse } from '@angular/common/http';
 import { HlmSpinnerComponent } from '@spartan-ng/helm/spinner';
 import { toast } from 'ngx-sonner';
+import { FormGroup, ReactiveFormsModule } from '@angular/forms';
 
 @Component({
   selector: 'app-item-manager',
   templateUrl: './item-manager.component.html',
   imports: [
+    ReactiveFormsModule,
     HlmButtonDirective,
     HlmAvatarImageDirective,
     HlmAvatarComponent,
@@ -42,9 +44,9 @@ export class ItemManagerComponent {
   error = input<HttpErrorResponse>();
   isLoading = input<boolean>();
   submitVariant = input<'default' | 'destructive'>('default');
-  actionName = input<string>('submit')
-
+  actionName = input<string>('submit');
   items = input<(UserI | ParticipantI)[]>();
+  form = input<FormGroup>();
 
   closed = output<void>();
   submit = output<any>();
@@ -65,13 +67,30 @@ export class ItemManagerComponent {
   }
 
   onSubmit(): void {
-    let selectedItemIds: string[] = [];
-    const items = this.items();
+    const currentForm = this.form();
 
     if (this.variant() === 'confirmation') {
       this.submit.emit([]);
       return;
     }
+
+    if (this.variant() === 'form') {
+      if (!currentForm) {
+        return;
+      }
+      if (currentForm.valid) {
+        this.submit.emit(currentForm.value);
+      } else {
+        this.markFormGroupTouched(currentForm);
+        toast.error('Please correct the form errors', {
+          description: 'Check all required fields and try again.',
+        });
+      }
+      return;
+    }
+
+    let selectedItemIds: string[] = [];
+    const items = this.items();
 
     if (!items || !items.length) {
       toast.error('Submission was cancelled', {
@@ -85,6 +104,17 @@ export class ItemManagerComponent {
     }
 
     this.submit.emit(selectedItemIds);
+  }
+
+  private markFormGroupTouched(formGroup: FormGroup): void {
+    Object.keys(formGroup.controls).forEach((key) => {
+      const control = formGroup.get(key);
+      control?.markAsTouched();
+
+      if (control instanceof FormGroup) {
+        this.markFormGroupTouched(control);
+      }
+    });
   }
 
   isChecked(index: number) {

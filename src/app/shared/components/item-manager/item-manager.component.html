@@ -1,7 +1,7 @@
 <!-- Modal Backdrop -->
 <div
   [attr.data-state]="state()"
-  class="fixed inset-0 z-40 bg-black/50 dark:bg-black/50 flex justify-center items-center p-4 text-white text-shadow-lg"
+  class="fixed inset-0 z-40 bg-black/25 dark:bg-black/50 flex justify-center items-center p-4 text-black dark:text-white text-shadow-lg"
 >
   <!-- Modal Panel -->
   <main
@@ -15,7 +15,7 @@
       <h1 class="font-bold text-2xl">
         {{ headerText() }}
       </h1>
-      <h2>
+      <h2 class="italic text-gray-500">
         {{ description() }}
       </h2>
     </header>
@@ -105,6 +105,52 @@
             }
 
           </div>
+        }
+        @case('form') {
+          @let form = this.form();
+          @if(form) {
+            <form [formGroup]="form" (ngSubmit)="onSubmit()" class="space-y-4">
+              @if(form.get('groupName')) {
+                <div class="space-y-2">
+                  <label for="groupName" class="text-sm font-medium text-foreground">
+                    Conversation Name
+                  </label>
+                  <input
+                    type="text"
+                    id="groupName"
+                    formControlName="groupName"
+                    placeholder="Enter conversation name..."
+                    class="flex h-10 w-full rounded-md transition-all border border-input bg-background px-3 py-2 text-sm text-foreground shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-offset-1 disabled:cursor-not-allowed disabled:opacity-50"
+                    [class.border-destructive]="form.get('groupName')?.invalid && form.get('groupName')?.touched"
+                  />
+                  
+                  <!-- Error Messages -->
+                  @if(form.get('groupName')?.invalid && form.get('groupName')?.touched) {
+                    <div class="text-sm text-destructive">
+                      @if(form.get('groupName')?.errors?.['required']) {
+                        <p>Conversation name is required.</p>
+                      }
+                      @if(form.get('groupName')?.errors?.['minlength']) {
+                        <p>Conversation name must be at least 1 character long.</p>
+                      }
+                      @if(form.get('groupName')?.errors?.['maxlength']) {
+                        <p>Conversation name must not exceed 50 characters.</p>
+                      }
+                      @if(form.get('groupName')?.errors?.['whitespace']) {
+                        <p>Conversation name cannot contain only whitespace.</p>
+                      }
+                    </div>
+                  }
+                </div>
+              }
+              @if(form.get('groupName')) {
+                <div class="text-xs text-muted-foreground text-right">
+                  {{ form.get('groupName')?.value?.length || 0 }}/50 characters
+                </div>
+              }
+            </form>
+          }
+          
         }
       }
     }

@@ -46,12 +46,23 @@ import { toast } from 'ngx-sonner';
 import { MemberChangesI } from '../interfaces/member-changes.interface';
 import { UserI } from '../../user/interfaces/user.interface';
 import { NavController } from '@ionic/angular/common';
+import {
+  AbstractControl,
+  FormBuilder,
+  FormControl,
+  FormGroup,
+  ReactiveFormsModule,
+  ValidationErrors,
+  ValidatorFn,
+  Validators,
+} from '@angular/forms';
 
 @Component({
   selector: 'app-chatbox-settings',
   imports: [
     NgIcon,
     RouterLink,
+    ReactiveFormsModule,
     HlmIconDirective,
     HlmAvatarImageDirective,
     BrnMenuTriggerDirective,
@@ -84,6 +95,7 @@ export class ChatboxSettingsComponent implements OnDestroy {
   private conversationService = inject(ConversationService);
   private userService = inject(UserService);
   private navCtrl = inject(NavController);
+  private fb = inject(FormBuilder);
 
   readonly apiUrl = environment.apiUrl;
 
@@ -101,6 +113,10 @@ export class ChatboxSettingsComponent implements OnDestroy {
   ngOnDestroy(): void {
     this.subscriptions.forEach((sub) => sub.unsubscribe());
     this.subscriptions = [];
+  }
+
+  navigate(url: string) {
+    this.navCtrl.navigateRoot(url);
   }
 
   toggleDropdown(menu: string): void {
@@ -145,7 +161,104 @@ export class ChatboxSettingsComponent implements OnDestroy {
     }
   }
 
-  onChatNameChange(): void {}
+  onChatNameChange(): void {
+    this.createComponent();
+
+    // Set modal configuration
+    this.#modalComponentRef?.setInput('headerText', 'Modify conversation name');
+    this.#modalComponentRef?.setInput(
+      'description',
+      'Change the name of conversation to keep it organized and easily identifiable.'
+    );
+    this.#modalComponentRef?.setInput('variant', 'form');
+    this.#modalComponentRef?.setInput('actionName', 'update');
+
+    // Create form with validation
+    const chatNameForm = this.fb.group({
+      groupName: new FormControl(this.conversation()?.group_name || '', [
+        Validators.minLength(1),
+        Validators.maxLength(50),
+        this.noOnlyWhitespaceValidator(),
+      ]),
+    });
+
+    this.#modalComponentRef?.setInput('form', chatNameForm);
+
+    // Handle form submission
+    const submitSubscription =
+      this.#modalComponentRef?.instance.submit.subscribe((formData: any) => {
+        if (chatNameForm.valid) {
+          const newGroupName = formData.groupName?.trim();
+
+          if (newGroupName === this.conversation()?.group_name) {
+            toast.info('No changes made', {
+              description: 'The conversation name remains the same.',
+            });
+            this.#modalComponentRef?.instance.closed.emit();
+            return;
+          }
+
+          this.#modalComponentRef?.setInput('isLoading', true);
+
+          // Call your service method to update conversation name
+          this.subscriptions.push(
+            this.conversationService
+              .updateConversationName(
+                String(this.conversation()?._id),
+                newGroupName
+              )
+              .pipe(
+                tap((response) => {
+                  toast.success('Conversation name updated!', {
+                    description: `Name changed to "${response.group_name}"`,
+                  });
+                  this.#modalComponentRef?.instance.closed.emit();
+                }),
+                catchError((error) => {
+                  this.#modalComponentRef?.setInput('isLoading', false);
+                  toast.error('Failed to update conversation name', {
+                    description: error.message || 'Please try again later.',
+                  });
+                  return throwError(() => error);
+                })
+              )
+              .subscribe()
+          );
+        } else {
+          // Handle form validation errors
+          this.markFormGroupTouched(chatNameForm);
+          toast.error('Please correct the form errors', {
+            description: 'Check the conversation name and try again.',
+          });
+        }
+      });
+
+    if (submitSubscription) {
+      this.subscriptions.push(submitSubscription);
+    }
+  }
+
+  // Custom validator for whitespace-only input
+  private noOnlyWhitespaceValidator(): ValidatorFn {
+    return (control: AbstractControl): ValidationErrors | null => {
+      if (control.value && control.value.trim().length === 0) {
+        return { whitespace: true };
+      }
+      return null;
+    };
+  }
+
+  // Utility method to mark all form controls as touched
+  private markFormGroupTouched(formGroup: FormGroup) {
+    Object.keys(formGroup.controls).forEach((key) => {
+      const control = formGroup.get(key);
+      control?.markAsTouched();
+
+      if (control instanceof FormGroup) {
+        this.markFormGroupTouched(control);
+      }
+    });
+  }
 
   onAddMembers(): void {
     this.createComponent();

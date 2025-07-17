@@ -40,8 +40,8 @@
         }
       </span>
       @if(!conversation.is_group) {
-        <button hlmBtn variant="outline" [routerLink]="`/${conversation.participants[0]._id}`" class="items-end cursor-pointer">
-            <ng-icon hlm name="lucideCircleUserRound" class="mr-2" />
+        <button hlmBtn variant="outline" [routerLink]="`/${conversation.participants[0]._id}`" class="cursor-pointer">
+            <ng-icon hlm  name="lucideCircleUserRound" />
             View profile
         </button>
       }
@@ -128,7 +128,7 @@
                                         
                                         <hlm-menu-separator />
                                         
-                                        <button [routerLink]="`/${participant._id}`" hlmMenuItem class="cursor-pointer">
+                                        <button (click)="navigate(`/${participant._id}`)" hlmMenuItem class="cursor-pointer">
                                             <ng-icon hlm name="lucideCircleUserRound" hlmMenuIcon />
                                             View profile
                                         </button>
