@@ -5,6 +5,7 @@
   <section class="space-y-4">
     <div class="flex flex-col items-center space-y-2">
       <div class="size-20 sm:size-30 border-2 rounded-full overflow-hidden">
+        <input type="file" (change)="onChatImageChange($event)" accept="image/*">
         @if(conversation.is_group) {
         <img
           [src]="

@@ -114,10 +114,10 @@ export class ConversationController {
   ) => {
     try {
       const { id } = req.params; // Using 'id' to match your router
-      const { group_name, group_picture } = req.body.conversation;
+      const { group_name } = req.body.conversation;
       const conversation = await this.conversationService.updateConversation(
         id,
-        { group_name, group_picture }
+        { group_name }
       );
       res.status(200).json(conversation);
     } catch (error) {

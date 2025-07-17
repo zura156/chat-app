@@ -13,6 +13,8 @@ import { UserService } from '../../user/services/user.service';
 import { ParticipantI } from '../interfaces/participant.interface';
 import { MemberChangesI } from '../interfaces/member-changes.interface';
 import { ConversationIdResponseI } from '../interfaces/conversation-id-response.interface';
+import { toast } from 'ngx-sonner';
+import { UpdateConversationI } from '../interfaces/update-conversation.interface';
 
 @Injectable()
 export class ConversationService {
@@ -28,6 +30,7 @@ export class ConversationService {
   private readonly FIND_CONVERSATION_ID_BY_USER_ID_URL = `${this.apiUrl}/conversations/find/:participantId`;
   private readonly CREATE_CONVERSATION_URL = `${this.apiUrl}/conversations`;
   private readonly GET_CONVERSATION_URL = `${this.apiUrl}/conversations/:id`;
+  private readonly UPDATE_CONVERSATION_URL = `${this.apiUrl}/conversations/:id`;
   private readonly MANAGE_CONVERSATION_MEMBERS_URL = `${this.apiUrl}/conversations/:conversationId/members`;
 
   // Cache for active conversation data (messages, etc.)
@@ -169,13 +172,44 @@ export class ConversationService {
       );
   }
 
-  updateConversationName(
+  updateConversation(
     conversationId: string,
-    newGroupName: string | null
+    updatedConversation: UpdateConversationI
   ): Observable<ConversationI> {
-    console.log(conversationId, newGroupName)
-    const url = '';
-    return this.http.patch<ConversationI>(url, { group_name: newGroupName });
+    const activeConversation = this.activeConversation();
+    const { group_name: newGroupName, group_picture: newGroupPicture } =
+      updatedConversation;
+
+    if (!activeConversation) {
+      toast.error('Conversation is not selected!', {
+        description: 'No conversation means we can not update it :P',
+      });
+      return of();
+    }
+    if (!newGroupName && !newGroupPicture) {
+      toast.error('Conversation not changed!', {
+        description: 'Updated details were not provided.',
+      });
+      return of(activeConversation);
+    }
+
+    const url = `${
+      this.UPDATE_CONVERSATION_URL.split(':id')[0]
+    }/${conversationId}`;
+    const formData = new FormData();
+    if (newGroupName) {
+      formData.append('group_name', newGroupName);
+    }
+    if (newGroupPicture) {
+      formData.append('group_picture', newGroupPicture);
+    }
+
+    return this.http.patch<ConversationI>(url, {
+      conversation: {
+        group_name: newGroupName,
+        group_picture: newGroupPicture,
+      },
+    });
   }
 
   addConversationToList(conversation: ConversationI): void {

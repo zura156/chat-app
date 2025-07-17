@@ -2,7 +2,7 @@ import { Component, inject, OnDestroy, OnInit, signal } from '@angular/core';
 import { ReactiveFormsModule } from '@angular/forms';
 import { HlmSeparatorDirective } from '@spartan-ng/helm/separator';
 import { BrnSeparatorComponent } from '@spartan-ng/brain/separator';
-import { NgClass, NgTemplateOutlet } from '@angular/common';
+import { NgTemplateOutlet } from '@angular/common';
 import { filter, map, Subject, switchMap, takeUntil, tap } from 'rxjs';
 import { NavigationEnd, Params, Router } from '@angular/router';
 import { ConversationListComponent } from '../list/conversation-list.component';
@@ -16,7 +16,6 @@ import { IonRouterOutlet } from '@ionic/angular/standalone';
     IonRouterOutlet,
     ReactiveFormsModule,
     NgTemplateOutlet,
-    NgClass,
     HlmSeparatorDirective,
     BrnSeparatorComponent,
     ConversationListComponent,

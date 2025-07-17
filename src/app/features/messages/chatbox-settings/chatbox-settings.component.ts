@@ -161,6 +161,40 @@ export class ChatboxSettingsComponent implements OnDestroy {
     }
   }
 
+  onChatImageChange(event: any): void {
+    console.log(event);
+    const file = event.target.files[0];
+
+    if (!file) {
+      toast.info('Image request not sent!', {
+        description: 'Image file was not selected.',
+      });
+      return;
+    }
+
+    const conversationId = this.conversation()?._id;
+    const updateGroupPictureBody = { group_picture: file };
+    this.conversationService
+      .updateConversation(String(conversationId), updateGroupPictureBody)
+      .pipe(
+        tap(() => {
+          this.#modalComponentRef?.setInput('isLoading', false);
+          toast.success('Conversation updated successfully!', {
+            description: 'Conversation picture changed.',
+          });
+          this.#modalComponentRef?.instance.closed.emit();
+        }),
+        catchError((error) => {
+          this.#modalComponentRef?.setInput('isLoading', false);
+          toast.error('Failed to update conversation picture', {
+            description: error.message || 'Please try again later.',
+          });
+          return throwError(() => error);
+        })
+      )
+      .subscribe();
+  }
+
   onChatNameChange(): void {
     this.createComponent();
 
@@ -203,12 +237,12 @@ export class ChatboxSettingsComponent implements OnDestroy {
           // Call your service method to update conversation name
           this.subscriptions.push(
             this.conversationService
-              .updateConversationName(
-                String(this.conversation()?._id),
-                newGroupName
-              )
+              .updateConversation(String(this.conversation()?._id), {
+                group_name: newGroupName,
+              })
               .pipe(
                 tap((response) => {
+                  this.#modalComponentRef?.setInput('isLoading', false);
                   toast.success('Conversation name updated!', {
                     description: `Name changed to "${response.group_name}"`,
                   });
