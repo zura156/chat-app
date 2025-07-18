@@ -1,10 +1,13 @@
 import { Types } from 'mongoose';
-import { Conversation } from '../models/conversation.model';
+import { Conversation, IConversation } from '../models/conversation.model';
 import { MutedConversation } from '../models/muted-conversation.model';
 import { User } from '../../user/models/user.model';
 import { createCustomError } from '../../error-handling/models/custom-api-error.model';
 import { ObjectId } from 'mongodb';
 import { MemberChangesI } from '../interfaces/member-changes.interface';
+import { ConversationI } from '../interfaces/conversation.interface';
+import path from 'path';
+import sharp from 'sharp';
 
 export class ConversationService {
   /**
@@ -154,18 +157,33 @@ export class ConversationService {
    * Updates a conversation's details.
    */
   public async updateConversation(
-    conversationId: string,
-    updateData: { group_name?: string; group_picture?: string }
-  ) {
-    const updatedConversation = await Conversation.findByIdAndUpdate(
-      conversationId,
-      updateData,
-      { new: true }
-    );
-    if (!updatedConversation) {
-      throw createCustomError('Conversation not found', 404);
+    conversation: IConversation,
+    group_name?: string,
+    group_picture?: Express.Multer.File
+  ): Promise<IConversation> {
+    let group_picture_url: string | undefined;
+
+    if (group_picture?.mimetype?.startsWith('image/')) {
+      group_picture_url = `/uploads/${group_picture.filename}`;
     }
-    return updatedConversation;
+
+    const updateData: Partial<IConversation> = {};
+
+    if (
+      arguments.length >= 2 &&
+      (typeof group_name === 'string' || group_name === null)
+    ) {
+      updateData.group_name = group_name;
+    }
+
+    if (group_picture_url) {
+      updateData.group_picture = group_picture_url;
+    }
+
+    Object.assign(conversation, updateData);
+    await conversation.save();
+
+    return conversation;
   }
 
   /**

@@ -195,7 +195,7 @@ export class ConversationService {
 
     const url = `${
       this.UPDATE_CONVERSATION_URL.split(':id')[0]
-    }/${conversationId}`;
+    }${conversationId}`;
     const formData = new FormData();
     if (newGroupName) {
       formData.append('group_name', newGroupName);
@@ -204,12 +204,19 @@ export class ConversationService {
       formData.append('group_picture', newGroupPicture);
     }
 
-    return this.http.patch<ConversationI>(url, {
-      conversation: {
-        group_name: newGroupName,
-        group_picture: newGroupPicture,
-      },
-    });
+    return this.http.patch<ConversationI>(url, formData).pipe(
+      tap((response) => {
+        this.#activeConversation.update(() => response);
+
+        this.#conversationList.update((prev) => ({
+          totalCount: prev?.totalCount || 0,
+          conversations:
+            prev?.conversations.map((conv) =>
+              conv._id === response._id ? response : conv
+            ) ?? [],
+        }));
+      })
+    );
   }
 
   addConversationToList(conversation: ConversationI): void {

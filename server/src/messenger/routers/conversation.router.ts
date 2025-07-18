@@ -6,6 +6,7 @@ import {
 import { ConversationController } from '../controllers/conversation.controller';
 import { ConversationService } from '../services/conversation.service';
 import { validateConversation } from '../middlewares/validate-conversation.middleware';
+import { uploadMiddleware } from '../../config/multer';
 
 const router = Router();
 
@@ -69,7 +70,7 @@ router
     res.json(conversationWithFilteredParticipants);
   })
   // TODO: refactor functions
-  .patch((req, res, next) =>
+  .patch(uploadMiddleware.single('group_picture'), (req, res, next) =>
     req.conversationController.updateConversation(req, res, next)
   )
   .delete((req, res, next) =>

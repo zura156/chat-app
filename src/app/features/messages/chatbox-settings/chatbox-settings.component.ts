@@ -161,16 +161,16 @@ export class ChatboxSettingsComponent implements OnDestroy {
     }
   }
 
-  onChatImageChange(event: any): void {
-    console.log(event);
-    const file = event.target.files[0];
+  onChatImageChange(event: Event): void {
+    const fileList = (event.target as HTMLInputElement).files;
 
-    if (!file) {
+    if (!fileList?.length) {
       toast.info('Image request not sent!', {
         description: 'Image file was not selected.',
       });
       return;
     }
+    const file = fileList[0];
 
     const conversationId = this.conversation()?._id;
     const updateGroupPictureBody = { group_picture: file };
@@ -178,14 +178,11 @@ export class ChatboxSettingsComponent implements OnDestroy {
       .updateConversation(String(conversationId), updateGroupPictureBody)
       .pipe(
         tap(() => {
-          this.#modalComponentRef?.setInput('isLoading', false);
           toast.success('Conversation updated successfully!', {
             description: 'Conversation picture changed.',
           });
-          this.#modalComponentRef?.instance.closed.emit();
         }),
         catchError((error) => {
-          this.#modalComponentRef?.setInput('isLoading', false);
           toast.error('Failed to update conversation picture', {
             description: error.message || 'Please try again later.',
           });

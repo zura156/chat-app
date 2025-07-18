@@ -4,8 +4,17 @@
   @if(conversation) {
   <section class="space-y-4">
     <div class="flex flex-col items-center space-y-2">
-      <div class="size-20 sm:size-30 border-2 rounded-full overflow-hidden">
-        <input type="file" (change)="onChatImageChange($event)" accept="image/*">
+      <div class="group size-20 sm:size-30 border-2 relative rounded-full overflow-hidden">
+        @if(conversation.is_group) {
+            <div class="opacity-0 pointer-events-none group-hover:pointer-events-auto group-hover:opacity-100 absolute top-1/2 left-1/2 -translate-1/2 w-full h-full bg-black/20 dark:bg-black/40 flex items-center justify-center transition-all">
+                <button hlmBtn class="cursor-pointer">
+                    <label for="chat-image-input" class="w-full h-full cursor-pointer">
+                        Edit picture
+                    </label>
+                </button>
+            </div>
+        }
+        <input id="chat-image-input" type="file" (change)="onChatImageChange($event)" accept="image/*" hidden>
         @if(conversation.is_group) {
         <img
           [src]="

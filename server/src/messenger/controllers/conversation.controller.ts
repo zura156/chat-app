@@ -2,6 +2,7 @@ import { Response, NextFunction } from 'express';
 import { AuthRequest } from '../../auth/middlewares/auth.middleware';
 import { ConversationService } from '../services/conversation.service';
 import { Conversation } from '../models/conversation.model';
+import { createCustomError } from '../../error-handling/models/custom-api-error.model';
 
 export class ConversationController {
   private conversationService: ConversationService;
@@ -113,13 +114,23 @@ export class ConversationController {
     next: NextFunction
   ) => {
     try {
-      const { id } = req.params; // Using 'id' to match your router
-      const { group_name } = req.body.conversation;
-      const conversation = await this.conversationService.updateConversation(
-        id,
-        { group_name }
-      );
-      res.status(200).json(conversation);
+      const { conversation } = req; // Using 'id' to match your router
+
+      if (!conversation) {
+        next(createCustomError('Conversation validation failed!', 500));
+        return;
+      }
+
+      const group_picture = req.file;
+      const { group_name } = req.body;
+
+      const updatedConversation =
+        await this.conversationService.updateConversation(
+          conversation,
+          group_name,
+          group_picture
+        );
+      res.status(200).json(updatedConversation);
     } catch (error) {
       next(error);
     }

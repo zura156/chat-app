@@ -80,6 +80,7 @@ import { RecordingResult } from '../../../shared/interfaces/audio-message.interf
 import { ChatboxSettingsComponent } from '../chatbox-settings/chatbox-settings.component';
 import { PanGestureDirective } from '../../../shared/directives/pan.directive';
 import { HlmSkeletonComponent } from '@spartan-ng/helm/skeleton';
+import { environment } from '../../../../environments/environment';
 
 @Component({
   selector: 'app-chatbox',
@@ -125,6 +126,7 @@ export class ChatboxComponent implements OnInit, OnDestroy {
   private readonly conversationService = inject(ConversationService);
   private readonly messageService = inject(MessageService);
   private readonly webSocketService = inject(WebSocketService);
+  readonly apiUrl = environment.apiUrl;
 
   messageControl = new FormControl<string>('');
 
@@ -145,7 +147,9 @@ export class ChatboxComponent implements OnInit, OnDestroy {
     }
 
     if (currentConversation.is_group) {
-      return currentConversation.group_picture ?? null;
+      return currentConversation.group_picture
+        ? `${this.apiUrl}${currentConversation.group_picture}`
+        : null;
     } else {
       const otherUser = currentConversation.participants.find(
         (participant) => participant._id !== this.currentUser()?._id
