@@ -36,7 +36,6 @@ import {
   HlmMenuItemIconDirective,
   HlmMenuSeparatorComponent,
 } from '@spartan-ng/helm/menu';
-import { RouterLink } from '@angular/router';
 import { ConversationService } from '../services/conversation.service';
 import { ParticipantI } from '../interfaces/participant.interface';
 import { HlmButtonDirective } from '@spartan-ng/helm/button';
@@ -64,7 +63,6 @@ import { base64ToFile } from '../../../shared/functions/base64-to-file.function'
   selector: 'app-chatbox-settings',
   imports: [
     NgIcon,
-    RouterLink,
     ReactiveFormsModule,
     HlmIconDirective,
     HlmAvatarImageDirective,
