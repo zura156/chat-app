@@ -6,6 +6,7 @@ import {
   input,
   OnDestroy,
   OutputRefSubscription,
+  signal,
   viewChild,
   ViewContainerRef,
 } from '@angular/core';
@@ -56,6 +57,8 @@ import {
   ValidatorFn,
   Validators,
 } from '@angular/forms';
+import { ImageCropperComponent } from 'ngx-smart-cropper';
+import { base64ToFile } from '../../../shared/functions/base64-to-file.function';
 
 @Component({
   selector: 'app-chatbox-settings',
@@ -73,6 +76,7 @@ import {
     HlmMenuGroupComponent,
     HlmMenuSeparatorComponent,
     HlmAvatarComponent,
+    ImageCropperComponent,
   ],
   providers: [
     provideIcons({
@@ -109,6 +113,9 @@ export class ChatboxSettingsComponent implements OnDestroy {
   #modalComponentRef?: ComponentRef<ItemManagerComponent>;
 
   private subscriptions: (Subscription | OutputRefSubscription)[] = [];
+
+  initialChatImageSrc = signal<string | null>(null);
+  chatImageSrc = signal<string | null>(null);
 
   ngOnDestroy(): void {
     this.subscriptions.forEach((sub) => sub.unsubscribe());
@@ -161,16 +168,33 @@ export class ChatboxSettingsComponent implements OnDestroy {
     }
   }
 
-  onChatImageChange(event: Event): void {
-    const fileList = (event.target as HTMLInputElement).files;
+  onFileChange(event: Event): void {
+    const input = event.target as HTMLInputElement;
+    if (!input.files || input.files.length === 0) return;
 
-    if (!fileList?.length) {
-      toast.info('Image request not sent!', {
-        description: 'Image file was not selected.',
+    const file = input.files[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onload = (e: any) => {
+        this.initialChatImageSrc.set(e.target.result);
+      };
+      reader.readAsDataURL(file);
+    }
+  }
+
+  onChatImageChange(imageSrc: string): void {
+    if (!imageSrc) {
+      this.initialChatImageSrc.set(null);
+      this.chatImageSrc.set(null);
+      toast.info('Image selection was cancelled', {
+        description: 'No image was selected for the conversation.',
       });
       return;
     }
-    const file = fileList[0];
+
+    this.chatImageSrc.set(imageSrc);
+    this.initialChatImageSrc.set(null);
+    const file = base64ToFile(imageSrc, 'chat-image.png');
 
     const conversationId = this.conversation()?._id;
     const updateGroupPictureBody = { group_picture: file };
