@@ -11,8 +11,9 @@ import { uploadMiddleware } from '../../config/multer';
 const router = Router();
 
 router.use((req, res, next) => {
+  const broadcastMessage = req.app.get('broadcastMessage');
   if (!req.conversationService) {
-    req.conversationService = new ConversationService();
+    req.conversationService = new ConversationService(broadcastMessage);
   }
   if (!req.conversationController) {
     req.conversationController = new ConversationController(
@@ -25,7 +26,6 @@ router.use((req, res, next) => {
 // All routes in this file are protected
 router.use(authenticate);
 
-// --- Conversation Routes ---
 router
   .route('/')
   .get((req, res, next) =>
@@ -45,6 +45,7 @@ router.get('/search', (req, res, next) =>
 
 router
   .route('/:id/members')
+  .all(validateConversation)
   .patch((req, res, next) =>
     req.conversationController.manageConversationMembers(req, res, next)
   );
@@ -55,7 +56,7 @@ router
   .get(async (req: AuthRequest, res) => {
     const conversation = await req.conversation?.populate(
       'participants',
-      'first_name last_name username profile_picture'
+      'first_name last_name username profile_picture status last_seen'
     );
 
     const otherParticipants = conversation?.participants.filter(

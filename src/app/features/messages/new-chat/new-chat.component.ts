@@ -35,6 +35,7 @@ import { HlmIconDirective } from '@spartan-ng/helm/icon';
 import { HlmButtonDirective } from '@spartan-ng/helm/button';
 import { HlmLabelDirective } from '@spartan-ng/helm/label';
 import { HlmErrorDirective } from '@spartan-ng/helm/form-field';
+import { NavController } from '@ionic/angular/standalone';
 
 @Component({
   selector: 'app-new-chat',
@@ -56,7 +57,7 @@ import { HlmErrorDirective } from '@spartan-ng/helm/form-field';
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class NewChatComponent implements OnInit, OnDestroy {
-  private readonly router = inject(Router);
+  private readonly navCtrl = inject(NavController);
   private readonly userService = inject(UserService);
   private readonly conversationService = inject(ConversationService);
 
@@ -134,10 +135,10 @@ export class NewChatComponent implements OnInit, OnDestroy {
       });
 
       if (existingConversation) {
-        this.router.navigateByUrl('/messages/' + existingConversation._id);
+        this.navCtrl.navigateRoot('/messages/' + existingConversation._id);
       } else {
         this.conversationService.selectUserForConversation(selectedUsers[0]);
-        this.router.navigate(['/messages/', targetUserId]);
+        this.navCtrl.navigateRoot(['/messages/', targetUserId]);
       }
     } else {
       this.createConversation();
@@ -167,7 +168,7 @@ export class NewChatComponent implements OnInit, OnDestroy {
       .pipe(
         takeUntil(this.destroy$),
         tap((conversation) => {
-          this.router.navigateByUrl(`/messages/${conversation._id}`);
+          this.navCtrl.navigateRoot(`/messages/${conversation._id}`);
           this.isLoading.set(false);
         }),
         catchError((err) => {
@@ -198,12 +199,6 @@ export class NewChatComponent implements OnInit, OnDestroy {
     this.isLoading.set(true);
     this.fetchUsersIfNeeded();
   }
-
-  // toggleUserList(): void {
-  //   this.showUserList.update((value) => !value);
-  //   this.isLoading.set(true);
-  //   this.fetchUsersIfNeeded();
-  // }
 
   closeUserList(): void {
     this.userListFlag.set(false);

@@ -29,27 +29,41 @@
   
   <section>
     <!-- Group title -->
-    <h1 class="font-medium">{{ conversation.group_name }}</h1>
     <!-- Last message -->
-    <p class="text-sm">
+    <h1 class="font-medium">
       @let participants = this.participants();
       @if(!conversation.is_group) {
         @for(participant of participants; track $index) {
           @if(participant._id !== currentUser()?._id) {
-            <span class="text-lg">
+            <span>
               {{ participant.username }}
             </span>
           }
         }
+      } @else {
+        @if(conversation.group_name) {
+          {{ conversation.group_name }}
+        } @else {
+          @for(participant of participants; let i = $index; track participant._id) {
+            @if(participant._id !== currentUser()?._id) {
+              <span>
+                {{ 
+                  participant.username + 
+                  (i + 1 !== participants?.length ? ',' : '')
+                }}
+              </span>
+            }
+          }
+        }
       }
-      </p>
+      </h1>
       <p class="text-sm">
         @if(conversation.last_message?.sender?._id === currentUser()?._id) {
           You:
         }
         @if(conversation.last_message?.content) {
-          <span class="text-gray-400">
-            <span class="max-w-3/4 overflow-ellipsis w-32">
+          <span class="text-gray-500">
+            <span class="max-w-3/4 text-gray-600 dark:text-gray-400 font-medium overflow-ellipsis w-32">
               {{ conversation.last_message?.content }} &middot;
             </span>
             {{ conversation.last_message?.timestamp ?? "" | timeAgo }}

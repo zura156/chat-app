@@ -98,9 +98,9 @@ export class ConversationController {
       const conversation = await this.conversationService.createConversation(
         participants,
         is_group,
+        userId,
         group_name,
-        group_picture,
-        userId
+        group_picture
       );
       res.status(201).json(conversation);
     } catch (error) {
@@ -190,7 +190,7 @@ export class ConversationController {
     res: Response,
     next: NextFunction
   ) => {
-    const conversationId = req.params.id;
+    const { conversation } = req;
     const userId = req.user?.userId;
     const { add, remove } = req.body;
 
@@ -199,20 +199,22 @@ export class ConversationController {
       return;
     }
 
-    if (!conversationId || (!add.length && !remove.length)) {
-      res.status(400).json({ message: 'Bad requst' });
+    if (!conversation || (!add.length && !remove.length)) {
+      res
+        .status(400)
+        .json({ message: 'Conversation or update data is invalid.' });
       return;
     }
 
     try {
-      const conversation =
+      const updatedConversation =
         await this.conversationService.manageConversationMembers(
+          conversation,
           userId,
-          { add, remove },
-          conversationId
+          { add, remove }
         );
 
-      res.status(200).json(conversation);
+      res.status(200).json(updatedConversation);
     } catch (error) {
       next(error);
     }

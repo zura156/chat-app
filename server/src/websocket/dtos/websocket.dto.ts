@@ -10,6 +10,7 @@ export type WebSocketMessageType =
   | 'typing'
   | 'message'
   | 'conversation-join'
+  | 'conversation-update'
   | 'conversation-leave'
   | 'message-status'
   | 'user-status';
@@ -34,15 +35,20 @@ export interface TypingMessage extends BaseWebSocketMessage {
 export interface ConversationJoinMessage extends BaseWebSocketMessage {
   type: 'conversation-join';
   conversation: Partial<ConversationI>;
-  added_by: Partial<UserInterface>;
-  added_user: Partial<UserInterface>;
+  added_by?: Partial<UserInterface>;
+  added_user?: Partial<UserInterface>;
+}
+
+export interface ConversationUpdateMessage extends BaseWebSocketMessage {
+  type: 'conversation-update';
+  conversation: Partial<ConversationI>;
 }
 
 export interface ConversationLeaveMessage extends BaseWebSocketMessage {
   type: 'conversation-leave';
   conversation: Partial<ConversationI>;
-  removed_by: Partial<UserInterface>;
-  removed_user: Partial<UserInterface>;
+  removed_by?: Partial<UserInterface>;
+  removed_user?: Partial<UserInterface>;
 }
 
 export interface ChatMessage extends BaseWebSocketMessage {

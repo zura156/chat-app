@@ -64,11 +64,11 @@ export class WebSocketService {
 
       const payload = {
         type: 'message',
-        message: message,
+        message
       };
 
       for (const participantId of conversation.participants) {
-        this.sendToUser(participantId.toString(), payload);
+        this.sendToUser(participantId.toString(), message.type ? message : payload);
       }
     } catch (error) {
       logger.error('Error during broadcast:', error);

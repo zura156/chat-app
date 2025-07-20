@@ -105,7 +105,7 @@ export class WebSocketController {
   private async handleConversationJoin(
     data: DTO.ConversationJoinMessage
   ): Promise<void> {
-    const { conversation, added_by, added_user } = data;
+    const { conversation, added_by } = data;
     try {
       const fullConversation = await Conversation.findById(
         conversation._id
@@ -116,7 +116,6 @@ export class WebSocketController {
         type: 'conversation-join',
         conversation: fullConversation,
         added_by,
-        added_user,
       };
 
       for (const participant of fullConversation.participants as any[]) {
@@ -135,7 +134,7 @@ export class WebSocketController {
       // We also need to notify the user who was removed.
       const allRecipientIds = [
         ...(conversation.participants as any[]).map((p) => p._id),
-        removed_user._id,
+        removed_user?._id,
       ];
 
       for (const userId of allRecipientIds) {

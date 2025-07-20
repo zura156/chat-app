@@ -26,7 +26,12 @@
         <div class="flex items-center gap-x-2">
           <hlm-avatar variant="large" class="border size-12 border-border">
             <img
-              [src]="groupImageUrl() ?? '/icons/avatar.svg'"
+              [src]="groupImageUrl() ??
+                (
+                  conversation?.is_group ? 
+                  '/icons/group.svg' : 
+                  '/icons/avatar.svg'
+                )"
               alt="pfp"
               class="object-cover"
               hlmAvatarImage

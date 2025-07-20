@@ -1,11 +1,4 @@
-import {
-  Component,
-  computed,
-  effect,
-  inject,
-  runInInjectionContext,
-  signal,
-} from '@angular/core';
+import { Component, inject, signal } from '@angular/core';
 import { ConversationCardComponent } from '../card/conversation-card.component';
 import { HlmSeparatorDirective } from '@spartan-ng/helm/separator';
 import { BrnSeparatorComponent } from '@spartan-ng/brain/separator';
@@ -20,7 +13,7 @@ import {
 import { HlmIconDirective } from '@spartan-ng/helm/icon';
 import { ConversationService } from '../services/conversation.service';
 
-import { Router, RouterLink } from '@angular/router';
+import { RouterLink } from '@angular/router';
 import { HlmInputDirective } from '@spartan-ng/helm/input';
 import { HlmBadgeDirective } from '@spartan-ng/helm/badge';
 import { UserService } from '../../user/services/user.service';
@@ -57,6 +50,8 @@ import { WebSocketMessageT } from '../interfaces/web-socket-message.interface';
 import { WebSocketService } from '../services/web-socket.service';
 import { ConversationI } from '../interfaces/conversation.interface';
 import { ActiveViewType } from '../interfaces/active-view.type';
+import { NavController } from '@ionic/angular/standalone';
+import { HttpErrorResponse } from '@angular/common/http';
 
 @Component({
   selector: 'app-conversation-list',
@@ -88,7 +83,7 @@ export class ConversationListComponent {
   private conversationService = inject(ConversationService);
   private webSocketService = inject(WebSocketService);
   private userService = inject(UserService);
-  private router = inject(Router);
+  private navCtrl = inject(NavController);
   private layoutService = inject(LayoutService);
 
   // State signals
@@ -133,11 +128,11 @@ export class ConversationListComponent {
   // Navigation methods
   navigateToNewConversation(): void {
     this.layoutService.setActiveView('chatbox');
-    this.router.navigate(['/messages/new']);
+    this.navCtrl.navigateRoot(['/messages/new']);
   }
 
   navigateToConversation(id: string): void {
-    this.router.navigate(['/messages', id]);
+    this.navCtrl.navigateRoot(['/messages', id]);
   }
 
   // User selection - for creating a new conversation
@@ -153,7 +148,7 @@ export class ConversationListComponent {
     } else {
       // Create new conversation or navigate to new conversation view with this user pre-selected
       this.conversationService.selectUserForConversation(user);
-      this.router.navigate(['/messages', user._id]);
+      this.navCtrl.navigateRoot(['/messages', user._id]);
     }
   }
 
@@ -238,11 +233,10 @@ export class ConversationListComponent {
             case 'conversation-join':
               const {
                 added_by,
-                added_user,
                 conversation: joinedConversation,
               } = res;
 
-              if (added_by._id === this.currentUser()?._id) {
+              if (added_by?._id === this.currentUser()?._id) {
                 break;
               } else {
                 this.conversationService.addConversationToList(
@@ -253,8 +247,6 @@ export class ConversationListComponent {
 
             case 'conversation-leave':
               const {
-                removed_by,
-                removed_user,
                 conversation: leftConversation,
               } = res;
 
@@ -270,12 +262,12 @@ export class ConversationListComponent {
   }
 
   private handleError(
-    err: any,
+    err: HttpErrorResponse,
     navigation: boolean = false
   ): Observable<never> {
     this.isLoading.set(false);
     if (navigation) {
-      this.router.navigate(['/messages']);
+      this.navCtrl.navigateRoot(['/messages']);
     }
     return throwError(() => err);
   }

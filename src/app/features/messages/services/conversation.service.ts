@@ -146,20 +146,20 @@ export class ConversationService {
           sessionStorage.removeItem('selectedUser');
           this.#activeConversation.set(newConversation);
 
-          const currentUserId = this.userService.currentUser()?._id;
+          // const currentUserId = this.userService.currentUser()?._id;
 
-          for (let participant of newConversation.participants) {
-            if (!currentUserId) continue;
+          // for (let participant of newConversation.participants) {
+          //   if (!currentUserId) continue;
 
-            const conversationCreateMessage: ConversationJoinMessage = {
-              type: 'conversation-join',
-              conversation: { _id: newConversation._id },
-              added_by: { _id: currentUserId },
-              added_user: participant,
-            };
+          //   const conversationCreateMessage: ConversationJoinMessage = {
+          //     type: 'conversation-join',
+          //     conversation: { _id: newConversation._id },
+          //     added_by: { _id: currentUserId },
+          //     added_user: participant,
+          //   };
 
-            this.webSocketService.sendMessage(conversationCreateMessage);
-          }
+          //   this.webSocketService.sendMessage(conversationCreateMessage);
+          // }
 
           const conversationList = this.conversationList();
           if (conversationList && conversationList.conversations.length > 0) {
@@ -228,7 +228,7 @@ export class ConversationService {
       }
 
       const newList = {
-        conversations: [...val.conversations, conversation],
+        conversations: [conversation, ...val.conversations],
         totalCount: val.totalCount + 1,
       };
       return newList;

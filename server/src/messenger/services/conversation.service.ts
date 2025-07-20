@@ -3,14 +3,25 @@ import { Conversation, IConversation } from '../models/conversation.model';
 import { MutedConversation } from '../models/muted-conversation.model';
 import { User } from '../../user/models/user.model';
 import { createCustomError } from '../../error-handling/models/custom-api-error.model';
-import { ObjectId } from 'mongodb';
 import { MemberChangesI } from '../interfaces/member-changes.interface';
-import { ConversationI } from '../interfaces/conversation.interface';
-import path from 'path';
-import sharp from 'sharp';
 import { Message } from '../models/message.model';
+import { BroadcastFunction } from '../../websocket/services/websocket.service';
+import {
+  ConversationJoinMessage,
+  ConversationLeaveMessage,
+  ConversationUpdateMessage,
+} from '../../websocket/dtos/websocket.dto';
+import { UserInterface } from '../../user/interfaces/user.interface';
+import { ConversationI } from '../interfaces/conversation.interface';
+import { populate } from 'dotenv';
 
 export class ConversationService {
+  private broadcast: BroadcastFunction;
+
+  constructor(broadcastFunction: BroadcastFunction) {
+    this.broadcast = broadcastFunction;
+  }
+
   /**
    * Fetches a paginated list of conversations for a user.
    */
@@ -123,9 +134,9 @@ export class ConversationService {
   public async createConversation(
     participants: string[],
     is_group: boolean,
+    created_by: string,
     group_name?: string,
-    group_picture?: string,
-    created_by?: string
+    group_picture?: string
   ) {
     // Business logic: Prevent duplicate 1-on-1 conversations
     if (!is_group && participants.length === 2) {
@@ -141,17 +152,36 @@ export class ConversationService {
       }
     }
 
-    const conversation = await Conversation.create({
+    let conversation = await Conversation.create({
       participants,
       is_group,
       group_name,
       group_picture,
       created_by,
     });
-    return Conversation.findById(conversation._id).populate(
-      'participants',
+
+    if (!conversation) {
+      throw createCustomError('Failed to create conversation', 500);
+    }
+
+    const populatedConversation = (await conversation.populate(
+      'participants created_by',
       'first_name last_name username profile_picture'
-    );
+    )) as ConversationI;
+
+    if (!populatedConversation || !populatedConversation._id) {
+      throw createCustomError('Failed to populate conversation', 500);
+    }
+
+    const message: ConversationJoinMessage = {
+      type: 'conversation-join',
+      conversation: populatedConversation,
+      added_by: populatedConversation.created_by as UserInterface,
+    };
+
+    this.broadcast(message);
+
+    return conversation;
   }
 
   /**
@@ -183,6 +213,16 @@ export class ConversationService {
 
     Object.assign(conversation, updateData);
     await conversation.save();
+    await conversation.populate(
+      'participants created_by',
+      'first_name last_name username profile_picture status last_seen'
+    );
+
+    const message: ConversationUpdateMessage = {
+      type: 'conversation-update',
+      conversation: conversation.toObject(),
+    };
+    this.broadcast(message);
 
     return conversation;
   }
@@ -240,22 +280,10 @@ export class ConversationService {
   }
 
   public async manageConversationMembers(
+    conversation: IConversation,
     userId: string,
-    memberChanges: MemberChangesI,
-    conversationId: string
+    memberChanges: MemberChangesI
   ) {
-    const conversation = await Conversation.findOne({
-      _id: conversationId,
-      participants: userId,
-    });
-
-    if (!conversation) {
-      throw createCustomError(
-        'Conversation not found or you are not a participant',
-        404
-      );
-    }
-
     const removeSet = new Set(memberChanges.remove);
     const addSet = new Set(memberChanges.add);
 
@@ -278,6 +306,13 @@ export class ConversationService {
       'participants',
       'first_name last_name username profile_picture'
     );
+
+    const message: ConversationLeaveMessage = {
+      type: 'conversation-leave',
+      conversation: conversation.toObject(),
+    }
+
+    this.broadcast(message);
 
     // Logic to filter the current user from the participants list for the client
     const otherParticipants = conversation.participants.filter(
