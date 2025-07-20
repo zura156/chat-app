@@ -142,9 +142,13 @@ export class ConversationController {
     next: NextFunction
   ) => {
     try {
-      const { id } = req.params; // Using 'id' to match your router
+      const { conversation } = req;
       const userId = req.user!.userId;
-      await this.conversationService.deleteConversation(id, userId);
+      if (!conversation || !userId) {
+        next(createCustomError('Conversation or user ID is missing!', 400));
+        return;
+      }
+      await this.conversationService.deleteConversation(conversation, userId);
       res.status(200).json({ message: 'Conversation deleted successfully' });
     } catch (error) {
       next(error);

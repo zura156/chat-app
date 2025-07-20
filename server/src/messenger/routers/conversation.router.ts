@@ -69,7 +69,6 @@ router
 
     res.json(conversationWithFilteredParticipants);
   })
-  // TODO: refactor functions
   .patch(uploadMiddleware.single('group_picture'), (req, res, next) =>
     req.conversationController.updateConversation(req, res, next)
   )

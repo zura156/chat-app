@@ -8,6 +8,7 @@ import { MemberChangesI } from '../interfaces/member-changes.interface';
 import { ConversationI } from '../interfaces/conversation.interface';
 import path from 'path';
 import sharp from 'sharp';
+import { Message } from '../models/message.model';
 
 export class ConversationService {
   /**
@@ -189,8 +190,7 @@ export class ConversationService {
   /**
    * Deletes a conversation after verifying the user is a participant.
    */
-  public async deleteConversation(conversationId: string, userId: string) {
-    const conversation = await Conversation.findById(conversationId);
+  public async deleteConversation(conversation: IConversation, userId: string) {
     if (!conversation) {
       throw createCustomError('Conversation not found', 404);
     }
@@ -201,8 +201,10 @@ export class ConversationService {
         403
       );
     }
-    await Conversation.findByIdAndDelete(conversationId);
-    // You might also want to delete all messages associated with this conversation here
+    await conversation.deleteOne();
+    // await Conversation.findByIdAndDelete(conversation._id);
+    // Delete all messages associated with this conversation here
+    await Message.deleteMany({ conversation: conversation._id });
   }
 
   /**
