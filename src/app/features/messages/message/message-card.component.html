@@ -2,7 +2,7 @@
 @let isCurrentUserMessage = this.isCurrentUserMessage(message);
 <div
   class="flex items-center mt-2 w-full"
-  [ngClass]="{ 'justify-end': isCurrentUserMessage }"
+  [ngClass]="message.type === 'info' ? 'justify-center' : isCurrentUserMessage ? 'justify-end': 'justify-start'"
   >
   <div class="flex flex-col w-fit">
     @if(isGroup() && !isCurrentUserMessage){
@@ -24,13 +24,18 @@
       <div class="flex flex-col">
         <div
           class="border border-border rounded-lg"
-          [class]="message.type === 'audio' || message.type === 'video' ? 'border-none' : ''"
+          [class]="message.type === 'audio' || message.type === 'video' || message.type === 'info' ? 'border-none' : ''"
         >
           <div
             class="py-1 text-ellipsis"
             [class]="message.type === 'audio' ? '' : 'px-2 md:px-3'"
           >
-            @switch(message.type){ 
+            @switch(message.type) {
+              @case ('info') {
+                <p class="text-gray-500 text-sm">
+                  {{ message.content }}
+                </p>
+              }
               @case ('text') {
                 <p>{{ message.content }}</p>
               } 
@@ -61,7 +66,7 @@
                     </div>
                   </div>
                 } 
-              } @case ('audio') { 
+              } @case ('audio') {
                 @if(message.file) {
                   <div class="w-3xs sm:w-40 md:w-52 sm:max-w-3xs">
                     <app-audio-player [audio]="message.file"></app-audio-player>
@@ -95,7 +100,7 @@
                     </div>
                   </a>
                 </div>
-              } 
+              }
             }
           </div>
         </div>

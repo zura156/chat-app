@@ -2,6 +2,7 @@ import { UserInterface } from '../../user/interfaces/user.interface';
 import { IFile } from '../models/message.model';
 
 export enum MessageTypeEnum {
+  INFO = 'info',
   TEXT = 'text',
   IMAGE = 'image',
   VIDEO = 'video',
@@ -31,6 +32,10 @@ export interface MessageI {
 export const getMessageTypeFromMime = (mimeType: string): MessageTypeEnum => {
   const type = mimeType.split('/')[0];
   switch (type) {
+    case 'text':
+      return MessageTypeEnum.TEXT;
+    case 'info':
+      return MessageTypeEnum.INFO;
     case 'image':
       return MessageTypeEnum.IMAGE;
     case 'video':

@@ -58,7 +58,7 @@
       }
       </h1>
       <p class="text-sm">
-        @if(conversation.last_message?.sender?._id === currentUser()?._id) {
+        @if(conversation.last_message?.sender?._id === currentUser()?._id && conversation.last_message?.type !== 'info') {
           You:
         }
         @if(conversation.last_message?.content) {

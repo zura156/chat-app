@@ -1,10 +1,6 @@
 import { Routes } from '@angular/router';
 import { MessagesLayoutComponent } from './layout/messages-layout.component';
-import { ChatboxComponent } from './chatbox/chatbox.component';
-import { NewChatComponent } from './new-chat/new-chat.component';
 import { LayoutService } from './layout/layout.service';
-import { ConversationListComponent } from './list/conversation-list.component';
-import { MessagesStartComponent } from './start/messages-start.compoent';
 
 export const messagesRoutes: Routes = [
   {
@@ -14,19 +10,22 @@ export const messagesRoutes: Routes = [
     children: [
       {
         path: '',
-        component: ConversationListComponent,
+        loadComponent: () =>
+          import('./list/conversation-list.component').then(
+            (c) => c.ConversationListComponent
+          ),
       },
-      // {
-      //   path: '',
-      //   component: MessagesStartComponent,
-      // },
       {
         path: 'new',
-        component: NewChatComponent,
+        loadComponent: () =>
+          import('./new-chat/new-chat.component').then(
+            (c) => c.NewChatComponent
+          ),
       },
       {
         path: ':id',
-        component: ChatboxComponent,
+        loadComponent: () =>
+          import('./chatbox/chatbox.component').then((c) => c.ChatboxComponent),
       },
     ],
   },

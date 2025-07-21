@@ -2,6 +2,7 @@ import { ConversationI } from './conversation.interface';
 import { ParticipantI } from './participant.interface';
 
 export enum MessageType {
+  INFO = 'info',
   TEXT = 'text',
   IMAGE = 'image',
   VIDEO = 'video',
@@ -45,6 +46,8 @@ export interface GroupedMessages {
 // Add this method to your class
 export function convertToMessageType(type: string): MessageType {
   switch (type) {
+    case 'info':
+      return MessageType.INFO;
     case 'text':
       return MessageType.TEXT;
     case 'image':
