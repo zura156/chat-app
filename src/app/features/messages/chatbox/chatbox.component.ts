@@ -81,6 +81,8 @@ import { ChatboxSettingsComponent } from '../chatbox-settings/chatbox-settings.c
 import { PanGestureDirective } from '../../../shared/directives/pan.directive';
 import { HlmSkeletonComponent } from '@spartan-ng/helm/skeleton';
 import { environment } from '../../../../environments/environment';
+import { toast } from 'ngx-sonner';
+import { filter } from 'rxjs';
 
 @Component({
   selector: 'app-chatbox',
@@ -518,6 +520,7 @@ export class ChatboxComponent implements OnInit, OnDestroy {
     return (
       this.webSocketService.onMessage()?.pipe(
         tap((res) => {
+          const user = this.currentUser();
           switch (res.type) {
             case 'typing':
               this.isTyping.set({
@@ -525,16 +528,20 @@ export class ChatboxComponent implements OnInit, OnDestroy {
                 is_typing: !!res.is_typing,
                 conversationId: res.conversation,
               });
+              console.log('isTyping = ', this.isTyping());
+              console.log('REASON: ', !!res.is_typing);
               break;
             case 'message':
-              const user = this.currentUser();
               const message: MessageI = res.message;
 
               if (message._id && user?._id !== message.sender._id) {
                 this.markMessagesAsRead(message._id);
               }
 
-              if (res.message.sender._id === user?._id) {
+              if (
+                res.message.type !== 'info' &&
+                res.message.sender._id === user?._id
+              ) {
                 this.messageService.fillInMessageDetails(message);
                 return;
               }
@@ -583,16 +590,55 @@ export class ChatboxComponent implements OnInit, OnDestroy {
               );
               break;
 
+            case 'conversation-join':
+              const {
+                conversation: joinedConversation,
+                added_users,
+                added_by,
+              } = res;
+              this.conversationService.addConversationToList(
+                joinedConversation as ConversationI
+              );
+              const addedUsernames = joinedConversation.participants
+                ?.filter((participant) => added_users.includes(participant._id))
+                .map((participant) => participant.username);
+
+              toast.info(
+                `Users added to ${
+                  joinedConversation.group_name ?? 'conversation'
+                }`,
+                {
+                  description: `${addedUsernames?.join(', ')} ${
+                    addedUsernames && addedUsernames.length > 1 ? 'were' : 'was'
+                  } added by ${added_by.username}.`,
+                }
+              );
+              break;
             case 'conversation-leave':
               const {
                 removed_by,
-                removed_user,
+                removed_users,
                 conversation: leftConversation,
               } = res;
 
               this.conversationService.removeConversationFromList(
                 leftConversation as ConversationI
               );
+
+              const removedUsernames = leftConversation.participants
+                ?.filter((participant) =>
+                  removed_users.includes(participant._id)
+                )
+                .map((participant) => participant.username);
+              if (user && removed_users.includes(user._id)) {
+                removedUsernames?.push('You');
+              }
+
+              toast.info(`Users removed from conversation`, {
+                description: `${removedUsernames?.join(', ')} were removed by ${
+                  removed_by.username
+                }.`,
+              });
               break;
           }
         }),

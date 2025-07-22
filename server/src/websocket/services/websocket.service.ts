@@ -1,6 +1,7 @@
 import { WebSocket } from 'ws';
 import { logger } from '../../utils/logger';
 import { Conversation } from '../../messenger/models/conversation.model';
+import { MessageTypeEnum } from '../../messenger/interfaces/message.interface';
 export type BroadcastFunction = (message: any) => Promise<void>;
 
 export class WebSocketService {
@@ -64,11 +65,23 @@ export class WebSocketService {
 
       const payload = {
         type: 'message',
-        message
+        message,
       };
 
       for (const participantId of conversation.participants) {
-        this.sendToUser(participantId.toString(), message.type ? message : payload);
+        this.sendToUser(
+          participantId.toString(),
+          [
+            MessageTypeEnum.INFO,
+            MessageTypeEnum.TEXT,
+            MessageTypeEnum.IMAGE,
+            MessageTypeEnum.VIDEO,
+            MessageTypeEnum.AUDIO,
+            MessageTypeEnum.FILE,
+          ].includes(message.type)
+            ? payload
+            : message
+        );
       }
     } catch (error) {
       logger.error('Error during broadcast:', error);

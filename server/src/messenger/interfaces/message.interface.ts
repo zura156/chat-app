@@ -18,12 +18,12 @@ export enum MessageStatusEnum {
 }
 
 export interface MessageI {
-  sender: Partial<UserInterface>;
+  sender: Partial<UserInterface> | string;
   conversation: string;
   content: string;
-  file: IFile;
+  file?: IFile;
   type: MessageTypeEnum;
-  status: MessageStatusEnum;
+  status?: MessageStatusEnum;
   readBy?: string[];
   timestamp: Date;
   edited_at?: Date;

@@ -7,6 +7,7 @@ import { Conversation } from '../../messenger/models/conversation.model';
 import { User } from '../../user/models/user.model';
 import { Message } from '../../messenger/models/message.model';
 import { MessageStatusEnum } from '../../messenger/interfaces/message.interface';
+import { UserInterface } from '../../user/interfaces/user.interface';
 
 export class WebSocketController {
   private delayedOfflineUpdates = new Map<string, NodeJS.Timeout>();
@@ -93,7 +94,8 @@ export class WebSocketController {
       // The controller delegates the core task of creating a message to the MessageService.
       // The MessageService will save it and then call the broadcast function itself.
       await this.messageService.createTextMessage(
-        sender._id!.toString() ?? sender.toString(),
+        (sender as Partial<UserInterface>)?._id!.toString() ??
+          sender.toString(),
         conversation.toString(),
         content as string
       );
@@ -129,12 +131,14 @@ export class WebSocketController {
   private async handleConversationLeave(
     data: DTO.ConversationLeaveMessage
   ): Promise<void> {
-    const { conversation, removed_by, removed_user } = data;
+    const { conversation, removed_by, removed_users } = data;
     try {
       // We also need to notify the user who was removed.
       const allRecipientIds = [
         ...(conversation.participants as any[]).map((p) => p._id),
-        removed_user?._id,
+        ...(removed_users
+          ? removed_users.map((u) => (typeof u === 'string' ? u : u._id))
+          : []),
       ];
 
       for (const userId of allRecipientIds) {

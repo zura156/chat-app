@@ -53,7 +53,8 @@ export class MessageService {
   public async createTextMessage(
     senderId: string,
     conversationId: string,
-    content: string
+    content: string,
+    type?: MessageTypeEnum
   ): Promise<IMessage> {
     const conversationObjectId = new Types.ObjectId(conversationId);
 
@@ -61,7 +62,7 @@ export class MessageService {
       sender: senderId,
       conversation: conversationObjectId,
       content: content,
-      type: MessageTypeEnum.TEXT,
+      type: type ?? MessageTypeEnum.TEXT,
     });
 
     await message.save();

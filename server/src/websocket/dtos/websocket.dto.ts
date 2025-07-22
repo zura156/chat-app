@@ -35,8 +35,8 @@ export interface TypingMessage extends BaseWebSocketMessage {
 export interface ConversationJoinMessage extends BaseWebSocketMessage {
   type: 'conversation-join';
   conversation: Partial<ConversationI>;
-  added_by?: Partial<UserInterface>;
-  added_user?: Partial<UserInterface>;
+  added_by?: Partial<UserInterface> | string;
+  added_users?: (Partial<UserInterface> | string)[];
 }
 
 export interface ConversationUpdateMessage extends BaseWebSocketMessage {
@@ -47,8 +47,8 @@ export interface ConversationUpdateMessage extends BaseWebSocketMessage {
 export interface ConversationLeaveMessage extends BaseWebSocketMessage {
   type: 'conversation-leave';
   conversation: Partial<ConversationI>;
-  removed_by?: Partial<UserInterface>;
-  removed_user?: Partial<UserInterface>;
+  removed_by?: Partial<UserInterface> | string;
+  removed_users?: (Partial<UserInterface> | string)[];
 }
 
 export interface ChatMessage extends BaseWebSocketMessage {

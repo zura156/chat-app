@@ -104,6 +104,7 @@ export class ItemManagerComponent {
     }
 
     this.submit.emit(selectedItemIds);
+    this.checkedBoxIds.clear();
   }
 
   private markFormGroupTouched(formGroup: FormGroup): void {

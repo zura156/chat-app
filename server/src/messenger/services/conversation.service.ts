@@ -14,12 +14,20 @@ import {
 import { UserInterface } from '../../user/interfaces/user.interface';
 import { ConversationI } from '../interfaces/conversation.interface';
 import { populate } from 'dotenv';
+import { MessageI, MessageTypeEnum } from '../interfaces/message.interface';
+import { MessageService } from './message.service';
+import { logger } from '../../utils/logger';
 
 export class ConversationService {
   private broadcast: BroadcastFunction;
+  private messageService: MessageService;
 
-  constructor(broadcastFunction: BroadcastFunction) {
+  constructor(
+    broadcastFunction: BroadcastFunction,
+    messageService: MessageService
+  ) {
     this.broadcast = broadcastFunction;
+    this.messageService = messageService;
   }
 
   /**
@@ -283,9 +291,15 @@ export class ConversationService {
     conversation: IConversation,
     userId: string,
     memberChanges: MemberChangesI
-  ) {
+  ): Promise<IConversation> {
     const removeSet = new Set(memberChanges.remove);
     const addSet = new Set(memberChanges.add);
+
+    const removedUserDocs = await User.find({
+      _id: { $in: Array.from(removeSet) },
+    })
+      .select('first_name last_name username profile_picture')
+      .lean();
 
     conversation.participants = conversation.participants.filter(
       (participant) => !removeSet.has(participant.toString())
@@ -301,18 +315,96 @@ export class ConversationService {
       }
     }
 
-    await conversation.save();
-    await conversation.populate(
-      'participants',
-      'first_name last_name username profile_picture'
-    );
+    let populatedConversation = (await conversation.populate([
+      {
+        path: 'participants',
+        select: 'first_name last_name username profile_picture',
+      },
+      {
+        path: 'last_message',
+        select: 'content sender timestamp type file',
+        populate: { path: 'sender', select: 'username profile_picture' },
+      },
+    ])) as ConversationI;
 
-    const message: ConversationLeaveMessage = {
-      type: 'conversation-leave',
-      conversation: conversation.toObject(),
+    let message: ConversationLeaveMessage | ConversationJoinMessage | undefined;
+
+    const participants =
+      populatedConversation.participants as Partial<UserInterface>[];
+    const currentUser = participants.find((p) => p._id?.toString() === userId);
+
+    if (removeSet.size > 0) {
+      const removedUsers = removedUserDocs;
+
+      message = {
+        type: 'conversation-leave',
+        conversation: populatedConversation,
+        removed_users: Array.from(removeSet),
+        removed_by: currentUser || userId,
+      };
+
+      const infoMessage = {
+        sender: currentUser?._id || userId,
+        conversation: String(populatedConversation._id),
+        content: `${removedUsers
+          .map((p) => p.username)
+          .join(', ')} have been removed from the conversation by ${
+          currentUser?.username || 'an admin'
+        }`,
+        type: MessageTypeEnum.INFO,
+      };
+
+      await this.messageService.createTextMessage(
+        infoMessage.sender,
+        infoMessage.conversation,
+        infoMessage.content,
+        infoMessage.type
+      );
+
+      this.broadcast(message);
     }
 
-    this.broadcast(message);
+    await conversation.save();
+    populatedConversation = (await conversation.populate([
+      {
+        path: 'participants',
+        select: 'first_name last_name username profile_picture',
+      },
+      {
+        path: 'last_message',
+        select: 'content sender timestamp type file',
+        populate: { path: 'sender', select: 'username profile_picture' },
+      },
+    ])) as ConversationI;
+
+    if (addSet.size > 0) {
+      message = {
+        type: 'conversation-join',
+        conversation: populatedConversation,
+        added_users: Array.from(addSet),
+        added_by: currentUser || userId,
+      };
+      const infoMessage = {
+        sender: currentUser?._id || userId,
+        conversation: String(populatedConversation._id),
+        content: `${(message.conversation.participants as UserInterface[])
+          .filter((p) => addSet.has(p._id.toString()))
+          .map((p) => p.username)
+          .join(', ')} have been added to the conversation by ${
+          currentUser?.username || 'an admin'
+        }`,
+        type: MessageTypeEnum.INFO,
+      };
+
+      await this.messageService.createTextMessage(
+        infoMessage.sender,
+        infoMessage.conversation,
+        infoMessage.content,
+        infoMessage.type
+      );
+
+      this.broadcast(message);
+    }
 
     // Logic to filter the current user from the participants list for the client
     const otherParticipants = conversation.participants.filter(

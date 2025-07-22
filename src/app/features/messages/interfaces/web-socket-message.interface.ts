@@ -37,14 +37,14 @@ export interface ConversationJoinMessage extends BaseWebSocketMessage {
   type: 'conversation-join';
   conversation: Partial<ConversationI>;
   added_by: Partial<UserI>;
-  added_user: Partial<UserI>;
+  added_users: (Partial<UserI> | string)[];
 }
 
 export interface ConversationLeaveMessage extends BaseWebSocketMessage {
   type: 'conversation-leave';
   conversation: Partial<ConversationI>;
   removed_by: Partial<UserI>;
-  removed_user: Partial<UserI>;
+  removed_users: (Partial<UserI> | string)[];
 }
 
 export interface ChatMessage extends BaseWebSocketMessage {

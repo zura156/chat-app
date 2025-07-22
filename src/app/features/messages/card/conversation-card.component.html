@@ -7,7 +7,7 @@
   <!-- AVATAR -->
   <div class="size-lg flex justify-center items-center border rounded-full">
     @if(conversation.is_group) {
-      <hlm-avatar variant="medium">
+      <hlm-avatar variant="medium" >
         <img
           [src]="conversation.group_picture ? apiUrl + conversation.group_picture : '/icons/group.svg'"
           alt="group picture"

@@ -7,13 +7,20 @@ import { ConversationController } from '../controllers/conversation.controller';
 import { ConversationService } from '../services/conversation.service';
 import { validateConversation } from '../middlewares/validate-conversation.middleware';
 import { uploadMiddleware } from '../../config/multer';
+import { MessageService } from '../services/message.service';
 
 const router = Router();
 
 router.use((req, res, next) => {
   const broadcastMessage = req.app.get('broadcastMessage');
+  if (!req.messageService) {
+    req.messageService = new MessageService(broadcastMessage);
+  }
   if (!req.conversationService) {
-    req.conversationService = new ConversationService(broadcastMessage);
+    req.conversationService = new ConversationService(
+      broadcastMessage,
+      req.messageService
+    );
   }
   if (!req.conversationController) {
     req.conversationController = new ConversationController(
