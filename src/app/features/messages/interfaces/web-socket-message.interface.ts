@@ -31,7 +31,7 @@ export interface TypingMessage extends BaseWebSocketMessage {
   is_typing: boolean;
   sender: Partial<UserI>;
   participants: Partial<UserI>[];
-  conversation: string;
+  conversation_id: string;
 }
 
 export interface ConversationUpdateMessage extends BaseWebSocketMessage {

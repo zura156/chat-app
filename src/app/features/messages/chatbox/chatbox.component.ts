@@ -526,7 +526,7 @@ export class ChatboxComponent implements OnInit, OnDestroy {
               this.isTyping.set({
                 typer: res.sender ?? {},
                 is_typing: !!res.is_typing,
-                conversationId: res.conversation,
+                conversationId: res.conversation_id,
               });
               console.log('isTyping = ', this.isTyping());
               console.log('REASON: ', !!res.is_typing);
@@ -718,7 +718,7 @@ export class ChatboxComponent implements OnInit, OnDestroy {
             sender,
             participants: convo.participants,
             is_typing: Boolean(query),
-            conversation: convo._id,
+            conversation_id: convo._id,
           };
           this.webSocketService.sendMessage(data);
         })

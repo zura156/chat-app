@@ -8,6 +8,7 @@ import { User } from '../../user/models/user.model';
 import { Message } from '../../messenger/models/message.model';
 import { MessageStatusEnum } from '../../messenger/interfaces/message.interface';
 import { UserInterface } from '../../user/interfaces/user.interface';
+import { ObjectId } from 'mongodb';
 
 export class WebSocketController {
   private delayedOfflineUpdates = new Map<string, NodeJS.Timeout>();
@@ -69,23 +70,44 @@ export class WebSocketController {
     }
   }
 
-  private handleTyping(data: DTO.TypingMessage): void {
-    Conversation.findById(data.conversation_id)
-      .select('participants')
-      .then((conversation) => {
-        if (!conversation) return;
-        for (const participantId of conversation.participants) {
-          const participantStr = participantId.toString();
-          if (participantStr !== data.sender._id) {
+  private async handleTyping(data: DTO.TypingMessage): Promise<void> {
+    try {
+      logger.debug('Typing data received:', data);
+
+      const conversation = await Conversation.findById(
+        new ObjectId(data.conversation_id)
+      )
+        .select('participants')
+        .lean();
+
+      if (!conversation) {
+        logger.warn(`No conversation found with id: ${data.conversation_id}`);
+        return;
+      }
+
+      for (const participantId of conversation.participants) {
+        const participantStr = String(participantId);
+        if (participantStr !== String(data.sender._id)) {
+          logger.debug(`Sending typing event to user ${participantStr}`);
+
+          try {
             this.websocketService.sendToUser(participantStr, {
               type: 'typing',
               is_typing: data.is_typing,
               sender: data.sender,
               conversation_id: data.conversation_id,
             });
+          } catch (socketErr) {
+            logger.error(
+              `Failed to send typing to ${participantStr}:`,
+              socketErr
+            );
           }
         }
-      });
+      }
+    } catch (error) {
+      logger.error('Failed to handle typing notification:', error);
+    }
   }
 
   private async handleChatMessage(data: DTO.ChatMessage): Promise<void> {
@@ -171,6 +193,7 @@ export class WebSocketController {
 
       const payload = {
         type: 'message-status',
+        status: MessageStatusEnum.READ,
         read_receipt,
         conversation_id,
       };
