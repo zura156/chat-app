@@ -590,6 +590,13 @@ export class ChatboxComponent implements OnInit, OnDestroy {
               );
               break;
 
+            case 'conversation-update':
+              const updatedConversation = res.conversation as ConversationI;
+              this.conversationService.updateConversationState(
+                updatedConversation
+              );
+
+              break;
             case 'conversation-join':
               const {
                 conversation: joinedConversation,

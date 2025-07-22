@@ -9,6 +9,7 @@ type WebSocketMessageType =
   | 'authenticate'
   | 'typing'
   | 'message'
+  | 'conversation-update'
   | 'conversation-join'
   | 'conversation-leave'
   | 'message-status'
@@ -33,6 +34,10 @@ export interface TypingMessage extends BaseWebSocketMessage {
   conversation: string;
 }
 
+export interface ConversationUpdateMessage extends BaseWebSocketMessage {
+  type: 'conversation-update';
+  conversation: ConversationI;
+}
 export interface ConversationJoinMessage extends BaseWebSocketMessage {
   type: 'conversation-join';
   conversation: Partial<ConversationI>;
@@ -73,6 +78,7 @@ export interface FileUploadMessage extends BaseWebSocketMessage {
 }
 
 export type WebSocketMessageT =
+  | ConversationUpdateMessage
   | AuthenticateMessage
   | TypingMessage
   | ChatMessage

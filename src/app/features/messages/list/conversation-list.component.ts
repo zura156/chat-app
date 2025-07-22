@@ -230,11 +230,11 @@ export class ConversationListComponent {
       this.webSocketService.onMessage()?.pipe(
         tap((res) => {
           switch (res.type) {
+            case 'conversation-update':
+              this.conversationService.updateConversationState(res.conversation);
+              break;
             case 'conversation-join':
-              const {
-                added_by,
-                conversation: joinedConversation,
-              } = res;
+              const { added_by, conversation: joinedConversation } = res;
 
               if (added_by?._id === this.currentUser()?._id) {
                 break;
@@ -246,9 +246,7 @@ export class ConversationListComponent {
               break;
 
             case 'conversation-leave':
-              const {
-                conversation: leftConversation,
-              } = res;
+              const { conversation: leftConversation } = res;
 
               this.conversationService.removeConversationFromList(
                 leftConversation as ConversationI

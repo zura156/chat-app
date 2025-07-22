@@ -49,6 +49,35 @@ export class ConversationService {
     this.#selectedUser.set(user);
   }
 
+  updateConversationState(conversation: ConversationI): void {
+    if (!conversation || !conversation._id) {
+      toast.error('Invalid conversation data received.');
+      return;
+    }
+    if (this.selectedConversationId() === conversation._id) {
+      this.#activeConversation.update(() => conversation);
+    }
+
+    this.#conversationList.update((prev) => {
+      if (!prev) return null;
+
+      const existingConversationIndex = prev.conversations.findIndex(
+        (c) => c._id === conversation._id
+      );
+
+      if (existingConversationIndex > -1) {
+        const updatedConversations = [...prev.conversations];
+        updatedConversations[existingConversationIndex] = conversation;
+        return { ...prev, conversations: updatedConversations };
+      }
+
+      return {
+        ...prev,
+        conversations: [conversation, ...prev.conversations],
+      };
+    });
+  }
+
   // Get a single conversation with messages
   getConversationById(id: string): Observable<ConversationI> {
     const url = `${this.GET_CONVERSATION_URL.split(':id')[0]}${id}`;
