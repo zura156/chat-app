@@ -443,7 +443,6 @@ export class ChatboxComponent implements OnInit, OnDestroy {
       this.isVisibilityObserving.set(true);
       this.divTopIntersectionObserver = new IntersectionObserver(
         ([entry]) => {
-          console.log('Top tracker visibility:', entry.isIntersecting);
           this.isVisible.set(
             entry.isIntersecting && !this.messagesResource.isLoading()
           );
