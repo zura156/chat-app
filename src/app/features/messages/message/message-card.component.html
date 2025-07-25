@@ -42,12 +42,12 @@
               @case ('image') {
                 <div class="py-1.5 w-fit h-fit">
                   <img
-                    class="object-contain max-h-96 rounded-lg"
+                    class="object-contain max-h-96 max-w-full rounded-lg"
                     [ngClass]="isImageLoaded() ? 'h-fit' : 'h-96'"
                     [src]="
                       isImageLoaded()
                         ? apiUrl + message.file?.url
-                        : apiUrl + message.file?.placeholder_url
+                        : apiUrl + (message.file?.mime_type === 'image/gif' ? message.file?.url : message.file?.placeholder_url)
                     "
                     (load)="onFullImageLoad()"
                     [alt]="message.content"
