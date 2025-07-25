@@ -6,12 +6,14 @@ import { Observable, of, tap } from 'rxjs';
 import { UserListI } from '../interfaces/user-list.interface';
 import { WebSocketService } from '../../messages/services/web-socket.service';
 import { UserStatusMessage } from '../../messages/interfaces/web-socket-message.interface';
+import { UserStateService } from './user-state.service';
 
 @Injectable({
   providedIn: 'root',
 })
 export class UserService {
   private http = inject(HttpClient);
+  private userStateService = inject(UserStateService);
   private webSocketService = inject(WebSocketService);
 
   private readonly apiUrl = environment.apiUrl;
@@ -21,8 +23,8 @@ export class UserService {
   private readonly _GET_USER_BY_ID = `${this.apiUrl}/user/:id`;
   private readonly _SEARCH_USERS_URL = `${this.apiUrl}/user/search`;
 
-  currentUser = signal<UserI | null>(null);
-  selectedUser = signal<UserI | null>(null);
+  currentUser = this.userStateService.currentUser;
+  selectedUser = this.userStateService.selectedUser;
 
   #users = signal<UserListI | null>(null);
   users = computed(this.#users);
@@ -50,7 +52,7 @@ export class UserService {
   getCurrentUser(): Observable<UserI> {
     return this.http
       .get<UserI>(this._GET_CURRENT_USER_URL)
-      .pipe(tap((res) => this.currentUser.set(res)));
+      .pipe(tap((res) => this.userStateService.setCurrentUser(res)));
   }
 
   getUserById(userId: string): Observable<UserI> {
@@ -60,7 +62,7 @@ export class UserService {
     const url = `${this._GET_USER_BY_ID.split(':id')[0]}${userId}`;
     return this.http
       .get<UserI>(url)
-      .pipe(tap((res) => this.selectedUser.set(res)));
+      .pipe(tap((res) => this.userStateService.setSelectedUser(res)));
   }
 
   fetchUsers(offset = 0, limit = 20): Observable<UserListI> {

@@ -82,7 +82,11 @@ export class ConversationListComponent {
   // Injected services
   private conversationService = inject(ConversationService);
   private webSocketService = inject(WebSocketService);
+
+  //* I decided to not  use user state service, *//
+  //* since i also use functions from user service *//
   private userService = inject(UserService);
+
   private navCtrl = inject(NavController);
   private layoutService = inject(LayoutService);
 
@@ -150,6 +154,10 @@ export class ConversationListComponent {
       this.conversationService.selectUserForConversation(user);
       this.navCtrl.navigateRoot(['/messages', user._id]);
     }
+  }
+
+  navigate(url: string): void {
+    this.navCtrl.navigateRoot(url);
   }
 
   private searchForData(): void {
@@ -231,7 +239,9 @@ export class ConversationListComponent {
         tap((res) => {
           switch (res.type) {
             case 'conversation-update':
-              this.conversationService.updateConversationState(res.conversation);
+              this.conversationService.updateConversationState(
+                res.conversation
+              );
               break;
             case 'conversation-join':
               const { added_by, conversation: joinedConversation } = res;

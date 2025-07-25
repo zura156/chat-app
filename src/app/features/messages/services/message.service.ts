@@ -1,5 +1,6 @@
 import {
   computed,
+  effect,
   inject,
   Injectable,
   linkedSignal,
@@ -15,12 +16,17 @@ import { MessageListI } from '../interfaces/message-list.interface';
 import { ParticipantI } from '../interfaces/participant.interface';
 import { ConversationService } from './conversation.service';
 import { WebSocketService } from './web-socket.service';
-import { ChatMessage } from '../interfaces/web-socket-message.interface';
+import {
+  ChatMessage,
+  MessageStatusMessage,
+} from '../interfaces/web-socket-message.interface';
+import { UserStateService } from '../../user/services/user-state.service';
 
 @Injectable()
 export class MessageService {
   private http = inject(HttpClient);
   private conversationService = inject(ConversationService);
+  private userStateService = inject(UserStateService);
   private webSocketService = inject(WebSocketService);
 
   private apiUrl = `${environment.apiUrl}/messages`;
@@ -46,16 +52,17 @@ export class MessageService {
     source: () =>
       this.activeMessagesResource.value() || { messages: [], totalCount: 0 },
     computation: (newResource, previous) => {
-      const conversationId = this.conversationService.activeConversation()?._id;
+      const conversation = this.conversationService.activeConversation();
       const previousMessages = previous?.value ?? [];
 
-      if (!conversationId || !newResource) {
+      if (!conversation || !conversation._id || !newResource) {
         return [];
       }
 
       const isInitialLoad = previousMessages.length === 0;
       const isDifferentConversation =
-        !isInitialLoad && previousMessages[0]?.conversation !== conversationId;
+        !isInitialLoad &&
+        previousMessages[0]?.conversation !== conversation._id;
 
       if (isInitialLoad || isDifferentConversation) {
         return newResource.messages;
@@ -86,6 +93,20 @@ export class MessageService {
     this.#totalMessagesCount
   );
 
+  constructor() {
+    effect(() => {
+      const messages = this.activeMessages();
+      const conversation = this.conversationService.activeConversation();
+
+      if (messages.length > 0 && conversation?._id) {
+        const firstMessage = messages[0];
+        if (firstMessage?._id) {
+          this.markMessageAsRead(firstMessage._id);
+        }
+      }
+    });
+  }
+
   sendMessage(
     message: MessageI,
     participants: Partial<ParticipantI>[],
@@ -103,48 +124,55 @@ export class MessageService {
     return of(message);
   }
 
-  // old approach to get messages by conversation ID
-  // This method is commented out because we are now using the new httpResource approach (activeMessagesResource)
-  // // Get messages for a conversation
-  // getMessagesByConversationId(
-  //   conversationId: string,
-  //   offset = 0,
-  //   limit = 20
-  // ): Observable<MessageListI> {
-  //   const url = `${this.GET_MESSAGES_URL}/${conversationId}/messages?offset=${offset}&limit=${limit}`;
-
-  //   return this.http.get<MessageListI>(url).pipe(
-  //     tap((response) => {
-  //       if (
-  //         this.activeMessages().length > 0 &&
-  //         this.activeMessages().length !== response.totalCount &&
-  //         this.activeMessages().some((m) => m.conversation === conversationId)
-  //       ) {
-  //         this.#activeMessages.update((val) => [...val, ...response.messages]);
-  //       } else {
-  //         this.#activeMessages.set(response.messages);
-  //       }
-  //       this.#totalMessagesCount.set(response.totalCount);
-  //     }),
-  //     catchError((error) => {
-  //       console.error('Error fetching messages:', error);
-  //       return throwError(
-  //         () => new Error(error.message || 'Failed to fetch messages')
-  //       );
-  //     })
-  //   );
-  // }
-
   activeMessagesResource = httpResource<MessageListI>(() => {
     const conversationId = this.conversationService.selectedConversationId();
     if (!conversationId) {
       return;
     }
+
     const url = `${
       this.GET_MESSAGES_URL
     }/${conversationId}/messages?offset=${this.offset()}&limit=${this.messageLimit()}`;
     return url;
   });
+
+  markMessageAsRead(lastMessageId: string) {
+    if (!lastMessageId) return;
+
+    const user = this.userStateService.currentUser();
+    const message = this.findMessageById(lastMessageId);
+    if (!user || !message) return;
+    if (user._id === message.sender._id) return;
+    if (message.status === MessageStatus.READ) return;
+
+    const currentUserId = user._id;
+    const conversation = this.conversationService.activeConversation();
+
+    if (
+      conversation &&
+      conversation.read_receipts.some(
+        (r) =>
+          r.user_id === currentUserId &&
+          r.last_message_read_id === lastMessageId
+      )
+    )
+      return;
+
+    if (!currentUserId || !conversation?._id) return;
+
+    // Then send to server via websocket
+    const readData: MessageStatusMessage = {
+      type: 'message-status',
+      read_receipt: {
+        last_message_read_id: lastMessageId,
+        user_id: currentUserId,
+      },
+      conversation_id: conversation._id,
+      status: 'read',
+    };
+
+    this.webSocketService.sendMessage(readData);
+  }
 
   updateMessageStatus(messageId: string, status: MessageStatus): void {
     this.#activeMessages.update((messages) => {
@@ -191,5 +219,14 @@ export class MessageService {
       val.shift();
       return [message, ...val];
     });
+  }
+
+  private findMessageById(messageId: string): MessageI | undefined {
+    const message = this.activeMessages().find((m) => m._id === messageId);
+    if (message) {
+      return message;
+    }
+
+    return undefined;
   }
 }

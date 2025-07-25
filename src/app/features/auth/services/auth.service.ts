@@ -1,4 +1,4 @@
-import { inject, Injectable, Injector } from '@angular/core';
+import { inject, Injectable } from '@angular/core';
 import { environment } from '../../../../environments/environment';
 import {
   BehaviorSubject,
@@ -21,31 +21,21 @@ import { RegisterCredentialsI } from '../interfaces/register-credentials.interfa
 import { LoginCredentialsI } from '../interfaces/login-credentials.interface';
 import { NavigationStart, Router } from '@angular/router';
 import { WebSocketService } from '../../messages/services/web-socket.service';
-import { UserService } from '../../user/services/user.service';
 import { UserStatusMessage } from '../../messages/interfaces/web-socket-message.interface';
+import { UserStateService } from '../../user/services/user-state.service';
 
 @Injectable({
   providedIn: 'root',
 })
 export class AuthService {
-  private injector = inject(Injector);
-
-  private _userService: UserService | null = null;
-
-  private get userService(): UserService {
-    if (!this._userService) {
-      this._userService = this.injector.get(UserService);
-    }
-    return this._userService;
-  }
-
   /*
    * Dependency injections.
    */
 
-  http = inject(HttpClient);
-  router = inject(Router);
-  webSocketService = inject(WebSocketService);
+  private http = inject(HttpClient);
+  private router = inject(Router);
+  private userStateService = inject(UserStateService);
+  private webSocketService = inject(WebSocketService);
 
   /*
    * API Urls.
@@ -133,7 +123,7 @@ export class AuthService {
       this.handleStorage();
     }
 
-    const currentUser = this.userService.currentUser();
+    const currentUser = this.userStateService.currentUser();
 
     if (currentUser) {
       const { _id } = currentUser;

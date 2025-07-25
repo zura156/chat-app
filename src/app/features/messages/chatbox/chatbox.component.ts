@@ -27,7 +27,6 @@ import {
 } from 'rxjs';
 import { OnDestroy } from '@angular/core';
 import { ActivatedRoute, Router } from '@angular/router';
-import { UserService } from '../../user/services/user.service';
 import { ConversationService } from '../services/conversation.service';
 import { MessageService } from '../services/message.service';
 import {
@@ -83,6 +82,7 @@ import { HlmSkeletonComponent } from '@spartan-ng/helm/skeleton';
 import { environment } from '../../../../environments/environment';
 import { toast } from 'ngx-sonner';
 import { filter } from 'rxjs';
+import { UserStateService } from '../../user/services/user-state.service';
 
 @Component({
   selector: 'app-chatbox',
@@ -124,7 +124,7 @@ export class ChatboxComponent implements OnInit, OnDestroy {
   private readonly router = inject(Router);
   private readonly route = inject(ActivatedRoute);
   private readonly layoutService = inject(LayoutService);
-  private readonly userService = inject(UserService);
+  private readonly userStateService = inject(UserStateService);
   private readonly conversationService = inject(ConversationService);
   private readonly messageService = inject(MessageService);
   private readonly webSocketService = inject(WebSocketService);
@@ -202,10 +202,10 @@ export class ChatboxComponent implements OnInit, OnDestroy {
     return groupedMessages;
   });
 
-  currentUser = this.userService.currentUser;
+  currentUser = this.userStateService.currentUser;
   selectedUser = this.conversationService.selectedUser;
 
-  offset = signal<number>(0);
+  offset = this.messageService.offset;
   limit = this.messageService.messageLimit;
   hasMoreMessages = this.messageService.hasMoreMessages;
 
@@ -252,6 +252,7 @@ export class ChatboxComponent implements OnInit, OnDestroy {
         map((params) => params['id']),
         catchError((err) => this.handleError(err)),
         switchMap((id) => {
+          this.offset.set(0);
           this.conversationService.selectedConversationId.set(id);
           this.conversation = this.conversationService.activeConversation;
           const selectedUser: UserI | null = JSON.parse(
@@ -329,7 +330,7 @@ export class ChatboxComponent implements OnInit, OnDestroy {
   }
 
   sendMessage(): void {
-    const sender = this.userService.currentUser();
+    const sender = this.currentUser();
     const convo = this.conversation();
     if (!convo || !sender) return;
 
@@ -527,14 +528,12 @@ export class ChatboxComponent implements OnInit, OnDestroy {
                 is_typing: !!res.is_typing,
                 conversationId: res.conversation_id,
               });
-              console.log('isTyping = ', this.isTyping());
-              console.log('REASON: ', !!res.is_typing);
               break;
             case 'message':
               const message: MessageI = res.message;
 
               if (message._id && user?._id !== message.sender._id) {
-                this.markMessagesAsRead(message._id);
+                this.markMessageAsRead(message._id);
               }
 
               if (
@@ -653,52 +652,12 @@ export class ChatboxComponent implements OnInit, OnDestroy {
     );
   }
 
-  private markMessagesAsRead(lastMessageId: string): void {
-    if (!lastMessageId) return;
-
-    const message = this.findMessageById(lastMessageId);
+  private markMessageAsRead(lastMessageId: string): void {
     const user = this.currentUser();
-    if (!user || !message) return;
-    if (user._id === message.sender._id) return;
-    if (message.status === MessageStatus.READ) return;
-
-    const currentUserId = user._id;
     const conversation = this.conversation();
+    if (!user || !conversation) return;
 
-    if (
-      conversation &&
-      conversation.read_receipts.some(
-        (r) =>
-          r.user_id === currentUserId &&
-          r.last_message_read_id === lastMessageId
-      )
-    )
-      return;
-
-    if (!currentUserId || !conversation?._id) return;
-
-    // Then send to server via websocket
-    const readData: MessageStatusMessage = {
-      type: 'message-status',
-      read_receipt: {
-        last_message_read_id: lastMessageId,
-        user_id: currentUserId,
-      },
-      conversation_id: conversation._id,
-      status: 'read',
-    };
-
-    this.webSocketService.sendMessage(readData);
-  }
-
-  private findMessageById(messageId: string): MessageI | undefined {
-    for (const group of this.groupedMessages()) {
-      const message = group.messages.find((m) => m._id === messageId);
-      if (message) {
-        return message;
-      }
-    }
-    return undefined;
+    this.messageService.markMessageAsRead(lastMessageId);
   }
 
   private trackTypingStatus(): void {

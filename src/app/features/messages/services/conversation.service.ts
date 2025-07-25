@@ -174,22 +174,6 @@ export class ConversationService {
           this.#selectedUser.set(null);
           sessionStorage.removeItem('selectedUser');
           this.#activeConversation.set(newConversation);
-
-          // const currentUserId = this.userService.currentUser()?._id;
-
-          // for (let participant of newConversation.participants) {
-          //   if (!currentUserId) continue;
-
-          //   const conversationCreateMessage: ConversationJoinMessage = {
-          //     type: 'conversation-join',
-          //     conversation: { _id: newConversation._id },
-          //     added_by: { _id: currentUserId },
-          //     added_user: participant,
-          //   };
-
-          //   this.webSocketService.sendMessage(conversationCreateMessage);
-          // }
-
           const conversationList = this.conversationList();
           if (conversationList && conversationList.conversations.length > 0) {
             this.#conversationList.update((val) => {
