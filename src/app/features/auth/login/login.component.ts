@@ -5,13 +5,12 @@ import {
   ReactiveFormsModule,
   Validators,
 } from '@angular/forms';
-import { Router, RouterLink } from '@angular/router';
+import { Router } from '@angular/router';
 import { AuthService } from '../services/auth.service';
 import { LoginCredentialsI } from '../interfaces/login-credentials.interface';
 
 import { HlmFormFieldModule } from '@spartan-ng/helm/form-field';
 import { HlmInputDirective } from '@spartan-ng/helm/input';
-import { HlmLabelDirective } from '@spartan-ng/helm/label';
 import { HlmButtonDirective } from '@spartan-ng/helm/button';
 import { HlmIconDirective } from '@spartan-ng/helm/icon';
 import { NgIcon, provideIcons } from '@ng-icons/core';
@@ -29,11 +28,9 @@ import { NavController } from '@ionic/angular/standalone';
 @Component({
   selector: 'app-login',
   imports: [
-    RouterLink,
     ReactiveFormsModule,
     HlmFormFieldModule,
     HlmInputDirective,
-    HlmLabelDirective,
     HlmButtonDirective,
     HlmIconDirective,
     NgIcon,
@@ -46,7 +43,6 @@ import { NavController } from '@ionic/angular/standalone';
 })
 export class LoginComponent {
   authService = inject(AuthService);
-  router = inject(Router);
   navCtrl = inject(NavController);
 
   showPass = signal<boolean>(false);
@@ -104,5 +100,9 @@ export class LoginComponent {
         })
       )
       .subscribe();
+  }
+
+  navigate(url: string): void {
+    this.navCtrl.navigateRoot(url);
   }
 }

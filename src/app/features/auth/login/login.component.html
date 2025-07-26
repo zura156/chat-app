@@ -76,9 +76,6 @@
   <div class="mt-5 sm:mx-auto sm:w-full sm:max-w-sm">
     <form [formGroup]="form" (ngSubmit)="onSubmit()">
       <fieldset class="mb-2">
-        <label hlmLabel for="email" class="text-gray-800 dark:text-gray-300">
-          Email address
-        </label>
         <hlm-form-field>
           <input
             type="email"
@@ -108,9 +105,6 @@
         </hlm-form-field>
       </fieldset>
       <fieldset class="mb-2">
-        <label hlmLabel for="password" class="text-gray-800 dark:text-gray-300">
-          Password
-        </label>
         <div class="text-sm"></div>
         <div class="relative">
           <hlm-form-field>
@@ -138,7 +132,6 @@
           <button
             type="button"
             hlmBtn
-            variant="secondary"
             class="absolute top-0 right-0 rounded-l-none duration-300 min-w-16 cursor-pointer"
             (click)="togglePasswordVisibility()"
             >
@@ -146,7 +139,7 @@
           </button>
           <p class="text-end text-sm/6 text-gray-500">
             <a 
-              [routerLink]="['/forgot-password']" 
+              (click)="navigate('/forgot-password')" 
               class="font-medium text-black dark:text-white"
               >
               Forgot password?
@@ -169,8 +162,8 @@
     <p class="mt-2 text-center text-sm/6 text-gray-500">
       Not a member?
       <a
-        [routerLink]="['/register']"
-        class="font-semibold text-black dark:text-white"
+        (click)="navigate('/register')"
+        class="text-primary cursor-pointer"
       >
         Register now
       </a>

@@ -5,15 +5,12 @@ import {
   ReactiveFormsModule,
   Validators,
 } from '@angular/forms';
-import { Router, RouterLink } from '@angular/router';
 import { repeatPasswordValidator } from '../validators/repeat-password.validator';
 import { AuthService } from '../services/auth.service';
 import { RegisterCredentialsI } from '../interfaces/register-credentials.interface';
 import { HlmButtonDirective } from '@spartan-ng/helm/button';
 import { HlmFormFieldModule } from '@spartan-ng/helm/form-field';
 import { HlmInputDirective } from '@spartan-ng/helm/input';
-import { HlmLabelDirective } from '@spartan-ng/helm/label';
-
 import { HlmIconDirective } from '@spartan-ng/helm/icon';
 import { NgIcon, provideIcons } from '@ng-icons/core';
 import {
@@ -28,15 +25,14 @@ import {
   HlmAlertIconDirective,
 } from '@spartan-ng/helm/alert';
 import { passwordValidator } from '../validators/password.validator';
+import { NavController } from '@ionic/angular/standalone';
 
 @Component({
   selector: 'app-register',
   imports: [
-    RouterLink,
     ReactiveFormsModule,
     HlmFormFieldModule,
     HlmInputDirective,
-    HlmLabelDirective,
     HlmButtonDirective,
     HlmIconDirective,
     NgIcon,
@@ -51,7 +47,7 @@ import { passwordValidator } from '../validators/password.validator';
 })
 export class RegisterComponent implements OnDestroy {
   authService = inject(AuthService);
-  router = inject(Router);
+  navCtrl = inject(NavController);
 
   showPass = signal<boolean>(false);
   showRepeatPass = signal<boolean>(false);
@@ -126,7 +122,7 @@ export class RegisterComponent implements OnDestroy {
         tap(() => {
           this.clearError();
           this.isLoading.set(false);
-          this.router.navigateByUrl('/login');
+          this.navCtrl.navigateRoot('/login');
         }),
         catchError((err) => {
           this.error.set(err.error.message);
@@ -135,5 +131,8 @@ export class RegisterComponent implements OnDestroy {
         })
       )
       .subscribe();
+  }
+  navigate(url: string) {
+    this.navCtrl.navigateRoot(url);
   }
 }
