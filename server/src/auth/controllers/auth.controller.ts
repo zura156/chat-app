@@ -4,10 +4,15 @@ import { generateTokens, TokenPayload } from '../services/jwt.service';
 import { createCustomError } from '../../error-handling/models/custom-api-error.model';
 import jwt from 'jsonwebtoken';
 import config from '../../config/config';
+import { v4 as uuidv4 } from 'uuid';
+import crypto from 'crypto';
 import { LoginDto } from '../dtos/login.dto';
 import { RegisterDto } from '../dtos/register.dto';
 import { RefreshTokenDto } from '../dtos/refresh-token.dto';
 import { TokenModel } from '../models/token.model';
+import { PasswordResetTokenModel } from '../models/password-reset.model';
+import sendEmail from '../../utils/mailer';
+import bcrypt from 'bcrypt';
 
 const parseExpiry = (time: string) => {
   const duration = parseInt(time, 10);
@@ -59,7 +64,7 @@ export const registerUser = async (
     await newUser.save();
 
     // Generate JWT token
-    const token = generateTokens(newUser);
+    // const token = generateTokens(newUser);
 
     res.status(201).json({
       message: 'User registered successfully',
@@ -148,6 +153,119 @@ export const loginUser = async (
       next(createCustomError(error.message, 400));
     }
     next(createCustomError('Server error during login', 500));
+  }
+};
+
+export const forgotPassword = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> => {
+  const { email } = req.body;
+
+  if (!email) {
+    res.status(400).json({ message: 'Email was not provided' });
+    return;
+  }
+
+  try {
+    const user = await User.findOne({ email });
+
+    if (!user) {
+      res.status(404).json({ message: 'User with provided email not found.' });
+      return;
+    }
+
+    await PasswordResetTokenModel.deleteMany({ user_id: user._id });
+
+    const rawToken: string = uuidv4();
+    const hashedToken = crypto
+      .createHash('sha256')
+      .update(rawToken)
+      .digest('hex');
+    const expires_at = new Date();
+
+    expires_at.setHours(expires_at.getHours() + 1);
+
+    await PasswordResetTokenModel.create({
+      user_id: user._id,
+      token: hashedToken,
+      expires_at,
+    });
+
+    const resetLink = `${process.env.CLIENT_URL}/reset-password?token=${rawToken}&id=${user._id}`;
+
+    const emailHtml = `
+        <h2>Password Reset</h2>
+        <p>You requested a password reset. Click the link below to set a new password:</p>
+        <a href="${resetLink}">Reset Password</a>
+        <p>This link will expire in 1 hour.</p>
+      `;
+
+    await sendEmail(user.email, 'Reset your password', emailHtml);
+
+    await TokenModel.deleteMany({ user_id: user._id });
+
+    res
+      .status(200)
+      .json({ message: 'Password reset code sent to email successfully.' });
+  } catch (error: any) {
+    if (error.message) {
+      next(createCustomError(error.message, 400));
+      return;
+    }
+    next(createCustomError('Server error during forgot password request', 500));
+  }
+};
+
+export const resetPassword = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> => {
+  const { userId, token, new_password } = req.body;
+
+  if (!userId || !token || !new_password) {
+    res.status(400).json('Not all details were provided!');
+    return;
+  }
+
+  const hashedToken = crypto.createHash('sha256').update(token).digest('hex');
+
+  try {
+    const resetToken = await PasswordResetTokenModel.findOne({
+      user_id: userId,
+      token: hashedToken,
+      expires_at: { $gt: new Date() }, // not expired
+    });
+
+    if (!resetToken) {
+      res.status(400).json({ message: 'Invalid or expired reset token.' });
+      return;
+    }
+
+    const user = await User.findById(userId);
+    if (!user) {
+      res.status(404).json({ message: 'User not found.' });
+      return;
+    }
+
+    user.password = new_password;
+
+    await user.save();
+    await PasswordResetTokenModel.deleteMany({ user_id: userId });
+
+    res.status(200).json({
+      message: 'Password reset successful.',
+    });
+
+    return;
+  } catch (error: any) {
+    if (error.message) {
+      next(createCustomError(error.message, 400));
+      return;
+    }
+    next(createCustomError('Server error during forgot password request', 500));
   }
 };
 
