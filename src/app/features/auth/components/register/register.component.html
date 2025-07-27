@@ -1,15 +1,18 @@
 <div class="flex min-h-full flex-col justify-center px-6 py-12 lg:px-8">
   <div class="sm:mx-auto sm:w-full sm:max-w-sm">
-    <!-- <img
-    class="mx-auto h-10 w-auto"
-    src=""
-    alt="Your Company"
-    /> -->
-    <h2
-      class="mb-5 text-center text-2xl/9 font-medium tracking-tight text-black dark:text-gray-200"
-    >
-      Register a new account
-    </h2>
+    <div class="mb- text-center tracking-tight">
+      <img
+        class="mx-auto h-14 w-auto my-2 p-2 bg-black rounded-xl"
+        src="chat-favicon-light.png"
+        alt="Chat app"
+      />
+      <h1 class="text-2xl/9 font-medium text-primary">
+        Create Your Account
+      </h1>
+      <h2 class="text-gray-500 p-2">
+        Join us in just a few steps. Sign up to enjoy full access, personalized features, and a seamless experience.
+      </h2>
+    </div>
   </div>
 
   @if (isLoading()) {
@@ -277,7 +280,7 @@
     <p class="mt-2 text-center text-sm/6 text-gray-500">
       Already have an acount?
       <a
-        (click)="navigate('/login')"
+        (click)="navigate('/auth/login')"
         class="text-primary cursor-pointer"
         >Login now</a
       >

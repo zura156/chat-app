@@ -12,7 +12,6 @@ import { RefreshTokenDto } from '../dtos/refresh-token.dto';
 import { TokenModel } from '../models/token.model';
 import { PasswordResetTokenModel } from '../models/password-reset.model';
 import sendEmail from '../../utils/mailer';
-import bcrypt from 'bcrypt';
 
 const parseExpiry = (time: string) => {
   const duration = parseInt(time, 10);
@@ -247,6 +246,13 @@ export const resetPassword = async (
     const user = await User.findById(userId);
     if (!user) {
       res.status(404).json({ message: 'User not found.' });
+      return;
+    }
+
+    if (await user.comparePassword(new_password)) {
+      res
+        .status(400)
+        .json({ message: 'New password can not be the same as the old one!' });
       return;
     }
 

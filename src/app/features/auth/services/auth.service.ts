@@ -23,6 +23,8 @@ import { NavigationStart, Router } from '@angular/router';
 import { WebSocketService } from '../../messages/services/web-socket.service';
 import { UserStatusMessage } from '../../messages/interfaces/web-socket-message.interface';
 import { UserStateService } from '../../user/services/user-state.service';
+import { MessageResponseI } from '../../../shared/interfaces/message-response.interface';
+import { ResetPasswordI } from '../interfaces/reset-password.interface';
 
 @Injectable({
   providedIn: 'root',
@@ -42,6 +44,8 @@ export class AuthService {
    */
   private readonly _LOGIN_URL = `${environment.apiUrl}/auth/login`;
   private readonly _REGISTER_URL = `${environment.apiUrl}/auth/register`;
+  private readonly _FORGOT_PASSWORD_URL = `${environment.apiUrl}/auth/forgot-password`;
+  private readonly _RESET_PASSWORD_URL = `${environment.apiUrl}/auth/reset-password`;
   private readonly _REFRESH_TOKEN_URL = `${environment.apiUrl}/auth/refresh-token`;
 
   /*
@@ -76,8 +80,6 @@ export class AuthService {
         this.setLastActiveTime();
       }
     });
-
-    if (!this.accessToken) this.logOut();
 
     this.signedIn$.next(!!this.accessToken);
     this.setupUnloadListener();
@@ -199,6 +201,16 @@ export class AuthService {
     );
   }
 
+  forgotPassword(email: string): Observable<MessageResponseI> {
+    return this.http.post<MessageResponseI>(this._FORGOT_PASSWORD_URL, {
+      email,
+    });
+  }
+
+  resetPassword(body: ResetPasswordI): Observable<MessageResponseI> {
+    return this.http.post<MessageResponseI>(this._RESET_PASSWORD_URL, body);
+  }
+
   /*
    * Refresh token request
    */
@@ -232,6 +244,7 @@ export class AuthService {
    */
   logOut(): void {
     this.clearMemory();
+    window.location.reload();
   }
 
   /*

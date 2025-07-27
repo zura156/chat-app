@@ -5,9 +5,9 @@ import {
   ReactiveFormsModule,
   Validators,
 } from '@angular/forms';
-import { repeatPasswordValidator } from '../validators/repeat-password.validator';
-import { AuthService } from '../services/auth.service';
-import { RegisterCredentialsI } from '../interfaces/register-credentials.interface';
+import { repeatPasswordValidator } from '../../validators/repeat-password.validator';
+import { AuthService } from '../../services/auth.service';
+import { RegisterCredentialsI } from '../../interfaces/register-credentials.interface';
 import { HlmButtonDirective } from '@spartan-ng/helm/button';
 import { HlmFormFieldModule } from '@spartan-ng/helm/form-field';
 import { HlmInputDirective } from '@spartan-ng/helm/input';
@@ -24,7 +24,7 @@ import {
   HlmAlertDirective,
   HlmAlertIconDirective,
 } from '@spartan-ng/helm/alert';
-import { passwordValidator } from '../validators/password.validator';
+import { passwordValidator } from '../../validators/password.validator';
 import { NavController } from '@ionic/angular/standalone';
 
 @Component({
@@ -122,7 +122,7 @@ export class RegisterComponent implements OnDestroy {
         tap(() => {
           this.clearError();
           this.isLoading.set(false);
-          this.navCtrl.navigateRoot('/login');
+          this.navCtrl.navigateRoot('/auth/login');
         }),
         catchError((err) => {
           this.error.set(err.error.message);

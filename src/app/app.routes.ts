@@ -1,7 +1,5 @@
 import { Routes } from '@angular/router';
-import { LoginComponent } from './features/auth/login/login.component';
 import { MessageService } from './features/messages/services/message.service';
-import { RegisterComponent } from './features/auth/register/register.component';
 import { authGuard } from './features/auth/guards/auth.guard';
 import { unauthenticatedGuard } from './features/auth/guards/unauthenticated.guard';
 import { ConversationService } from './features/messages/services/conversation.service';
@@ -10,17 +8,13 @@ import { NotificationService } from './features/messages/services/notification.s
 export const routes: Routes = [
   {
     path: '',
-    redirectTo: 'login',
+    redirectTo: 'auth',
     pathMatch: 'full',
   },
   {
-    path: 'login',
-    component: LoginComponent,
-    canActivate: [unauthenticatedGuard],
-  },
-  {
-    path: 'register',
-    component: RegisterComponent,
+    path: 'auth',
+    loadChildren: () =>
+      import('./features/auth/auth.routes').then((m) => m.authRoutes),
     canActivate: [unauthenticatedGuard],
   },
   {

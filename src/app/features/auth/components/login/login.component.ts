@@ -5,9 +5,8 @@ import {
   ReactiveFormsModule,
   Validators,
 } from '@angular/forms';
-import { Router } from '@angular/router';
-import { AuthService } from '../services/auth.service';
-import { LoginCredentialsI } from '../interfaces/login-credentials.interface';
+import { AuthService } from '../../services/auth.service';
+import { LoginCredentialsI } from '../../interfaces/login-credentials.interface';
 
 import { HlmFormFieldModule } from '@spartan-ng/helm/form-field';
 import { HlmInputDirective } from '@spartan-ng/helm/input';
@@ -20,7 +19,7 @@ import {
   lucideTriangleAlert,
 } from '@ng-icons/lucide';
 
-import { passwordValidator } from '../validators/password.validator';
+import { passwordValidator } from '../../validators/password.validator';
 import { catchError, Subject, takeUntil, tap, throwError } from 'rxjs';
 import { HlmAlertImports } from '@spartan-ng/helm/alert';
 import { NavController } from '@ionic/angular/standalone';
