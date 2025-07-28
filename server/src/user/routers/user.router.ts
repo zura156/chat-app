@@ -11,12 +11,12 @@ import {
 
 const router = Router();
 
-router.route('/profile').get(authenticate, getCurrentUser);
-router.patch('/profile/update', authenticate, updateUserDetails);
-router.delete('/profile/delete', authenticate, deleteUser);
+router.route('/profile').get(getCurrentUser);
+router.patch('/profile/update', updateUserDetails);
+router.delete('/profile/delete', deleteUser);
 
-router.get('/', authenticate, getUsers);
-router.get('/search', authenticate, searchUsers);
-router.get('/:id', authenticate, getUserById);
+router.get('/', getUsers);
+router.get('/search', searchUsers);
+router.get('/:id', getUserById);
 
 export default router;

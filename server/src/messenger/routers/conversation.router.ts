@@ -1,8 +1,5 @@
 import { Router } from 'express';
-import {
-  authenticate,
-  AuthRequest,
-} from '../../auth/middlewares/auth.middleware';
+import { AuthRequest } from '../../auth/middlewares/auth.middleware';
 import { ConversationController } from '../controllers/conversation.controller';
 import { ConversationService } from '../services/conversation.service';
 import { validateConversation } from '../middlewares/validate-conversation.middleware';
@@ -11,6 +8,8 @@ import { MessageService } from '../services/message.service';
 
 const router = Router();
 
+
+// Dependency Injection
 router.use((req, res, next) => {
   const broadcastMessage = req.app.get('broadcastMessage');
   if (!req.messageService) {
@@ -30,9 +29,7 @@ router.use((req, res, next) => {
   next();
 });
 
-// All routes in this file are protected
-router.use(authenticate);
-
+// --- Routes ---
 router
   .route('/')
   .get((req, res, next) =>

@@ -11,26 +11,11 @@ export const authInterceptor: HttpInterceptorFn = (
   request: HttpRequest<unknown>,
   next: HttpHandlerFn
 ): Observable<HttpEvent<unknown>> => {
-  const accessToken = localStorage.getItem('accessToken');
+  const authRequest = request.clone({
+    withCredentials: true,
+  });
 
-  if (accessToken) {
-    const authRequest = request.clone({
-      setHeaders: {
-        Authorization: `Bearer ${accessToken}`,
-      },
-    });
-
-    return next(authRequest).pipe(
-      catchError((err) => {
-        toast.error('Something went wrong!', {
-          description: err.message || err,
-        });
-        return throwError(() => err);
-      })
-    );
-  }
-
-  return next(request).pipe(
+  return next(authRequest).pipe(
     catchError((err) => {
       toast.error('Something went wrong!', {
         description: err.message || err,
