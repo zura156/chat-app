@@ -9,7 +9,7 @@ export const markNotificationsAsSeen = async (
   next: NextFunction
 ): Promise<void> => {
   try {
-    const userId = new Types.ObjectId(req.user?.userId);
+    const userId = new Types.ObjectId(req.user?.id);
     await Notification.updateMany(
       { user: userId, seen: false },
       { seen: true }
