@@ -17,7 +17,7 @@ export class ConversationController {
     next: NextFunction
   ) => {
     try {
-      const userId = req.user!.userId;
+      const userId = req.user!.id;
       const limit = parseInt(req.query.limit as string) || 20;
       const offset = parseInt(req.query.offset as string) || 0;
       const result = await this.conversationService.getConversations(
@@ -37,7 +37,7 @@ export class ConversationController {
     next: NextFunction
   ) => {
     try {
-      const userId = req.user!.userId;
+      const userId = req.user!.id;
       const query = req.query['q'] as string;
       const conversations = await this.conversationService.searchConversations(
         userId,
@@ -55,7 +55,7 @@ export class ConversationController {
     next: NextFunction
   ): Promise<void> => {
     try {
-      const userId = req.user!.userId;
+      const userId = req.user!.id;
       const participantId = req.params.participantId;
       const conversation =
         await this.conversationService.findConversationIdByUserId(
@@ -74,7 +74,7 @@ export class ConversationController {
     next: NextFunction
   ) => {
     try {
-      const userId = req.user!.userId;
+      const userId = req.user!.id;
       const conversationId = req.params.id;
       const conversation = await this.conversationService.getConversationById(
         conversationId,
@@ -92,7 +92,7 @@ export class ConversationController {
     next: NextFunction
   ) => {
     try {
-      const { userId } = req.user!;
+      const { id: userId } = req.user!;
       const { participants, is_group, group_name, group_picture } =
         req.body.conversation;
       const conversation = await this.conversationService.createConversation(
@@ -143,7 +143,7 @@ export class ConversationController {
   ) => {
     try {
       const { conversation } = req;
-      const userId = req.user!.userId;
+      const userId = req.user!.id;
       if (!conversation || !userId) {
         next(createCustomError('Conversation or user ID is missing!', 400));
         return;
@@ -162,7 +162,7 @@ export class ConversationController {
   ) => {
     try {
       const { conversationId } = req.params;
-      const userId = req.user!.userId;
+      const userId = req.user!.id;
       await this.conversationService.muteConversation(conversationId, userId);
       res.status(200).json({ message: 'Conversation muted successfully' });
     } catch (error) {
@@ -177,7 +177,7 @@ export class ConversationController {
   ) => {
     try {
       const { conversationId } = req.params;
-      const userId = req.user!.userId;
+      const userId = req.user!.id;
       await this.conversationService.unmuteConversation(conversationId, userId);
       res.status(200).json({ message: 'Conversation unmuted successfully' });
     } catch (error) {
@@ -191,7 +191,7 @@ export class ConversationController {
     next: NextFunction
   ) => {
     const { conversation } = req;
-    const userId = req.user?.userId;
+    const userId = req.user?.id;
     const { add, remove } = req.body;
 
     if (!userId) {

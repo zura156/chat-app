@@ -50,7 +50,7 @@ export const getCurrentUser = async (
       return;
     }
 
-    const user = await User.findById(req.user.userId).select([
+    const user = await User.findById(req.user.id).select([
       '-password',
       '-accessToken',
       '-refreshToken',
@@ -78,7 +78,7 @@ export const updateUserDetails = async (
       return;
     }
 
-    const user = await User.findByIdAndUpdate(req.user.userId, req.body);
+    const user = await User.findByIdAndUpdate(req.user.id, req.body);
 
     if (!user) {
       res.status(404).json({ message: 'User not found' });
@@ -103,7 +103,7 @@ export const deleteUser = async (
       return;
     }
 
-    const user = await User.findById(req.user.userId, req.body);
+    const user = await User.findById(req.user.id, req.body);
 
     if (!user) {
       next(createCustomError('User not found', 404));
@@ -135,12 +135,12 @@ export const getUsers = async (
     }
 
     const [users, totalCount] = await Promise.all([
-      User.find({ _id: { $ne: user.userId } })
+      User.find({ _id: { $ne: user.id } })
         .sort({ updatedAt: -1 })
         .skip(offset)
         .limit(limit)
         .select('-password'),
-      User.countDocuments({ participants: user.userId }),
+      User.countDocuments({ participants: user.id }),
     ]);
 
     if (!users) {
@@ -175,7 +175,7 @@ export const searchUsers = async (
     }
 
     const users = await User.find({
-      _id: { $ne: user.userId },
+      _id: { $ne: user.id },
       $or: [
         { first_name: { $regex: searchQuery, $options: 'i' } },
         { last_name: { $regex: searchQuery, $options: 'i' } },

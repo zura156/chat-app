@@ -1,56 +1,45 @@
 import { Request, Response, NextFunction } from 'express';
-import { TokenPayload } from '../../auth/services/jwt.service';
 import jwt from 'jsonwebtoken';
 import config from '../../config/config';
 import { IConversation } from '../../messenger/models/conversation.model';
+import { IUser, User } from '../../user/models/user.model';
 
 export interface AuthRequest extends Request {
-  user?: TokenPayload;
+  user?: IUser;
   conversation?: IConversation;
 }
 
-export const authenticate = async (
+export const authenticateToken = async (
   req: AuthRequest,
   res: Response,
   next: NextFunction
 ): Promise<void> => {
-  // Get token from header
-  const authHeader = req.headers.authorization;
+  const token = req.cookies.accessToken;
 
-  if (!authHeader || !authHeader.startsWith('Bearer ')) {
-    res.status(401).json({ message: 'Authorization token not found' });
-    return;
-  }
-
-  // Verify token
-  const token = authHeader.split(' ')[1];
   if (!token) {
-    res.status(401).json({ message: 'Invalid or expired token' });
+    res.status(401).json({ error: 'Access token required' });
     return;
   }
-  try {
-    // Use try-catch to handle JWT verification errors
-    const decoded = jwt.verify(token, config.jwtSecret) as TokenPayload;
-    req.user = decoded;
 
+  try {
+    const decoded = jwt.verify(token, config.jwtSecret) as { userId: string };
+    const user = await User.findById(decoded.userId).select(
+      '-password -refreshTokens'
+    );
+
+    if (!user) {
+      res.status(401).json({ error: 'User not found' });
+      return;
+    }
+
+    req.user = user;
     next();
   } catch (error) {
     if (error instanceof jwt.TokenExpiredError) {
-      next();
-    } else {
-      // Handle other JWT errors
-      res.status(401).json({ message: 'Unauthorized: Invalid token' });
+      res.status(401).json({ error: 'Token expired' });
       return;
     }
+    res.status(403).json({ error: 'Invalid token' });
+    return;
   }
-};
-
-export const authorize = () => {
-  return (req: AuthRequest, res: Response, next: NextFunction): void => {
-    if (!req.user) {
-      res.status(401).json({ message: 'Unauthorized' });
-      return;
-    }
-    next();
-  };
 };

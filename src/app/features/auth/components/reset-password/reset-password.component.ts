@@ -71,9 +71,8 @@ export class ResetPasswordComponent {
 
     this.route.queryParams
       .pipe(
-        switchMap(({ id, token }) => {
+        switchMap(({ token }) => {
           const body: ResetPasswordI = {
-            userId: id,
             token,
             new_password,
           };

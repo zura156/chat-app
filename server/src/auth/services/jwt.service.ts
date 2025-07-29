@@ -1,6 +1,5 @@
 import jwt from 'jsonwebtoken';
 import config from '../../config/config';
-import { IUser } from '../../user/models/user.model';
 
 export interface TokenPayload {
   userId: string;
@@ -12,27 +11,13 @@ export interface TokenPayload {
   exp?: number;
 }
 
-export const generateTokens = (user: IUser) => {
-  const payload: TokenPayload = {
-    userId: user._id?.toString() || 'no-id',
-    first_name: user.first_name,
-    last_name: user.last_name,
-    username: user.username,
-    email: user.email,
-  };
-
-  const refreshTokenPayload: TokenPayload = {
-    userId: payload.userId,
-  };
-
-  const accessToken = jwt.sign(payload, config.jwtSecret, {
-    expiresIn: config.jwtExpiresIn as jwt.SignOptions['expiresIn'],
+export const generateTokens = (userId: string) => {
+  const accessToken = jwt.sign({ userId }, config.jwtSecret, {
+    expiresIn: '15m',
   });
-
-  const refreshToken = jwt.sign(refreshTokenPayload, config.jwtSecret, {
-    expiresIn: config.jwtRefreshTokenExpiresIn as jwt.SignOptions['expiresIn'],
+  const refreshToken = jwt.sign({ userId }, config.jwtRefreshSecret, {
+    expiresIn: '7d',
   });
-
   return { accessToken, refreshToken };
 };
 

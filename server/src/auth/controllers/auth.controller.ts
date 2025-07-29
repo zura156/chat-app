@@ -1,17 +1,19 @@
 import { NextFunction, Request, Response } from 'express';
 import { User } from '../../user/models/user.model';
-import { generateTokens, TokenPayload } from '../services/jwt.service';
+import { generateTokens } from '../services/jwt.service';
 import { createCustomError } from '../../error-handling/models/custom-api-error.model';
-import jwt from 'jsonwebtoken';
 import config from '../../config/config';
 import { v4 as uuidv4 } from 'uuid';
 import crypto from 'crypto';
 import { LoginDto } from '../dtos/login.dto';
 import { RegisterDto } from '../dtos/register.dto';
-import { RefreshTokenDto } from '../dtos/refresh-token.dto';
 import { TokenModel } from '../models/token.model';
 import { PasswordResetTokenModel } from '../models/password-reset.model';
 import sendEmail from '../../utils/mailer';
+import { EmailVerificationTokenModel } from '../models/email-verification.model';
+import jwt from 'jsonwebtoken';
+import { AuthRequest } from '../middlewares/auth.middleware';
+import { csrfTokens, generateCSRFToken } from '../services/csrf.service';
 
 const parseExpiry = (time: string) => {
   const duration = parseInt(time, 10);
@@ -25,6 +27,26 @@ const parseExpiry = (time: string) => {
     return duration * 24 * 60 * 60 * 1000; // Convert days to milliseconds
   }
   return duration; // Default case, assuming milliseconds
+};
+
+export const getCSRFToken = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> => {
+  const sessionId = crypto.randomBytes(32).toString('hex');
+  const csrfToken = generateCSRFToken();
+
+  csrfTokens.set(sessionId, csrfToken);
+
+  res.cookie('sessionId', sessionId, {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: 'strict',
+    maxAge: 24 * 60 * 60 * 1000,
+  });
+
+  res.json({ csrfToken });
 };
 
 export const registerUser = async (
@@ -42,17 +64,12 @@ export const registerUser = async (
     });
 
     if (existingUser) {
-      next(
-        createCustomError(
-          'User already exists with that email or username',
-          400
-        )
-      );
+      res.status(409).json({ error: 'User already exists' });
       return;
     }
 
     // Create new user
-    const newUser = new User({
+    const user = new User({
       first_name,
       last_name,
       username,
@@ -60,19 +77,44 @@ export const registerUser = async (
       password,
     });
 
-    await newUser.save();
+    await user.save();
 
-    // Generate JWT token
-    // const token = generateTokens(newUser);
+    await EmailVerificationTokenModel.deleteMany({ user_id: user._id });
+
+    const rawToken: string = uuidv4();
+    const hashedToken = crypto
+      .createHash('sha256')
+      .update(rawToken)
+      .digest('hex');
+    const expires_at = new Date();
+
+    expires_at.setHours(expires_at.getHours() + 1);
+
+    await EmailVerificationTokenModel.create({
+      user_id: user._id,
+      token: hashedToken,
+      expires_at,
+    });
+
+    const resetLink = `${process.env.CLIENT_URL}/verify-email?token=${rawToken}&id=${user._id}`;
+
+    const emailHtml = `
+        <h2>Verify Email</h2>
+        <p>Please verify your email to unlock all the features on our platform. Click the link below to verify email:</p>
+        <a href="${resetLink}">Verify</a>
+        <p>This link will expire in 1 hour.</p>
+      `;
+
+    sendEmail(user.email, 'Please Verify Your Email', emailHtml);
 
     res.status(201).json({
       message: 'User registered successfully',
       user: {
-        id: newUser._id,
-        first_name: newUser.first_name,
-        last_name: newUser.last_name,
-        username: newUser.username,
-        email: newUser.email,
+        id: user._id,
+        first_name: user.first_name,
+        last_name: user.last_name,
+        username: user.username,
+        email: user.email,
       },
     });
   } catch (error: any) {
@@ -92,7 +134,7 @@ export const loginUser = async (
     const { email, password }: LoginDto = req.body;
 
     if (!email || !password) {
-      next(createCustomError('Some fields might be empty!', 400));
+      res.status(400).json({ message: 'Some fields might be empty!' });
       return;
     }
 
@@ -104,49 +146,169 @@ export const loginUser = async (
       return;
     }
 
+    if (user.lock_until && user.lock_until > new Date()) {
+      res
+        .status(423)
+        .json({ message: 'Account temporarily locked. Try again later.' });
+      return;
+    }
+
     // Check password
-    const isMatch = await user.comparePassword(password);
-    if (!isMatch) {
+    const isValidPassword = await user.comparePassword(password);
+    if (!isValidPassword) {
+      await user.incLoginAttempts();
       res.status(400).json({ message: 'Invalid credentials' });
       return;
     }
 
-    // Generate JWT token
-    const tokens: { accessToken: string; refreshToken: string } =
-      generateTokens(user);
-
-    if (!tokens) {
-      next(createCustomError('Failed to generate tokens!', 500));
-      return;
+    if (user.login_attempts > 0 || user.lock_until) {
+      await user.updateOne({
+        $set: {
+          login_attempts: 0,
+        },
+        $unset: { lock_until: 1 },
+      });
     }
 
-    const now = Date.now();
+    // Generate JWT token
 
-    await TokenModel.findOneAndUpdate(
-      { user_id: user._id }, // Find by user ID
+    const { accessToken, refreshToken } = generateTokens(user.id);
+
+    await TokenModel.updateOne(
       {
-        access_token: tokens.accessToken,
-        refresh_token: tokens.refreshToken,
-        access_expiry: new Date(now + parseExpiry(config.jwtExpiresIn)),
-        refresh_expiry: new Date(
-          now + parseExpiry(config.jwtRefreshTokenExpiresIn)
-        ),
+        $push: {
+          refresh_tokens: {
+            token: refreshToken,
+            expires_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+          },
+        },
       },
-      { upsert: true, new: true } // Create if not found, return the updated doc
+      { new: true }
     );
+    await user.updateOne({
+      $set: { last_login: new Date() },
+    });
+
+    res.cookie('accessToken', accessToken, {
+      httpOnly: true,
+      secure: config.nodeEnv === 'production',
+      sameSite: 'strict',
+      maxAge: 15 * 60 * 1000,
+    });
+
+    res.cookie('refreshToken', refreshToken, {
+      httpOnly: true,
+      secure: config.nodeEnv === 'production',
+      sameSite: 'strict',
+      maxAge: 7 * 24 * 60 * 60 * 1000,
+    });
 
     res.status(200).json({
       message: 'Login successful',
-      access_token: tokens.accessToken,
-      refresh_token: tokens.refreshToken,
-      user: {
-        id: user._id,
-        first_name: user.first_name,
-        last_name: user.last_name,
-        username: user.username,
-        email: user.email,
+    });
+  } catch (error: any) {
+    if (error.message) {
+      next(createCustomError(error.message, 400));
+    }
+    next(createCustomError('Server error during login', 500));
+  }
+};
+
+export const refreshToken = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> => {
+  try {
+    const refreshToken = req.cookies.refreshToken;
+
+    if (!refreshToken) {
+      res.status(401).json({ message: 'Refresh token required' });
+      return;
+    }
+
+    const decoded = jwt.verify(refreshToken, config.jwtRefreshSecret) as {
+      userId: string;
+    };
+
+    const refreshTokens = await TokenModel.findOne({ user_id: decoded.userId });
+
+    if (!refreshTokens) {
+      res.status(401).json({ message: 'Refresh token invalid' });
+      return;
+    }
+
+    const { accessToken, refreshToken: newRefreshToken } = generateTokens(
+      decoded.userId
+    );
+
+    await refreshTokens.updateOne({
+      $pull: { refreshTokens: { token: refreshToken } },
+      $push: {
+        refreshTokens: {
+          token: newRefreshToken,
+          expires_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+        },
       },
     });
+
+    res.cookie('accessToken', accessToken, {
+      httpOnly: true,
+      secure: config.nodeEnv === 'production',
+      sameSite: 'strict',
+      maxAge: 15 * 60 * 1000,
+    });
+
+    res.cookie('refreshToken', newRefreshToken, {
+      httpOnly: true,
+      secure: config.nodeEnv === 'production',
+      sameSite: 'strict',
+      maxAge: 7 * 24 * 60 * 60 * 1000,
+    });
+
+    res.json({ message: 'Token refreshed successfully' });
+  } catch (error: any) {
+    if (error.message) {
+      next(createCustomError(error.message, 400));
+    }
+    next(createCustomError('Server error during login', 500));
+  }
+};
+
+export const logOut = async (
+  req: AuthRequest,
+  res: Response,
+  next: NextFunction
+): Promise<void> => {
+  try {
+    const refreshToken = req.cookies.refreshToken;
+    const user = req.user;
+
+    if (!user) {
+      res.status(401).json({ message: 'User already unauthorized' });
+      return;
+    }
+
+    if (refreshToken) {
+      await TokenModel.findByIdAndUpdate(
+        { user_id: user._id },
+        {
+          $pull: { refreshTokens: { token: refreshToken } },
+        }
+      );
+    }
+
+    res.clearCookie('accessToken');
+    res.clearCookie('refreshToken');
+    res.clearCookie('sessionId');
+
+    // Clear CSRF token
+    const sessionId = req.cookies.sessionId;
+    if (sessionId) {
+      csrfTokens.delete(sessionId);
+    }
+
+    res.json({ message: 'Logout successful' });
   } catch (error: any) {
     if (error.message) {
       next(createCustomError(error.message, 400));
@@ -192,7 +354,7 @@ export const forgotPassword = async (
       expires_at,
     });
 
-    const resetLink = `${process.env.CLIENT_URL}/reset-password?token=${rawToken}&id=${user._id}`;
+    const resetLink = `${process.env.CLIENT_URL}/reset-password?token=${rawToken}`;
 
     const emailHtml = `
         <h2>Password Reset</h2>
@@ -222,9 +384,9 @@ export const resetPassword = async (
   res: Response,
   next: NextFunction
 ): Promise<void> => {
-  const { userId, token, new_password } = req.body;
+  const { token, new_password } = req.body;
 
-  if (!userId || !token || !new_password) {
+  if (!token || !new_password) {
     res.status(400).json('Not all details were provided!');
     return;
   }
@@ -233,7 +395,6 @@ export const resetPassword = async (
 
   try {
     const resetToken = await PasswordResetTokenModel.findOne({
-      user_id: userId,
       token: hashedToken,
       expires_at: { $gt: new Date() }, // not expired
     });
@@ -243,7 +404,7 @@ export const resetPassword = async (
       return;
     }
 
-    const user = await User.findById(userId);
+    const user = await User.findById(resetToken.user_id);
     if (!user) {
       res.status(404).json({ message: 'User not found.' });
       return;
@@ -259,7 +420,7 @@ export const resetPassword = async (
     user.password = new_password;
 
     await user.save();
-    await PasswordResetTokenModel.deleteMany({ user_id: userId });
+    await PasswordResetTokenModel.deleteMany({ user_id: user._id });
 
     res.status(200).json({
       message: 'Password reset successful.',
@@ -275,78 +436,58 @@ export const resetPassword = async (
   }
 };
 
-export const refreshAccessToken = async (
-  req: RefreshTokenDto,
+export const verifyEmail = async (
+  req: AuthRequest,
   res: Response,
   next: NextFunction
 ): Promise<void> => {
+  const { token } = req.body;
+
+  if (!token) {
+    res.status(400).json('Token was not provided!');
+    return;
+  }
+
+  const hashedToken = crypto.createHash('sha256').update(token).digest('hex');
+
   try {
-    const token = req.headers['refresh-token'];
-    const now = Date.now();
-
-    const userTokenSchema = await TokenModel.findOne({ refresh_token: token });
-
-    if (!token) {
-      res.status(400).json({ message: 'No token provided' });
-      return;
-    }
-
-    if (!userTokenSchema || userTokenSchema.refresh_expiry.getTime() < now) {
-      next(createCustomError('User not authenticated!', 401));
-      return;
-    }
-
-    const payload = jwt.verify(token, config.jwtSecret) as TokenPayload;
-    const tokenSchema = await TokenModel.findOne({ user_id: payload.userId });
-
-    if (!payload || !tokenSchema || tokenSchema.refresh_token !== token) {
-      res.status(403).json({ message: 'Invalid refresh token' });
-      return;
-    }
-    const user = await User.findById(tokenSchema?.user_id);
-
-    if (!user) {
-      res.status(403).json({ message: 'Invalid user id' });
-      return;
-    }
-
-    const { accessToken, refreshToken } = generateTokens(user);
-
-    Object.assign(tokenSchema, {
-      access_token: accessToken,
-      refresh_token: refreshToken,
-      access_expiry: new Date(now + parseExpiry(config.jwtExpiresIn)),
-      refresh_expiry: new Date(
-        now + parseExpiry(config.jwtRefreshTokenExpiresIn)
-      ),
+    const resetToken = await EmailVerificationTokenModel.findOne({
+      token: hashedToken,
+      expires_at: { $gt: new Date() }, // not expired
     });
 
-    await tokenSchema.save(); // Ensure save is completed before proceeding
+    if (!resetToken) {
+      res.status(400).json({ message: 'Invalid or expired reset token.' });
+      return;
+    }
 
-    res
-      .status(200)
-      .json({ access_token: accessToken, refresh_token: refreshToken });
+    const user = await User.findById(resetToken.user_id);
+
+    if (!user) {
+      res.status(404).json({ message: 'User not found.' });
+      return;
+    }
+
+    if (user.is_email_verified) {
+      res.status(409).json({ message: 'User email already verified.' });
+      return;
+    }
+
+    user.is_email_verified = true;
+
+    await user.save();
+    await EmailVerificationTokenModel.deleteMany({ user_id: user._id });
+
+    res.status(200).json({
+      message: 'Email verification successful.',
+    });
+
+    return;
   } catch (error: any) {
     if (error.message) {
       next(createCustomError(error.message, 400));
+      return;
     }
-    next(createCustomError('Server error during token refresh', 500));
+    next(createCustomError('Server error during forgot password request', 500));
   }
 };
-
-// ! don't need it at current time.
-// export const logOut = async (
-//   req: Request,
-//   res: Response,
-//   next: NextFunction
-// ) => {
-//   try {
-//     await TokenModel.
-
-//   } catch (err: any) {
-//     if (err.message) {
-//       next(createCustomError(err.message, 400));
-//     }
-//     next(createCustomError('Server error during logout', 500));
-//   }
-// };

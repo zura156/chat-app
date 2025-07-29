@@ -8,7 +8,6 @@ import { MessageService } from '../services/message.service';
 
 const router = Router();
 
-
 // Dependency Injection
 router.use((req, res, next) => {
   const broadcastMessage = req.app.get('broadcastMessage');
@@ -64,7 +63,7 @@ router
     );
 
     const otherParticipants = conversation?.participants.filter(
-      (p: any) => p._id.toString() !== req.user?.userId.toString()
+      (p: any) => p._id.toString() !== req.user?.id
     );
 
     const conversationWithFilteredParticipants = {

@@ -50,7 +50,7 @@ export class MessageController {
   ): Promise<void> => {
     try {
       const { conversationId, duration } = req.body; // Assuming conversationId is sent in the form data
-      const senderId = req.user?.userId;
+      const senderId = req.user?.id;
 
       if (!req.file) {
         return next(createCustomError('No file was uploaded.', 400));

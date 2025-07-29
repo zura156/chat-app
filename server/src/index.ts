@@ -17,7 +17,12 @@ import http from 'http';
 import path from 'path';
 import cookieParser from 'cookie-parser';
 import helmet from 'helmet';
-import { authenticate } from './auth/middlewares/auth.middleware';
+import rateLimit from 'express-rate-limit';
+import compression from 'compression';
+import morgan from 'morgan';
+import mongoSanitize from 'express-mongo-sanitize';
+import hpp from 'hpp';
+import { authenticateToken } from './auth/middlewares/auth.middleware';
 
 const app: Application = express();
 const port: number | 3000 = parseInt(config.port.toString());
@@ -33,27 +38,73 @@ app.set('broadcastMessage', broadcastMessage);
 
 connectDB();
 
+app.use(
+  helmet({
+    contentSecurityPolicy: {
+      directives: {
+        defaultSrc: ["'self'"],
+        scriptSrc: ["'self'", "'unsafe-inline'"],
+        styleSrc: ["'self'", "'unsafe-inline'"],
+        imgSrc: ["'self'", 'data:', 'https:'],
+      },
+    },
+    hsts: {
+      maxAge: 31536000,
+      includeSubDomains: true,
+      preload: true,
+    },
+  })
+);
+
+app.use(compression());
+app.use(mongoSanitize());
+app.use(hpp());
+
 // Middlewares
 app.use('/uploads', express.static(path.resolve('uploads')));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
-app.use(helmet());
-app.use(cookieParser(config.cookieSecret));
+app.use(cookieParser());
+app.use(morgan('combined'));
+
 app.use(
   cors({
-    origin: config.clientUrl,
+    origin: process.env.CLIENT_URL,
     credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-CSRF-Token'],
+    exposedHeaders: ['X-CSRF-Token'],
   })
 );
 app.use((err: Error, req: Request, res: Response, next: NextFunction) => {
   errorMiddleware(err, req, res, next);
 });
 
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 5, // 5 attempts per window
+  message: 'Too many authentication attempts, please try again later',
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+const generalLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 100,
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
 // Routes
-app.use('/auth', authRouter);
-app.use('/user', authenticate, userRouter);
-app.use('/conversations', authenticate, conversationRouter);
-app.use('/messages', authenticate, messageRouter);
+app.use('/auth', authLimiter, authRouter);
+app.use('/user', generalLimiter, authenticateToken, userRouter);
+app.use(
+  '/conversations',
+  generalLimiter,
+  authenticateToken,
+  conversationRouter
+);
+app.use('/messages', generalLimiter, authenticateToken, messageRouter);
 
 server.listen(port, () => {
   logger.info(`Server is listening at port ${port}`);

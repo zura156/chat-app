@@ -10,11 +10,16 @@ export interface IUser extends Document {
   bio: string;
   email: string;
   password: string;
+  is_email_verified: boolean;
+  login_attempts: number;
+  lock_until?: Date;
+  last_login?: Date;
   profile_picture?: string;
   status: 'offline' | 'online' | 'away';
   last_seen: Date;
   blocked_users: Types.ObjectId[];
   comparePassword(candidatePassword: string): Promise<boolean>;
+  incLoginAttempts(): Promise<any>;
 }
 
 const UserSchema = new Schema<IUser>(
@@ -46,6 +51,19 @@ const UserSchema = new Schema<IUser>(
       createIndexes: { unique: true },
       unique: true,
     },
+    is_email_verified: {
+      type: Boolean,
+      default: false,
+    },
+    login_attempts: {
+      type: Number,
+      default: 0,
+    },
+    lock_until: {
+      type: Date,
+      required: false,
+    },
+    last_login: { type: Date, required: false },
     password: {
       type: String,
       validate: [
@@ -79,6 +97,27 @@ UserSchema.pre<IUser>('save', async function (next) {
     next(createCustomError(error.message, error.statusCode || 500));
   }
 });
+
+UserSchema.methods.incLoginAttempts = async function () {
+  if (this.lock_until && this.lock_until < Date.now()) {
+    // Unlock and reset attempts
+    return this.updateOne({
+      $unset: { lock_until: 1 },
+      $set: { login_attempts: 1 },
+    });
+  }
+
+  const updates: any = { $inc: { login_attempts: 1 } };
+
+  // If reached 5 failed attempts, and not locked yet, then lock
+  if (this.login_attempts + 1 >= 5 && !this.lock_until) {
+    updates.$set = {
+      lock_until: new Date(Date.now() + 2 * 60 * 60 * 1000), // Lock for 2 hours
+    };
+  }
+
+  return this.updateOne(updates);
+};
 
 UserSchema.methods.comparePassword = async function (
   candidatePassword: string

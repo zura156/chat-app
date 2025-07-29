@@ -1,5 +1,4 @@
 import { Router } from 'express';
-import { authenticate } from '../../auth/middlewares/auth.middleware';
 import {
   deleteUser,
   getCurrentUser,

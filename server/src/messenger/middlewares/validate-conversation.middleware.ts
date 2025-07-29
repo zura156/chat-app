@@ -10,7 +10,7 @@ export async function validateConversation(
 ): Promise<void> {
   try {
     const conversationId = req.params.id;
-    const { userId } = req.user!;
+    const { id: userId } = req.user!;
 
     const conversation = await Conversation.findById(conversationId);
 
