@@ -1,30 +1,34 @@
-import { inject, Injectable } from '@angular/core';
+import { computed, inject, Injectable, signal } from '@angular/core';
 import { environment } from '../../../../environments/environment';
 import {
-  BehaviorSubject,
   catchError,
   Observable,
   tap,
   throwError,
-  takeUntil,
-  Subject,
+  switchMap,
+  retry,
+  timer,
+  Subscription,
 } from 'rxjs';
 import {
   HttpClient,
+  HttpContext,
+  HttpContextToken,
   HttpErrorResponse,
   HttpHeaders,
 } from '@angular/common/http';
-import { LoginResponseI } from '../interfaces/login-response.interface';
-import { RegisterResponseI } from '../interfaces/register-response.interface';
-import { RefreshTokenResponseI } from '../interfaces/refresh-token-response.interface';
 import { RegisterCredentialsI } from '../interfaces/register-credentials.interface';
 import { LoginCredentialsI } from '../interfaces/login-credentials.interface';
-import { NavigationStart, Router } from '@angular/router';
+import { Router } from '@angular/router';
 import { WebSocketService } from '../../messages/services/web-socket.service';
 import { UserStatusMessage } from '../../messages/interfaces/web-socket-message.interface';
 import { UserStateService } from '../../user/services/user-state.service';
 import { MessageResponseI } from '../../../shared/interfaces/message-response.interface';
 import { ResetPasswordI } from '../interfaces/reset-password.interface';
+import { AuthResponseI } from '../interfaces/auth-response.interface';
+import { UserI } from '../../user/interfaces/user.interface';
+import { CSRFTokenI } from '../interfaces/csrf-token.interface';
+import { UserService } from '../../user/services/user.service';
 
 @Injectable({
   providedIn: 'root',
@@ -37,6 +41,7 @@ export class AuthService {
   private http = inject(HttpClient);
   private router = inject(Router);
   private userStateService = inject(UserStateService);
+  private userService = inject(UserService);
   private webSocketService = inject(WebSocketService);
 
   /*
@@ -44,64 +49,106 @@ export class AuthService {
    */
   private readonly _LOGIN_URL = `${environment.apiUrl}/auth/login`;
   private readonly _REGISTER_URL = `${environment.apiUrl}/auth/register`;
+  private readonly _LOGOUT_URL = `${environment.apiUrl}/auth/logout`;
   private readonly _FORGOT_PASSWORD_URL = `${environment.apiUrl}/auth/forgot-password`;
   private readonly _RESET_PASSWORD_URL = `${environment.apiUrl}/auth/reset-password`;
-  private readonly _REFRESH_TOKEN_URL = `${environment.apiUrl}/auth/refresh-token`;
+  private readonly _VERIFY_EMAIL_URL = `${environment.apiUrl}/auth/verify-email`;
+  private readonly _REFRESH_TOKEN_URL = `${environment.apiUrl}/auth/refresh`;
+  private readonly _CSRF_TOKEN_URL = `${environment.apiUrl}/auth/csrf-token`;
+
+  // private readonly LAST_ACTIVE_TIME_KEY = 'lastActiveTime';
+  // private readonly AUTO_LOGOUT_TIME = Math.floor(3600 * 1000);
+  private readonly IS_AUTHENTICATED_KEY = 'isAuthenticated';
+  private refreshTimer: Subscription | null = null;
 
   /*
-   * states for auto-logout
+   * Signals for reactive state management
    */
+  #user = signal<UserI | null>(null);
+  #loading = signal<boolean>(false);
+  #error = signal<string | null>(null);
+  #csrfToken = signal<string | null>(null);
 
-  private readonly LAST_ACTIVE_TIME_KEY = 'lastActiveTime';
-  private readonly AUTO_LOGOUT_TIME = Math.floor(3600 * 1000);
-
-  private destroy$ = new Subject<void>();
-
-  /*
-   * States determining user authorization
-   */
-  signedIn$ = new BehaviorSubject<boolean>(
-    !!localStorage.getItem('accessToken')
+  public readonly user = this.#user.asReadonly();
+  public readonly loading = this.#loading.asReadonly();
+  public readonly error = this.#error.asReadonly();
+  public readonly isAuthenticated = computed(
+    () => localStorage.getItem(this.IS_AUTHENTICATED_KEY) === 'true'
   );
-
-  accessToken$ = new BehaviorSubject<string | null>(
-    localStorage.getItem('accessToken')
-  );
-  refreshToken$ = new BehaviorSubject<string | null>(
-    localStorage.getItem('refreshToken')
+  // public readonly isAdmin = computed(() => this.#user()?.role === 'admin');
+  public readonly isEmailVerified = computed(
+    () => this.#user()?.is_email_verified ?? false
   );
 
   /*
    * Setting state for authorization and .
    */
   constructor() {
-    this.router.events.pipe(takeUntil(this.destroy$)).subscribe((event) => {
-      if (event instanceof NavigationStart) {
-        this.setLastActiveTime();
-      }
-    });
-
-    this.signedIn$.next(!!this.accessToken);
-    this.setupUnloadListener();
-  }
-  ngOnDestroy(): void {
-    document.removeEventListener('beforeunload', this.handleBeforeUnload);
-    this.destroy$.next();
-    this.destroy$.complete();
+    this.initializeAuth();
+    if (this.isAuthenticated()) {
+      this.setupUnloadListener();
+    }
   }
 
-  /*
-   * Get the current user's data needed for authorization
-   */
+  private getHttpOptions(): {
+    headers: HttpHeaders;
+  } {
+    let headers = new HttpHeaders();
+    const csrfToken = this.#csrfToken();
 
-  get accessToken(): string | null {
-    const accessToken = localStorage.getItem('accessToken');
-    return accessToken;
+    if (csrfToken) {
+      headers = headers.set('X-CSRF-Token', csrfToken);
+    }
+
+    const options: { headers: HttpHeaders; context?: HttpContext } = {
+      headers,
+    };
+
+    return options;
   }
 
-  get refreshToken(): string | null {
-    const refreshToken = localStorage.getItem('refreshToken');
-    return refreshToken;
+  private initializeAuth() {
+    this.getCSRFToken()
+      .pipe(
+        switchMap(() =>
+          this.userService.getCurrentUser().pipe(
+            tap((res) => {
+              this.#user.set(res);
+              localStorage.setItem(this.IS_AUTHENTICATED_KEY, 'true');
+
+              this.webSocketService.connect(res._id);
+
+              const currentUser = res;
+
+              if (currentUser) {
+                const { _id } = currentUser;
+
+                const data: UserStatusMessage = {
+                  type: 'user-status',
+                  user_id: _id,
+                  status: 'online',
+                  last_seen: new Date().toISOString(),
+                };
+                this.webSocketService.sendMessage(data);
+              }
+            })
+          )
+        ),
+        tap(() => this.startTokenRefresh()),
+        catchError(this.handleError)
+      )
+      .subscribe();
+  }
+
+  private getCSRFToken(): Observable<CSRFTokenI> {
+    return this.http.get<CSRFTokenI>(this._CSRF_TOKEN_URL).pipe(
+      tap(({ csrfToken }) => {
+        if (csrfToken) {
+          this.#csrfToken.set(csrfToken);
+        }
+      }),
+      catchError(this.handleError)
+    );
   }
 
   /*
@@ -113,19 +160,8 @@ export class AuthService {
     window.addEventListener('beforeunload', this.handleBeforeUnload.bind(this));
   }
 
-  // private handleBeforeUnload(): void {
   handleBeforeUnload(): void {
-    const { accessToken, refreshToken } = this;
-    if (
-      !accessToken ||
-      !refreshToken ||
-      this.refreshToken$.value !== refreshToken ||
-      this.accessToken$.value !== accessToken
-    ) {
-      this.handleStorage();
-    }
-
-    const currentUser = this.userStateService.currentUser();
+    const currentUser = this.#user();
 
     if (currentUser) {
       const { _id } = currentUser;
@@ -138,71 +174,70 @@ export class AuthService {
       };
       this.webSocketService.sendMessage(data);
     }
-  }
 
-  /*
-   * Saving user info to local storage.
-   */
-  private handleStorage() {
-    const { accessToken$, refreshToken$ } = this;
-
-    if (accessToken$.value && refreshToken$.value) {
-      // const tokenData: TokenDataI = JSON.parse(
-      //   atob(accessToken$.value.split('.')[1])
-      // );
-
-      this.signedIn$.next(true);
-
-      localStorage.setItem('accessToken', accessToken$.value);
-      localStorage.setItem('refreshToken', refreshToken$.value);
+    if (!this.isAuthenticated() && currentUser) {
+      localStorage.setItem(this.IS_AUTHENTICATED_KEY, 'true');
     }
-  }
-
-  /*
-   * Clearing local storage.
-   */
-  clearMemory() {
-    this.signedIn$.next(false);
-    this.accessToken$.next(null);
-    sessionStorage.clear();
-    localStorage.clear();
-  }
-
-  /*
-   * Function to set last active time on application.
-   */
-  setLastActiveTime(): void {
-    const currentTime = Date.now();
-    localStorage.setItem(this.LAST_ACTIVE_TIME_KEY, currentTime.toString());
   }
 
   /*
    * Registering new users
    */
-  register(credentials: RegisterCredentialsI): Observable<RegisterResponseI> {
+  register(credentials: RegisterCredentialsI): Observable<AuthResponseI> {
+    this.#loading.set(true);
+    this.#error.set(null);
+
     return this.http
-      .post<RegisterResponseI>(this._REGISTER_URL, credentials)
+      .post<AuthResponseI>(
+        this._REGISTER_URL,
+        credentials,
+        this.getHttpOptions()
+      )
+      .pipe(
+        tap(() => this.#loading.set(false)),
+        catchError(this.handleError)
+      );
+  }
+
+  /*
+   * user authentication
+   */
+  login(credentials: LoginCredentialsI): Observable<CSRFTokenI> {
+    this.#loading.set(true);
+    this.#error.set(null);
+
+    return this.http
+      .post<AuthResponseI>(this._LOGIN_URL, credentials, this.getHttpOptions())
+      .pipe(
+        switchMap(({ user }) => {
+          this.#loading.set(false);
+          if (user) {
+            this.#user.set(user);
+          }
+          localStorage.setItem(this.IS_AUTHENTICATED_KEY, 'true');
+          this.startTokenRefresh();
+
+          return this.getCSRFToken();
+        }),
+        catchError(this.handleError)
+      );
+  }
+
+  verifyEmail(token: string): Observable<AuthResponseI> {
+    return this.http
+      .post<AuthResponseI>(
+        this._VERIFY_EMAIL_URL,
+        { token },
+        this.getHttpOptions()
+      )
       .pipe(catchError(this.handleError));
   }
 
   /*
-   *user authentication
+   * Reset password (when unauthorized)
    */
-  login(credentials: LoginCredentialsI): Observable<LoginResponseI> {
-    return this.http.post<LoginResponseI>(this._LOGIN_URL, credentials).pipe(
-      tap((res) => {
-        const tokens = {
-          access_token: res.access_token,
-          refresh_token: res.refresh_token,
-        };
-        this.handleAuthentication(tokens);
-      }),
-      catchError(this.handleError)
-    );
-  }
-
-  forgotPassword(email: string): Observable<MessageResponseI> {
-    return this.http.post<MessageResponseI>(this._FORGOT_PASSWORD_URL, {
+  forgotPassword(email: string): Observable<AuthResponseI> {
+    return this.http.post<AuthResponseI>(this._FORGOT_PASSWORD_URL, {
       email,
     });
   }
@@ -212,66 +247,98 @@ export class AuthService {
   }
 
   /*
-   * Refresh token request
+   * Refresh token management
    */
-
-  refreshAccessToken(): Observable<RefreshTokenResponseI> {
-    const headers = new HttpHeaders({
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${this.accessToken}`,
-      'refresh-token': this.refreshToken ?? 'UNDEFINED',
-    });
-
+  refreshToken(): Observable<CSRFTokenI> {
     return this.http
-      .get<RefreshTokenResponseI>(this._REFRESH_TOKEN_URL, { headers })
+      .post<AuthResponseI>(this._REFRESH_TOKEN_URL, {}, this.getHttpOptions())
       .pipe(
-        tap((res) => {
-          if (res.access_token && res.refresh_token) {
-            this.accessToken$.next(res.access_token);
-            this.refreshToken$.next(res.refresh_token);
-            localStorage.setItem('accessToken', res.access_token);
-            localStorage.setItem('refreshToken', res.refresh_token);
-          } else {
-            this.clearMemory();
-          }
+        retry(1),
+        catchError((error) => {
+          this.handleAuthFailure();
+          return this.handleError(error);
         }),
-        catchError(this.handleError)
+        switchMap(() => this.getCSRFToken())
       );
+  }
+
+  private startTokenRefresh() {
+    this.stopTokenRefresh();
+
+    this.refreshTimer = timer(14 * 60 * 1000, 14 * 60 * 1000)
+      .pipe(switchMap(() => this.refreshToken()))
+      .subscribe({
+        error: (error) => {
+          this.handleAuthFailure();
+          this.handleError(error);
+        },
+      });
+  }
+
+  private stopTokenRefresh() {
+    if (this.refreshTimer) {
+      this.refreshTimer.unsubscribe();
+      this.refreshTimer = null;
+    }
   }
 
   /*
    * Loggin user out of session.
    */
-  logOut(): void {
-    this.clearMemory();
-    window.location.reload();
+  logOut(): Observable<AuthResponseI> {
+    this.#loading.set(true);
+    localStorage.clear();
+
+    return this.http
+      .post<AuthResponseI>(this._LOGOUT_URL, {}, this.getHttpOptions())
+      .pipe(
+        tap(() => {
+          this.#user.set(null);
+          this.stopTokenRefresh();
+          this.#loading.set(false);
+          this.router.navigate(['/login']);
+        }),
+        catchError(this.handleError.bind(this))
+      );
   }
 
   /*
    * Function to handle error.
    */
-  private handleError(errorRes: HttpErrorResponse) {
-    let errorMessage = 'An unknown error occurred!';
+  private handleError = (error: HttpErrorResponse) => {
+    this.#loading.set(false);
+    console.log(error);
 
-    if (errorRes.error && errorRes.error.message) {
-      errorMessage = errorRes.error.message;
-    } else if (errorRes.error && typeof errorRes.error === 'string') {
-      errorMessage = errorRes.error;
+    let errorMessage = 'An unknown error occurred';
+
+    if (error.error?.error) {
+      errorMessage = error.error.error;
+    } else if (error.error?.errors?.length > 0) {
+      errorMessage = error.error.errors.map((e: any) => e.msg).join(', ');
+    } else if (error.message) {
+      errorMessage = error.message;
     }
 
-    return throwError(() => new Error(errorMessage));
-  }
+    this.#error.set(errorMessage);
 
-  private handleAuthentication(token: {
-    access_token: string;
-    refresh_token: string;
-  }): void {
-    this.accessToken$.next(token.access_token);
-    localStorage.setItem('accessToken', token.access_token);
-    this.refreshToken$.next(token.refresh_token);
-    localStorage.setItem('refreshToken', token.refresh_token);
-    this.signedIn$.next(true);
+    // Handle specific error cases
+    if (error.status === 401 || error.status === 403) {
+      if (error.error?.error === 'Token expired') {
+        // Try to refresh token
+        this.refreshToken().subscribe({
+          error: () => this.handleAuthFailure(),
+        });
+      } else {
+        this.handleAuthFailure();
+      }
+    }
 
-    this.handleStorage();
+    return throwError(() => errorMessage);
+  };
+
+  private handleAuthFailure() {
+    this.#user.set(null);
+    this.stopTokenRefresh();
+    this.router.navigate(['/auth/login']);
   }
 }

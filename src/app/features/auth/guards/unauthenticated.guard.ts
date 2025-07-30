@@ -2,11 +2,12 @@ import { inject } from '@angular/core';
 import { CanActivateFn, Router } from '@angular/router';
 import { AuthService } from '../services/auth.service';
 
-export const unauthenticatedGuard: CanActivateFn = (route, state) => {
+export const unauthenticatedGuard: CanActivateFn = () => {
   const authService = inject(AuthService);
   const router = inject(Router);
+  const isAuthenticated = authService.isAuthenticated();
 
-  if (authService.accessToken) {
+  if (isAuthenticated) {
     router.navigateByUrl('/messages');
     return false;
   }

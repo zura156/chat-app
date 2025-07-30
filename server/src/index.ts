@@ -19,7 +19,7 @@ import cookieParser from 'cookie-parser';
 import helmet from 'helmet';
 import rateLimit from 'express-rate-limit';
 import compression from 'compression';
-import morgan from 'morgan';
+// import morgan from 'morgan';
 import mongoSanitize from 'express-mongo-sanitize';
 import hpp from 'hpp';
 import { authenticateToken } from './auth/middlewares/auth.middleware';
@@ -39,13 +39,22 @@ app.set('broadcastMessage', broadcastMessage);
 connectDB();
 
 app.use(
+  cors({
+    origin: config.clientUrl,
+    credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-CSRF-Token'],
+    exposedHeaders: ['X-CSRF-Token'],
+  })
+);
+app.use(
   helmet({
     contentSecurityPolicy: {
       directives: {
         defaultSrc: ["'self'"],
         scriptSrc: ["'self'", "'unsafe-inline'"],
         styleSrc: ["'self'", "'unsafe-inline'"],
-        imgSrc: ["'self'", 'data:', 'https:'],
+        imgSrc: ["'self'", 'data:', 'https:', 'http://localhost:3000'],
       },
     },
     hsts: {
@@ -61,32 +70,22 @@ app.use(mongoSanitize());
 app.use(hpp());
 
 // Middlewares
-app.use('/uploads', express.static(path.resolve('uploads')));
+app.use(
+  '/uploads',
+  (req, res, next) => {
+    res.setHeader('Access-Control-Allow-Credentials', 'true');
+    res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
+    // Optionally for COEP/COOP requirements:
+    // res.setHeader('Cross-Origin-Embedder-Policy', 'require-corp');
+    // res.setHeader('Cross-Origin-Opener-Policy', 'same-origin');
+    next();
+  },
+  express.static(path.resolve('uploads'))
+);
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
-app.use(morgan('combined'));
-
-app.use(
-  cors({
-    origin: process.env.CLIENT_URL,
-    credentials: true,
-    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization', 'X-CSRF-Token'],
-    exposedHeaders: ['X-CSRF-Token'],
-  })
-);
-app.use((err: Error, req: Request, res: Response, next: NextFunction) => {
-  errorMiddleware(err, req, res, next);
-});
-
-const authLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 5, // 5 attempts per window
-  message: 'Too many authentication attempts, please try again later',
-  standardHeaders: true,
-  legacyHeaders: false,
-});
+// app.use(morgan('combined'));
 
 const generalLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
@@ -96,7 +95,7 @@ const generalLimiter = rateLimit({
 });
 
 // Routes
-app.use('/auth', authLimiter, authRouter);
+app.use('/auth', authRouter);
 app.use('/user', generalLimiter, authenticateToken, userRouter);
 app.use(
   '/conversations',
@@ -105,6 +104,10 @@ app.use(
   conversationRouter
 );
 app.use('/messages', generalLimiter, authenticateToken, messageRouter);
+
+app.use((err: Error, req: Request, res: Response, next: NextFunction) => {
+  errorMiddleware(err, req, res, next);
+});
 
 server.listen(port, () => {
   logger.info(`Server is listening at port ${port}`);

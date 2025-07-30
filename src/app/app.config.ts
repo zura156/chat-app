@@ -21,8 +21,8 @@ import {
   withInterceptors,
 } from '@angular/common/http';
 import { authInterceptor } from './features/auth/interceptors/auth.interceptor';
-import { refreshTokenInterceptor } from './features/auth/interceptors/refresh-token.interceptor';
 import { provideServiceWorker } from '@angular/service-worker';
+import { httpOptionsInterceptor } from './features/auth/interceptors/http-options.interceptor';
 
 export const appConfig: ApplicationConfig = {
   providers: [
@@ -33,7 +33,7 @@ export const appConfig: ApplicationConfig = {
     provideAnimationsAsync(),
     provideHttpClient(
       withFetch(),
-      withInterceptors([authInterceptor, refreshTokenInterceptor])
+      withInterceptors([httpOptionsInterceptor, authInterceptor])
     ),
 
     provideServiceWorker('ngsw-worker.js', {

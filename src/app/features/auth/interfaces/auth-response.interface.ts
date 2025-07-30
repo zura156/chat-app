@@ -1,6 +1,6 @@
 import { UserI } from '../../user/interfaces/user.interface';
 
-export interface RegisterResponseI {
+export interface AuthResponseI {
   message: string;
-  user: UserI;
+  user?: UserI;
 }

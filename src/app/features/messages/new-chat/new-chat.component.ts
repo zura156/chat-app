@@ -36,6 +36,7 @@ import { HlmButtonDirective } from '@spartan-ng/helm/button';
 import { HlmLabelDirective } from '@spartan-ng/helm/label';
 import { HlmErrorDirective } from '@spartan-ng/helm/form-field';
 import { NavController } from '@ionic/angular/standalone';
+import { ParticipantI } from '../interfaces/participant.interface';
 
 @Component({
   selector: 'app-new-chat',
@@ -137,7 +138,18 @@ export class NewChatComponent implements OnInit, OnDestroy {
       if (existingConversation) {
         this.navCtrl.navigateRoot('/messages/' + existingConversation._id);
       } else {
-        this.conversationService.selectUserForConversation(selectedUsers[0]);
+        const participant: ParticipantI = {
+          _id: selectedUsers[0]._id,
+          first_name: selectedUsers[0].first_name,
+          last_name: selectedUsers[0].last_name,
+          username: selectedUsers[0].username,
+          blocked_users: selectedUsers[0].blocked_users,
+          profile_picture: selectedUsers[0].profile_picture,
+          last_seen: selectedUsers[0].last_seen,
+          status: selectedUsers[0].status,
+          bio: selectedUsers[0].bio,
+        };
+        this.conversationService.selectUserForConversation(participant);
         this.navCtrl.navigateRoot(['/messages/', targetUserId]);
       }
     } else {

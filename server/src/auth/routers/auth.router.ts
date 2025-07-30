@@ -1,4 +1,4 @@
-import { Router } from 'express';
+import { Request, Response, NextFunction, Router } from 'express';
 import {
   registerUser,
   loginUser,
@@ -7,13 +7,42 @@ import {
   getCSRFToken,
   refreshToken,
   logOut,
+  verifyEmail,
 } from '../controllers/auth.controller';
 
 import { body } from 'express-validator';
-import { authenticateToken } from '../middlewares/auth.middleware';
+import { authenticateToken, AuthRequest } from '../middlewares/auth.middleware';
 import { validateCSRF } from '../services/csrf.service';
+import { rateLimit } from 'express-rate-limit';
 
 const router = Router();
+
+const strictLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 10,
+  message: 'Too many CSRF token requests, please try again later',
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+const relaxedLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 500, // much higher for authenticated users
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+function dynamicCsrfRateLimiter(
+  req: AuthRequest,
+  res: Response,
+  next: NextFunction
+) {
+  const isAuthenticated = !!req.user;
+
+  return isAuthenticated
+    ? relaxedLimiter(req, res, next)
+    : strictLimiter(req, res, next);
+}
 
 const validateRegistration = [
   body('email').isEmail().normalizeEmail().withMessage('Valid email required'),
@@ -32,13 +61,24 @@ const validateLogin = [
 ];
 
 // Public routes
-router.post('/register', validateCSRF, validateRegistration, registerUser);
-router.post('/login', validateCSRF, validateLogin, loginUser);
-router.post('/logout', authenticateToken, logOut);
+router.post(
+  '/register',
+  strictLimiter,
+  validateCSRF,
+  validateRegistration,
+  registerUser
+);
+router.post('/login', strictLimiter, validateCSRF, validateLogin, loginUser);
+router.post('/logout', strictLimiter, authenticateToken, logOut);
 
-router.post('/forgot-password', forgotPassword);
-router.post('/reset-password', resetPassword);
-router.get('/csrf-token', getCSRFToken);
-router.post('/refresh', refreshToken);
+router.post('/forgot-password', strictLimiter, forgotPassword);
+router.post('/reset-password', strictLimiter, resetPassword);
+router.post('/verify-email', dynamicCsrfRateLimiter, verifyEmail);
+router.get(
+  '/csrf-token',
+  // dynamicCsrfRateLimiter,
+  getCSRFToken
+);
+router.post('/refresh', dynamicCsrfRateLimiter, refreshToken);
 
 export default router;

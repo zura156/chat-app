@@ -1,10 +1,13 @@
+import { UserI } from '../../user/interfaces/user.interface';
+
 export interface ParticipantI {
   _id: string;
   first_name: string;
   last_name: string;
   username: string;
-  bio: string
+  bio: string;
   status?: 'offline' | 'online';
   profile_picture?: string;
   last_seen?: string;
+  blocked_users: string[] | UserI[];
 }

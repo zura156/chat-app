@@ -176,6 +176,9 @@ export const loginUser = async (
 
     await TokenModel.updateOne(
       {
+        user_id: user.id
+      },
+      {
         $push: {
           refresh_tokens: {
             token: refreshToken,

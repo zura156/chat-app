@@ -210,6 +210,7 @@ export class ConversationService {
       this.UPDATE_CONVERSATION_URL.split(':id')[0]
     }${conversationId}`;
     const formData = new FormData();
+
     if (newGroupName) {
       formData.append('group_name', newGroupName);
     }
