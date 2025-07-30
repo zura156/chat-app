@@ -1,4 +1,4 @@
-import express, { Request, Response, Application, NextFunction } from 'express';
+  import express, { Request, Response, Application, NextFunction } from 'express';
 import authRouter from './auth/routers/auth.router';
 import userRouter from './user/routers/user.router';
 import { errorMiddleware } from './error-handling/middlewares/error.middleware';
@@ -89,7 +89,7 @@ app.use(cookieParser());
 // app.use(morgan('combined'));
 
 const generalLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000,
+  windowMs: 5 * 60 * 1000,
   max: 100,
   standardHeaders: true,
   legacyHeaders: false,

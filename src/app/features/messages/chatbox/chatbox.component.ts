@@ -57,7 +57,6 @@ import { HlmSpinnerComponent } from '@spartan-ng/helm/spinner';
 import { UserI } from '../../user/interfaces/user.interface';
 import { ParticipantI } from '../interfaces/participant.interface';
 import {
-  MessageStatusMessage,
   TypingMessage,
   WebSocketMessageT,
 } from '../interfaces/web-socket-message.interface';
@@ -81,7 +80,6 @@ import { PanGestureDirective } from '../../../shared/directives/pan.directive';
 import { HlmSkeletonComponent } from '@spartan-ng/helm/skeleton';
 import { environment } from '../../../../environments/environment';
 import { toast } from 'ngx-sonner';
-import { filter } from 'rxjs';
 import { UserStateService } from '../../user/services/user-state.service';
 
 @Component({
@@ -205,8 +203,8 @@ export class ChatboxComponent implements OnInit, OnDestroy {
   currentUser = this.userStateService.currentUser;
   selectedUser = this.conversationService.selectedUser;
 
-  offset = this.messageService.offset;
-  limit = this.messageService.messageLimit;
+  messageOffset = this.messageService.messageOffset;
+  messageLimit = this.messageService.messageLimit;
   hasMoreMessages = this.messageService.hasMoreMessages;
 
   activeView = this.layoutService.activeView;
@@ -240,7 +238,7 @@ export class ChatboxComponent implements OnInit, OnDestroy {
 
   ngOnInit(): void {
     if (window.visualViewport && window.visualViewport?.height > 1000) {
-      this.limit.set(40);
+      this.messageLimit.set(40);
     }
 
     this.trackTypingStatus();
@@ -252,7 +250,7 @@ export class ChatboxComponent implements OnInit, OnDestroy {
         map((params) => params['id']),
         catchError((err) => this.handleError(err)),
         switchMap((id) => {
-          this.offset.set(0);
+          this.messageOffset.set(0);
           this.conversationService.selectedConversationId.set(id);
           this.conversation = this.conversationService.activeConversation;
           const selectedUser: UserI | null = JSON.parse(
@@ -430,8 +428,11 @@ export class ChatboxComponent implements OnInit, OnDestroy {
   }
 
   loadMessages(conversationId: string) {
+    console.log('Check call.');
     if (!this.hasMoreMessages()) return EMPTY;
-    this.messageService.offset.update((val) => val + this.limit());
+    this.messageService.messageOffset.update(
+      (val) => val + this.messageLimit()
+    );
 
     if (!conversationId) return EMPTY;
 
@@ -450,7 +451,7 @@ export class ChatboxComponent implements OnInit, OnDestroy {
           if (this.hasMoreMessages() && this.isVisible()) {
             this.loadMessages(String(this.conversation()?._id));
           }
-          if (this.totalMessagesCount() < this.offset()) {
+          if (this.totalMessagesCount() < this.messageOffset()) {
             this.divTopIntersectionObserver?.disconnect();
           }
         },

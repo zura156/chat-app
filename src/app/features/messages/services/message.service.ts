@@ -36,7 +36,7 @@ export class MessageService {
   private readonly UPLOAD_FILE_MESSAGE_URL = `${this.apiUrl}/upload`;
 
   // flags
-  offset = signal<number>(0);
+  messageOffset = signal<number>(0);
   messageLimit = signal<number>(20);
   hasMoreMessages = linkedSignal<boolean>(() => {
     const totalCount = this.activeMessagesResource.value()?.totalCount;
@@ -44,7 +44,9 @@ export class MessageService {
       return false;
     }
 
-    return this.offset() < totalCount;
+    console.log(this.messageOffset(), totalCount);
+
+    return this.messageOffset() + this.messageLimit() <= totalCount;
   });
 
   // signals for message management
@@ -132,7 +134,7 @@ export class MessageService {
 
     const url = `${
       this.GET_MESSAGES_URL
-    }/${conversationId}/messages?offset=${this.offset()}&limit=${this.messageLimit()}`;
+    }/${conversationId}/messages?offset=${this.messageOffset()}&limit=${this.messageLimit()}`;
     return url;
   });
 

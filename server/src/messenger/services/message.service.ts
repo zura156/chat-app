@@ -122,7 +122,6 @@ export class MessageService {
           .toFile(placeholderPath);
 
         placeholderUrl = `/uploads/${placeholderFilename}`;
-        console.log(`Placeholder created: ${placeholderUrl}`);
       } catch (error) {
         console.error('Failed to create image placeholder: ', error);
       }

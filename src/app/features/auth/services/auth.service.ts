@@ -10,13 +10,7 @@ import {
   timer,
   Subscription,
 } from 'rxjs';
-import {
-  HttpClient,
-  HttpContext,
-  HttpContextToken,
-  HttpErrorResponse,
-  HttpHeaders,
-} from '@angular/common/http';
+import { HttpClient, HttpErrorResponse } from '@angular/common/http';
 import { RegisterCredentialsI } from '../interfaces/register-credentials.interface';
 import { LoginCredentialsI } from '../interfaces/login-credentials.interface';
 import { WebSocketService } from '../../messages/services/web-socket.service';
@@ -30,6 +24,7 @@ import { CSRFTokenI } from '../interfaces/csrf-token.interface';
 import { UserService } from '../../user/services/user.service';
 import { CSRFService } from './csrf.service';
 import { NavController } from '@ionic/angular/standalone';
+import { toast } from 'ngx-sonner';
 
 @Injectable({
   providedIn: 'root',
@@ -275,7 +270,6 @@ export class AuthService {
    */
   private handleError = (error: HttpErrorResponse) => {
     this.#loading.set(false);
-    console.log(error);
 
     let errorMessage = 'An unknown error occurred';
 
@@ -300,6 +294,10 @@ export class AuthService {
         this.handleAuthFailure();
       }
     }
+
+    toast.error('Something went wrong.', {
+      description: errorMessage,
+    });
 
     return throwError(() => errorMessage);
   };

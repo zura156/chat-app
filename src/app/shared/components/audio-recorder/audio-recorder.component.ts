@@ -126,7 +126,6 @@ export class AudioRecorderComponent implements OnInit, OnDestroy {
       this.mediaRecorder.start();
     } catch (error) {
       this.isMicAllowed.emit(false);
-      console.log('Error getting user media:', error);
     }
   }
 

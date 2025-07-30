@@ -7,7 +7,6 @@ export const unauthenticatedGuard: CanActivateFn = () => {
   const router = inject(Router);
   const isAuthenticated = authService.isAuthenticated;
 
-  console.log(isAuthenticated());
   if (isAuthenticated()) {
     router.navigateByUrl('/messages');
     return false;

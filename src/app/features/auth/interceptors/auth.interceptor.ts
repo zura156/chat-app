@@ -15,14 +15,15 @@ export const authInterceptor: HttpInterceptorFn = (
   request: HttpRequest<unknown>,
   next: HttpHandlerFn
 ): Observable<HttpEvent<unknown>> => {
-  
   const http = inject(HttpClient);
   const router = inject(Router);
 
   return next(request).pipe(
-    catchError((error: HttpErrorResponse) => {      
-      console.log(error.status)
-      if (error.status === 401 && localStorage.getItem('isAuthenticated') === 'true') {
+    catchError((error: HttpErrorResponse) => {
+      if (
+        error.status === 401 &&
+        localStorage.getItem('isAuthenticated') === 'true'
+      ) {
         // Don't intercept refresh token requests to prevent infinite loop
         if (request.url.includes('/auth/refresh')) {
           // If refresh token request fails, redirect to login
@@ -33,8 +34,8 @@ export const authInterceptor: HttpInterceptorFn = (
 
         // Attempt token refresh directly in interceptor
         const refreshUrl = `${environment.apiUrl}/auth/refresh`;
-        
-        return http.post(refreshUrl, {}, {withCredentials: true}).pipe(
+
+        return http.post(refreshUrl, {}, { withCredentials: true }).pipe(
           switchMap(() => {
             // Retry the original request after successful refresh
             return next(request);
@@ -47,7 +48,7 @@ export const authInterceptor: HttpInterceptorFn = (
           })
         );
       }
-      
+
       return throwError(() => error);
     })
   );
