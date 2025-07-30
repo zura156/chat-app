@@ -44,8 +44,6 @@ export class MessageService {
       return false;
     }
 
-    console.log(this.messageOffset(), totalCount);
-
     return this.messageOffset() + this.messageLimit() <= totalCount;
   });
 
