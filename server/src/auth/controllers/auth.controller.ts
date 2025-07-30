@@ -34,6 +34,11 @@ export const getCSRFToken = async (
   res: Response,
   next: NextFunction
 ): Promise<void> => {
+  const sessionIdCookie = req.cookies.sessionId;
+  if (sessionIdCookie) {
+    csrfTokens.delete(sessionIdCookie);
+  }
+
   const sessionId = crypto.randomBytes(32).toString('hex');
   const csrfToken = generateCSRFToken();
 
@@ -176,7 +181,7 @@ export const loginUser = async (
 
     await TokenModel.updateOne(
       {
-        user_id: user.id
+        user_id: user.id,
       },
       {
         $push: {
@@ -274,7 +279,7 @@ export const refreshToken = async (
     if (error.message) {
       next(createCustomError(error.message, 400));
     }
-    next(createCustomError('Server error during login', 500));
+    next(createCustomError('Server error during refreshing token', 500));
   }
 };
 
@@ -293,8 +298,8 @@ export const logOut = async (
     }
 
     if (refreshToken) {
-      await TokenModel.findByIdAndUpdate(
-        { user_id: user._id },
+      await TokenModel.findOneAndUpdate(
+        { user_id: user.id },
         {
           $pull: { refreshTokens: { token: refreshToken } },
         }
@@ -316,7 +321,7 @@ export const logOut = async (
     if (error.message) {
       next(createCustomError(error.message, 400));
     }
-    next(createCustomError('Server error during login', 500));
+    next(createCustomError('Server error during logout', 500));
   }
 };
 

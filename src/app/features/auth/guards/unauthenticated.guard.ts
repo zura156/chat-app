@@ -5,9 +5,10 @@ import { AuthService } from '../services/auth.service';
 export const unauthenticatedGuard: CanActivateFn = () => {
   const authService = inject(AuthService);
   const router = inject(Router);
-  const isAuthenticated = authService.isAuthenticated();
+  const isAuthenticated = authService.isAuthenticated;
 
-  if (isAuthenticated) {
+  console.log(isAuthenticated());
+  if (isAuthenticated()) {
     router.navigateByUrl('/messages');
     return false;
   }

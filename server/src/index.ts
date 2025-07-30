@@ -23,6 +23,7 @@ import compression from 'compression';
 import mongoSanitize from 'express-mongo-sanitize';
 import hpp from 'hpp';
 import { authenticateToken } from './auth/middlewares/auth.middleware';
+import { validateCSRF } from './auth/middlewares/csrf.middleware';
 
 const app: Application = express();
 const port: number | 3000 = parseInt(config.port.toString());
@@ -94,8 +95,11 @@ const generalLimiter = rateLimit({
   legacyHeaders: false,
 });
 
-// Routes
+// Public routes
 app.use('/auth', authRouter);
+
+// Protected routes
+app.use(validateCSRF);
 app.use('/user', generalLimiter, authenticateToken, userRouter);
 app.use(
   '/conversations',

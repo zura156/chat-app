@@ -12,7 +12,6 @@ import {
 
 import { body } from 'express-validator';
 import { authenticateToken, AuthRequest } from '../middlewares/auth.middleware';
-import { validateCSRF } from '../services/csrf.service';
 import { rateLimit } from 'express-rate-limit';
 
 const router = Router();
@@ -64,11 +63,10 @@ const validateLogin = [
 router.post(
   '/register',
   strictLimiter,
-  validateCSRF,
   validateRegistration,
   registerUser
 );
-router.post('/login', strictLimiter, validateCSRF, validateLogin, loginUser);
+router.post('/login', strictLimiter, validateLogin, loginUser);
 router.post('/logout', strictLimiter, authenticateToken, logOut);
 
 router.post('/forgot-password', strictLimiter, forgotPassword);

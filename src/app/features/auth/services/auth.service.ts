@@ -19,7 +19,6 @@ import {
 } from '@angular/common/http';
 import { RegisterCredentialsI } from '../interfaces/register-credentials.interface';
 import { LoginCredentialsI } from '../interfaces/login-credentials.interface';
-import { Router } from '@angular/router';
 import { WebSocketService } from '../../messages/services/web-socket.service';
 import { UserStatusMessage } from '../../messages/interfaces/web-socket-message.interface';
 import { UserStateService } from '../../user/services/user-state.service';
@@ -29,6 +28,8 @@ import { AuthResponseI } from '../interfaces/auth-response.interface';
 import { UserI } from '../../user/interfaces/user.interface';
 import { CSRFTokenI } from '../interfaces/csrf-token.interface';
 import { UserService } from '../../user/services/user.service';
+import { CSRFService } from './csrf.service';
+import { NavController } from '@ionic/angular/standalone';
 
 @Injectable({
   providedIn: 'root',
@@ -39,7 +40,8 @@ export class AuthService {
    */
 
   private http = inject(HttpClient);
-  private router = inject(Router);
+  private navCtrl = inject(NavController);
+  private csrfService = inject(CSRFService);
   private userStateService = inject(UserStateService);
   private userService = inject(UserService);
   private webSocketService = inject(WebSocketService);
@@ -54,7 +56,6 @@ export class AuthService {
   private readonly _RESET_PASSWORD_URL = `${environment.apiUrl}/auth/reset-password`;
   private readonly _VERIFY_EMAIL_URL = `${environment.apiUrl}/auth/verify-email`;
   private readonly _REFRESH_TOKEN_URL = `${environment.apiUrl}/auth/refresh`;
-  private readonly _CSRF_TOKEN_URL = `${environment.apiUrl}/auth/csrf-token`;
 
   // private readonly LAST_ACTIVE_TIME_KEY = 'lastActiveTime';
   // private readonly AUTO_LOGOUT_TIME = Math.floor(3600 * 1000);
@@ -64,89 +65,58 @@ export class AuthService {
   /*
    * Signals for reactive state management
    */
-  #user = signal<UserI | null>(null);
   #loading = signal<boolean>(false);
   #error = signal<string | null>(null);
-  #csrfToken = signal<string | null>(null);
 
-  public readonly user = this.#user.asReadonly();
+  public readonly user = this.userStateService.currentUser;
   public readonly loading = this.#loading.asReadonly();
   public readonly error = this.#error.asReadonly();
-  public readonly isAuthenticated = computed(
-    () => localStorage.getItem(this.IS_AUTHENTICATED_KEY) === 'true'
+  public readonly isAuthenticated = signal(
+    localStorage.getItem(this.IS_AUTHENTICATED_KEY) === 'true'
   );
   // public readonly isAdmin = computed(() => this.#user()?.role === 'admin');
   public readonly isEmailVerified = computed(
-    () => this.#user()?.is_email_verified ?? false
+    () => this.user()?.is_email_verified ?? false
   );
 
   /*
    * Setting state for authorization and .
    */
   constructor() {
-    this.initializeAuth();
     if (this.isAuthenticated()) {
+      this.initializeAuth().subscribe();
       this.setupUnloadListener();
     }
   }
 
-  private getHttpOptions(): {
-    headers: HttpHeaders;
-  } {
-    let headers = new HttpHeaders();
-    const csrfToken = this.#csrfToken();
-
-    if (csrfToken) {
-      headers = headers.set('X-CSRF-Token', csrfToken);
-    }
-
-    const options: { headers: HttpHeaders; context?: HttpContext } = {
-      headers,
-    };
-
-    return options;
-  }
-
   private initializeAuth() {
-    this.getCSRFToken()
-      .pipe(
-        switchMap(() =>
-          this.userService.getCurrentUser().pipe(
-            tap((res) => {
-              this.#user.set(res);
-              localStorage.setItem(this.IS_AUTHENTICATED_KEY, 'true');
+    return this.csrfService.getCSRFToken().pipe(
+      switchMap(() =>
+        this.userService.getCurrentUser().pipe(
+          tap((res) => {
+            this.userStateService.setCurrentUser(res);
+            localStorage.setItem(this.IS_AUTHENTICATED_KEY, 'true');
+            this.isAuthenticated.set(true);
 
-              this.webSocketService.connect(res._id);
+            this.webSocketService.connect(res._id);
 
-              const currentUser = res;
+            const currentUser = res;
 
-              if (currentUser) {
-                const { _id } = currentUser;
+            if (currentUser) {
+              const { _id } = currentUser;
 
-                const data: UserStatusMessage = {
-                  type: 'user-status',
-                  user_id: _id,
-                  status: 'online',
-                  last_seen: new Date().toISOString(),
-                };
-                this.webSocketService.sendMessage(data);
-              }
-            })
-          )
-        ),
-        tap(() => this.startTokenRefresh()),
-        catchError(this.handleError)
-      )
-      .subscribe();
-  }
-
-  private getCSRFToken(): Observable<CSRFTokenI> {
-    return this.http.get<CSRFTokenI>(this._CSRF_TOKEN_URL).pipe(
-      tap(({ csrfToken }) => {
-        if (csrfToken) {
-          this.#csrfToken.set(csrfToken);
-        }
-      }),
+              const data: UserStatusMessage = {
+                type: 'user-status',
+                user_id: _id,
+                status: 'online',
+                last_seen: new Date().toISOString(),
+              };
+              this.webSocketService.sendMessage(data);
+            }
+          })
+        )
+      ),
+      tap(() => this.startTokenRefresh()),
       catchError(this.handleError)
     );
   }
@@ -161,7 +131,7 @@ export class AuthService {
   }
 
   handleBeforeUnload(): void {
-    const currentUser = this.#user();
+    const currentUser = this.user();
 
     if (currentUser) {
       const { _id } = currentUser;
@@ -177,6 +147,7 @@ export class AuthService {
 
     if (!this.isAuthenticated() && currentUser) {
       localStorage.setItem(this.IS_AUTHENTICATED_KEY, 'true');
+      this.isAuthenticated.set(true);
     }
   }
 
@@ -187,49 +158,43 @@ export class AuthService {
     this.#loading.set(true);
     this.#error.set(null);
 
-    return this.http
-      .post<AuthResponseI>(
-        this._REGISTER_URL,
-        credentials,
-        this.getHttpOptions()
-      )
-      .pipe(
-        tap(() => this.#loading.set(false)),
-        catchError(this.handleError)
-      );
+    return this.http.post<AuthResponseI>(this._REGISTER_URL, credentials).pipe(
+      tap(() => this.#loading.set(false)),
+      catchError(this.handleError)
+    );
   }
 
   /*
-   * user authentication
+   * User authentication
    */
-  login(credentials: LoginCredentialsI): Observable<CSRFTokenI> {
+  login(credentials: LoginCredentialsI): Observable<UserI> {
     this.#loading.set(true);
     this.#error.set(null);
 
-    return this.http
-      .post<AuthResponseI>(this._LOGIN_URL, credentials, this.getHttpOptions())
-      .pipe(
-        switchMap(({ user }) => {
-          this.#loading.set(false);
-          if (user) {
-            this.#user.set(user);
-          }
-          localStorage.setItem(this.IS_AUTHENTICATED_KEY, 'true');
-          this.startTokenRefresh();
+    return this.http.post<AuthResponseI>(this._LOGIN_URL, credentials).pipe(
+      switchMap(({ user }) => {
+        this.#loading.set(false);
+        if (user) {
+          this.userStateService.setCurrentUser(user);
+        }
+        localStorage.setItem(this.IS_AUTHENTICATED_KEY, 'true');
+        this.isAuthenticated.set(true);
+        this.navCtrl.navigateRoot('/messages');
 
-          return this.getCSRFToken();
-        }),
-        catchError(this.handleError)
-      );
+        this.startTokenRefresh();
+
+        return this.initializeAuth();
+      }),
+      catchError(this.handleError)
+    );
   }
 
+  /*
+   * Verify email (link approach)
+   */
   verifyEmail(token: string): Observable<AuthResponseI> {
     return this.http
-      .post<AuthResponseI>(
-        this._VERIFY_EMAIL_URL,
-        { token },
-        this.getHttpOptions()
-      )
+      .post<AuthResponseI>(this._VERIFY_EMAIL_URL, { token })
       .pipe(catchError(this.handleError));
   }
 
@@ -242,6 +207,9 @@ export class AuthService {
     });
   }
 
+  /*
+   * Set new password (link approach)
+   */
   resetPassword(body: ResetPasswordI): Observable<MessageResponseI> {
     return this.http.post<MessageResponseI>(this._RESET_PASSWORD_URL, body);
   }
@@ -250,16 +218,14 @@ export class AuthService {
    * Refresh token management
    */
   refreshToken(): Observable<CSRFTokenI> {
-    return this.http
-      .post<AuthResponseI>(this._REFRESH_TOKEN_URL, {}, this.getHttpOptions())
-      .pipe(
-        retry(1),
-        catchError((error) => {
-          this.handleAuthFailure();
-          return this.handleError(error);
-        }),
-        switchMap(() => this.getCSRFToken())
-      );
+    return this.http.post<AuthResponseI>(this._REFRESH_TOKEN_URL, {}).pipe(
+      retry(1),
+      catchError((error) => {
+        this.handleAuthFailure();
+        return this.handleError(error);
+      }),
+      switchMap(() => this.csrfService.getCSRFToken())
+    );
   }
 
   private startTokenRefresh() {
@@ -287,19 +253,21 @@ export class AuthService {
    */
   logOut(): Observable<AuthResponseI> {
     this.#loading.set(true);
-    localStorage.clear();
 
-    return this.http
-      .post<AuthResponseI>(this._LOGOUT_URL, {}, this.getHttpOptions())
-      .pipe(
-        tap(() => {
-          this.#user.set(null);
-          this.stopTokenRefresh();
-          this.#loading.set(false);
-          this.router.navigate(['/login']);
-        }),
-        catchError(this.handleError.bind(this))
-      );
+    return this.http.post<AuthResponseI>(this._LOGOUT_URL, {}).pipe(
+      tap(() => {
+        this.stopTokenRefresh();
+
+        this.userStateService.setCurrentUser(null);
+        localStorage.clear();
+        this.isAuthenticated.set(false);
+        this.csrfService.clearCSRFToken();
+        this.#loading.set(false);
+
+        this.navCtrl.navigateRoot(['/auth/login']);
+      }),
+      catchError(this.handleError.bind(this))
+    );
   }
 
   /*
@@ -337,8 +305,8 @@ export class AuthService {
   };
 
   private handleAuthFailure() {
-    this.#user.set(null);
+    this.userStateService.setCurrentUser(null);
     this.stopTokenRefresh();
-    this.router.navigate(['/auth/login']);
+    this.navCtrl.navigateRoot(['/auth/login']);
   }
 }

@@ -19,7 +19,6 @@ export class HeaderComponent {
   }
 
   logOut(): void {
-    this.authService.logOut();
-    window.location.reload();
+    this.authService.logOut().subscribe();
   }
 }
