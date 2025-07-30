@@ -39,7 +39,7 @@ app.set('broadcastMessage', broadcastMessage);
 
 connectDB();
 
-app.use(
+app.options('*',
   cors({
     origin: config.clientUrl,
     credentials: true,
