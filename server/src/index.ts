@@ -1,4 +1,4 @@
-  import express, { Request, Response, Application, NextFunction } from 'express';
+import express, { Request, Response, Application, NextFunction } from 'express';
 import authRouter from './auth/routers/auth.router';
 import userRouter from './user/routers/user.router';
 import { errorMiddleware } from './error-handling/middlewares/error.middleware';
@@ -30,16 +30,7 @@ const port: number | 3000 = parseInt(config.port.toString());
 
 const server = http.createServer(app);
 
-setupWebSocket(server);
-
-// ---------------------------------------------
-const broadcastMessage = getBroadcastFunction();
-app.set('broadcastMessage', broadcastMessage);
-// ---------------------------------------------
-
-connectDB();
-
-app.options('*',
+app.use(
   cors({
     origin: config.clientUrl,
     credentials: true,
@@ -48,6 +39,22 @@ app.options('*',
     exposedHeaders: ['X-CSRF-Token'],
   })
 );
+
+app.options('*', cors({
+  origin: config.clientUrl,
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-CSRF-Token'],
+}));
+
+setupWebSocket(server);
+
+// ---------------------------------------------
+const broadcastMessage = getBroadcastFunction();
+app.set('broadcastMessage', broadcastMessage);
+// ---------------------------------------------
+
+connectDB();
 app.use(
   helmet({
     contentSecurityPolicy: {
