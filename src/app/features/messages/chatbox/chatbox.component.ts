@@ -5,11 +5,9 @@ import {
   inject,
   linkedSignal,
   OnInit,
-  QueryList,
   Signal,
   signal,
-  ViewChild,
-  ViewChildren,
+  viewChild,
 } from '@angular/core';
 import {
   catchError,
@@ -226,15 +224,10 @@ export class ChatboxComponent implements OnInit, OnDestroy {
 
   private recordingResult?: RecordingResult;
 
-  @ViewChild('topTracker') observedElement?: ElementRef;
-  @ViewChildren('messageItem') messageItems?: QueryList<ElementRef>;
+  private observedElement? = viewChild<ElementRef>('topTracker');
 
   private divTopIntersectionObserver?: IntersectionObserver;
   private messageIntersectionObserver?: IntersectionObserver;
-
-  @ViewChild('slider') sliderRef?: ElementRef;
-  @ViewChild('sliderContainer') sliderContainerRef?: ElementRef;
-  sliderTransform = 'translateX(0px)';
 
   ngOnInit(): void {
     if (window.visualViewport && window.visualViewport?.height > 1000) {
@@ -286,6 +279,20 @@ export class ChatboxComponent implements OnInit, OnDestroy {
     if (this.messageIntersectionObserver) {
       this.messageIntersectionObserver.disconnect();
     }
+  }
+
+  trackGroupedMessage(index: number, group: GroupedMessages): string {
+    return `${group.timeframe}-${group.messages.length}-${
+      group.messages[0]?._id || index
+    }`;
+  }
+
+  trackMessage(index: number, message: MessageI): string {
+    return (
+      message._id ||
+      `${message.timestamp}-${message.sender._id}-${index}` ||
+      `temp-${index}-${Date.now()}`
+    );
   }
 
   startRecording(): void {
@@ -345,6 +352,7 @@ export class ChatboxComponent implements OnInit, OnDestroy {
         .uploadFileMessage(formData)
         .pipe(
           takeUntil(this.destroy$),
+          debounceTime(500),
           tap((res) => {
             this.messageService.addMessage(res);
             this.isRecording.set(false);
@@ -416,6 +424,7 @@ export class ChatboxComponent implements OnInit, OnDestroy {
         .sendMessage(message, participants)
         .pipe(
           takeUntil(this.destroy$),
+          debounceTime(500),
           catchError((err) => this.handleError(err)),
           tap(() => {
             this.conversation = this.conversationService.activeConversation;
@@ -441,7 +450,11 @@ export class ChatboxComponent implements OnInit, OnDestroy {
   }
 
   onChatTopVisible(): void {
-    if (this.observedElement && !this.isVisibilityObserving()) {
+    if (!this.observedElement) {
+      return;
+    }
+
+    if (this.observedElement() && !this.isVisibilityObserving()) {
       this.isVisibilityObserving.set(true);
       this.divTopIntersectionObserver = new IntersectionObserver(
         ([entry]) => {
@@ -450,6 +463,7 @@ export class ChatboxComponent implements OnInit, OnDestroy {
           );
           if (this.hasMoreMessages() && this.isVisible()) {
             this.loadMessages(String(this.conversation()?._id));
+            this.isVisibilityObserving.set(false);
           }
           if (this.totalMessagesCount() < this.messageOffset()) {
             this.divTopIntersectionObserver?.disconnect();
@@ -461,7 +475,7 @@ export class ChatboxComponent implements OnInit, OnDestroy {
       );
 
       this.divTopIntersectionObserver.observe(
-        this.observedElement.nativeElement
+        this.observedElement()?.nativeElement
       );
     }
   }

@@ -174,11 +174,12 @@ export class AuthService {
         }
         localStorage.setItem(this.IS_AUTHENTICATED_KEY, 'true');
         this.isAuthenticated.set(true);
-        this.navCtrl.navigateRoot('/messages');
 
         this.startTokenRefresh();
 
-        return this.initializeAuth();
+        return this.initializeAuth().pipe(
+          tap(() => this.navCtrl.navigateRoot('/messages'))
+        );
       }),
       catchError(this.handleError)
     );
