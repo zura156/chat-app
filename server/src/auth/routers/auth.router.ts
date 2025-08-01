@@ -13,6 +13,7 @@ import {
 import { body } from 'express-validator';
 import { authenticateToken, AuthRequest } from '../middlewares/auth.middleware';
 import { rateLimit } from 'express-rate-limit';
+import { unauthenticatedGuard } from '../middlewares/unauthenticated.middleware';
 
 const router = Router();
 
@@ -63,10 +64,17 @@ const validateLogin = [
 router.post(
   '/register',
   strictLimiter,
+  unauthenticatedGuard,
   validateRegistration,
   registerUser
 );
-router.post('/login', strictLimiter, validateLogin, loginUser);
+router.post(
+  '/login',
+  strictLimiter,
+  unauthenticatedGuard,
+  validateLogin,
+  loginUser
+);
 router.post('/logout', strictLimiter, authenticateToken, logOut);
 
 router.post('/forgot-password', strictLimiter, forgotPassword);
