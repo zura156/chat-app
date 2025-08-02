@@ -9,6 +9,7 @@ import { Message } from '../../messenger/models/message.model';
 import { MessageStatusEnum } from '../../messenger/interfaces/message.interface';
 import { UserInterface } from '../../user/interfaces/user.interface';
 import { ObjectId } from 'mongodb';
+import { ReadReceiptI } from '../../messenger/interfaces/read-receipt.interface';
 
 export class WebSocketController {
   private delayedOfflineUpdates = new Map<string, NodeJS.Timeout>();
@@ -178,18 +179,33 @@ export class WebSocketController {
     try {
       // Find the conversation to get all participants
       const conversation = await Conversation.findById(conversation_id)
-        .select('participants')
-        .lean();
+        .select('participants read_receipts')
+        .populate('read_receipts');
+
       if (!conversation) return;
 
-      // You could create a dedicated method in MessageService to update status and receipts
-      // For now, we'll keep the logic here for clarity.
       await Message.findByIdAndUpdate(read_receipt.last_message_read_id, {
         status: MessageStatusEnum.READ, // Assuming status is 'read'
       });
 
-      // Here you would also update the conversation's read_receipts array
-      // ... logic to update conversation.read_receipts ...
+      const existingReceiptIndex = conversation.read_receipts.findIndex(
+        (receipt) =>
+          receipt.user_id.toString() === read_receipt.user_id.toString()
+      );
+
+      if (existingReceiptIndex !== -1) {
+        conversation.read_receipts[existingReceiptIndex].last_message_read_id =
+          read_receipt.last_message_read_id;
+        conversation.read_receipts[existingReceiptIndex].read_at =
+          read_receipt.read_at;
+      } else {
+        conversation.read_receipts.push({
+          ...read_receipt,
+          user_id: new ObjectId(read_receipt.user_id),
+        });
+      }
+
+      await conversation.save();
 
       const payload = {
         type: 'message-status',

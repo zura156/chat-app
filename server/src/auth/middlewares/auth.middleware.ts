@@ -24,7 +24,7 @@ export const authenticateToken = async (
   try {
     const decoded = jwt.verify(token, config.jwtSecret) as { userId: string };
     const user = await User.findById(decoded.userId).select(
-      '-password -refreshTokens'
+      '-password -refreshTokens -is_email_verified -login_attempts -lock_until -last_login'
     );
 
     if (!user) {

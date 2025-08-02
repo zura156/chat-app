@@ -1,7 +1,7 @@
 import { Types } from 'mongoose';
 import { Conversation, IConversation } from '../models/conversation.model';
 import { MutedConversation } from '../models/muted-conversation.model';
-import { User } from '../../user/models/user.model';
+import { IUser, User } from '../../user/models/user.model';
 import { createCustomError } from '../../error-handling/models/custom-api-error.model';
 import { MemberChangesI } from '../interfaces/member-changes.interface';
 import { Message } from '../models/message.model';
@@ -13,11 +13,8 @@ import {
 } from '../../websocket/dtos/websocket.dto';
 import { UserInterface } from '../../user/interfaces/user.interface';
 import { ConversationI } from '../interfaces/conversation.interface';
-import { populate } from 'dotenv';
-import { MessageI, MessageTypeEnum } from '../interfaces/message.interface';
+import { MessageTypeEnum } from '../interfaces/message.interface';
 import { MessageService } from './message.service';
-import { logger } from '../../utils/logger';
-
 export class ConversationService {
   private broadcast: BroadcastFunction;
   private messageService: MessageService;
@@ -197,6 +194,7 @@ export class ConversationService {
    */
   public async updateConversation(
     conversation: IConversation,
+    currentUser: IUser,
     group_name?: string,
     group_picture?: Express.Multer.File
   ): Promise<IConversation> {
@@ -221,10 +219,48 @@ export class ConversationService {
 
     Object.assign(conversation, updateData);
     await conversation.save();
-    await conversation.populate(
+    const populatedConversation = (await conversation.populate(
       'participants created_by',
       'first_name last_name username profile_picture status last_seen'
-    );
+    )) as ConversationI;
+
+    let infoMessage = {
+      sender: currentUser.id,
+      conversation: conversation.id,
+      content: `Conversation was updated by ${currentUser.username}.`,
+      type: MessageTypeEnum.INFO,
+    };
+
+    if (group_picture_url) {
+      infoMessage.content = `${currentUser.username} updated group picture.`;
+      await this.messageService.createTextMessage(
+        infoMessage.sender,
+        infoMessage.conversation,
+        infoMessage.content,
+        infoMessage.type
+      );
+    }
+    if (group_name) {
+      infoMessage.content = `${currentUser.username} ${
+        populatedConversation.group_name
+          ? 'changed conversation name to ' + populatedConversation.group_name
+          : 'cleared the conversation name.'
+      }.`;
+      await this.messageService.createTextMessage(
+        infoMessage.sender,
+        infoMessage.conversation,
+        infoMessage.content,
+        infoMessage.type
+      );
+    }
+
+    if (!group_name && !group_picture_url)
+      await this.messageService.createTextMessage(
+        infoMessage.sender,
+        infoMessage.conversation,
+        infoMessage.content,
+        infoMessage.type
+      );
 
     const message: ConversationUpdateMessage = {
       type: 'conversation-update',

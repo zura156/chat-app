@@ -109,13 +109,14 @@
     </div>
   </div>
 </div>
+
 @if(readReceipts() && readReceipts().length > 0 && isGroup() && isLastMessage())
 {
   <div class="w-full flex items-center gap-x-1 justify-end pt-2">
     @if(readReceipts().length > 4) { 
       @for(readReceipt of readReceipts().slice(0, 4); track readReceipt.user_id) {
         @let userCredentials = this.getUserCredentials(readReceipt.user_id);
-        <hlm-avatar variant="2xs" class="min-w-fit">
+        <hlm-avatar class="size-4">
           <img
             [src]="userCredentials.profile_picture || '/icons/avatar.svg'"
             [alt]="userCredentials.username"
@@ -138,7 +139,7 @@
             }}"
             class="w-fit"
           >
-            <hlm-avatar variant="2xs" class="min-w-fit">
+            <hlm-avatar class="size-4">
               <img
                 [src]="userCredentials.profile_picture || '/icons/avatar.svg'"
                 [alt]="userCredentials.username"

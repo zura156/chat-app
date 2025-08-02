@@ -75,7 +75,9 @@ export class MessageService {
           msg._id ? messageMap.set(msg._id, msg) : ''
         );
 
-        return Array.from(messageMap.values());
+        const messages = Array.from(messageMap.values());
+
+        return messages;
       }
     },
   });
@@ -142,8 +144,6 @@ export class MessageService {
     const user = this.userStateService.currentUser();
     const message = this.findMessageById(lastMessageId);
     if (!user || !message) return;
-    if (user._id === message.sender._id) return;
-    if (message.status === MessageStatus.READ) return;
 
     const currentUserId = user._id;
     const conversation = this.conversationService.activeConversation();
@@ -165,6 +165,7 @@ export class MessageService {
       type: 'message-status',
       read_receipt: {
         last_message_read_id: lastMessageId,
+        read_at: new Date(),
         user_id: currentUserId,
       },
       conversation_id: conversation._id,

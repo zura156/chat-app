@@ -123,10 +123,17 @@ export class ConversationController {
 
       const group_picture = req.file;
       const { group_name } = req.body;
+      const user = req.user;
+
+      if (!user) {
+        next(createCustomError('Auth validation issue detected', 500));
+        return;
+      }
 
       const updatedConversation =
         await this.conversationService.updateConversation(
           conversation,
+          user,
           group_name,
           group_picture
         );

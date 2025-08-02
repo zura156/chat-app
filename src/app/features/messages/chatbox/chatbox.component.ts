@@ -1,6 +1,7 @@
 import {
   ChangeDetectionStrategy,
   Component,
+  effect,
   ElementRef,
   inject,
   linkedSignal,
@@ -137,6 +138,7 @@ export class ChatboxComponent implements OnInit, OnDestroy {
   conversation: Signal<ConversationI | null> = signal<ConversationI | null>(
     null
   );
+  private previousConversationId: string | undefined = undefined;
 
   groupImageUrl = linkedSignal<string | null>(() => {
     const currentConversation = this.conversation();
@@ -228,6 +230,31 @@ export class ChatboxComponent implements OnInit, OnDestroy {
 
   private divTopIntersectionObserver?: IntersectionObserver;
   private messageIntersectionObserver?: IntersectionObserver;
+
+  constructor() {
+    effect(() => {
+      const currentConversation = this.conversation();
+      const currentId = currentConversation?._id;
+      const messages = this.messagesResource.value();
+      const isLoading = this.messagesResource.isLoading();
+
+      const conversationChanged =
+        this.previousConversationId === undefined &&
+        this.previousConversationId !== currentId;
+
+      const messagesAvailable = messages && !isLoading;
+
+      if (conversationChanged && messagesAvailable && currentId) {
+        const lastMessageId = messages.messages[0]._id;
+        console.log(lastMessageId)
+        if (lastMessageId) {
+          this.markMessageAsRead(lastMessageId);
+        }
+      }
+
+      this.previousConversationId = currentId;
+    });
+  }
 
   ngOnInit(): void {
     if (window.visualViewport && window.visualViewport?.height > 1000) {
@@ -437,7 +464,6 @@ export class ChatboxComponent implements OnInit, OnDestroy {
   }
 
   loadMessages(conversationId: string) {
-    console.log('Check call.');
     if (!this.hasMoreMessages()) return EMPTY;
     this.messageService.messageOffset.update(
       (val) => val + this.messageLimit()
@@ -620,7 +646,9 @@ export class ChatboxComponent implements OnInit, OnDestroy {
                 joinedConversation as ConversationI
               );
               const addedUsernames = joinedConversation.participants
-                ?.filter((participant) => added_users.includes(participant._id))
+                ?.filter((participant) =>
+                  added_users?.includes(participant._id)
+                )
                 .map((participant) => participant.username);
 
               toast.info(
