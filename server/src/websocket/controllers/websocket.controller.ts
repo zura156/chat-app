@@ -9,7 +9,6 @@ import { Message } from '../../messenger/models/message.model';
 import { MessageStatusEnum } from '../../messenger/interfaces/message.interface';
 import { UserInterface } from '../../user/interfaces/user.interface';
 import { ObjectId } from 'mongodb';
-import { ReadReceiptI } from '../../messenger/interfaces/read-receipt.interface';
 
 export class WebSocketController {
   private delayedOfflineUpdates = new Map<string, NodeJS.Timeout>();
@@ -177,45 +176,74 @@ export class WebSocketController {
   ): Promise<void> {
     const { read_receipt, conversation_id } = data;
     try {
-      // Find the conversation to get all participants
-      const conversation = await Conversation.findById(conversation_id)
-        .select('participants read_receipts')
-        .populate('read_receipts');
-
-      if (!conversation) return;
-
+      // Update message status
       await Message.findByIdAndUpdate(read_receipt.last_message_read_id, {
-        status: MessageStatusEnum.READ, // Assuming status is 'read'
+        status: MessageStatusEnum.READ,
       });
 
-      const existingReceiptIndex = conversation.read_receipts.findIndex(
-        (receipt) =>
-          receipt.user_id.toString() === read_receipt.user_id.toString()
+      // Single atomic operation: update existing or add new read receipt
+      const conversation = await Conversation.findOneAndUpdate(
+        {
+          _id: conversation_id,
+          'read_receipts.user_id': new ObjectId(read_receipt.user_id),
+        },
+        {
+          $set: {
+            'read_receipts.$.last_message_read_id':
+              read_receipt.last_message_read_id,
+            'read_receipts.$.read_at': read_receipt.read_at,
+          },
+        },
+        {
+          new: true,
+          select: 'participants',
+        }
       );
 
-      if (existingReceiptIndex !== -1) {
-        conversation.read_receipts[existingReceiptIndex].last_message_read_id =
-          read_receipt.last_message_read_id;
-        conversation.read_receipts[existingReceiptIndex].read_at =
-          read_receipt.read_at;
+      // If no document was found/updated, it means no existing receipt exists
+      if (!conversation) {
+        // Add new read receipt
+        const updatedConversation = await Conversation.findByIdAndUpdate(
+          conversation_id,
+          {
+            $push: {
+              read_receipts: {
+                ...read_receipt,
+                user_id: new ObjectId(read_receipt.user_id),
+              },
+            },
+          },
+          {
+            new: true,
+            select: 'participants',
+          }
+        );
+
+        if (!updatedConversation) return;
+
+        // Broadcast to participants
+        const payload = {
+          type: 'message-status',
+          status: MessageStatusEnum.READ,
+          read_receipt,
+          conversation_id,
+        };
+
+        for (const participantId of updatedConversation.participants) {
+          this.websocketService.sendToUser(participantId.toString(), payload);
+        }
       } else {
-        conversation.read_receipts.push({
-          ...read_receipt,
-          user_id: new ObjectId(read_receipt.user_id),
-        });
-      }
+        // Broadcast to participants (conversation was updated)
+        const payload = {
+          type: 'message-status',
+          status: MessageStatusEnum.READ,
+          read_receipt,
+          conversation_id,
+        };
 
-      await conversation.save();
-
-      const payload = {
-        type: 'message-status',
-        status: MessageStatusEnum.READ,
-        read_receipt,
-        conversation_id,
-      };
-
-      for (const participantId of conversation.participants) {
-        this.websocketService.sendToUser(participantId.toString(), payload);
+        for (const participantId of conversation.participants) {
+          this.websocketService.sendToUser(participantId.toString(), payload);
+        }
       }
     } catch (error) {
       logger.error('Failed to handle message status update:', error);

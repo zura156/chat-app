@@ -148,17 +148,15 @@ export class MessageService {
     const currentUserId = user._id;
     const conversation = this.conversationService.activeConversation();
 
+    if (!currentUserId || !conversation?._id) return;
+
     if (
       conversation &&
-      conversation.read_receipts.some(
-        (r) =>
-          r.user_id === currentUserId &&
-          r.last_message_read_id === lastMessageId
-      )
-    )
+      conversation.read_receipts.find((r) => r.user_id === currentUserId)
+        ?.last_message_read_id === lastMessageId
+    ) {
       return;
-
-    if (!currentUserId || !conversation?._id) return;
+    }
 
     // Then send to server via websocket
     const readData: MessageStatusMessage = {
