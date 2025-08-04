@@ -574,23 +574,41 @@ export class ChatboxComponent implements OnInit, OnDestroy {
               break;
             case 'message':
               const message: MessageI = res.message;
+              const conversation = this.conversation();
 
               if (message.type !== 'info' && message.sender._id === user?._id) {
                 this.messageService.fillInMessageDetails(message);
+                if (conversation) {
+                  this.conversationService.setLastMessageInConversation(
+                    conversation._id,
+                    message
+                  );
+                }
                 if (message._id) {
                   this.markMessageAsRead(message._id);
                 }
                 return;
               }
 
-              const conversation = this.conversation();
-
-              if (conversation && conversation._id === message.conversation) {
-                this.messageService.addMessage(message);
+              if (conversation) {
+                if (conversation._id === message.conversation) {
+                  this.messageService.addMessage(message);
+                } else {
+                  this.conversationService.setLastMessageInConversation(
+                    conversation._id,
+                    message
+                  );
+                }
               }
 
               if (message._id) {
                 this.markMessageAsRead(message._id);
+              }
+              if (conversation) {
+                this.conversationService.setLastMessageInConversation(
+                  conversation._id,
+                  message
+                );
               }
 
               return;

@@ -7,20 +7,16 @@ import {
   ReadReceiptI,
 } from '../interfaces/conversation.interface';
 import { ConversationListI } from '../interfaces/conversation-list.interface';
-import { WebSocketService } from './web-socket.service';
-import { ConversationJoinMessage } from '../interfaces/web-socket-message.interface';
-import { UserService } from '../../user/services/user.service';
 import { ParticipantI } from '../interfaces/participant.interface';
 import { MemberChangesI } from '../interfaces/member-changes.interface';
 import { ConversationIdResponseI } from '../interfaces/conversation-id-response.interface';
 import { toast } from 'ngx-sonner';
 import { UpdateConversationI } from '../interfaces/update-conversation.interface';
+import { MessageI } from '../interfaces/message.interface';
 
 @Injectable()
 export class ConversationService {
   private http = inject(HttpClient);
-  private webSocketService = inject(WebSocketService);
-  private userService = inject(UserService);
 
   private readonly apiUrl = environment.apiUrl;
 
@@ -246,6 +242,24 @@ export class ConversationService {
         totalCount: val.totalCount + 1,
       };
       return newList;
+    });
+  }
+
+  setLastMessageInConversation(
+    conversationId: string,
+    message: MessageI
+  ): void {
+    this.#conversationList.update((val) => {
+      if (!val) return null;
+
+      return {
+        ...val,
+        conversations: val.conversations.map((c) =>
+          c._id === conversationId && message
+            ? { ...c, last_message: message }
+            : c
+        ),
+      };
     });
   }
 
