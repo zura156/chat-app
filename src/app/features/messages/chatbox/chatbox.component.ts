@@ -239,20 +239,22 @@ export class ChatboxComponent implements OnInit, OnDestroy {
       const isLoading = this.messagesResource.isLoading();
 
       const conversationChanged =
-        this.previousConversationId === undefined &&
+        this.previousConversationId !== undefined &&
         this.previousConversationId !== currentId;
 
       const messagesAvailable = messages && !isLoading;
 
-      if (conversationChanged && messagesAvailable && currentId) {
-        const lastMessageId = messages.messages[0]._id;
-        console.log(lastMessageId)
+      if (
+        (conversationChanged || this.previousConversationId === undefined) &&
+        messagesAvailable &&
+        currentId
+      ) {
+        const lastMessageId = messages.messages[0]?._id;
         if (lastMessageId) {
           this.markMessageAsRead(lastMessageId);
         }
+        this.previousConversationId = currentId;
       }
-
-      this.previousConversationId = currentId;
     });
   }
 
@@ -573,22 +575,23 @@ export class ChatboxComponent implements OnInit, OnDestroy {
             case 'message':
               const message: MessageI = res.message;
 
-              if (message._id && user?._id !== message.sender._id) {
-                this.markMessageAsRead(message._id);
-              }
-
-              if (
-                res.message.type !== 'info' &&
-                res.message.sender._id === user?._id
-              ) {
+              if (message.type !== 'info' && message.sender._id === user?._id) {
                 this.messageService.fillInMessageDetails(message);
+                if (message._id) {
+                  this.markMessageAsRead(message._id);
+                }
                 return;
               }
 
               const conversation = this.conversation();
 
-              if (conversation && conversation._id === res.message.conversation)
+              if (conversation && conversation._id === message.conversation) {
                 this.messageService.addMessage(message);
+              }
+
+              if (message._id) {
+                this.markMessageAsRead(message._id);
+              }
 
               return;
             case 'user-status':
@@ -608,6 +611,13 @@ export class ChatboxComponent implements OnInit, OnDestroy {
               break;
             case 'message-status':
               const { read_receipt, status: messageStatus } = res;
+
+              if (
+                this.conversation() &&
+                this.conversation()?._id !== res.conversation_id
+              ) {
+                return;
+              }
 
               const {
                 last_message_read_id: last_message_id,

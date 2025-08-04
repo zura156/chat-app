@@ -95,20 +95,6 @@ export class MessageService {
     this.#totalMessagesCount
   );
 
-  constructor() {
-    effect(() => {
-      const messages = this.activeMessages();
-      const conversation = this.conversationService.activeConversation();
-
-      if (messages.length > 0 && conversation?._id) {
-        const firstMessage = messages[0];
-        if (firstMessage?._id) {
-          this.markMessageAsRead(firstMessage._id);
-        }
-      }
-    });
-  }
-
   sendMessage(
     message: MessageI,
     participants: Partial<ParticipantI>[],
