@@ -109,21 +109,14 @@ export class ConversationService {
   /**
    * Fetches a single conversation by its ID, ensuring the user is a participant.
    */
-  public async getConversationById(conversationId: string, userId: string) {
-    const conversation = await Conversation.findOne({
-      _id: conversationId,
-      participants: userId,
-    }).populate(
+  public async getConversationById(
+    conversation: IConversation,
+    userId: string
+  ) {
+    conversation.populate(
       'participants',
       'first_name last_name username profile_picture status last_seen'
     );
-
-    if (!conversation) {
-      throw createCustomError(
-        'Conversation not found or you are not a participant',
-        404
-      );
-    }
 
     // Logic to filter the current user from the participants list for the client
     const otherParticipants = conversation.participants.filter(

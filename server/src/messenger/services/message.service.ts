@@ -42,6 +42,54 @@ export class MessageService {
     return { messages, totalCount };
   }
 
+  public async getMediaMessages(
+    conversationId: string,
+    limit: number,
+    offset: number
+  ) {
+    const query = {
+      conversation: conversationId,
+      file: { $exists: true },
+      'file.mime_type': {
+        $regex: /^(image|video)\//,
+        $options: 'i',
+      },
+    };
+    const [messages, totalCount] = await Promise.all([
+      Message.find(query)
+        .sort({ timestamp: -1 })
+        .skip(offset)
+        .limit(limit)
+        .populate('sender', 'username profile_picture'), // Preserved your populate logic
+
+      Message.countDocuments({ conversation: conversationId }),
+    ]);
+    return { messages, totalCount };
+  }
+  public async getFileMessages(
+    conversationId: string,
+    limit: number,
+    offset: number
+  ) {
+    const query = {
+      conversation: conversationId,
+      file: { $exists: true },
+      'file.mime_type': {
+        $not: { $regex: /^(image|video)\//, $options: 'i' },
+      },
+    };
+    const [messages, totalCount] = await Promise.all([
+      Message.find(query)
+        .sort({ timestamp: -1 })
+        .skip(offset)
+        .limit(limit)
+        .populate('sender', 'username profile_picture'),
+
+      Message.countDocuments({ conversation: conversationId }),
+    ]);
+    return { messages, totalCount };
+  }
+
   /**
    * Creates and saves a new text message.
    * This is the refactored version of your `saveMessage` function.

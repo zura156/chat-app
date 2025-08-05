@@ -75,12 +75,23 @@ export class ConversationController {
   ) => {
     try {
       const userId = req.user!.id;
-      const conversationId = req.params.id;
-      const conversation = await this.conversationService.getConversationById(
-        conversationId,
-        userId
-      );
-      res.status(200).json(conversation);
+      const conversation = req.conversation;
+
+      if (!conversation) {
+        res
+          .status(403)
+          .json(
+            'Conversation either does not exist, or you do not have the access to this conversation.'
+          );
+        return;
+      }
+
+      const filteredConversation =
+        await this.conversationService.getConversationById(
+          conversation,
+          userId
+        );
+      res.status(200).json(filteredConversation);
     } catch (error) {
       next(error);
     }
