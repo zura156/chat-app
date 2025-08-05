@@ -52,13 +52,7 @@ router
   .patch((req, res, next) =>
     req.conversationController.manageConversationMembers(req, res, next)
   );
-router.get('/:id/media', validateConversation, (req, res, next) =>
-  req.messageController.getMediaMessages(req, res, next)
-);
 
-router.get('/:id/files', validateConversation, (req, res, next) =>
-  req.messageController.getFileMessages(req, res, next)
-);
 router
   .route('/:id')
   .all(validateConversation)
