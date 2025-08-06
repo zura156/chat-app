@@ -32,14 +32,37 @@ export class MessageService {
   private apiUrl = `${environment.apiUrl}/messages`;
 
   // private readonly SEND_MESSAGE_URL = `${this.apiUrl}/send`;
-  private readonly GET_MESSAGES_URL = `${this.apiUrl}`;
   private readonly UPLOAD_FILE_MESSAGE_URL = `${this.apiUrl}/upload`;
 
-  // flags
+  // state management for all messages
   messageOffset = signal<number>(0);
   messageLimit = signal<number>(20);
   hasMoreMessages = linkedSignal<boolean>(() => {
     const totalCount = this.activeMessagesResource.value()?.totalCount;
+    if (totalCount === undefined) {
+      return false;
+    }
+
+    return this.messageOffset() + this.messageLimit() <= totalCount;
+  });
+
+  // state management for media messages
+  mediaMessageOffset = signal<number>(0);
+  mediaMessageLimit = signal<number>(20);
+  hasMoreMediaMessages = linkedSignal<boolean>(() => {
+    const totalCount = this.activeMediaMessagesResource.value()?.totalCount;
+    if (totalCount === undefined) {
+      return false;
+    }
+
+    return this.messageOffset() + this.messageLimit() <= totalCount;
+  });
+
+  // state management for file messages
+  fileMessageOffset = signal<number>(0);
+  fileMessageLimit = signal<number>(20);
+  hasMoreFileMessages = linkedSignal<boolean>(() => {
+    const totalCount = this.activeFileMessagesResource.value()?.totalCount;
     if (totalCount === undefined) {
       return false;
     }
@@ -95,6 +118,108 @@ export class MessageService {
     this.#totalMessagesCount
   );
 
+  #activeMediaMessages = linkedSignal<MessageListI, MessageI[]>({
+    source: () =>
+      this.activeMediaMessagesResource.value() || {
+        messages: [],
+        totalCount: 0,
+      },
+    computation: (newResource, previous) => {
+      const conversation = this.conversationService.activeConversation();
+      const previousMessages = previous?.value ?? [];
+
+      if (!conversation || !conversation._id || !newResource) {
+        return [];
+      }
+
+      const isInitialLoad = previousMessages.length === 0;
+      const isDifferentConversation =
+        !isInitialLoad &&
+        previousMessages[0]?.conversation !== conversation._id;
+
+      if (isInitialLoad || isDifferentConversation) {
+        return newResource.messages;
+      } else {
+        const messageMap = new Map<string, MessageI>();
+        previousMessages.forEach((msg) =>
+          msg._id ? messageMap.set(msg._id, msg) : ''
+        );
+        newResource.messages.forEach((msg) =>
+          msg._id ? messageMap.set(msg._id, msg) : ''
+        );
+
+        const messages = Array.from(messageMap.values());
+
+        return messages;
+      }
+    },
+  });
+
+  activeMediaMessages: Signal<MessageI[]> = computed<MessageI[]>(
+    this.#activeMediaMessages
+  );
+
+  #totalMediaMessagesCount: WritableSignal<number> = linkedSignal<number>(
+    () => {
+      const totalCount = this.activeMediaMessagesResource.value()?.totalCount;
+
+      return totalCount || 0;
+    }
+  );
+  totalMediaMessagesCount: Signal<number> = computed<number>(
+    this.#totalMediaMessagesCount
+  );
+
+  #activeFileMessages = linkedSignal<MessageListI, MessageI[]>({
+    source: () =>
+      this.activeFileMessagesResource.value() || {
+        messages: [],
+        totalCount: 0,
+      },
+    computation: (newResource, previous) => {
+      const conversation = this.conversationService.activeConversation();
+      const previousMessages = previous?.value ?? [];
+
+      if (!conversation || !conversation._id || !newResource) {
+        return [];
+      }
+
+      const isInitialLoad = previousMessages.length === 0;
+      const isDifferentConversation =
+        !isInitialLoad &&
+        previousMessages[0]?.conversation !== conversation._id;
+
+      if (isInitialLoad || isDifferentConversation) {
+        return newResource.messages;
+      } else {
+        const messageMap = new Map<string, MessageI>();
+        previousMessages.forEach((msg) =>
+          msg._id ? messageMap.set(msg._id, msg) : ''
+        );
+        newResource.messages.forEach((msg) =>
+          msg._id ? messageMap.set(msg._id, msg) : ''
+        );
+
+        const messages = Array.from(messageMap.values());
+
+        return messages;
+      }
+    },
+  });
+
+  activeFileMessages: Signal<MessageI[]> = computed<MessageI[]>(
+    this.#activeFileMessages
+  );
+
+  #totalFileMessagesCount: WritableSignal<number> = linkedSignal<number>(() => {
+    const totalCount = this.activeFileMessagesResource.value()?.totalCount;
+
+    return totalCount || 0;
+  });
+  totalFileMessagesCount: Signal<number> = computed<number>(
+    this.#totalFileMessagesCount
+  );
+
   sendMessage(
     message: MessageI,
     participants: Partial<ParticipantI>[],
@@ -119,8 +244,32 @@ export class MessageService {
     }
 
     const url = `${
-      this.GET_MESSAGES_URL
+      this.apiUrl
     }/${conversationId}/messages?offset=${this.messageOffset()}&limit=${this.messageLimit()}`;
+    return url;
+  });
+
+  activeMediaMessagesResource = httpResource<MessageListI>(() => {
+    const conversationId = this.conversationService.selectedConversationId();
+    if (!conversationId) {
+      return;
+    }
+
+    const url = `${
+      this.apiUrl
+    }/${conversationId}/media?offset=${this.messageOffset()}&limit=${this.messageLimit()}`;
+    return url;
+  });
+
+  activeFileMessagesResource = httpResource<MessageListI>(() => {
+    const conversationId = this.conversationService.selectedConversationId();
+    if (!conversationId) {
+      return;
+    }
+
+    const url = `${
+      this.apiUrl
+    }/${conversationId}/files?offset=${this.messageOffset()}&limit=${this.messageLimit()}`;
     return url;
   });
 
