@@ -58,6 +58,8 @@ import {
 } from '@angular/forms';
 import { ImageCropperComponent } from 'ngx-smart-cropper';
 import { base64ToFile } from '../../../shared/functions/base64-to-file.function';
+import { MessageService } from '../services/message.service';
+import { HlmSpinnerComponent } from '@spartan-ng/helm/spinner';
 
 @Component({
   selector: 'app-chatbox-settings',
@@ -75,6 +77,7 @@ import { base64ToFile } from '../../../shared/functions/base64-to-file.function'
     HlmMenuSeparatorComponent,
     HlmAvatarComponent,
     ImageCropperComponent,
+    HlmSpinnerComponent,
   ],
   providers: [
     provideIcons({
@@ -96,6 +99,7 @@ export class ChatboxSettingsComponent implements OnDestroy {
   conversation = input<ConversationI>();
   private conversationService = inject(ConversationService);
   private userService = inject(UserService);
+  private messageService = inject(MessageService);
   private navCtrl = inject(NavController);
   private fb = inject(FormBuilder);
 
