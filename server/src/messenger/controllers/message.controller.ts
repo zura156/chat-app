@@ -70,7 +70,7 @@ export class MessageController {
     }
 
     try {
-      const result = this.messageService.getMediaMessages(
+      const result = await this.messageService.getMediaMessages(
         conversationId,
         limit,
         offset
@@ -102,7 +102,7 @@ export class MessageController {
     }
 
     try {
-      const result = this.messageService.getFileMessages(
+      const result = await this.messageService.getFileMessages(
         conversationId,
         limit,
         offset

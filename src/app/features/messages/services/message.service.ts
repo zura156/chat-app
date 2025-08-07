@@ -1,6 +1,5 @@
 import {
   computed,
-  effect,
   inject,
   Injectable,
   linkedSignal,
@@ -55,7 +54,7 @@ export class MessageService {
       return false;
     }
 
-    return this.messageOffset() + this.messageLimit() <= totalCount;
+    return this.mediaMessageOffset() + this.mediaMessageLimit() <= totalCount;
   });
 
   // state management for file messages
@@ -67,7 +66,7 @@ export class MessageService {
       return false;
     }
 
-    return this.messageOffset() + this.messageLimit() <= totalCount;
+    return this.fileMessageOffset() + this.fileMessageLimit() <= totalCount;
   });
 
   // signals for message management
@@ -220,6 +219,10 @@ export class MessageService {
     this.#totalFileMessagesCount
   );
 
+  // Control signals for on-demand fetching
+  private shouldFetchMediaMessages = signal<boolean>(false);
+  private shouldFetchFileMessages = signal<boolean>(false);
+
   sendMessage(
     message: MessageI,
     participants: Partial<ParticipantI>[],
@@ -251,7 +254,9 @@ export class MessageService {
 
   activeMediaMessagesResource = httpResource<MessageListI>(() => {
     const conversationId = this.conversationService.selectedConversationId();
-    if (!conversationId) {
+    const shouldFetch = this.shouldFetchMediaMessages();
+
+    if (!conversationId || !shouldFetch) {
       return;
     }
 
@@ -263,7 +268,8 @@ export class MessageService {
 
   activeFileMessagesResource = httpResource<MessageListI>(() => {
     const conversationId = this.conversationService.selectedConversationId();
-    if (!conversationId) {
+    const shouldFetch = this.shouldFetchFileMessages();
+    if (!conversationId || !shouldFetch) {
       return;
     }
 
@@ -272,6 +278,46 @@ export class MessageService {
     }/${conversationId}/files?offset=${this.messageOffset()}&limit=${this.messageLimit()}`;
     return url;
   });
+
+  // Public methods to trigger media/file message fetching from components
+  fetchMediaMessages(): void {
+    this.shouldFetchMediaMessages.set(true);
+  }
+
+  fetchFileMessages(): void {
+    this.shouldFetchFileMessages.set(true);
+  }
+
+  // Method to load more media messages
+  loadMoreMediaMessages(): void {
+    if (this.hasMoreMediaMessages()) {
+      this.mediaMessageOffset.update(
+        (offset) => offset + this.mediaMessageLimit()
+      );
+    }
+  }
+
+  // Method to load more file messages
+  loadMoreFileMessages(): void {
+    if (this.hasMoreFileMessages()) {
+      this.fileMessageOffset.update(
+        (offset) => offset + this.fileMessageLimit()
+      );
+    }
+  }
+
+  // Methods to reset fetching state (useful when changing conversations)
+  resetMediaMessagesFetch(): void {
+    this.shouldFetchMediaMessages.set(false);
+    this.mediaMessageOffset.set(0);
+    this.#activeMediaMessages.set([]);
+  }
+
+  resetFileMessagesFetch(): void {
+    this.shouldFetchFileMessages.set(false);
+    this.fileMessageOffset.set(0);
+    this.#activeFileMessages.set([]);
+  }
 
   markMessageAsRead(lastMessageId: string) {
     if (!lastMessageId) return;

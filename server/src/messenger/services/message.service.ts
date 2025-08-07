@@ -35,8 +35,7 @@ export class MessageService {
         .sort({ timestamp: -1 })
         .skip(offset)
         .limit(limit)
-        .populate('sender', 'username profile_picture'), // Preserved your populate logic
-
+        .populate('sender', 'username profile_picture'),
       Message.countDocuments({ conversation: conversationId }),
     ]);
     return { messages, totalCount };
@@ -60,10 +59,10 @@ export class MessageService {
         .sort({ timestamp: -1 })
         .skip(offset)
         .limit(limit)
-        .populate('sender', 'username profile_picture'), // Preserved your populate logic
-
-      Message.countDocuments({ conversation: conversationId }),
+        .populate('sender', 'username profile_picture'),
+      Message.countDocuments(query),
     ]);
+
     return { messages, totalCount };
   }
   public async getFileMessages(
@@ -84,9 +83,9 @@ export class MessageService {
         .skip(offset)
         .limit(limit)
         .populate('sender', 'username profile_picture'),
-
-      Message.countDocuments({ conversation: conversationId }),
+      Message.countDocuments(query),
     ]);
+
     return { messages, totalCount };
   }
 
