@@ -224,14 +224,24 @@
                     </button>
                     
                     @if(isOpen('media-files')) {
-                        <div
-                            [attr.data-state]="isOpen('media-files')"
-                            class="relative w-full rounded-lg glass-card p-6 shadow-lg max-h-[95vh] overflow-hidden animate-duration-200 data-[state=true]:animate-in data-[state=true]:fade-in-0 data-[state=true]:zoom-in-95 data-[state=true]:slide-in-from-top-[2%]"
-                            >
-                            <h1>
-                                <!-- (gotta add tabs here) -->
-                            </h1>
-                        </div>
+                        
+                        <hlm-tabs tab="media" class="w-full">
+
+                            <hlm-tabs-list aria-label="tabs example">
+                                <button hlmTabsTrigger="media">Media</button>
+                                <button hlmTabsTrigger="files">Files</button>
+                            </hlm-tabs-list>
+                            <div hlmTabsContent="media">
+                                <h1>
+                                    Media    
+                                </h1>
+                            </div>
+                            <div hlmTabsContent="files">
+                                <h1>
+                                    Files    
+                                </h1>
+                            </div>
+                        </hlm-tabs>
                     }
                 </div>
             </section>

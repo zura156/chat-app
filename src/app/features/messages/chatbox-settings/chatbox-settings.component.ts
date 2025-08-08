@@ -60,11 +60,13 @@ import { ImageCropperComponent } from 'ngx-smart-cropper';
 import { base64ToFile } from '../../../shared/functions/base64-to-file.function';
 import { MessageService } from '../services/message.service';
 import { HlmSpinnerComponent } from '@spartan-ng/helm/spinner';
+import { HlmTabsImports } from '@spartan-ng/helm/tabs';
 
 @Component({
   selector: 'app-chatbox-settings',
   imports: [
     NgIcon,
+    HlmTabsImports,
     ReactiveFormsModule,
     HlmIconDirective,
     HlmAvatarImageDirective,
