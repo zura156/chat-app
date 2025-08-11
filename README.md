@@ -1,4 +1,4 @@
-# Angular 19 & Express Chat Application
+# Angular & Express Chat Application
 
 A real-time chat application built with Angular 19 frontend and Express.js backend.
 
