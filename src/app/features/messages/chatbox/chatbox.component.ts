@@ -498,7 +498,7 @@ export class ChatboxComponent implements OnInit, OnDestroy {
           }
         },
         {
-          threshold: 0.1, // 10% of the element must be visible to trigger
+          threshold: 0.01,
         }
       );
 

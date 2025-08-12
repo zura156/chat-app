@@ -37,11 +37,10 @@ export class MessageService {
   messageOffset = signal<number>(0);
   messageLimit = signal<number>(20);
   hasMoreMessages = linkedSignal<boolean>(() => {
-    const totalCount = this.activeMessagesResource.value()?.totalCount;
+    const totalCount = this.totalMessagesCount();
     if (totalCount === undefined) {
       return false;
     }
-
     return this.messageOffset() + this.messageLimit() <= totalCount;
   });
 
