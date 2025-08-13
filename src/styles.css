@@ -35,6 +35,7 @@
   --input: 240 5.9% 90%;
   --ring: 240 5.9% 10%;
   --radius: 0.5rem;
+  --gradient: linear-gradient(135deg, hsl(240 5.9% 10%), hsl(240 4.8% 95.9%));
   color-scheme: light;
 }
 
@@ -49,7 +50,7 @@
   --primary-foreground: 240 5.9% 10%;
   --secondary: 240 3.7% 15.9%;
   --secondary-foreground: 0 0% 98%;
-  --muted: 240 3.7% 15.9%;
+  --muted: 240 3.7% 10%;
   --muted-foreground: 240 5% 64.9%;
   --accent: 240 3.7% 15.9%;
   --accent-foreground: 0 0% 98%;
@@ -58,6 +59,7 @@
   --border: 240 3.7% 15.9%;
   --input: 240 3.7% 15.9%;
   --ring: 240 4.9% 83.9%;
+  --gradient: linear-gradient(135deg, hsl(240 10% 3.9%), hsl(240 3.7% 15.9%));
   color-scheme: dark;
 }
 

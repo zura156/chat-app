@@ -224,14 +224,30 @@
                     </button>
                     
                     @if(isOpen('media-files')) {
-                        
-                        <hlm-tabs tab="media" class="w-full">
-                            <hlm-tabs-list aria-label="tabs example">
-                                <button hlmTabsTrigger="media">Media</button>
-                                <button hlmTabsTrigger="files">Files</button>
+                        <hlm-tabs
+                            (tabActivated)="$event === 'media' ? fetchMedia() : $event === 'files' ? fetchFiles() : ''"
+                            [tab]="'media'" 
+                            [attr.data-state]="isOpen('media-files')"
+                            class="w-full border border-border rounded-lg mt-2 p-2 data-[state=true]:animate-in data-[state=true]:fade-in-0 data-[state=true]:zoom-in-95 data-[state=true]:slide-in-from-top-[2%]"
+                            >
+                            <hlm-tabs-list aria-label="media & files" class="w-full">
+                                <button hlmTabsTrigger="media" (select)="fetchMedia()" class="cursor-pointer">Media</button>
+                                <button hlmTabsTrigger="files" (select)="fetchFiles()" class="cursor-pointer">Files</button>
                             </hlm-tabs-list>
-                            <div hlmTabsContent="media">
-
+                            <div hlmTabsContent="media" class="flex flex-wrap max-h-96 overflow-y-auto"> 
+                                @for(message of mediaMessages(); track message._id) {
+                                    <div class="w-1/3 p-0.5">
+                                        <img [src]="apiUrl + message.file?.url" [alt]="message.content">
+                                    </div>
+                                }
+                                @if(mediaMessagesResource.isLoading()) {
+                                    <div class="w-full mx-auto items-center justify-center my-2 flex flex-col">
+                                        <hlm-spinner />
+                                        <span>
+                                            Loading media...
+                                        </span>
+                                    </div>
+                                }
                             </div>
                             <div hlmTabsContent="files">
 

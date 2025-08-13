@@ -107,6 +107,12 @@ export class ChatboxSettingsComponent implements OnDestroy {
 
   readonly apiUrl = environment.apiUrl;
 
+  mediaMessages = this.messageService.activeMediaMessages;
+  mediaMessagesResource = this.messageService.activeMediaMessagesResource;
+
+  fileMessages = this.messageService.activeFileMessages;
+  fileMessagesResource = this.messageService.activeFileMessagesResource;
+
   dropdownMenuStates: { [key: string]: boolean } = {
     chatInfo: false,
     members: false,
@@ -132,6 +138,18 @@ export class ChatboxSettingsComponent implements OnDestroy {
 
   toggleDropdown(menu: string): void {
     this.dropdownMenuStates[menu] = !this.dropdownMenuStates[menu];
+
+    if (menu === 'media-files' && this.mediaMessages().length === 0) {
+      this.messageService.fetchMediaMessages();
+    }
+  }
+
+  fetchMedia(): void {
+    this.messageService.fetchMediaMessages();
+  }
+
+  fetchFiles(): void {
+    this.messageService.fetchFileMessages();
   }
 
   toggleUserMenu(index: number): void {
