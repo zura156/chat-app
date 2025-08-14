@@ -7,7 +7,7 @@ import {
 } from '@angular/core';
 import { UserI } from '../../user/interfaces/user.interface';
 import { MessageI } from '../interfaces/message.interface';
-import { DatePipe, NgClass, TitleCasePipe } from '@angular/common';
+import { DatePipe, NgClass, NgStyle, TitleCasePipe } from '@angular/common';
 import { HlmCardDirective } from '@spartan-ng/helm/card';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import {
@@ -42,6 +42,7 @@ import { AudioPlayerComponent } from '../../../shared/components/audio-player/au
     TitleCasePipe,
     TimeAgoPipe,
     NgClass,
+    NgStyle,
     NgIcon,
     DatePipe,
     FileSizePipe,

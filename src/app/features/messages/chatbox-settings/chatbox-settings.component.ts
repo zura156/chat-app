@@ -61,6 +61,7 @@ import { base64ToFile } from '../../../shared/functions/base64-to-file.function'
 import { MessageService } from '../services/message.service';
 import { HlmSpinnerComponent } from '@spartan-ng/helm/spinner';
 import { HlmTabsImports } from '@spartan-ng/helm/tabs';
+import { MediaFilesListComponent } from '../media-files-list/media-files-list.component';
 
 @Component({
   selector: 'app-chatbox-settings',
@@ -80,6 +81,7 @@ import { HlmTabsImports } from '@spartan-ng/helm/tabs';
     HlmAvatarComponent,
     ImageCropperComponent,
     HlmSpinnerComponent,
+    MediaFilesListComponent,
   ],
   providers: [
     provideIcons({
@@ -101,17 +103,10 @@ export class ChatboxSettingsComponent implements OnDestroy {
   conversation = input<ConversationI>();
   private conversationService = inject(ConversationService);
   private userService = inject(UserService);
-  private messageService = inject(MessageService);
   private navCtrl = inject(NavController);
   private fb = inject(FormBuilder);
 
   readonly apiUrl = environment.apiUrl;
-
-  mediaMessages = this.messageService.activeMediaMessages;
-  mediaMessagesResource = this.messageService.activeMediaMessagesResource;
-
-  fileMessages = this.messageService.activeFileMessages;
-  fileMessagesResource = this.messageService.activeFileMessagesResource;
 
   dropdownMenuStates: { [key: string]: boolean } = {
     chatInfo: false,
@@ -138,18 +133,6 @@ export class ChatboxSettingsComponent implements OnDestroy {
 
   toggleDropdown(menu: string): void {
     this.dropdownMenuStates[menu] = !this.dropdownMenuStates[menu];
-
-    if (menu === 'media-files' && this.mediaMessages().length === 0) {
-      this.messageService.fetchMediaMessages();
-    }
-  }
-
-  fetchMedia(): void {
-    this.messageService.fetchMediaMessages();
-  }
-
-  fetchFiles(): void {
-    this.messageService.fetchFileMessages();
   }
 
   toggleUserMenu(index: number): void {

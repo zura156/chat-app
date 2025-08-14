@@ -138,7 +138,7 @@ export class ChatboxComponent implements OnInit, OnDestroy {
   conversation: Signal<ConversationI | null> = signal<ConversationI | null>(
     null
   );
-  private previousConversationId: string | undefined = undefined;
+  private previousConversationId = this.messageService.previousConversationId;
 
   groupImageUrl = linkedSignal<string | null>(() => {
     const currentConversation = this.conversation();
@@ -239,13 +239,21 @@ export class ChatboxComponent implements OnInit, OnDestroy {
       const isLoading = this.messagesResource.isLoading();
 
       const conversationChanged =
-        this.previousConversationId !== undefined &&
-        this.previousConversationId !== currentId;
+        this.previousConversationId() !== undefined &&
+        this.previousConversationId() !== currentId;
 
       const messagesAvailable = messages && !isLoading;
 
       if (
-        (conversationChanged || this.previousConversationId === undefined) &&
+        this.previousConversationId() &&
+        this.previousConversationId() !== currentId
+      ) {
+        this.messageService.resetMediaMessagesFetch();
+        this.messageService.resetFileMessagesFetch();
+      }
+
+      if (
+        (conversationChanged || this.previousConversationId() === undefined) &&
         messagesAvailable &&
         currentId
       ) {
@@ -253,7 +261,7 @@ export class ChatboxComponent implements OnInit, OnDestroy {
         if (lastMessageId) {
           this.markMessageAsRead(lastMessageId);
         }
-        this.previousConversationId = currentId;
+        this.previousConversationId.set(currentId);
       }
     });
   }

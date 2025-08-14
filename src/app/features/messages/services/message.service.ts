@@ -33,6 +33,8 @@ export class MessageService {
   // private readonly SEND_MESSAGE_URL = `${this.apiUrl}/send`;
   private readonly UPLOAD_FILE_MESSAGE_URL = `${this.apiUrl}/upload`;
 
+  previousConversationId = signal<string | null>(null);
+
   // state management for all messages
   messageOffset = signal<number>(0);
   messageLimit = signal<number>(20);
@@ -259,6 +261,11 @@ export class MessageService {
       return;
     }
 
+    const prevId = this.previousConversationId();
+    if (prevId && prevId !== conversationId) {
+      return;
+    }
+
     const url = `${
       this.apiUrl
     }/${conversationId}/media?offset=${this.messageOffset()}&limit=${this.messageLimit()}`;
@@ -268,7 +275,13 @@ export class MessageService {
   activeFileMessagesResource = httpResource<MessageListI>(() => {
     const conversationId = this.conversationService.selectedConversationId();
     const shouldFetch = this.shouldFetchFileMessages();
+
     if (!conversationId || !shouldFetch) {
+      return;
+    }
+
+    const prevId = this.previousConversationId();
+    if (prevId && prevId !== conversationId) {
       return;
     }
 
