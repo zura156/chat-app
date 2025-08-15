@@ -268,7 +268,7 @@ export class MessageService {
 
     const url = `${
       this.apiUrl
-    }/${conversationId}/media?offset=${this.messageOffset()}&limit=${this.messageLimit()}`;
+    }/${conversationId}/media?offset=${this.mediaMessageOffset()}&limit=${this.mediaMessageLimit()}`;
     return url;
   });
 
@@ -287,7 +287,7 @@ export class MessageService {
 
     const url = `${
       this.apiUrl
-    }/${conversationId}/files?offset=${this.messageOffset()}&limit=${this.messageLimit()}`;
+    }/${conversationId}/files?offset=${this.fileMessageOffset()}&limit=${this.fileMessageLimit()}`;
     return url;
   });
 
