@@ -7,6 +7,7 @@ import {
   input,
   linkedSignal,
   OnDestroy,
+  output,
   signal,
   viewChild,
 } from '@angular/core';
@@ -65,8 +66,9 @@ import { VideoActionsT } from '../../interfaces/video-actions.interface';
   templateUrl: './video-player.component.html',
 })
 export class VideoPlayerComponent implements OnDestroy {
-  video = input.required<FileI>();
+  video = input.required<Partial<FileI>>();
   size = input<MediaPlayerSizesT>('sm');
+  loaded = output<void>()
 
   videoPlayer = viewChild<ElementRef<HTMLMediaElement>>('videoPlayer');
   playerContainer = viewChild<ElementRef<HTMLDivElement>>('playerContainer');

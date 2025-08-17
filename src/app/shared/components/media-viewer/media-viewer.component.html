@@ -1,0 +1,244 @@
+<div class="fixed inset-0 bg-black/95 z-50 flex flex-col">
+  <!-- Header with controls -->
+  <div
+    class="absolute top-0 left-0 right-0 z-10 bg-gradient-to-b from-black/70 to-transparent"
+  >
+    <div class="flex items-center justify-between p-4">
+      <!-- Media info -->
+      <div class="flex items-center gap-3 text-white">
+        <span class="text-sm opacity-75">
+          {{ currentMedia.name || "Media" }}
+        </span>
+        @if(config.enableGallery) {
+        <span class="text-xs opacity-50">
+          {{ currentIndex + 1 }} of {{ mediaMessages.length }}
+        </span>
+        }
+      </div>
+
+      <!-- Action buttons -->
+      <div class="flex items-center gap-2">
+        @if(config.allowDownload){
+        <button
+          (click)="downloadMedia()"
+          class="p-2 rounded-lg bg-white/10 hover:bg-white/20 text-white transition-colors"
+          title="Download"
+        >
+          <svg
+            class="w-5 h-5"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              stroke-width="2"
+              d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"
+            />
+          </svg>
+        </button>
+        }
+
+        <button
+          (click)="closeViewer()"
+          class="p-2 rounded-lg bg-white/10 hover:bg-white/20 text-white transition-colors"
+          title="Close"
+        >
+          <svg
+            class="w-5 h-5"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              stroke-width="2"
+              d="M6 18L18 6M6 6l12 12"
+            />
+          </svg>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Main media display area -->
+  <div class="flex-1 flex items-center justify-center relative overflow-hidden">
+    <!-- Navigation arrows (only show if gallery enabled and multiple items) -->
+    @if(config.enableGallery && canNavigatePrevious()) {
+    <button
+      (click)="navigateToMedia(currentIndex - 1)"
+      class="absolute left-4 z-10 p-3 rounded-full bg-black/50 hover:bg-black/70 text-white transition-colors"
+      title="Previous media"
+    >
+      <svg
+        class="w-6 h-6"
+        fill="none"
+        stroke="currentColor"
+        viewBox="0 0 24 24"
+      >
+        <path
+          stroke-linecap="round"
+          stroke-linejoin="round"
+          stroke-width="2"
+          d="M15 19l-7-7 7-7"
+        />
+      </svg>
+    </button>
+    }
+
+    <!-- Media content -->
+    <div class="max-w-full max-h-full flex items-center justify-center p-4">
+      <!-- Loading state -->
+      @if(isLoading) {
+      <div class="flex items-center justify-center text-white">
+        <div
+          class="animate-spin rounded-full h-12 w-12 border-b-2 border-white"
+        ></div>
+      </div>
+      }
+
+      <!-- Image -->
+      @if(currentMedia.type === 'image') {
+      <img
+        [src]="apiUrl + currentMedia.url"
+        [alt]="currentMedia.name || 'Image'"
+        (load)="onMediaLoad()"
+        (error)="onMediaError()"
+        class="max-w-full max-h-full object-contain cursor-zoom-in"
+        [class.cursor-zoom-out]="isZoomed"
+        [style.transform]="getImageTransform()"
+        (click)="toggleZoom()"
+        #mediaElement
+      />
+      }
+
+      <!-- Video -->
+      @if(currentMedia.type === 'video') {
+
+      <app-video-player [video]="currentMedia" (loaded)="onMediaLoad()"/>
+
+      }
+
+      <!-- Audio -->
+      @if (currentMedia.type === 'audio') {
+
+      <div class="flex flex-col items-center gap-4 text-white">
+        <div class="p-8 rounded-full bg-white/10">
+          <svg class="w-16 h-16" fill="currentColor" viewBox="0 0 24 24">
+            <path
+              d="M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z"
+            />
+          </svg>
+        </div>
+        <audio
+          [src]="apiUrl + currentMedia.url"
+          (loadeddata)="onMediaLoad()"
+          (error)="onMediaError()"
+          controls
+          [autoplay]="config.autoPlay"
+          class="w-80 max-w-full"
+        ></audio>
+      </div>
+      }
+
+      <!-- Error state -->
+      @if(hasError) {
+
+      <div class="flex flex-col items-center gap-4 text-white">
+        <svg
+          class="w-16 h-16 text-red-400"
+          fill="none"
+          stroke="currentColor"
+          viewBox="0 0 24 24"
+        >
+          <path
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            stroke-width="2"
+            d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.082 16.5c-.77.833.192 2.5 1.732 2.5z"
+          />
+        </svg>
+        <p>Failed to load media</p>
+      </div>
+      }
+    </div>
+
+    <!-- Next arrow -->
+    @if(config.enableGallery && canNavigateNext()) {
+
+    <button
+      (click)="navigateToMedia(currentIndex + 1)"
+      class="absolute right-4 z-10 p-3 rounded-full bg-black/50 hover:bg-black/70 text-white transition-colors"
+      title="Next media"
+    >
+      <svg
+        class="w-6 h-6"
+        fill="none"
+        stroke="currentColor"
+        viewBox="0 0 24 24"
+      >
+        <path
+          stroke-linecap="round"
+          stroke-linejoin="round"
+          stroke-width="2"
+          d="M9 5l7 7-7 7"
+        />
+      </svg>
+    </button>
+    }
+  </div>
+
+  <!-- Thumbnail strip (bottom) -->
+  @if(config.enableGallery && config.showThumbnails && mediaMessages.length > 1)
+  {
+  <div
+    class="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/70 to-transparent"
+  >
+    <div class="p-4">
+      <div class="flex gap-2 py-2 justify-center overflow-x-auto scrollbar-hide">
+        @for(media of mediaMessages; let i = $index; track media._id) {
+
+        <button
+          (click)="navigateToMedia(i)"
+          [class.ring-2]="i === currentIndex"
+          [class.ring-white]="i === currentIndex"
+          class="flex-shrink-0 w-16 h-16 rounded-lg overflow-hidden bg-white/10 hover:bg-white/20 transition-colors"
+        >
+          @if(media.type === 'image'){
+
+          <img
+            [src]="apiUrl + media.url"
+            [alt]="media.name || 'Thumbnail'"
+            class="w-full h-full object-cover"
+          />
+          } @if(media.type === 'video') {
+
+          <div
+            class="w-full h-full flex items-center relative justify-center text-white"
+          >
+            <video [src]="apiUrl + media.url" class="cover"></video>
+            <svg class="w-6 h-6 z-10 absolute bg-secondary rounded-md fill-primary" viewBox="0 0 24 24">
+              <path d="M8 5v14l11-7z" />
+            </svg>
+          </div>
+          } @if(media.type === 'audio') {
+
+          <div
+            class="w-full h-full flex items-center justify-center text-white"
+          >
+            <svg class="w-6 h-6" fill="currentColor" viewBox="0 0 24 24">
+              <path
+                d="M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z"
+              />
+            </svg>
+          </div>
+          }
+        </button>
+        }
+      </div>
+    </div>
+  </div>
+  }
+</div>

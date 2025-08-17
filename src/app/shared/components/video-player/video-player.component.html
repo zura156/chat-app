@@ -18,7 +18,7 @@
     [src]="`${apiUrl}${video.url}`"
     [volume]="volume()"
     (timeupdate)="onTimeUpdate(videoPlayer)"
-    (loadeddata)="duration.set(videoPlayer.duration)"
+    (loadeddata)="duration.set(videoPlayer.duration); loaded.emit()"
   >
   </video>
 

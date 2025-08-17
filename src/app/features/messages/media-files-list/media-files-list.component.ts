@@ -4,6 +4,11 @@ import { HlmTabsImports } from '@spartan-ng/helm/tabs';
 import { MessageService } from '../services/message.service';
 import { environment } from '../../../../environments/environment';
 import { NgStyle } from '@angular/common';
+import {
+  MediaItem,
+  MediaViewerService,
+} from '../../../shared/services/media-viewer.service';
+import { MessageI } from '../interfaces/message.interface';
 
 @Component({
   selector: 'app-media-files-list',
@@ -12,6 +17,7 @@ import { NgStyle } from '@angular/common';
 })
 export class MediaFilesListComponent implements OnInit {
   private messageService = inject(MessageService);
+  private mediaViewerService = inject(MediaViewerService);
 
   apiUrl = environment.apiUrl;
 
@@ -31,5 +37,30 @@ export class MediaFilesListComponent implements OnInit {
 
   fetchFiles(): void {
     this.messageService.fetchFileMessages();
+  }
+
+  openMedia(message: MessageI, index: number) {
+    // You can decide based on user preferences or context
+    const enableGallery = this.shouldEnableGallery();
+
+    const media: MediaItem = {
+      _id: String(message._id),
+      type: message.type as 'image' | 'video' | 'audio',
+      url: String(message.file?.url),
+      size: message.file?.size_in_bytes,
+    };
+
+    this.mediaViewerService.openMedia(media, {
+      enableGallery,
+      showThumbnails: enableGallery,
+      allowDownload: true,
+      autoPlay: false,
+    });
+  }
+
+  private shouldEnableGallery(): boolean {
+    return (
+      this.mediaViewerService['messageService'].activeMediaMessages().length > 3
+    );
   }
 }
