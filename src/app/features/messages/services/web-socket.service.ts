@@ -2,6 +2,8 @@ import { Injectable } from '@angular/core';
 import { webSocket, WebSocketSubject } from 'rxjs/webSocket';
 import { environment } from '../../../../environments/environment';
 import { WebSocketMessageT } from '../interfaces/web-socket-message.interface';
+import { of } from 'rxjs';
+import { toast } from 'ngx-sonner';
 
 @Injectable({
   providedIn: 'root',
@@ -39,7 +41,16 @@ export class WebSocketService {
     }
   }
 
-  onMessage(): WebSocketSubject<WebSocketMessageT> | undefined {
+  onMessage(): WebSocketSubject<WebSocketMessageT> {
+    if (!this.socket$) {
+      toast.error('Failed to establish a connection with WebSocketServer.');
+      return new WebSocketSubject<WebSocketMessageT>(
+        of({
+          type: 'error',
+          message: 'Failed to establish a connection with WebSocketServer.',
+        })
+      );
+    }
     return this.socket$;
   }
 

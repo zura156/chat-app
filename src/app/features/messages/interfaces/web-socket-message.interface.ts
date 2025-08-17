@@ -7,6 +7,7 @@ type MessageContentType = 'text' | 'image' | 'audio' | 'video' | 'file';
 
 type WebSocketMessageType =
   | 'authenticate'
+  | 'error'
   | 'typing'
   | 'message'
   | 'conversation-update'
@@ -24,6 +25,11 @@ interface BaseWebSocketMessage {
 export interface AuthenticateMessage extends BaseWebSocketMessage {
   type: 'authenticate';
   user_id: string;
+}
+
+export interface ErrorMessage extends BaseWebSocketMessage {
+  type: 'error';
+  message: string;
 }
 
 export interface TypingMessage extends BaseWebSocketMessage {
@@ -80,6 +86,7 @@ export interface FileUploadMessage extends BaseWebSocketMessage {
 export type WebSocketMessageT =
   | ConversationUpdateMessage
   | AuthenticateMessage
+  | ErrorMessage
   | TypingMessage
   | ChatMessage
   | UserStatusMessage
