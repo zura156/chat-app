@@ -174,10 +174,19 @@ _Events do exist, but there are more events that must be added._
 ```
 PORT=3000
 WS_PORT=3001
-MONGO_URI=your_mongo_uri
-JWT_SECRET=your_jwt_secret
-JWT_EXPIRES_IN=1h
-JWT_REFRESH_EXPIRES_IN=7d
+MONGO_URI=your-mongo-uri
+COOKIE_SECRET=your-cookie-secret
+SESSION_SECRET=your-session-secret
+JWT_SECRET=your-jwt-secret
+JWT_REFRESH_SECRET=your-refresh-token-secret
+JWT_EXPIRES_IN=1hr
+
+# NODE MAILER CONFIG
+SMTP_HOST=your-host
+SMTP_PORT=your-port
+SMTP_USER=your-email-address
+SMTP_PASS=your-email-app-password
+CLIENT_URL=http://localhost:4200
 
 ```
 
