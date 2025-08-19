@@ -14,6 +14,7 @@ import {
 } from '../../services/media-viewer.service';
 import { VideoPlayerComponent } from '../video-player/video-player.component';
 import { HlmSpinnerComponent } from '@spartan-ng/helm/spinner';
+import { ModalStatesT } from '../../interfaces/modal-states.type';
 
 interface MediaViewerData {
   mediaMessages: MediaItem[];
@@ -42,6 +43,8 @@ interface MediaViewerData {
 export class MediaViewerComponent implements OnInit {
   private dialogRef = inject(DialogRef<MediaViewerComponent>);
   private data: MediaViewerData = inject(DIALOG_DATA);
+
+  state = signal<ModalStatesT>('open');
 
   apiUrl = environment.apiUrl;
 
@@ -109,14 +112,6 @@ export class MediaViewerComponent implements OnInit {
         event.preventDefault();
         this.togglePlayPause();
         break;
-    }
-  }
-
-  @HostListener('click', ['$event'])
-  handleBackdropClick(event: MouseEvent) {
-    // Close on backdrop click (but not on media click)
-    if (event.target === event.currentTarget) {
-      this.closeViewer();
     }
   }
 
@@ -228,7 +223,8 @@ export class MediaViewerComponent implements OnInit {
   }
 
   closeViewer() {
-    this.dialogRef.close();
+    this.state.set('closed');
+    setTimeout(() => this.dialogRef.close(), 100); // delay to allow animations
   }
 
   private preloadAdjacentMedia() {
