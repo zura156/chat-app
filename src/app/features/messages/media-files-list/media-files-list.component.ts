@@ -45,7 +45,7 @@ export class MediaFilesListComponent implements OnInit {
 
     const media: MediaItem = {
       _id: String(message._id),
-      type: message.type as 'image' | 'video' | 'audio',
+      type: message.type as 'image' | 'video',
       url: String(message.file?.url),
       size: message.file?.size_in_bytes,
     };

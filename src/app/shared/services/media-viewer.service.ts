@@ -6,7 +6,7 @@ import { MediaViewerComponent } from '../components/media-viewer/media-viewer.co
 export interface MediaItem {
   _id: string;
   url: string;
-  type: 'image' | 'video' | 'audio';
+  type: 'image' | 'video';
   name?: string;
   size?: number;
   timestamp?: Date;
@@ -39,7 +39,7 @@ export class MediaViewerService {
           .map(
             (el): MediaItem => ({
               _id: String(el._id),
-              type: el.type as 'image' | 'video' | 'audio',
+              type: el.type as 'image' | 'video',
               url: String(el.file?.url),
               size: el.file?.size_in_bytes,
             })

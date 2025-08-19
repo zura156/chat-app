@@ -3,9 +3,9 @@ import {
   inject,
   HostListener,
   OnInit,
-  OnDestroy,
+  signal,
+  ChangeDetectionStrategy,
 } from '@angular/core';
-import { CommonModule } from '@angular/common';
 import { DialogRef, DIALOG_DATA } from '@angular/cdk/dialog';
 import { environment } from '../../../../environments/environment';
 import {
@@ -13,6 +13,7 @@ import {
   MediaViewerConfig,
 } from '../../services/media-viewer.service';
 import { VideoPlayerComponent } from '../video-player/video-player.component';
+import { HlmSpinnerComponent } from '@spartan-ng/helm/spinner';
 
 interface MediaViewerData {
   mediaMessages: MediaItem[];
@@ -23,7 +24,7 @@ interface MediaViewerData {
 @Component({
   selector: 'app-media-viewer',
   standalone: true,
-  imports: [VideoPlayerComponent],
+  imports: [VideoPlayerComponent, HlmSpinnerComponent],
   templateUrl: './media-viewer.component.html',
   styles: [
     `
@@ -36,8 +37,9 @@ interface MediaViewerData {
       }
     `,
   ],
+  changeDetection: ChangeDetectionStrategy.OnPush,
 })
-export class MediaViewerComponent implements OnInit, OnDestroy {
+export class MediaViewerComponent implements OnInit {
   private dialogRef = inject(DialogRef<MediaViewerComponent>);
   private data: MediaViewerData = inject(DIALOG_DATA);
 
@@ -47,9 +49,14 @@ export class MediaViewerComponent implements OnInit, OnDestroy {
   currentIndex = this.data.currentIndex;
   config = this.data.config;
 
-  isLoading = true;
-  hasError = false;
-  isZoomed = false;
+  isLoading = signal<boolean>(true);
+  hasError = signal<boolean>(false);
+
+  private thumbnailStates = signal<
+    Record<number, { loading: boolean; error: boolean }>
+  >({});
+
+  isZoomed = signal<boolean>(false);
   zoomLevel = 1;
   panX = 0;
   panY = 0;
@@ -59,14 +66,27 @@ export class MediaViewerComponent implements OnInit, OnDestroy {
   }
 
   ngOnInit() {
-    // Preload adjacent media for smoother navigation
     if (this.config.enableGallery) {
       this.preloadAdjacentMedia();
     }
   }
 
-  ngOnDestroy() {
-    // Cleanup any ongoing operations
+  getThumbnailState(id: number) {
+    return this.thumbnailStates()[id] ?? { loading: false, error: false };
+  }
+
+  setThumbnailLoading(id: number, loading: boolean) {
+    this.thumbnailStates.update((states) => ({
+      ...states,
+      [id]: { ...this.getThumbnailState(id), loading },
+    }));
+  }
+
+  setThumbnailError(id: number, error: boolean) {
+    this.thumbnailStates.update((states) => ({
+      ...states,
+      [id]: { ...this.getThumbnailState(id), error },
+    }));
   }
 
   @HostListener('document:keydown', ['$event'])
@@ -104,8 +124,8 @@ export class MediaViewerComponent implements OnInit, OnDestroy {
     if (index >= 0 && index < this.mediaMessages.length) {
       this.currentIndex = index;
       this.resetZoom();
-      this.isLoading = true;
-      this.hasError = false;
+      this.isLoading.set(true);
+      this.hasError.set(false);
 
       // Preload adjacent media
       this.preloadAdjacentMedia();
@@ -134,10 +154,10 @@ export class MediaViewerComponent implements OnInit, OnDestroy {
 
   toggleZoom() {
     if (this.currentMedia.type === 'image') {
-      this.isZoomed = !this.isZoomed;
-      this.zoomLevel = this.isZoomed ? 2 : 1;
+      this.isZoomed.update((val) => !val);
+      this.zoomLevel = this.isZoomed() ? 2 : 1;
 
-      if (!this.isZoomed) {
+      if (!this.isZoomed()) {
         this.panX = 0;
         this.panY = 0;
       }
@@ -145,37 +165,55 @@ export class MediaViewerComponent implements OnInit, OnDestroy {
   }
 
   resetZoom() {
-    this.isZoomed = false;
+    this.isZoomed.set(false);
     this.zoomLevel = 1;
     this.panX = 0;
     this.panY = 0;
   }
 
   getImageTransform(): string {
-    if (this.isZoomed) {
+    if (this.isZoomed()) {
       return `scale(${this.zoomLevel}) translate(${this.panX}px, ${this.panY}px)`;
     }
     return 'scale(1) translate(0, 0)';
   }
 
   onMediaLoad() {
-    this.isLoading = false;
-    this.hasError = false;
+    this.isLoading.set(false);
+    this.hasError.set(false);
   }
 
   onMediaError() {
-    this.isLoading = false;
-    this.hasError = true;
+    this.isLoading.set(false);
+    this.hasError.set(true);
   }
 
-  downloadMedia() {
-    const link = document.createElement('a');
-    link.href = this.apiUrl + this.currentMedia.url;
-    link.download = this.currentMedia.name || `media-${this.currentMedia._id}`;
-    link.target = '_blank';
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+  async downloadMedia() {
+    try {
+      // Show loading state if needed
+      const response = await fetch(this.apiUrl + this.currentMedia.url);
+
+      if (!response.ok) {
+        throw new Error('Download failed');
+      }
+
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+
+      const link = document.createElement('a');
+      link.href = url;
+      link.download =
+        this.currentMedia.name || `media-${this.currentMedia._id}`;
+      document.body.appendChild(link);
+      link.click();
+
+      // Cleanup
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error('Download failed:', error);
+      // Show error message to user
+    }
   }
 
   togglePlayPause() {
