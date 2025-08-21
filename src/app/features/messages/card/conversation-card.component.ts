@@ -2,10 +2,7 @@ import { Component, inject, input, linkedSignal } from '@angular/core';
 import { ConversationI } from '../interfaces/conversation.interface';
 import { LayoutService } from '../layout/layout.service';
 import { HlmIconModule } from '../../../../../libs/ui/ui-icon-helm/src/index';
-import {
-  HlmAvatarComponent,
-  HlmAvatarImageDirective,
-} from '@spartan-ng/helm/avatar';
+import { HlmAvatarImports } from '@spartan-ng/helm/avatar';
 import { TimeAgoPipe } from '../../../shared/pipes/time-ago.pipe';
 import { environment } from '../../../../environments/environment';
 import { NavController } from '@ionic/angular/standalone';
@@ -13,12 +10,7 @@ import { UserStateService } from '../../user/services/user-state.service';
 
 @Component({
   selector: 'app-conversation-card',
-  imports: [
-    HlmIconModule,
-    HlmAvatarImageDirective,
-    HlmAvatarComponent,
-    TimeAgoPipe,
-  ],
+  imports: [HlmIconModule, HlmAvatarImports, TimeAgoPipe],
   templateUrl: './conversation-card.component.html',
 })
 export class ConversationCardComponent {

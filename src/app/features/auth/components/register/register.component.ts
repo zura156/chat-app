@@ -8,10 +8,10 @@ import {
 import { repeatPasswordValidator } from '../../validators/repeat-password.validator';
 import { AuthService } from '../../services/auth.service';
 import { RegisterCredentialsI } from '../../interfaces/register-credentials.interface';
-import { HlmButtonDirective } from '@spartan-ng/helm/button';
+import { HlmButton } from '@spartan-ng/helm/button';
 import { HlmFormFieldModule } from '@spartan-ng/helm/form-field';
-import { HlmInputDirective } from '@spartan-ng/helm/input';
-import { HlmIconDirective } from '@spartan-ng/helm/icon';
+import { HlmInput } from '@spartan-ng/helm/input';
+import { HlmIcon } from '@spartan-ng/helm/icon';
 import { NgIcon, provideIcons } from '@ng-icons/core';
 import {
   lucideCircleAlert,
@@ -19,11 +19,7 @@ import {
   lucideTriangleAlert,
 } from '@ng-icons/lucide';
 import { catchError, Subject, takeUntil, tap, throwError } from 'rxjs';
-import {
-  HlmAlertDescriptionDirective,
-  HlmAlertDirective,
-  HlmAlertIconDirective,
-} from '@spartan-ng/helm/alert';
+import { HlmAlertImports } from '@spartan-ng/helm/alert';
 import { passwordValidator } from '../../validators/password.validator';
 import { NavController } from '@ionic/angular/standalone';
 
@@ -32,13 +28,11 @@ import { NavController } from '@ionic/angular/standalone';
   imports: [
     ReactiveFormsModule,
     HlmFormFieldModule,
-    HlmInputDirective,
-    HlmButtonDirective,
-    HlmIconDirective,
+    HlmInput,
+    HlmButton,
+    HlmIcon,
     NgIcon,
-    HlmAlertDescriptionDirective,
-    HlmAlertDirective,
-    HlmAlertIconDirective,
+    HlmAlertImports,
   ],
   providers: [
     provideIcons({ lucideCircleAlert, lucideTriangleAlert, lucideLoader }),

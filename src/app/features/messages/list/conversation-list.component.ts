@@ -1,8 +1,4 @@
 import { Component, inject, signal } from '@angular/core';
-import { ConversationCardComponent } from '../card/conversation-card.component';
-import { HlmSeparatorDirective } from '@spartan-ng/helm/separator';
-import { BrnSeparatorComponent } from '@spartan-ng/brain/separator';
-import { HlmButtonDirective } from '@spartan-ng/helm/button';
 import { NgIcon, provideIcons } from '@ng-icons/core';
 import {
   lucideChevronLeft,
@@ -10,14 +6,9 @@ import {
   lucideMenu,
   lucidePencil,
 } from '@ng-icons/lucide';
-import { HlmIconDirective } from '@spartan-ng/helm/icon';
 import { ConversationService } from '../services/conversation.service';
-
 import { RouterLink } from '@angular/router';
-import { HlmInputDirective } from '@spartan-ng/helm/input';
-import { HlmBadgeDirective } from '@spartan-ng/helm/badge';
 import { UserService } from '../../user/services/user.service';
-import { UserCardComponent } from '../../user/components/card/user-card.component';
 import {
   catchError,
   combineLatest,
@@ -35,14 +26,9 @@ import {
 } from 'rxjs';
 import { FormControl, ReactiveFormsModule } from '@angular/forms';
 import { UserI } from '../../user/interfaces/user.interface';
-import {
-  HlmTabsComponent,
-  HlmTabsListComponent,
-  HlmTabsTriggerDirective,
-  HlmTabsContentDirective,
-} from '@spartan-ng/helm/tabs';
+import { HlmTabsImports } from '@spartan-ng/helm/tabs';
 import { LayoutService } from '../layout/layout.service';
-import { HlmSkeletonComponent } from '@spartan-ng/helm/skeleton';
+import { HlmSkeleton } from '@spartan-ng/helm/skeleton';
 import { ConversationListI } from '../interfaces/conversation-list.interface';
 import { UserListI } from '../../user/interfaces/user-list.interface';
 import { toObservable } from '@angular/core/rxjs-interop';
@@ -52,26 +38,31 @@ import { ConversationI } from '../interfaces/conversation.interface';
 import { ActiveViewType } from '../interfaces/active-view.type';
 import { NavController } from '@ionic/angular/standalone';
 import { HttpErrorResponse } from '@angular/common/http';
+import { HlmBadge } from '@spartan-ng/helm/badge';
+import { ConversationCardComponent } from '../card/conversation-card.component';
+import { HlmSeparator } from '@spartan-ng/helm/separator';
+import { BrnSeparator } from '@spartan-ng/brain/separator';
+import { HlmInput } from '@spartan-ng/helm/input';
+import { HlmButton } from '@spartan-ng/helm/button';
+import { UserCardComponent } from '../../user/components/card/user-card.component';
+import { HlmIcon } from '@spartan-ng/helm/icon';
 
 @Component({
   selector: 'app-conversation-list',
   imports: [
-    HlmTabsComponent,
-    HlmTabsListComponent,
-    HlmTabsTriggerDirective,
-    HlmTabsContentDirective,
-    HlmBadgeDirective,
-    ConversationCardComponent,
-    HlmSeparatorDirective,
-    BrnSeparatorComponent,
-    HlmInputDirective,
-    HlmButtonDirective,
-    UserCardComponent,
-    HlmIconDirective,
-    ReactiveFormsModule,
+    HlmTabsImports,
+    HlmBadge,
+    HlmSeparator,
+    BrnSeparator,
+    HlmInput,
+    HlmButton,
+    HlmIcon,
     NgIcon,
     RouterLink,
-    HlmSkeletonComponent,
+    HlmSkeleton,
+    UserCardComponent,
+    ConversationCardComponent,
+    ReactiveFormsModule,
   ],
   providers: [
     provideIcons({ lucidePencil, lucideMenu, lucideChevronLeft, lucideLoader }),

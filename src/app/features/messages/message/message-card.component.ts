@@ -10,9 +10,9 @@ import { MessageI } from '../interfaces/message.interface';
 import { DatePipe, NgClass, TitleCasePipe } from '@angular/common';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import {
-  HlmAvatarComponent,
-  HlmAvatarFallbackDirective,
-  HlmAvatarImageDirective,
+  HlmAvatar,
+  HlmAvatarFallback,
+  HlmAvatarImage,
 } from '@spartan-ng/helm/avatar';
 import { TimeAgoPipe } from '../../../shared/pipes/time-ago.pipe';
 import { ConversationService } from '../services/conversation.service';
@@ -29,11 +29,12 @@ import {
   lucideVolume2,
   lucideVolume1,
 } from '@ng-icons/lucide';
-import { HlmIconDirective } from '@spartan-ng/helm/icon';
+import { HlmIcon } from '@spartan-ng/helm/icon';
 import { FileSizePipe } from '../../../shared/pipes/file-size.pipe';
-import { VideoPlayerComponent } from '../../../shared/components/video-player/video-player.component';
-import { HlmSkeletonComponent } from '../../../../../libs/ui/ui-skeleton-helm/src/lib/hlm-skeleton.component';
-import { AudioPlayerComponent } from '../../../shared/components/audio-player/audio-player.component';
+import { VideoPlayer } from '../../../shared/components/video-player/video-player';
+
+import { AudioPlayer } from '../../../shared/components/audio-player/audio-player';
+import { HlmSkeleton } from '@spartan-ng/helm/skeleton';
 
 @Component({
   selector: 'message-card',
@@ -44,14 +45,14 @@ import { AudioPlayerComponent } from '../../../shared/components/audio-player/au
     NgIcon,
     DatePipe,
     FileSizePipe,
-    AudioPlayerComponent,
-    HlmIconDirective,
+    AudioPlayer,
+    HlmIcon,
     MatTooltipModule,
-    HlmAvatarFallbackDirective,
-    HlmAvatarImageDirective,
-    HlmAvatarComponent,
-    VideoPlayerComponent,
-    HlmSkeletonComponent,
+    HlmAvatarFallback,
+    HlmAvatarImage,
+    HlmAvatar,
+    HlmSkeleton,
+    VideoPlayer,
   ],
   providers: [
     provideIcons({

@@ -9,9 +9,9 @@ import { AuthService } from '../../services/auth.service';
 import { LoginCredentialsI } from '../../interfaces/login-credentials.interface';
 
 import { HlmFormFieldModule } from '@spartan-ng/helm/form-field';
-import { HlmInputDirective } from '@spartan-ng/helm/input';
-import { HlmButtonDirective } from '@spartan-ng/helm/button';
-import { HlmIconDirective } from '@spartan-ng/helm/icon';
+import { HlmInput } from '@spartan-ng/helm/input';
+import { HlmButton } from '@spartan-ng/helm/button';
+import { HlmIcon } from '@spartan-ng/helm/icon';
 import { NgIcon, provideIcons } from '@ng-icons/core';
 import {
   lucideCircleAlert,
@@ -29,9 +29,9 @@ import { NavController } from '@ionic/angular/standalone';
   imports: [
     ReactiveFormsModule,
     HlmFormFieldModule,
-    HlmInputDirective,
-    HlmButtonDirective,
-    HlmIconDirective,
+    HlmInput,
+    HlmButton,
+    HlmIcon,
     NgIcon,
     HlmAlertImports,
   ],

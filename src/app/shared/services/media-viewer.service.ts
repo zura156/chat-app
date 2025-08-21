@@ -1,7 +1,7 @@
 import { Injectable, inject } from '@angular/core';
 import { Dialog } from '@angular/cdk/dialog';
 import { MessageService } from '../../features/messages/services/message.service';
-import { MediaViewerComponent } from '../components/media-viewer/media-viewer.component';
+import { MediaViewer } from '../components/media-viewer/media-viewer';
 
 export interface MediaItem {
   _id: string;
@@ -34,16 +34,14 @@ export class MediaViewerService {
   openMedia(media: MediaItem, config: MediaViewerConfig = {}) {
     // Get all media messages if gallery is enabled
     const mediaMessages = config.enableGallery
-      ? this.messageService
-          .activeMediaMessages()
-          .map(
-            (el): MediaItem => ({
-              _id: String(el._id),
-              type: el.type as 'image' | 'video',
-              url: String(el.file?.url),
-              size: el.file?.size_in_bytes,
-            })
-          )
+      ? this.messageService.activeMediaMessages().map(
+          (el): MediaItem => ({
+            _id: String(el._id),
+            type: el.type as 'image' | 'video',
+            url: String(el.file?.url),
+            size: el.file?.size_in_bytes,
+          })
+        )
       : [media];
 
     // Find current media index
@@ -51,7 +49,7 @@ export class MediaViewerService {
       (item) => item._id === media._id
     );
 
-    return this.dialog.open(MediaViewerComponent, {
+    return this.dialog.open(MediaViewer, {
       data: {
         mediaMessages,
         currentIndex: currentIndex >= 0 ? currentIndex : 0,

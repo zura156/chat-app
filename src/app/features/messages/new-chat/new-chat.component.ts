@@ -23,18 +23,18 @@ import {
   throwError,
 } from 'rxjs';
 import { FormControl, ReactiveFormsModule, Validators } from '@angular/forms';
-import { HlmInputDirective } from '@spartan-ng/helm/input';
-import { HlmSeparatorDirective } from '@spartan-ng/helm/separator';
+import { HlmInput } from '@spartan-ng/helm/input';
+import { HlmSeparator } from '@spartan-ng/helm/separator';
 import { UserI } from '../../user/interfaces/user.interface';
 import { NgScrollbarModule } from 'ngx-scrollbar';
 import { UserCardComponent } from '../../user/components/card/user-card.component';
 import { ClickOutsideDirective } from '../../../shared/directives/click-outside.directive';
 import { NgIcon, provideIcons } from '@ng-icons/core';
 import { lucideCircleAlert, lucideX } from '@ng-icons/lucide';
-import { HlmIconDirective } from '@spartan-ng/helm/icon';
-import { HlmButtonDirective } from '@spartan-ng/helm/button';
-import { HlmLabelDirective } from '@spartan-ng/helm/label';
-import { HlmErrorDirective } from '@spartan-ng/helm/form-field';
+import { HlmIcon } from '@spartan-ng/helm/icon';
+import { HlmButton } from '@spartan-ng/helm/button';
+import { HlmLabel } from '@spartan-ng/helm/label';
+import { HlmError } from '@spartan-ng/helm/form-field';
 import { NavController } from '@ionic/angular/standalone';
 import { ParticipantI } from '../interfaces/participant.interface';
 
@@ -42,16 +42,16 @@ import { ParticipantI } from '../interfaces/participant.interface';
   selector: 'app-new-chat',
   imports: [
     ReactiveFormsModule,
-    HlmSeparatorDirective,
-    HlmLabelDirective,
-    HlmInputDirective,
-    HlmErrorDirective,
+    HlmSeparator,
+    HlmLabel,
+    HlmInput,
+    HlmError,
     NgScrollbarModule,
     UserCardComponent,
     ClickOutsideDirective,
-    HlmIconDirective,
+    HlmIcon,
     NgIcon,
-    HlmButtonDirective,
+    HlmButton,
   ],
   providers: [provideIcons({ lucideX, lucideCircleAlert })],
   templateUrl: './new-chat.component.html',

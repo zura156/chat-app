@@ -1,19 +1,13 @@
 import { ChangeDetectionStrategy, Component, inject } from '@angular/core';
 import { HeaderComponent } from './shared/layout/components/header.component';
-import { HlmToasterComponent } from '@spartan-ng/helm/sonner';
+import { HlmToaster } from '@spartan-ng/helm/sonner';
 import { ThemeService } from './shared/services/theme.service';
 import { AsyncPipe } from '@angular/common';
 import { IonApp, IonRouterOutlet } from '@ionic/angular/standalone';
 
 @Component({
   selector: 'app-root',
-  imports: [
-    AsyncPipe,
-    HlmToasterComponent,
-    HeaderComponent,
-    IonRouterOutlet,
-    IonApp,
-  ],
+  imports: [AsyncPipe, HlmToaster, HeaderComponent, IonRouterOutlet, IonApp],
   templateUrl: './app.component.html',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })

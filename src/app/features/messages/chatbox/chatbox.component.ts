@@ -33,11 +33,11 @@ import {
   ReadReceiptI,
 } from '../interfaces/conversation.interface';
 import {
-  HlmAvatarImageDirective,
-  HlmAvatarComponent,
+  HlmAvatarImage,
+  HlmAvatar,
 } from '@spartan-ng/helm/avatar';
-import { BrnSeparatorComponent } from '@spartan-ng/brain/separator';
-import { HlmSeparatorDirective } from '@spartan-ng/helm/separator';
+import { BrnSeparator } from '@spartan-ng/brain/separator';
+import { HlmSeparator } from '@spartan-ng/helm/separator';
 import {
   GroupedMessages,
   MessageI,
@@ -45,14 +45,14 @@ import {
   MessageType,
 } from '../interfaces/message.interface';
 import {
-  HlmCardDescriptionDirective,
-  HlmCardDirective,
+  HlmCardDescription,
+  HlmCard,
 } from '@spartan-ng/helm/card';
 import { FormControl, ReactiveFormsModule } from '@angular/forms';
-import { HlmButtonDirective } from '@spartan-ng/helm/button';
-import { HlmInputDirective } from '@spartan-ng/helm/input';
+import { HlmButton } from '@spartan-ng/helm/button';
+import { HlmInput } from '@spartan-ng/helm/input';
 import { WebSocketService } from '../services/web-socket.service';
-import { HlmSpinnerComponent } from '@spartan-ng/helm/spinner';
+import { HlmSpinner } from '@spartan-ng/helm/spinner';
 import { UserI } from '../../user/interfaces/user.interface';
 import { ParticipantI } from '../interfaces/participant.interface';
 import {
@@ -69,14 +69,14 @@ import {
   lucidePaperclip,
   lucideSend,
 } from '@ng-icons/lucide';
-import { HlmIconDirective } from '@spartan-ng/helm/icon';
+import { HlmIcon } from '@spartan-ng/helm/icon';
 import { LayoutService } from '../layout/layout.service';
 import { NgClass } from '@angular/common';
-import { AudioRecorderComponent } from '../../../shared/components/audio-recorder/audio-recorder.component';
+import { AudioRecorder } from '../../../shared/components/audio-recorder/audio-recorder';
 import { RecordingResult } from '../../../shared/interfaces/audio-message.interface';
 import { ChatboxSettingsComponent } from '../chatbox-settings/chatbox-settings.component';
 import { PanGestureDirective } from '../../../shared/directives/pan.directive';
-import { HlmSkeletonComponent } from '@spartan-ng/helm/skeleton';
+import { HlmSkeleton } from '@spartan-ng/helm/skeleton';
 import { environment } from '../../../../environments/environment';
 import { toast } from 'ngx-sonner';
 import { UserStateService } from '../../user/services/user-state.service';
@@ -87,22 +87,22 @@ import { UserStateService } from '../../user/services/user-state.service';
     TimeAgoPipe,
     NgIcon,
     NgClass,
-    HlmIconDirective,
+    HlmIcon,
     PanGestureDirective,
-    HlmCardDirective,
-    HlmInputDirective,
-    HlmButtonDirective,
-    HlmSeparatorDirective,
-    HlmAvatarImageDirective,
-    HlmCardDescriptionDirective,
-    HlmAvatarComponent,
-    HlmSpinnerComponent,
+    HlmCard,
+    HlmInput,
+    HlmButton,
+    HlmSeparator,
+    HlmAvatarImage,
+    HlmCardDescription,
+    HlmAvatar,
+    HlmSpinner,
     MessageCardComponent,
-    BrnSeparatorComponent,
+    BrnSeparator,
     ReactiveFormsModule,
-    AudioRecorderComponent,
+    AudioRecorder,
     ChatboxSettingsComponent,
-    HlmSkeletonComponent,
+    HlmSkeleton,
   ],
   providers: [
     provideIcons({

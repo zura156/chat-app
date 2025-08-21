@@ -7,10 +7,10 @@ import {
 } from '@angular/forms';
 import { NgIcon, provideIcons } from '@ng-icons/core';
 import { HlmAlertImports } from '@spartan-ng/helm/alert';
-import { HlmButtonDirective } from '@spartan-ng/helm/button';
+import { HlmButton } from '@spartan-ng/helm/button';
 import { HlmFormFieldModule } from '@spartan-ng/helm/form-field';
-import { HlmIconDirective } from '@spartan-ng/helm/icon';
-import { HlmInputDirective } from '@spartan-ng/helm/input';
+import { HlmIcon } from '@spartan-ng/helm/icon';
+import { HlmInput } from '@spartan-ng/helm/input';
 import { NavController } from '@ionic/angular/standalone';
 import { toast } from 'ngx-sonner';
 import { AuthService } from '../../services/auth.service';
@@ -28,9 +28,9 @@ import {
   imports: [
     ReactiveFormsModule,
     HlmFormFieldModule,
-    HlmInputDirective,
-    HlmButtonDirective,
-    HlmIconDirective,
+    HlmInput,
+    HlmButton,
+    HlmIcon,
     NgIcon,
     HlmAlertImports,
   ],

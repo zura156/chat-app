@@ -3,39 +3,14 @@ import { ActivatedRoute, Router } from '@angular/router';
 import { UserService } from '../../services/user.service';
 import { map, Observable, Subject, switchMap, takeUntil } from 'rxjs';
 import { UserI } from '../../interfaces/user.interface';
-import {
-  HlmCardContentDirective,
-  HlmCardDescriptionDirective,
-  HlmCardDirective,
-  HlmCardFooterDirective,
-  HlmCardHeaderDirective,
-  HlmCardTitleDirective,
-} from '@spartan-ng/helm/card';
-import {
-  HlmAvatarImageDirective,
-  HlmAvatarComponent,
-  HlmAvatarFallbackDirective,
-} from '@spartan-ng/helm/avatar';
-import { BrnSeparatorComponent } from '@spartan-ng/brain/separator';
-import { HlmSeparatorDirective } from '@spartan-ng/helm/separator';
+import { HlmCardImports } from '@spartan-ng/helm/card';
+import { HlmAvatarImports } from '@spartan-ng/helm/avatar';
 import { environment } from '../../../../../environments/environment';
 
 @Component({
   selector: 'app-user-page',
   templateUrl: './user-page.component.html',
-  imports: [
-    // HlmCardContentDirective,
-    HlmCardDescriptionDirective,
-    HlmCardDirective,
-    // HlmCardFooterDirective,
-    HlmCardHeaderDirective,
-    HlmCardTitleDirective,
-    HlmAvatarImageDirective,
-    HlmAvatarComponent,
-    // HlmAvatarFallbackDirective,
-    // BrnSeparatorComponent,
-    // HlmSeparatorDirective,
-  ],
+  imports: [HlmCardImports, HlmAvatarImports],
 })
 export class UserPageComponent implements OnInit, OnDestroy {
   private router = inject(Router);

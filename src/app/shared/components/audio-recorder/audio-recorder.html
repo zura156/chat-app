@@ -1,0 +1,56 @@
+<div class="flex gap-x-2 items-center h-full relative">
+  <button
+    hlmBtn
+    variant="ghost"
+    class="absolute text-secondary top-1/2 -translate-y-1/2 -left-1 z-10 flex items-center justify-center cursor-pointer rounded-full p-2"
+    (click)="deleteRecording()"
+  >
+    <ng-icon hlm size="base" name="lucideCircleX"></ng-icon>
+  </button>
+  
+  <hlm-progress
+    
+    aria-labelledby="audio-timeline"
+    class="w-full h-7 bg-secondary inline-flex overflow-hidden relative rounded-full"
+    [value]="recordingPercentage()"
+  >
+    <hlm-progress-indicator
+      
+      class="bg-primary flex-1 h-full inline-flex transform-gpu transition-all w-full ease-linear"
+    />
+  </hlm-progress>
+
+  <audio #audioPlayer [src]="audioUrl()"></audio>
+  @if(mediaRecorder?.state === 'recording') {
+    <button
+      hlmBtn
+      variant="ghost"
+      class="flex items-center justify-center cursor-pointer rounded-full p-2"
+      (click)="stopRecording()"
+    >
+      <ng-icon hlm size="base" name="lucideCircleStop"></ng-icon>
+    </button>
+  } @else if (mediaRecorder?.state === 'inactive') { 
+    @if(audioUrl()) {
+      @if(audioPlayer.paused) {
+          <button
+            hlmBtn
+            variant="ghost"
+            class="flex items-center justify-center cursor-pointer rounded-full p-2"
+            (click)="audioPlayer.play()"
+          >
+            <ng-icon hlm size="base" name="lucideCirclePlay"></ng-icon>
+          </button>
+      } @else {
+          <button
+            hlmBtn
+            variant="ghost"
+            class="flex items-center justify-center cursor-pointer rounded-full p-2"
+            (click)="audioPlayer.pause()"
+          >
+            <ng-icon hlm size="base" name="lucideCirclePause"></ng-icon>
+          </button>
+      }
+    }
+  }
+</div>

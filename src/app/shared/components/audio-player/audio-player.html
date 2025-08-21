@@ -1,0 +1,31 @@
+@let file = audio();
+
+<div class="relative w-full flex items-center">
+  <audio
+    #audioPlayer
+    [src]="`${apiUrl}${file?.url}`"
+    (timeupdate)="onTimeUpdate(audioPlayer)"
+  ></audio>
+  <hlm-progress
+    aria-labelledby="loading"
+    class="w-full h-10 bg-secondary inline-flex overflow-hidden relative rounded-full"
+    [value]="progressPercentage()"
+  >
+    <hlm-progress-indicator
+      
+      class="bg-primary flex-1 h-full inline-flex transform-gpu transition-all w-full ease-linear duration-300"
+    />
+    <span
+      class="absolute top-1/2 -translate-y-1/2 right-2 text-gray-500 text-sm"
+      >{{ currentTime() | formatTime }} / {{ duration() | formatTime }}</span
+    >
+    <button
+      hlmBtn
+      [variant]="'ghost'"
+      (click)="audioPlayer.paused ? audioPlayer.play() : audioPlayer.pause()"
+      class="cursor-pointer absolute top-1/2 -translate-y-1/2 left-0 text-gray-400 py-0.5 px-1.5! rounded-full"
+    >
+      <ng-icon hlm [name]="audioPlayer.paused ? 'lucideCirclePlay' : 'lucideCirclePause'" />
+    </button>
+  </hlm-progress>
+</div>

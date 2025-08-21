@@ -13,7 +13,7 @@ import {
 import { ConversationI } from '../interfaces/conversation.interface';
 import { environment } from '../../../../environments/environment';
 import { NgIcon, provideIcons } from '@ng-icons/core';
-import { HlmIconDirective } from '@spartan-ng/helm/icon';
+import { HlmIcon } from '@spartan-ng/helm/icon';
 import {
   lucideChevronDown,
   lucideChevronUp,
@@ -25,21 +25,21 @@ import {
   lucideUserRoundMinus,
 } from '@ng-icons/lucide';
 import {
-  HlmAvatarImageDirective,
-  HlmAvatarComponent,
+  HlmAvatarImage,
+  HlmAvatar,
 } from '@spartan-ng/helm/avatar';
-import { BrnMenuTriggerDirective } from '@spartan-ng/brain/menu';
+import { BrnMenuTrigger } from '@spartan-ng/brain/menu';
 import {
-  HlmMenuComponent,
-  HlmMenuGroupComponent,
-  HlmMenuItemDirective,
-  HlmMenuItemIconDirective,
-  HlmMenuSeparatorComponent,
+  HlmMenu,
+  HlmMenuGroup,
+  HlmMenuItem,
+  HlmMenuItemIcon,
+  HlmMenuSeparator,
 } from '@spartan-ng/helm/menu';
 import { ConversationService } from '../services/conversation.service';
 import { ParticipantI } from '../interfaces/participant.interface';
-import { HlmButtonDirective } from '@spartan-ng/helm/button';
-import { ItemManagerComponent } from '../../../shared/components/item-manager/item-manager.component';
+import { HlmButton } from '@spartan-ng/helm/button';
+import { ItemManagerComponent } from '../../../shared/components/item-manager/item-manager';
 import { catchError, Subscription, tap, throwError } from 'rxjs';
 import { UserService } from '../../user/services/user.service';
 import { toast } from 'ngx-sonner';
@@ -57,9 +57,8 @@ import {
   Validators,
 } from '@angular/forms';
 import { ImageCropperComponent } from 'ngx-smart-cropper';
-import { base64ToFile } from '../../../shared/functions/base64-to-file.function';
-import { MessageService } from '../services/message.service';
-import { HlmSpinnerComponent } from '@spartan-ng/helm/spinner';
+import { base64ToFile } from '../../../shared/functions/base64-to-file';
+import { HlmSpinner } from '@spartan-ng/helm/spinner';
 import { HlmTabsImports } from '@spartan-ng/helm/tabs';
 import { MediaFilesListComponent } from '../media-files-list/media-files-list.component';
 
@@ -69,18 +68,18 @@ import { MediaFilesListComponent } from '../media-files-list/media-files-list.co
     NgIcon,
     HlmTabsImports,
     ReactiveFormsModule,
-    HlmIconDirective,
-    HlmAvatarImageDirective,
-    BrnMenuTriggerDirective,
-    HlmMenuItemIconDirective,
-    HlmMenuItemDirective,
-    HlmButtonDirective,
-    HlmMenuComponent,
-    HlmMenuGroupComponent,
-    HlmMenuSeparatorComponent,
-    HlmAvatarComponent,
+    HlmIcon,
+    HlmAvatarImage,
+    BrnMenuTrigger,
+    HlmMenuItemIcon,
+    HlmMenuItem,
+    HlmButton,
+    HlmMenu,
+    HlmMenuGroup,
+    HlmMenuSeparator,
+    HlmAvatar,
     ImageCropperComponent,
-    HlmSpinnerComponent,
+    HlmSpinner,
     MediaFilesListComponent,
   ],
   providers: [
