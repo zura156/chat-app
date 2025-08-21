@@ -179,7 +179,7 @@ export const loginUser = async (
 
     const { accessToken, refreshToken } = generateTokens(user.id);
 
-    await TokenModel.updateOne(
+    await TokenModel.findOneAndUpdate(
       {
         user_id: user.id,
       },
