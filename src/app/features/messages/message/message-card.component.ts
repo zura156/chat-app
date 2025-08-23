@@ -4,6 +4,7 @@ import {
   input,
   inject,
   signal,
+  viewChild,
 } from '@angular/core';
 import { UserI } from '../../user/interfaces/user.interface';
 import { MessageI } from '../interfaces/message.interface';
@@ -28,6 +29,7 @@ import {
   lucideVolume,
   lucideVolume2,
   lucideVolume1,
+  lucideVideo,
 } from '@ng-icons/lucide';
 import { HlmIcon } from '@spartan-ng/helm/icon';
 import { FileSizePipe } from '../../../shared/pipes/file-size.pipe';
@@ -35,6 +37,11 @@ import { VideoPlayer } from '../../../shared/components/video-player/video-playe
 
 import { AudioPlayer } from '../../../shared/components/audio-player/audio-player';
 import { HlmSkeleton } from '@spartan-ng/helm/skeleton';
+import {
+  MediaItem,
+  MediaViewerService,
+} from '../../../shared/services/media-viewer.service';
+import { ClickOutsideDirective } from '../../../shared/directives/click-outside.directive';
 
 @Component({
   selector: 'message-card',
@@ -64,6 +71,7 @@ import { HlmSkeleton } from '@spartan-ng/helm/skeleton';
       lucideVolume1,
       lucideVolume2,
       lucideDownload,
+      lucideVideo,
     }),
   ],
   styles: `
@@ -76,11 +84,16 @@ export class MessageCardComponent {
   readReceipts = input.required<ReadReceiptI[]>();
   imageUrl = input.required<string>();
   currentUser = input.required<UserI>();
+  loadedVideoMessageId = signal<string | null>(null);
   isLastMessage = input.required<boolean>();
   isGroup = input<boolean>();
 
+  videoPlayerComponent = viewChild<VideoPlayer>('videoPlayerComponent');
+
   isImageLoaded = signal<boolean>(false);
+
   conversationService = inject(ConversationService);
+  mediaViewerService = inject(MediaViewerService);
 
   readonly apiUrl = environment.apiUrl;
 
@@ -103,5 +116,37 @@ export class MessageCardComponent {
 
   onFullImageLoad(): void {
     this.isImageLoaded.set(true);
+  }
+
+  loadVideo(messageId: string): void {
+    this.loadedVideoMessageId.set(messageId);
+  }
+
+  openMedia(message: MessageI, index: number) {
+    this.videoPlayerComponent()?.pauseVideo();
+    this.loadedVideoMessageId.set(null);
+    // You can decide based on user preferences or context
+    const enableGallery = this.shouldEnableGallery();
+
+    const media: MediaItem = {
+      _id: String(message._id),
+      type: message.type as 'image' | 'video',
+      url: String(message.file?.url),
+      placeholder_url: message.file?.placeholder_url,
+      thumbnail_url: message.file?.thumbnail_url,
+      size: message.file?.size_in_bytes,
+    };
+
+    this.mediaViewerService.openMedia(media, index, {
+      enableGallery,
+      showThumbnails: enableGallery,
+      allowDownload: true,
+      autoPlay: false,
+    });
+  }
+  private shouldEnableGallery(): boolean {
+    return (
+      this.mediaViewerService['messageService'].activeMediaMessages().length > 3
+    );
   }
 }

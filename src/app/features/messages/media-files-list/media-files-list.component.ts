@@ -47,10 +47,12 @@ export class MediaFilesListComponent implements OnInit {
       _id: String(message._id),
       type: message.type as 'image' | 'video',
       url: String(message.file?.url),
+      placeholder_url: message.file?.placeholder_url,
+      thumbnail_url: message.file?.thumbnail_url,
       size: message.file?.size_in_bytes,
     };
 
-    this.mediaViewerService.openMedia(media, {
+    this.mediaViewerService.openMedia(media, index, {
       enableGallery,
       showThumbnails: enableGallery,
       allowDownload: true,

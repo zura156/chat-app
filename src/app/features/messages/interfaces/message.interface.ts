@@ -20,6 +20,7 @@ export enum MessageStatus {
 export interface FileI {
   url: string;
   placeholder_url?: string;
+  thumbnail_url?: string;
   duration?: number;
   name: string;
   mime_type: string;

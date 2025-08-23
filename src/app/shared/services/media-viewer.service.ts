@@ -6,6 +6,8 @@ import { MediaViewer } from '../components/media-viewer/media-viewer';
 export interface MediaItem {
   _id: string;
   url: string;
+  placeholder_url?: string;
+  thumbnail_url?: string;
   type: 'image' | 'video';
   name?: string;
   size?: number;
@@ -31,7 +33,7 @@ export class MediaViewerService {
    * @param media - The media item to display
    * @param config - Configuration options for the viewer
    */
-  openMedia(media: MediaItem, config: MediaViewerConfig = {}) {
+  openMedia(media: MediaItem, index: number, config: MediaViewerConfig = {}) {
     // Get all media messages if gallery is enabled
     const mediaMessages = config.enableGallery
       ? this.messageService.activeMediaMessages().map(
@@ -39,15 +41,16 @@ export class MediaViewerService {
             _id: String(el._id),
             type: el.type as 'image' | 'video',
             url: String(el.file?.url),
+            thumbnail_url: String(el.file?.thumbnail_url),
+            placeholder_url: String(el.file?.placeholder_url),
+            name: el.file?.name,
             size: el.file?.size_in_bytes,
           })
         )
       : [media];
 
     // Find current media index
-    const currentIndex = mediaMessages.findIndex(
-      (item) => item._id === media._id
-    );
+    const currentIndex = index;
 
     return this.dialog.open(MediaViewer, {
       data: {
@@ -82,8 +85,8 @@ export class MediaViewerService {
   /**
    * Quick method to open single media without gallery
    */
-  openSingleMedia(media: MediaItem, allowDownload = true) {
-    return this.openMedia(media, {
+  openSingleMedia(media: MediaItem, index: number, allowDownload = true) {
+    return this.openMedia(media, index, {
       enableGallery: false,
       allowDownload,
     });
@@ -92,8 +95,8 @@ export class MediaViewerService {
   /**
    * Open media with full gallery functionality
    */
-  openMediaGallery(media: MediaItem, showThumbnails = true) {
-    return this.openMedia(media, {
+  openMediaGallery(media: MediaItem, index: number, showThumbnails = true) {
+    return this.openMedia(media, index, {
       enableGallery: true,
       showThumbnails,
       allowDownload: true,

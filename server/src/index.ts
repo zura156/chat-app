@@ -24,6 +24,8 @@ import mongoSanitize from 'express-mongo-sanitize';
 import hpp from 'hpp';
 import { authenticateToken } from './auth/middlewares/auth.middleware';
 import { validateCSRF } from './auth/middlewares/csrf.middleware';
+import ffmpeg from 'fluent-ffmpeg';
+import ffmpegPath from 'ffmpeg-static';
 
 const app: Application = express();
 const port: number | 3000 = parseInt(config.port.toString());
@@ -83,9 +85,10 @@ app.use(
   },
   express.static(path.resolve('uploads'))
 );
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
+app.use(express.json({ limit: '30mb' }));
+app.use(express.urlencoded({ limit: '30mb', extended: true }));
 app.use(cookieParser());
+ffmpeg.setFfmpegPath(ffmpegPath || '');
 // app.use(morgan('combined'));
 
 const generalLimiter = rateLimit({

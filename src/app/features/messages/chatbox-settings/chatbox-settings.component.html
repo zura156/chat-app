@@ -7,7 +7,7 @@
                 <div class="group size-20 sm:size-30 border-2 relative rounded-full overflow-hidden">
                     @if(conversation.is_group) {
                         <div 
-                            class="opacity-0 pointer-events-none group-hover:pointer-events-auto group-hover:opacity-100 absolute top-1/2 left-1/2 -translate-1/2 w-full h-full bg-black/20 dark:bg-black/40 flex items-center justify-center transition-all"
+                            class="hidden md:opacity-0 md:pointer-events-none md:group-hover:pointer-events-auto md:group-hover:opacity-100 absolute top-1/2 left-1/2 -translate-1/2 w-full h-full bg-black/20 dark:bg-black/40 md:flex items-center justify-center transition-all"
                             >
                             <button hlmBtn class="cursor-pointer" (click)="chatImageInput.click()">
                                 Edit picture
@@ -44,6 +44,7 @@
                 <span class="font-medium text-xl text-center">
                     @if(conversation.group_name) {
                         {{ conversation.group_name }}
+
                     } @else {
                         @for(participant of conversation?.participants; let i = $index; track participant._id) {
                             <span>
@@ -58,7 +59,18 @@
                     }
                 </span>
                 
-                @if(!conversation.is_group) {
+                @if(conversation.is_group) {
+                    <button 
+                        hlmBtn 
+                        class="cursor-pointer mb-6"
+                        variant="outline" 
+                        (click)="chatImageInput.click()"
+                        >
+                        <ng-icon hlm name="lucideUsersRound" />
+                        Edit group picture
+                    </button>
+
+                } @else {
                     <button 
                         hlmBtn 
                         class="cursor-pointer mb-6"

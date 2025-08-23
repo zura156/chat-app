@@ -8,6 +8,7 @@ import {
 } from '../interfaces/message.interface';
 import path from 'path';
 import sharp from 'sharp';
+import ffmpeg from 'fluent-ffmpeg';
 
 export class MessageService {
   private broadcast: BroadcastFunction;
@@ -162,6 +163,7 @@ export class MessageService {
     const messageType = getMessageTypeFromMime(file.mimetype);
 
     let placeholderUrl: string | undefined = undefined;
+    let thumbnailUrl: string | undefined = undefined;
     let duration: number | undefined = undefined;
 
     if (file.mimetype.startsWith('image/')) {
@@ -190,6 +192,31 @@ export class MessageService {
       duration = parseFloat(durationFromClient);
     }
 
+    if (file.mimetype.startsWith('video/')) {
+      try {
+        const fileInfo = path.parse(file.filename);
+        const thumbnailFilename = `${fileInfo.name}-thumbnail.jpg`;
+        const thumbnailPath = path.resolve(file.destination, thumbnailFilename);
+
+        await new Promise<void>((resolve, reject) => {
+          ffmpeg(file.path)
+            .screenshots({
+              count: 1,
+              timemarks: ['1'], // capture at 1 second
+              filename: thumbnailFilename,
+              folder: file.destination,
+              size: '320x?',
+            })
+            .on('end', () => resolve())
+            .on('error', (err: any) => reject(err));
+        });
+
+        thumbnailUrl = `/uploads/${thumbnailFilename}`;
+      } catch (error) {
+        console.error('Failed to create video thumbnail: ', error);
+      }
+    }
+
     const message = new Message({
       sender: senderId,
       conversation: conversationObjectId,
@@ -197,6 +224,7 @@ export class MessageService {
       file: {
         url: `/uploads/${file.filename}`,
         placeholder_url: placeholderUrl,
+        thumbnail_url: thumbnailUrl,
         duration: duration,
         name: file.originalname,
         mime_type: file.mimetype,

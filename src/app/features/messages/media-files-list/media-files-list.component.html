@@ -17,7 +17,7 @@
                         </div>
                     }
                     @case('video') {
-                        <video class="aspect-square object-cover" [src]="apiUrl + message.file?.url"></video>
+                        <img class="aspect-square object-cover pointer-events-none" [src]="apiUrl + message.file?.thumbnail_url" />
                     }
                 }
             </button>

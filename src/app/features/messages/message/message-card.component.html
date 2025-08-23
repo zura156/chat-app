@@ -40,7 +40,7 @@
                 <p class="break-all whitespace-normal">{{ message.content }}</p>
               } 
               @case ('image') {
-                <div class="py-1.5 w-fit h-fit">
+                <div class="py-1.5 w-fit h-fit cursor-pointer" (click)="openMedia(message, 0)">
                   <img
                     class="object-contain max-h-96 max-w-full rounded-lg image-pixelated"
                     [ngClass]="isImageLoaded() ? 'h-fit' : 'h-96'"
@@ -55,8 +55,23 @@
                 </div>
               } @case ('video') { 
                 @if(message.file) {
-                  <div class="max-w-3xs sm:max-w-xs">
-                    <app-video-player [video]="message.file"></app-video-player>
+                  <div class="max-w-3xs sm:max-w-xs relative">
+                    @if(loadedVideoMessageId() === message._id) {
+                      <div (click)="$event.stopPropagation(); openMedia(message, 0)" class="w-full h-full">
+                        <app-video-player #videoPlayerComponent [video]="message.file" [disableContainerClickToggle]="true"></app-video-player>
+                      </div>
+                    } @else {
+                      <div class="relative cursor-pointer" (click)="loadVideo(message._id || '')" >
+                        <img 
+                          class="rounded-xl h-full"
+                          [src]="apiUrl + (message.file.thumbnail_url || message.file.placeholder_url)" 
+                          [alt]="message.file.name" 
+                        />
+                        <div class="absolute top-1/2 left-1/2 -translate-1/2 flex flex-col gap-y-2 items-center justify-center bg-muted p-2 rounded-full">
+                          <ng-icon hlm name="lucideCirclePlay" size="lg" />
+                        </div>
+                      </div>
+                    }
                   </div>
                 } @else {
                   <div class="w-full h-full py-2 relative">

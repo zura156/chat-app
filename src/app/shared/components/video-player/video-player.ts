@@ -1,8 +1,11 @@
 import {
+  AfterViewInit,
   Component,
+  DestroyRef,
   DOCUMENT,
   ElementRef,
   HostListener,
+  inject,
   Inject,
   input,
   linkedSignal,
@@ -65,14 +68,17 @@ import { VideoActionsT } from '../../interfaces/video-actions.interface';
   ],
   templateUrl: './video-player.html',
 })
-export class VideoPlayer implements OnDestroy {
+export class VideoPlayer implements AfterViewInit, OnDestroy {
   video = input.required<Partial<FileI>>();
   size = input<MediaPlayerSizesT>('sm');
+  disableContainerClickToggle = input<boolean>(false);
   loaded = output<void>();
 
   videoPlayer = viewChild<ElementRef<HTMLMediaElement>>('videoPlayer');
   playerContainer = viewChild<ElementRef<HTMLDivElement>>('playerContainer');
   timeline = viewChild<ElementRef<HTMLDivElement>>('timeline');
+
+  destroyRef = inject(DestroyRef);
 
   private hideOverlayTimeout?: any;
   private hideIndicator?: any;
@@ -123,6 +129,30 @@ export class VideoPlayer implements OnDestroy {
     );
   }
 
+  ngAfterViewInit() {
+    const videoElement = this.videoPlayer()?.nativeElement;
+
+    const onPlay = () => {
+      this.indicatorType.set('play');
+      this.showIndicator.set(true);
+      this.resetIndicatorTime();
+    };
+
+    const onPause = () => {
+      this.indicatorType.set('pause');
+      this.showIndicator.set(true);
+      this.resetIndicatorTime();
+    };
+
+    videoElement?.addEventListener('play', onPlay);
+    videoElement?.addEventListener('pause', onPause);
+
+    this.destroyRef.onDestroy(() => {
+      videoElement?.removeEventListener('play', onPlay);
+      videoElement?.removeEventListener('pause', onPause);
+    });
+  }
+
   ngOnDestroy(): void {
     clearInterval(this.hideOverlayTimeout);
     clearInterval(this.hideIndicator);
@@ -163,6 +193,7 @@ export class VideoPlayer implements OnDestroy {
   @HostListener('document:mozfullscreenchange')
   @HostListener('document:msfullscreenchange')
   onFullscreenChange() {
+    if (this.disableContainerClickToggle()) return;
     this.isFullscreen.set(!!this.getFullscreenElement());
   }
 
@@ -299,9 +330,8 @@ export class VideoPlayer implements OnDestroy {
 
   @HostListener('window:keydown', ['$event'])
   handleKeyDown(event: KeyboardEvent) {
-    if (!this.isFocused()) {
-      return;
-    }
+    if (this.disableContainerClickToggle()) return;
+    if (!this.isFocused()) return;
 
     event.preventDefault();
     switch (event.key) {
@@ -317,6 +347,8 @@ export class VideoPlayer implements OnDestroy {
         this.volumeMute();
         break;
       case ' ':
+      case 'Space':
+        event.stopPropagation();
         this.togglePlayback();
         break;
       case 'f':
@@ -331,18 +363,27 @@ export class VideoPlayer implements OnDestroy {
     }
   }
 
-  private togglePlayback(): void {
+  togglePlayback(): void {
     const videoElement = this.videoPlayer()?.nativeElement;
     if (!videoElement) {
       return;
     }
     if (videoElement.paused) {
       videoElement.play();
-      this.indicatorType.set('play');
     } else {
       videoElement.pause();
-      this.indicatorType.set('pause');
     }
+  }
+
+  public pauseVideo(): void {
+    if (
+      !this.videoPlayer()?.nativeElement ||
+      this.videoPlayer()?.nativeElement.paused
+    )
+      return;
+    this.videoPlayer()?.nativeElement.pause();
+    this.indicatorType.set('pause');
+
     this.showIndicator.set(true);
     this.resetIndicatorTime();
   }

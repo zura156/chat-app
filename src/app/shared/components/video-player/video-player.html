@@ -10,7 +10,8 @@
   (mousemove)="onMouseMove()"
   (focus)="isFocused.set(true)"
   (blur)="isFocused.set(false)"
-  (click)="videoPlayer.paused ? videoPlayer.play() : videoPlayer.pause()"
+  (click)="!disableContainerClickToggle() && togglePlayback()"
+  [class]="disableContainerClickToggle() ? 'cursor-pointer' : ''"
 >
   <video
     class="rounded-xl h-full"
@@ -139,9 +140,7 @@
             [size]="'icon'"
             variant="ghost"
             class="flex items-center rounded-full cursor-pointer"
-            (click)="
-              videoPlayer.paused ? videoPlayer.play() : videoPlayer.pause()
-            "
+            (click)="togglePlayback()"
           >
             <ng-icon
               hlm

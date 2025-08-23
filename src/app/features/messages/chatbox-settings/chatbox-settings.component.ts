@@ -23,11 +23,9 @@ import {
   lucideMessageCircle,
   lucidePencil,
   lucideUserRoundMinus,
+  lucideUsersRound,
 } from '@ng-icons/lucide';
-import {
-  HlmAvatarImage,
-  HlmAvatar,
-} from '@spartan-ng/helm/avatar';
+import { HlmAvatarImage, HlmAvatar } from '@spartan-ng/helm/avatar';
 import { BrnMenuTrigger } from '@spartan-ng/brain/menu';
 import {
   HlmMenu,
@@ -92,6 +90,7 @@ import { MediaFilesListComponent } from '../media-files-list/media-files-list.co
       lucideMessageCircle,
       lucideCircleUserRound,
       lucideUserRoundMinus,
+      lucideUsersRound,
     }),
   ],
   templateUrl: './chatbox-settings.component.html',

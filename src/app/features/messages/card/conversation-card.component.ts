@@ -46,13 +46,6 @@ export class ConversationCardComponent {
 
     if (!lastMessage) return false;
 
-    console.log(
-      conversation.read_receipts.find(
-        (readReceipt) => readReceipt.user_id === currentUser?._id
-      )?.last_message_read_id,
-      lastMessage._id
-    );
-
     return (
       conversation.read_receipts.find(
         (readReceipt) => readReceipt.user_id === currentUser?._id
