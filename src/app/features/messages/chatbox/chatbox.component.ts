@@ -32,10 +32,7 @@ import {
   ConversationI,
   ReadReceiptI,
 } from '../interfaces/conversation.interface';
-import {
-  HlmAvatarImage,
-  HlmAvatar,
-} from '@spartan-ng/helm/avatar';
+import { HlmAvatarImage, HlmAvatar } from '@spartan-ng/helm/avatar';
 import { BrnSeparator } from '@spartan-ng/brain/separator';
 import { HlmSeparator } from '@spartan-ng/helm/separator';
 import {
@@ -44,10 +41,7 @@ import {
   MessageStatus,
   MessageType,
 } from '../interfaces/message.interface';
-import {
-  HlmCardDescription,
-  HlmCard,
-} from '@spartan-ng/helm/card';
+import { HlmCardDescription, HlmCard } from '@spartan-ng/helm/card';
 import { FormControl, ReactiveFormsModule } from '@angular/forms';
 import { HlmButton } from '@spartan-ng/helm/button';
 import { HlmInput } from '@spartan-ng/helm/input';
@@ -401,6 +395,11 @@ export class ChatboxComponent implements OnInit, OnDestroy {
     }
 
     const content = this.messageControl.value;
+
+    if (content && content.length > 2000) {
+      toast.error('Message is too long. Maximum length is 2000 characters.');
+      return;
+    }
 
     if (!content || !content.trim()) return;
 

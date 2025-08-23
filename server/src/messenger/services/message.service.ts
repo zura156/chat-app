@@ -105,6 +105,16 @@ export class MessageService {
   ): Promise<IMessage> {
     const conversationObjectId = new Types.ObjectId(conversationId);
 
+    if (!content || content.trim() === '') {
+      throw new Error('Message content cannot be empty.');
+    }
+
+    if (content.length > 2000) {
+      throw new Error(
+        'Message content exceeds the maximum length of 2000 characters.'
+      );
+    }
+
     const message = new Message({
       sender: senderId,
       conversation: conversationObjectId,

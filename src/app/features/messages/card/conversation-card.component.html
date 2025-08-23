@@ -57,17 +57,26 @@
         }
       }
       </h1>
-      <p class="text-sm">
-        @if(conversation.last_message?.sender?._id === currentUser()?._id && conversation.last_message?.type !== 'info') {
-          You:
+      <p class="text-xs lg:text-sm flex w-fit text-gray-500">
+        @if(conversation.last_message?.type !== 'info') {
+          @if(conversation.last_message?.sender?._id === currentUser()?._id) {
+            You:
+          }
+          @if(conversation.is_group && conversation.last_message?.sender && conversation.last_message?.sender?._id !== currentUser()?._id) {
+            {{ conversation.last_message?.sender?.username }}:
+          }
         }
         @if(conversation.last_message?.content) {
-          <span class="text-gray-500">
-            <span class="max-w-3/4 text-gray-600 dark:text-gray-400 font-medium overflow-ellipsis w-32">
-              {{ conversation.last_message?.content }} &middot;
+          <div class="ml-0.5 inline-flex gap-x-1">
+            <span 
+              class="font-medium truncate align-middle max-w-20 lg:max-w-32 xl:max-w-56 w-fit" 
+              [class]="hasRead(conversation) ? 'text-gray-500' : 'font-bold text-primary'"
+              >
+              {{ conversation.last_message?.content }}
             </span>
-            {{ conversation.last_message?.timestamp ?? "" | timeAgo }}
-          </span>
+              &middot;
+              {{ conversation.last_message?.timestamp ?? "" | timeAgo }}
+          </div>
         }
       </p>
     </section>
