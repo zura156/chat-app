@@ -30,6 +30,8 @@ import ffmpegPath from 'ffmpeg-static';
 const app: Application = express();
 const port: number | 3000 = parseInt(config.port.toString());
 
+app.set('trust proxy', true);
+
 const server = http.createServer(app);
 
 app.use(
