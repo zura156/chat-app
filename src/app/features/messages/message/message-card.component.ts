@@ -8,7 +8,7 @@ import {
 } from '@angular/core';
 import { UserI } from '../../user/interfaces/user.interface';
 import { MessageI } from '../interfaces/message.interface';
-import { DatePipe, NgClass, TitleCasePipe } from '@angular/common';
+import { DatePipe, TitleCasePipe } from '@angular/common';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import {
   HlmAvatar,
@@ -41,14 +41,12 @@ import {
   MediaItem,
   MediaViewerService,
 } from '../../../shared/services/media-viewer.service';
-import { ClickOutsideDirective } from '../../../shared/directives/click-outside.directive';
 
 @Component({
   selector: 'message-card',
   imports: [
     TitleCasePipe,
     TimeAgoPipe,
-    NgClass,
     NgIcon,
     DatePipe,
     FileSizePipe,

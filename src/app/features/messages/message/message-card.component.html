@@ -2,7 +2,7 @@
 @let isCurrentUserMessage = this.isCurrentUserMessage(message);
 <div
   class="flex items-center mt-2 w-full"
-  [ngClass]="message.type === 'info' ? 'justify-center' : isCurrentUserMessage ? 'justify-end': 'justify-start'"
+  [class]="message.type === 'info' ? 'justify-center' : isCurrentUserMessage ? 'justify-end': 'justify-start'"
   >
   <div class="flex flex-col w-fit">
     @if(isGroup() && !isCurrentUserMessage && message.type !== 'info') {
@@ -37,13 +37,13 @@
                 </p>
               }
               @case ('text') {
-                <p class="break-all whitespace-normal">{{ message.content }}</p>
+                <p class="whitespace-normal [overflow-wrap:anywhere] [word-break:break-word]">{{ message.content }}</p>
               } 
               @case ('image') {
                 <div class="py-1.5 w-fit h-fit cursor-pointer" (click)="openMedia(message, 0)">
                   <img
                     class="object-contain max-h-96 max-w-full rounded-lg image-pixelated"
-                    [ngClass]="isImageLoaded() ? 'h-fit' : 'h-96'"
+                    [class]="isImageLoaded() ? 'h-fit' : 'h-96'"
                     [src]="
                       isImageLoaded()
                         ? apiUrl + message.file?.url
@@ -109,7 +109,9 @@
                       <ng-icon hlm name="lucideDownload" size="base" />
                     </span>
                     <div class="flex flex-col items-start justify-center text-sm">
-                      {{ message.file?.name }}
+                      <h1 class="font-medium text-ellipsis whitespace-normal [overflow-wrap:anywhere] [word-break:break-word]">
+                        {{ message.file?.name }}
+                      </h1>
                       <span class="text-blue-500 hover:underline">
                         {{ message.file?.size_in_bytes || 0 | fileSize }}
                       </span>

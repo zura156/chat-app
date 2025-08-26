@@ -34,21 +34,14 @@ import { FileI } from '../../../features/messages/interfaces/message.interface';
 import { HlmIcon } from '@spartan-ng/helm/icon';
 import { HlmButton } from '@spartan-ng/helm/button';
 import { MediaPlayerSizesT } from '../../types/media-player-sizes.type';
-import { NgClass, NgTemplateOutlet } from '@angular/common';
+import { NgTemplateOutlet } from '@angular/common';
 import { environment } from '../../../../environments/environment';
 import { FormatTimePipe } from '../../pipes/format-time.pipe';
 import { VideoActionsT } from '../../interfaces/video-actions.interface';
 
 @Component({
   selector: 'app-video-player',
-  imports: [
-    NgIcon,
-    NgClass,
-    HlmButton,
-    HlmIcon,
-    FormatTimePipe,
-    NgTemplateOutlet,
-  ],
+  imports: [NgIcon, HlmButton, HlmIcon, FormatTimePipe, NgTemplateOutlet],
   providers: [
     provideIcons({
       lucideCirclePlay,

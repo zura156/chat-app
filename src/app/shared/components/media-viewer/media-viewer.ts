@@ -231,6 +231,12 @@ export class MediaViewer implements OnInit {
     setTimeout(() => this.dialogRef.close(), 100); // delay to allow animations
   }
 
+  onBackdropClick(event: MouseEvent) {
+    if (event.target === event.currentTarget) {
+      this.closeViewer();
+    }
+  }
+
   private preloadAdjacentMedia() {
     // Preload previous and next media for smoother navigation
     const indicesToPreload = [

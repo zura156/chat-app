@@ -3,7 +3,7 @@
 <div
   #playerContainer
   class="relative w-full flex items-center justify-center py-0 sm:py-3 outline-none"
-  [ngClass]="{ 'cursor-none': !isOverlayVisible() }"
+  [class]="isOverlayVisible() ? '' : 'cursor-none'"
   tabindex="0"
   (mouseenter)="onMouseEnter()"
   (mouseleave)="onMouseLeave()"
@@ -31,7 +31,7 @@
       class="text-white z-10 absolute inset-0 flex flex-col items-center justify-center"
     >
       <!-- Rewind screen -->
-      <span class="select-none" [ngClass]="{ 'text-xl': size === 'lg' }">
+      <span class="select-none" [class]=" size === 'lg' ? 'text-xl' : ''">
         Restart
       </span>
       <button
@@ -47,7 +47,7 @@
   } @else {
     <div
       class="text-white z-10 absolute inset-0 flex flex-col items-center justify-center pointer-events-none"
-      [ngClass]="showIndicator() ? 'opacity-100' : 'duration-300 opacity-0'"
+      [class]="showIndicator() ? 'opacity-100' : 'duration-300 opacity-0'"
     >
       @switch (indicatorType()) {
         @case ('play') {
@@ -89,7 +89,7 @@
         @case ('volume-change') {
           <div class="p-2 bg-accent rounded-full flex flex-col items-center justify-center">
             <ng-container *ngTemplateOutlet="audioIcon"></ng-container>
-            <span [ngClass]="size === 'lg' ? 'text-lg' : 'text-base'">
+            <span [class]="size === 'lg' ? 'text-lg' : 'text-base'">
               {{ (volume() * 100).toFixed() + '%' }}
             </span>
           </div>
@@ -106,7 +106,7 @@
   <!-- Controls -->
   <div
     class="h-full w-full absolute top-0 left-0 flex duration-150 items-end"
-    [ngClass]="{ 'pointer-events-none opacity-0': !isOverlayVisible() }"
+    [class]="isOverlayVisible() ? '' : 'pointer-events-none opacity-0'"
   >
     <div
       (click)="$event.stopPropagation()"

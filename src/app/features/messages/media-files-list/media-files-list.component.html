@@ -12,8 +12,8 @@
             <button class="w-1/3 p-0.5 hover:opacity-75 transition-all cursor-pointer hover:scale-105 active:scale-95 active:opacity-100" (click)="openMedia(message, $index)">
                 @switch(message.type) {
                     @case('image') {
-                        <div class="bg-no-repeat bg-cover aspect-square image-pixelated" [ngStyle]="{'background-image': 'url(' + apiUrl + (message.file?.mime_type === 'image/gif' ? message.file?.url : message.file?.placeholder_url) + ')'}">
-                            <img class="aspect-square object-cover" [src]="apiUrl + message.file?.url" [alt]="message.content" />
+                        <div class="bg-no-repeat bg-cover aspect-square image-pixelated" [style.background-image]="'url(' + apiUrl + (message.file?.mime_type === 'image/gif' ? message.file?.url : message.file?.placeholder_url) + ')'">
+                            <img class="aspect-square object-cover" loading="lazy" [src]="apiUrl + message.file?.url" [alt]="message.content" />
                         </div>
                     }
                     @case('video') {

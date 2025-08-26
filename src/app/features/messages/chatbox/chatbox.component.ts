@@ -65,7 +65,6 @@ import {
 } from '@ng-icons/lucide';
 import { HlmIcon } from '@spartan-ng/helm/icon';
 import { LayoutService } from '../layout/layout.service';
-import { NgClass } from '@angular/common';
 import { AudioRecorder } from '../../../shared/components/audio-recorder/audio-recorder';
 import { RecordingResult } from '../../../shared/interfaces/audio-message.interface';
 import { ChatboxSettingsComponent } from '../chatbox-settings/chatbox-settings.component';
@@ -80,7 +79,6 @@ import { UserStateService } from '../../user/services/user-state.service';
   imports: [
     TimeAgoPipe,
     NgIcon,
-    NgClass,
     HlmIcon,
     PanGestureDirective,
     HlmCard,

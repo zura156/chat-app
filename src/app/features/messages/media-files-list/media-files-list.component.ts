@@ -3,7 +3,6 @@ import { HlmSpinner } from '@spartan-ng/helm/spinner';
 import { HlmTabsImports } from '@spartan-ng/helm/tabs';
 import { MessageService } from '../services/message.service';
 import { environment } from '../../../../environments/environment';
-import { NgStyle } from '@angular/common';
 import {
   MediaItem,
   MediaViewerService,
@@ -13,7 +12,7 @@ import { MessageI } from '../interfaces/message.interface';
 @Component({
   selector: 'app-media-files-list',
   templateUrl: './media-files-list.component.html',
-  imports: [NgStyle, HlmTabsImports, HlmSpinner],
+  imports: [HlmTabsImports, HlmSpinner],
 })
 export class MediaFilesListComponent implements OnInit {
   private messageService = inject(MessageService);

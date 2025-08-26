@@ -6,20 +6,20 @@
   (panStart)="onPanStart($event)"
   (panMove)="onPanMove($event)"
   (panEnd)="onPanEnd($event)"
-  class="w-full h-full flex touch-none px-2" [ngClass]="isSettingsOpen() ? 'sm:space-x-2 md:space-x-4' : ''"
+  class="w-full h-full flex touch-none px-2" [class]="isSettingsOpen() ? 'sm:space-x-2 md:space-x-4' : ''"
   >
   <section
     class="duration-0 md:translate-0 md:opacity-100 relative h-full flex flex-col py-2"
-    [ngClass]="isSettingsOpen() ? 'w-0 duration-150 opacity-0 pointer-events-none sm:translate-0 sm:pointer-events-auto sm:opacity-100 sm:w-1/2' : 'w-full'"
+    [class]="isSettingsOpen() ? 'w-0 duration-150 opacity-0 pointer-events-none sm:translate-0 sm:pointer-events-auto sm:opacity-100 sm:w-1/2' : 'w-full'"
   >
     <brn-separator decorative hlmSeparator />
     <header class="flex w-full items-start py-2 px-2 sm:px-0 justify-between">
       @if(isLoading()) {
         <div class="flex items-center justify-start">
-          <hlm-skeleton class="size-8 rounded-full" />
+          <hlm-skeleton class="size-8 rounded-full max-w-full" />
           <div class="flex flex-col gap-y-1 justify-start ml-2">
-            <hlm-skeleton class="w-52 h-8" />
-            <hlm-skeleton class="w-52 h-4" />
+            <hlm-skeleton class="min-w-32 max-w-fit h-8" />
+            <hlm-skeleton class="min-w-24 max-w-fit h-4" />
           </div>
         </div>
       } @else {
@@ -138,7 +138,7 @@
                   @for(message of group.messages; track trackMessage(i, message); let i = $index) {
                     @if(message) {
                       <message-card
-                        [ngClass]="message.sender._id === group?.messages?.[i > 0 ? i + 1: 1]?.sender?._id ? '' : 'mt-2'"
+                        [class]="message.sender._id === group?.messages?.[i > 0 ? i + 1: 1]?.sender?._id ? '' : 'mt-2'"
                         #messageItem
                         [attr.data-message-id]="message._id"
                         [message]="message"
@@ -243,10 +243,10 @@
     </footer>
   </section>
 
-  <brn-separator decorative hlmSeparator orientation="vertical" class="hidden!" [ngClass]="isSettingsOpen() ? 'sm:inline-flex!' : 'sm:hidden!'"/>
+  <brn-separator decorative hlmSeparator orientation="vertical" class="hidden!" [class]="isSettingsOpen() ? 'sm:inline-flex!' : 'sm:hidden!'"/>
 
   
-  <section class="duration-300 overflow-hidden sm:max-w-1/2" [ngClass]="isSettingsOpen() ? 'w-full sm:w-1/2 opacity-100 pointer-events-auto': 'w-0 opacity-0 pointer-events-none'">
+  <section class="duration-300 overflow-hidden sm:max-w-1/2" [class]="isSettingsOpen() ? 'w-full sm:w-1/2 opacity-100 pointer-events-auto': 'w-0 opacity-0 pointer-events-none'">
     <app-chatbox-settings [conversation]="conversation ?? undefined" /> 
   </section>
 </main>

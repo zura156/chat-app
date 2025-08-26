@@ -67,7 +67,10 @@
   </div>
 
   <!-- Main media display area -->
-  <div class="flex-1 flex items-center justify-center relative overflow-hidden">
+  <div 
+    class="flex-1 flex items-center justify-center relative overflow-hidden" 
+    (click)="onBackdropClick($event)"
+  >
     <!-- Navigation arrows (only show if gallery enabled and multiple items) -->
     @if(config.enableGallery && canNavigatePrevious()) {
     <button
