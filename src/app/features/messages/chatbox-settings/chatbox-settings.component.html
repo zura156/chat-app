@@ -1,6 +1,11 @@
 @let conversation = this.conversation();
 
 <main class="h-full w-full py-12 p-2 overflow-y-auto">
+
+    <button hlmBtn variant="ghost" class="rounded-full px-2! py-5! mb-4 cursor-pointer md:hidden" (click)="closeSettings.emit()">
+        <ng-icon hlm name="lucideArrowLeft"></ng-icon>
+    </button>
+
     @if(conversation) {
         <section class="space-y-4">
             <div class="flex flex-col items-center space-y-2">

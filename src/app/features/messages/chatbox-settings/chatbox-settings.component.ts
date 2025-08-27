@@ -5,6 +5,7 @@ import {
   inject,
   input,
   OnDestroy,
+  output,
   OutputRefSubscription,
   signal,
   viewChild,
@@ -15,6 +16,7 @@ import { environment } from '../../../../environments/environment';
 import { NgIcon, provideIcons } from '@ng-icons/core';
 import { HlmIcon } from '@spartan-ng/helm/icon';
 import {
+  lucideArrowLeft,
   lucideChevronDown,
   lucideChevronUp,
   lucideCircleUserRound,
@@ -83,6 +85,7 @@ import { MediaFilesListComponent } from '../media-files-list/media-files-list.co
   providers: [
     provideIcons({
       lucideChevronDown,
+      lucideArrowLeft,
       lucideChevronUp,
       lucidePencil,
       lucideDoorOpen,
@@ -104,6 +107,9 @@ export class ChatboxSettingsComponent implements OnDestroy {
   private navCtrl = inject(NavController);
   private fb = inject(FormBuilder);
 
+  closeSettings = output<void>();
+
+  private readonly CHAT_PREFERENCE_STORAGE_KEY = 'prefers-chat-settings-open';
   readonly apiUrl = environment.apiUrl;
 
   dropdownMenuStates: { [key: string]: boolean } = {

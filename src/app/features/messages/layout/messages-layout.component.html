@@ -1,11 +1,11 @@
 <main class="overflow-hidden h-full w-full flex">
   @if(!isMobile()){
-  <section class="w-1/3 h-dvh overflow-hidden">
+  <section class="sm:w-1/2 md:w-1/3 h-dvh overflow-hidden">
     <app-conversation-list></app-conversation-list>
   </section>
   <brn-separator hlm decorative orientation="vertical" />
   <section
-      class="h-dvh overflow-hidden w-2/3"
+      class="h-dvh overflow-hidden sm:w-1/2 md:w-2/3"
     >
     @if(isConversationListActive()) { Please select a conversation } @else {
       <ng-container *ngTemplateOutlet="ionicOutlet"></ng-container>

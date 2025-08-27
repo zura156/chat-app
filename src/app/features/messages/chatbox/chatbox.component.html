@@ -6,14 +6,14 @@
   (panStart)="onPanStart($event)"
   (panMove)="onPanMove($event)"
   (panEnd)="onPanEnd($event)"
-  class="w-full h-full flex touch-none px-2" [class]="isSettingsOpen() ? 'sm:space-x-2 md:space-x-4' : ''"
+  class="w-full h-full flex touch-none" [class]="isSettingsOpen() ? 'sm:space-x-2' : ''"
   >
   <section
     class="duration-0 md:translate-0 md:opacity-100 relative h-full flex flex-col py-2"
-    [class]="isSettingsOpen() ? 'w-0 duration-150 opacity-0 pointer-events-none sm:translate-0 sm:pointer-events-auto sm:opacity-100 sm:w-1/2' : 'w-full'"
+    [class]="isSettingsOpen() ? 'w-0 duration-150 opacity-0 pointer-events-none md:translate-0 md:pointer-events-auto md:opacity-100 md:w-1/2' : 'w-full'"
   >
     <brn-separator decorative hlmSeparator />
-    <header class="flex w-full items-start py-2 px-2 sm:px-0 justify-between">
+    <header class="flex w-full items-start py-2 px-2 justify-between">
       @if(isLoading()) {
         <div class="flex items-center justify-start">
           <hlm-skeleton class="size-8 rounded-full max-w-full" />
@@ -85,10 +85,10 @@
     <section
       (scroll)="onChatTopVisible()"
       #chatboxSection
-      class="h-full relative overflow-y-auto flex-1 flex flex-col-reverse scroll-smooth"
+      class="h-full relative overflow-y-auto flex-1 flex flex-col-reverse scroll-smooth px-2"
     >
       <!-- visibility event -->
-      <div id="chat-messages" class="flex flex-col-reverse p-2 sm:px-0 sm:py-2 md:p-2 space-y-4 space-y-reverse">
+      <div id="chat-messages" class="flex flex-col-reverse p-2 sm:px-0 sm:py-2 space-y-4 space-y-reverse">
         @let sender = this.isTyping()?.typer;
         @let isTyping = this.isTyping()?.is_typing; 
         @let isTypingConversationId = this.isTyping()?.conversationId;
@@ -243,10 +243,10 @@
     </footer>
   </section>
 
-  <brn-separator decorative hlmSeparator orientation="vertical" class="hidden!" [class]="isSettingsOpen() ? 'sm:inline-flex!' : 'sm:hidden!'"/>
+  <brn-separator decorative hlmSeparator orientation="vertical" class="hidden!" [class]="isSettingsOpen() ? 'md:inline-flex!' : 'md:hidden!'"/>
 
   
-  <section class="duration-300 overflow-hidden sm:max-w-1/2" [class]="isSettingsOpen() ? 'w-full sm:w-1/2 opacity-100 pointer-events-auto': 'w-0 opacity-0 pointer-events-none'">
-    <app-chatbox-settings [conversation]="conversation ?? undefined" /> 
+  <section class="duration-300 overflow-hidden md:max-w-1/2" [class]="isSettingsOpen() ? 'w-full md:w-1/2 opacity-100 pointer-events-auto': 'w-0 opacity-0 pointer-events-none'">
+    <app-chatbox-settings (closeSettings)="toggleSettingsView()" [conversation]="conversation ?? undefined" /> 
   </section>
 </main>
