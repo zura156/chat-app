@@ -1,4 +1,4 @@
-name: "CodeQL Advanced"
+name: "CodeQL Security Analysis"
 
 on:
   push:
@@ -11,7 +11,7 @@ on:
 jobs:
   analyze:
     name: Analyze (${{ matrix.language }})
-    runs-on: ${{ (matrix.language == 'swift' && 'macos-latest') || 'ubuntu-latest' }}
+    runs-on: ubuntu-latest
     timeout-minutes: 360
     permissions:
       security-events: write
@@ -26,9 +26,6 @@ jobs:
         - language: javascript-typescript
           build-mode: none
           node-version: '20'
-        # Remove actions language unless you have custom GitHub Actions
-        # - language: actions
-        #   build-mode: none
 
     steps:
     - name: Checkout repository
@@ -45,19 +42,16 @@ jobs:
     - name: Install dependencies
       run: |
         npm ci
-        # If you have a monorepo structure:
-        # npm run install:all
-        # Or if using workspaces:
-        # npm install --workspaces
 
-    # Initialize CodeQL with enhanced configuration
+    # Initialize CodeQL with unique configuration
     - name: Initialize CodeQL
       uses: github/codeql-action/init@v3
       with:
         languages: ${{ matrix.language }}
         build-mode: ${{ matrix.build-mode }}
-        # Enhanced query suite for TypeScript/Angular projects
         queries: security-extended,security-and-quality
+        # Use a completely unique source root to avoid conflicts
+        source-root: ${{ github.workspace }}
         # Inline path exclusions
         paths-ignore: |
           node_modules/**
@@ -76,19 +70,20 @@ jobs:
       if: matrix.language == 'javascript-typescript'
       run: |
         # Build Angular app for better code analysis
-        npm run build
-        # If you have multiple Angular apps:
-        # npm run build:all
+        npm run build --if-present
 
-    # Optional: Build Express server (if it requires compilation)
-    - name: Build Express server
-      if: matrix.language == 'javascript-typescript'
-      run: |
-        # Only if your Express app needs compilation
-        # npm run build:server
-        echo "Express TypeScript server ready for analysis"
-
+    # Use a completely different approach for analysis
     - name: Perform CodeQL Analysis
       uses: github/codeql-action/analyze@v3
       with:
-        category: "/language:${{matrix.language}}-advanced"
+        category: "advanced-security-scan"
+        output: sarif-results
+        upload: false
+
+    # Manual upload with different approach
+    - name: Upload CodeQL results
+      uses: github/codeql-action/upload-sarif@v3
+      if: always()
+      with:
+        sarif_file: sarif-results/javascript.sarif
+        category: "advanced-security-scan"
