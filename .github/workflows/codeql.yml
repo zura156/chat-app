@@ -1,0 +1,86 @@
+name: "CodeQL Advanced"
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+  schedule:
+    - cron: '24 9 * * 4'
+
+jobs:
+  analyze:
+    name: Analyze (${{ matrix.language }})
+    runs-on: ${{ (matrix.language == 'swift' && 'macos-latest') || 'ubuntu-latest' }}
+    timeout-minutes: 360
+    permissions:
+      security-events: write
+      packages: read
+      actions: read
+      contents: read
+
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+        - language: javascript-typescript
+          build-mode: none
+          node-version: '20'
+        # Remove actions language unless you have custom GitHub Actions
+        # - language: actions
+        #   build-mode: none
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    # Essential for Angular v20+ and Express TypeScript projects
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ matrix.node-version }}
+        cache: 'npm'
+        
+    # Install dependencies (crucial for proper TypeScript analysis)
+    - name: Install dependencies
+      run: |
+        npm ci
+        # If you have a monorepo structure:
+        # npm run install:all
+        # Or if using workspaces:
+        # npm install --workspaces
+
+    # Initialize CodeQL with enhanced configuration
+    - name: Initialize CodeQL
+      uses: github/codeql-action/init@v3
+      with:
+        languages: ${{ matrix.language }}
+        build-mode: ${{ matrix.build-mode }}
+        # Enhanced query suite for TypeScript/Angular projects
+        queries: security-extended,security-and-quality
+        # Optional: Add custom CodeQL config file
+        config-file: ./.github/codeql/codeql-config.yml
+
+    # Build step for Angular (if needed for better analysis)
+    - name: Build Angular application
+      if: matrix.language == 'javascript-typescript'
+      run: |
+        # Build Angular app for better code analysis
+        npm run build
+        # If you have multiple Angular apps:
+        # npm run build:all
+
+    # Optional: Build Express server (if it requires compilation)
+    - name: Build Express server
+      if: matrix.language == 'javascript-typescript'
+      run: |
+        # Only if your Express app needs compilation
+        # npm run build:server
+        echo "Express TypeScript server ready for analysis"
+
+    - name: Perform CodeQL Analysis
+      uses: github/codeql-action/analyze@v3
+      with:
+        category: "/language:${{matrix.language}}"
+        # Upload results even if there are compilation errors
+        upload: failure-matching
