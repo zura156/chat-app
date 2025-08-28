@@ -58,8 +58,18 @@ jobs:
         build-mode: ${{ matrix.build-mode }}
         # Enhanced query suite for TypeScript/Angular projects
         queries: security-extended,security-and-quality
-        # Optional: Add custom CodeQL config file
-        config-file: ./.github/codeql/codeql-config.yml
+        # Inline path exclusions
+        paths-ignore: |
+          node_modules/**
+          dist/**
+          build/**
+          coverage/**
+          **/*.spec.ts
+          **/*.test.ts
+          e2e/**
+          cypress/**
+          **/*.d.ts
+          .angular/**
 
     # Build step for Angular (if needed for better analysis)
     - name: Build Angular application
