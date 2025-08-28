@@ -227,12 +227,12 @@
 
           <div
             class="w-full h-full flex items-center relative justify-center text-white"
-          >
+            [class.hidden]="getThumbnailState(i).loading || getThumbnailState(i).error" 
+            >
             <img
               [src]="apiUrl + media.thumbnail_url" 
               [alt]="media.name || 'Thumbnail'"
               class="h-full w-full object-cover"
-              [class.hidden]="getThumbnailState(i).loading || getThumbnailState(i).error" 
               (load)="setThumbnailLoading(i, false)"
               (error)="setThumbnailError(i, true)"
             />

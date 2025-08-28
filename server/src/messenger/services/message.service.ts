@@ -202,13 +202,16 @@ export class MessageService {
           ffmpeg(file.path)
             .screenshots({
               count: 1,
-              timemarks: ['1'], // capture at 1 second
+              timemarks: ['00:00:01'], // capture at 1 second
               filename: thumbnailFilename,
               folder: file.destination,
               size: '320x?',
             })
             .on('end', () => resolve())
-            .on('error', (err: any) => reject(err));
+            .on('error', (err: any) => {
+              console.log(err);
+              return reject(err);
+            });
         });
 
         thumbnailUrl = `/uploads/${thumbnailFilename}`;

@@ -23,8 +23,9 @@
       }
       <div class="flex flex-col">
         <div
-          class="border border-border rounded-lg"
-          [class]="message.type === 'audio' || message.type === 'video' || message.type === 'info' ? 'border-none' : ''"
+          class="border rounded-lg"
+
+          [class]="message.type === 'audio' || message.type === 'video' || message.type === 'info' ? 'border-none' : isCurrentUserMessage ? 'bg-accent border-border text-accent-foreground' : 'border-border'"
         >
           <div
             class="py-1 text-ellipsis"
