@@ -20,7 +20,6 @@
     "@angular/platform-browser": "^20.1.0",
     "@angular/platform-browser-dynamic": "^20.1.0",
     "@angular/router": "^20.1.0",
-    "@angular/service-worker": "^20.1.0",
     "@capacitor/cli": "^7.4.1",
     "@capacitor/core": "^7.4.1",
     "@ionic/angular": "^8.6.4",
