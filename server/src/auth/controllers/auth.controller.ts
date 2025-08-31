@@ -144,7 +144,9 @@ export const loginUser = async (
     }
 
     // Find user
-    const user = await User.findOne({ email });
+    const user = await User.findOne({
+      email: { $regex: new RegExp(`^${email}$`, 'i') },
+    });
 
     if (!user) {
       res.status(404).json({ message: 'User not found!' });
@@ -338,7 +340,9 @@ export const forgotPassword = async (
   }
 
   try {
-    const user = await User.findOne({ email });
+    const user = await User.findOne({
+      email: { $regex: new RegExp(`^${email}$`, 'i') },
+    });
 
     if (!user) {
       res.status(404).json({ message: 'User with provided email not found.' });
