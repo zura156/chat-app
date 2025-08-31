@@ -143,14 +143,9 @@ export const loginUser = async (
       return;
     }
 
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(email)) {
-      res.status(400).json({ message: 'Invalid email format' });
-      return;
-    }
-
-    // Find user
-    const user = await User.findOne({ email });
+    const sanitizedEmail = email.trim().toLowerCase();
+    // Find a user
+    const user = await User.findOne({ email: sanitizedEmail });
 
     if (!user) {
       res.status(404).json({ message: 'User not found!' });
@@ -343,13 +338,10 @@ export const forgotPassword = async (
     return;
   }
 
-  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-  if (!emailRegex.test(email)) {
-    res.status(400).json({ message: 'Invalid email format' });
-    return;
-  }
   try {
-    const user = await User.findOne({ email });
+    const sanitizedEmail = email.trim().toLowerCase();
+    // Find a user
+    const user = await User.findOne({ email: sanitizedEmail });
 
     if (!user) {
       res.status(404).json({ message: 'User with provided email not found.' });
