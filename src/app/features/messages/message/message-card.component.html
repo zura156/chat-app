@@ -1,7 +1,7 @@
 @let message = this.message();
 @let isCurrentUserMessage = this.isCurrentUserMessage(message);
 <div
-  class="flex items-center mt-2 w-full"
+  class="flex items-center mt-2 w-full overflow-x-hidden"
   [class]="message.type === 'info' ? 'justify-center' : isCurrentUserMessage ? 'justify-end': 'justify-start'"
   >
   <div class="flex flex-col w-fit">
@@ -28,7 +28,7 @@
           [class]="message.type === 'audio' || message.type === 'video' || message.type === 'info' ? 'border-none' : isCurrentUserMessage ? 'bg-accent border-border text-accent-foreground' : 'border-border'"
         >
           <div
-            class="py-1 text-ellipsis"
+            class="py-1 text-ellipsis max-w-xs"
             [class]="message.type === 'audio' ? '' : 'px-2 md:px-3'"
           >
             @switch(message.type) {
