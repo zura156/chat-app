@@ -98,6 +98,14 @@ export class MediaViewer implements OnInit {
 
   @HostListener('document:keydown', ['$event'])
   handleKeydown(event: KeyboardEvent) {
+    if (event.key === 'ArrowLeft' || event.key === 'ArrowRight') {
+      // Check if event originated from video player
+      const target = event.target as HTMLElement;
+      if (target.closest('video') || target.closest('app-video-player')) {
+        return; // Don't handle if from video player
+      }
+    }
+
     switch (event.key) {
       case 'Escape':
         this.closeViewer();

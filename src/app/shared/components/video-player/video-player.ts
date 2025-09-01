@@ -323,6 +323,7 @@ export class VideoPlayer implements AfterViewInit, OnDestroy {
 
   @HostListener('window:keydown', ['$event'])
   handleKeyDown(event: KeyboardEvent) {
+    event.stopPropagation()
     if (this.disableContainerClickToggle()) return;
     if (!this.isFocused()) return;
 
