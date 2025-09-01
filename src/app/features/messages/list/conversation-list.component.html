@@ -60,7 +60,7 @@
         </button>
       </hlm-tabs-list>
     </div>
-    <section hlmTabsContent="users" class="flex-1 overflow-y-auto">
+    <section hlmTabsContent="users" class="flex-1 overflow-y-auto rounded-lg">
       @if (users() && (users()?.users?.length ?? 0 > 0)) {
         <section class="flex flex-col gap-y-2 py-2 px-1">
           @for (user of users()?.users; track user._id) {
@@ -88,7 +88,7 @@
       }
     </section>
 
-    <section hlmTabsContent="conversations" class="flex-1 overflow-y-auto">
+    <section hlmTabsContent="conversations" class="flex-1 overflow-y-auto rounded-lg">
       @if (conversations() && (conversations()?.conversations?.length ?? 0 > 0)) {
         <section class="h-full w-full flex flex-col gap-y-2 py-2 px-1">
           @for (conversation of conversations()?.conversations; track conversation._id) {
