@@ -1,12 +1,8 @@
 import { ApplicationConfig, provideZoneChangeDetection } from '@angular/core';
 import {
-  IonicRouteStrategy,
-  provideIonicAngular,
-} from '@ionic/angular/standalone';
-import {
   PreloadAllModules,
   provideRouter,
-  RouteReuseStrategy,
+  withViewTransitions,
   withPreloading,
 } from '@angular/router';
 import { routes } from './app.routes';
@@ -20,9 +16,11 @@ import { httpOptionsInterceptor } from './features/auth/interceptors/http-option
 
 export const appConfig: ApplicationConfig = {
   providers: [
-    { provide: RouteReuseStrategy, useClass: IonicRouteStrategy },
-    provideIonicAngular(),
-    provideRouter(routes, withPreloading(PreloadAllModules)),
+    provideRouter(
+      routes,
+      withPreloading(PreloadAllModules),
+      withViewTransitions()
+    ),
     provideZoneChangeDetection({ eventCoalescing: true }),
     provideHttpClient(
       withFetch(),

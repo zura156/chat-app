@@ -142,7 +142,7 @@
           </button>
           <p class="text-end text-sm/6 text-gray-500">
             <a 
-              (click)="navigate('/auth/forgot-password')" 
+              [routerLink]="'/auth/forgot-password'" 
               class="font-medium text-primary cursor-pointer"
               >
               Forgot password?
@@ -165,7 +165,7 @@
     <p class="mt-2 text-center text-sm/6 text-gray-500">
       Not a member?
       <a
-        (click)="navigate('/auth/register')"
+        [routerLink]="'/auth/register'"
         class="text-primary cursor-pointer"
       >
         Register now

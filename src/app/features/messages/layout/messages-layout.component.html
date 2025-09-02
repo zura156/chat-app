@@ -8,17 +8,17 @@
       class="h-dvh overflow-hidden sm:w-1/2 md:w-2/3"
     >
     @if(isConversationListActive()) { Please select a conversation } @else {
-      <ng-container *ngTemplateOutlet="ionicOutlet"></ng-container>
+      <ng-container *ngTemplateOutlet="routerOutlet"></ng-container>
     }
   </section>
   } @else {
   <section class="h-dvh w-full">
-    <ng-container *ngTemplateOutlet="ionicOutlet"></ng-container>
+    <ng-container *ngTemplateOutlet="routerOutlet"></ng-container>
   </section>
   }
 </main>
 
 
-<ng-template #ionicOutlet>
-  <ion-router-outlet class="relative"/>
+<ng-template #routerOutlet>
+  <router-outlet />
 </ng-template>

@@ -23,7 +23,7 @@ import { UserI } from '../../user/interfaces/user.interface';
 import { CSRFTokenI } from '../interfaces/csrf-token.interface';
 import { UserService } from '../../user/services/user.service';
 import { CSRFService } from './csrf.service';
-import { NavController } from '@ionic/angular/standalone';
+import { Router } from '@angular/router';
 import { toast } from 'ngx-sonner';
 
 @Injectable({
@@ -35,7 +35,7 @@ export class AuthService {
    */
 
   private http = inject(HttpClient);
-  private navCtrl = inject(NavController);
+  private router = inject(Router);
   private csrfService = inject(CSRFService);
   private userStateService = inject(UserStateService);
   private userService = inject(UserService);
@@ -178,7 +178,7 @@ export class AuthService {
         this.startTokenRefresh();
 
         return this.initializeAuth().pipe(
-          tap(() => this.navCtrl.navigateRoot('/messages'))
+          tap(() => this.router.navigateByUrl('/messages'))
         );
       }),
       catchError(this.handleError)
@@ -260,7 +260,7 @@ export class AuthService {
         this.csrfService.clearCSRFToken();
         this.#loading.set(false);
 
-        this.navCtrl.navigateRoot(['/auth/login']);
+        this.router.navigateByUrl('/auth/login');
       }),
       catchError(this.handleError.bind(this))
     );
@@ -306,6 +306,6 @@ export class AuthService {
   private handleAuthFailure() {
     this.userStateService.setCurrentUser(null);
     this.stopTokenRefresh();
-    this.navCtrl.navigateRoot(['/auth/login']);
+    this.router.navigateByUrl('/auth/login');
   }
 }

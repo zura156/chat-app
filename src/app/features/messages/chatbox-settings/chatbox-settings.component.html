@@ -80,7 +80,7 @@
                         hlmBtn 
                         class="cursor-pointer mb-6"
                         variant="outline" 
-                        (click)="navigate(`/${conversation.participants[0]._id}`)"
+                        [routerLink]="`/${conversation.participants[0]._id}`"
                         >
                         <ng-icon hlm name="lucideCircleUserRound" />
                         View profile
@@ -188,7 +188,7 @@
                                                     <hlm-menu-separator />
                                                     
                                                     <button
-                                                    (click)="navigate(`/${participant._id}`)"
+                                                    [routerLink]="`/${participant._id}`"
                                                     hlmMenuItem
                                                     class="cursor-pointer"
                                                     >

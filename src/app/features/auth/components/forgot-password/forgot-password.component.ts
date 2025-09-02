@@ -11,7 +11,7 @@ import { HlmButton } from '@spartan-ng/helm/button';
 import { HlmFormFieldModule } from '@spartan-ng/helm/form-field';
 import { HlmIcon } from '@spartan-ng/helm/icon';
 import { HlmInput } from '@spartan-ng/helm/input';
-import { NavController } from '@ionic/angular/standalone';
+import { RouterLink } from '@angular/router';
 import { toast } from 'ngx-sonner';
 import { AuthService } from '../../services/auth.service';
 import { catchError, throwError } from 'rxjs';
@@ -26,6 +26,7 @@ import {
   selector: 'app-forgot-password',
   templateUrl: './forgot-password.component.html',
   imports: [
+    RouterLink,
     ReactiveFormsModule,
     HlmFormFieldModule,
     HlmInput,
@@ -39,7 +40,6 @@ import {
   ],
 })
 export class ForgotPasswordComponent {
-  private navCtrl = inject(NavController);
   private authService = inject(AuthService);
 
   form: FormGroup = new FormGroup({
@@ -89,8 +89,5 @@ export class ForgotPasswordComponent {
 
   clearError() {
     this.error.set(null);
-  }
-  navigate(url: string): void {
-    this.navCtrl.navigateRoot(url);
   }
 }

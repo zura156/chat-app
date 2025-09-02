@@ -21,11 +21,12 @@ import {
 import { catchError, Subject, takeUntil, tap, throwError } from 'rxjs';
 import { HlmAlertImports } from '@spartan-ng/helm/alert';
 import { passwordValidator } from '../../validators/password.validator';
-import { NavController } from '@ionic/angular/standalone';
+import { Router, RouterLink } from '@angular/router';
 
 @Component({
   selector: 'app-register',
   imports: [
+    RouterLink,
     ReactiveFormsModule,
     HlmFormFieldModule,
     HlmInput,
@@ -41,7 +42,7 @@ import { NavController } from '@ionic/angular/standalone';
 })
 export class RegisterComponent implements OnDestroy {
   authService = inject(AuthService);
-  navCtrl = inject(NavController);
+  router = inject(Router);
 
   showPass = signal<boolean>(false);
   showRepeatPass = signal<boolean>(false);
@@ -116,7 +117,7 @@ export class RegisterComponent implements OnDestroy {
         tap(() => {
           this.clearError();
           this.isLoading.set(false);
-          this.navCtrl.navigateRoot('/auth/login');
+          this.router.navigateByUrl('/auth/login');
         }),
         catchError((err) => {
           this.error.set(err.error.message);
@@ -125,8 +126,5 @@ export class RegisterComponent implements OnDestroy {
         })
       )
       .subscribe();
-  }
-  navigate(url: string) {
-    this.navCtrl.navigateRoot(url);
   }
 }

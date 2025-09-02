@@ -5,7 +5,6 @@ import {
   Validators,
   ReactiveFormsModule,
 } from '@angular/forms';
-import { NavController } from '@ionic/angular/standalone';
 import { NgIcon, provideIcons } from '@ng-icons/core';
 import { HlmAlertImports } from '@spartan-ng/helm/alert';
 import { HlmButton } from '@spartan-ng/helm/button';
@@ -15,7 +14,7 @@ import { HlmInput } from '@spartan-ng/helm/input';
 import { passwordValidator } from '../../validators/password.validator';
 import { toast } from 'ngx-sonner';
 import { AuthService } from '../../services/auth.service';
-import { ActivatedRoute } from '@angular/router';
+import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { catchError, switchMap, tap, throwError, timer } from 'rxjs';
 import {
   lucideCircleAlert,
@@ -29,6 +28,7 @@ import { HttpErrorResponse } from '@angular/common/http';
   selector: 'app-reset-password',
   templateUrl: './reset-password.component.html',
   imports: [
+    RouterLink,
     ReactiveFormsModule,
     HlmFormFieldModule,
     HlmInput,
@@ -42,7 +42,7 @@ import { HttpErrorResponse } from '@angular/common/http';
   ],
 })
 export class ResetPasswordComponent {
-  private navCtrl = inject(NavController);
+  private router = inject(Router);
   private route = inject(ActivatedRoute);
   private authService = inject(AuthService);
 
@@ -96,7 +96,7 @@ export class ResetPasswordComponent {
             }),
             switchMap(() =>
               timer(5000).pipe(
-                tap(() => this.navCtrl.navigateRoot('/auth/login'))
+                tap(() => this.router.navigateByUrl('/auth/login'))
               )
             )
           );
@@ -107,10 +107,6 @@ export class ResetPasswordComponent {
 
   clearError() {
     this.error.set(null);
-  }
-
-  navigate(url: string): void {
-    this.navCtrl.navigateRoot(url);
   }
 
   togglePasswordVisibility(): void {

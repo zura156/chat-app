@@ -5,8 +5,8 @@ import { HlmIconModule } from '../../../../../libs/ui/ui-icon-helm/src/index';
 import { HlmAvatarImports } from '@spartan-ng/helm/avatar';
 import { TimeAgoPipe } from '../../../shared/pipes/time-ago.pipe';
 import { environment } from '../../../../environments/environment';
-import { NavController } from '@ionic/angular/standalone';
 import { UserStateService } from '../../user/services/user-state.service';
+import { Router } from '@angular/router';
 
 @Component({
   selector: 'app-conversation-card',
@@ -14,9 +14,9 @@ import { UserStateService } from '../../user/services/user-state.service';
   templateUrl: './conversation-card.component.html',
 })
 export class ConversationCardComponent {
-  layoutService = inject(LayoutService);
-  userStateService = inject(UserStateService);
-  navCtrl = inject(NavController);
+  private layoutService = inject(LayoutService);
+  private userStateService = inject(UserStateService);
+  private router = inject(Router);
 
   conversation = input<ConversationI>();
 
@@ -33,9 +33,7 @@ export class ConversationCardComponent {
 
   switchView(id: string): void {
     this.layoutService.setActiveView('chatbox');
-    this.navCtrl.navigateRoot(['/messages', id], {
-      animationDirection: 'forward',
-    });
+    this.router.navigate(['/messages', id]);
   }
 
   hasRead(conversation: ConversationI | null): boolean {

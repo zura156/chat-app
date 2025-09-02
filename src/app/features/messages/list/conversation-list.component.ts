@@ -7,7 +7,7 @@ import {
   lucidePencil,
 } from '@ng-icons/lucide';
 import { ConversationService } from '../services/conversation.service';
-import { RouterLink } from '@angular/router';
+import { Router, RouterLink } from '@angular/router';
 import { UserService } from '../../user/services/user.service';
 import {
   catchError,
@@ -36,7 +36,6 @@ import { WebSocketMessageT } from '../interfaces/web-socket-message.interface';
 import { WebSocketService } from '../services/web-socket.service';
 import { ConversationI } from '../interfaces/conversation.interface';
 import { ActiveViewType } from '../interfaces/active-view.type';
-import { NavController } from '@ionic/angular/standalone';
 import { HttpErrorResponse } from '@angular/common/http';
 import { HlmBadge } from '@spartan-ng/helm/badge';
 import { ConversationCardComponent } from '../card/conversation-card.component';
@@ -78,7 +77,7 @@ export class ConversationListComponent {
   //* since i also use functions from user service *//
   private userService = inject(UserService);
 
-  private navCtrl = inject(NavController);
+  private router = inject(Router);
   private layoutService = inject(LayoutService);
 
   // State signals
@@ -123,11 +122,11 @@ export class ConversationListComponent {
   // Navigation methods
   navigateToNewConversation(): void {
     this.layoutService.setActiveView('chatbox');
-    this.navCtrl.navigateRoot(['/messages/new']);
+    this.router.navigate(['/messages/new']);
   }
 
   navigateToConversation(id: string): void {
-    this.navCtrl.navigateRoot(['/messages', id]);
+    this.router.navigate(['/messages', id]);
   }
 
   // User selection - for creating a new conversation
@@ -143,12 +142,8 @@ export class ConversationListComponent {
     } else {
       // Create new conversation or navigate to new conversation view with this user pre-selected
       this.conversationService.selectUserForConversation(user);
-      this.navCtrl.navigateRoot(['/messages', user._id]);
+      this.router.navigate(['/messages', user._id]);
     }
-  }
-
-  navigate(url: string): void {
-    this.navCtrl.navigateRoot(url);
   }
 
   private searchForData(): void {
@@ -266,7 +261,7 @@ export class ConversationListComponent {
   ): Observable<never> {
     this.isLoading.set(false);
     if (navigation) {
-      this.navCtrl.navigateRoot(['/messages']);
+      this.router.navigate(['/messages']);
     }
     return throwError(() => err);
   }

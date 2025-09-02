@@ -22,11 +22,12 @@ import {
 import { passwordValidator } from '../../validators/password.validator';
 import { catchError, Subject, takeUntil, tap, throwError } from 'rxjs';
 import { HlmAlertImports } from '@spartan-ng/helm/alert';
-import { NavController } from '@ionic/angular/standalone';
+import { Router, RouterLink } from '@angular/router';
 
 @Component({
   selector: 'app-login',
   imports: [
+    RouterLink,
     ReactiveFormsModule,
     HlmFormFieldModule,
     HlmInput,
@@ -41,8 +42,8 @@ import { NavController } from '@ionic/angular/standalone';
   templateUrl: './login.component.html',
 })
 export class LoginComponent {
-  authService = inject(AuthService);
-  navCtrl = inject(NavController);
+  private authService = inject(AuthService);
+  private router = inject(Router);
 
   showPass = signal<boolean>(false);
   error = signal<string>('');
@@ -88,9 +89,7 @@ export class LoginComponent {
         tap(() => {
           this.clearError();
           this.isLoading.set(false);
-          this.navCtrl.navigateRoot('/messages', {
-            animationDirection: 'forward',
-          });
+          this.router.navigateByUrl('/messages');
         }),
         catchError((err) => {
           this.error.set(err.message);
@@ -99,9 +98,5 @@ export class LoginComponent {
         })
       )
       .subscribe();
-  }
-
-  navigate(url: string): void {
-    this.navCtrl.navigateRoot(url);
   }
 }

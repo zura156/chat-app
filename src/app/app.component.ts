@@ -3,11 +3,11 @@ import { HeaderComponent } from './shared/layout/components/header.component';
 import { HlmToaster } from '@spartan-ng/helm/sonner';
 import { ThemeService } from './shared/services/theme.service';
 import { AsyncPipe } from '@angular/common';
-import { IonApp, IonRouterOutlet } from '@ionic/angular/standalone';
+import { RouterOutlet } from '@angular/router';
 
 @Component({
   selector: 'app-root',
-  imports: [AsyncPipe, HlmToaster, HeaderComponent, IonRouterOutlet, IonApp],
+  imports: [AsyncPipe, HlmToaster, HeaderComponent, RouterOutlet],
   templateUrl: './app.component.html',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })

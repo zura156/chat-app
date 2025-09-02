@@ -45,7 +45,6 @@ import { UserService } from '../../user/services/user.service';
 import { toast } from 'ngx-sonner';
 import { MemberChangesI } from '../interfaces/member-changes.interface';
 import { UserI } from '../../user/interfaces/user.interface';
-import { NavController } from '@ionic/angular/common';
 import {
   AbstractControl,
   FormBuilder,
@@ -61,10 +60,12 @@ import { base64ToFile } from '../../../shared/functions/base64-to-file';
 import { HlmSpinner } from '@spartan-ng/helm/spinner';
 import { HlmTabsImports } from '@spartan-ng/helm/tabs';
 import { MediaFilesListComponent } from '../media-files-list/media-files-list.component';
+import { Router, RouterLink } from '@angular/router';
 
 @Component({
   selector: 'app-chatbox-settings',
   imports: [
+    RouterLink,
     NgIcon,
     HlmTabsImports,
     ReactiveFormsModule,
@@ -104,7 +105,7 @@ export class ChatboxSettingsComponent implements OnDestroy {
   conversation = input<ConversationI>();
   private conversationService = inject(ConversationService);
   private userService = inject(UserService);
-  private navCtrl = inject(NavController);
+  private router = inject(Router);
   private fb = inject(FormBuilder);
 
   closeSettings = output<void>();
@@ -129,10 +130,6 @@ export class ChatboxSettingsComponent implements OnDestroy {
   ngOnDestroy(): void {
     this.subscriptions.forEach((sub) => sub.unsubscribe());
     this.subscriptions = [];
-  }
-
-  navigate(url: string) {
-    this.navCtrl.navigateRoot(url);
   }
 
   toggleDropdown(menu: string): void {
@@ -166,7 +163,7 @@ export class ChatboxSettingsComponent implements OnDestroy {
           .findConversationIdByUserId(participant._id)
           .pipe(
             tap((res) =>
-              this.navCtrl.navigateRoot(['/messages', res.conversationId])
+              this.router.navigate(['/messages', res.conversationId])
             )
           )
           .subscribe()

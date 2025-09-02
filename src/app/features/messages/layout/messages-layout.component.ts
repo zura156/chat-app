@@ -4,16 +4,15 @@ import { HlmSeparator } from '@spartan-ng/helm/separator';
 import { BrnSeparator } from '@spartan-ng/brain/separator';
 import { NgTemplateOutlet } from '@angular/common';
 import { filter, map, Subject, switchMap, takeUntil, tap } from 'rxjs';
-import { NavigationEnd, Params, Router } from '@angular/router';
+import { NavigationEnd, Params, Router, RouterOutlet } from '@angular/router';
 import { ConversationListComponent } from '../list/conversation-list.component';
 import { LayoutService } from './layout.service';
 import { ActiveViewType } from '../interfaces/active-view.type';
-import { IonRouterOutlet } from '@ionic/angular/standalone';
 
 @Component({
   selector: 'app-messages',
   imports: [
-    IonRouterOutlet,
+    RouterOutlet,
     ReactiveFormsModule,
     NgTemplateOutlet,
     HlmSeparator,

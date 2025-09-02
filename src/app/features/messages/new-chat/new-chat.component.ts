@@ -35,7 +35,6 @@ import { HlmIcon } from '@spartan-ng/helm/icon';
 import { HlmButton } from '@spartan-ng/helm/button';
 import { HlmLabel } from '@spartan-ng/helm/label';
 import { HlmError } from '@spartan-ng/helm/form-field';
-import { NavController } from '@ionic/angular/standalone';
 import { ParticipantI } from '../interfaces/participant.interface';
 
 @Component({
@@ -58,7 +57,7 @@ import { ParticipantI } from '../interfaces/participant.interface';
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class NewChatComponent implements OnInit, OnDestroy {
-  private readonly navCtrl = inject(NavController);
+  private readonly router = inject(Router);
   private readonly userService = inject(UserService);
   private readonly conversationService = inject(ConversationService);
 
@@ -136,7 +135,7 @@ export class NewChatComponent implements OnInit, OnDestroy {
       });
 
       if (existingConversation) {
-        this.navCtrl.navigateRoot('/messages/' + existingConversation._id);
+        this.router.navigate(['/messages', existingConversation._id]);
       } else {
         const participant: ParticipantI = {
           _id: selectedUsers[0]._id,
@@ -150,7 +149,7 @@ export class NewChatComponent implements OnInit, OnDestroy {
           bio: selectedUsers[0].bio,
         };
         this.conversationService.selectUserForConversation(participant);
-        this.navCtrl.navigateRoot(['/messages/', targetUserId]);
+        this.router.navigate(['/messages', targetUserId]);
       }
     } else {
       this.createConversation();
@@ -180,7 +179,7 @@ export class NewChatComponent implements OnInit, OnDestroy {
       .pipe(
         takeUntil(this.destroy$),
         tap((conversation) => {
-          this.navCtrl.navigateRoot(`/messages/${conversation._id}`);
+          this.router.navigate(['/messages', conversation._id]);
           this.isLoading.set(false);
         }),
         catchError((err) => {
