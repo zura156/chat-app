@@ -8,6 +8,7 @@ import { NavigationEnd, Params, Router, RouterOutlet } from '@angular/router';
 import { ConversationListComponent } from '../list/conversation-list.component';
 import { LayoutService } from './layout.service';
 import { ActiveViewType } from '../interfaces/active-view.type';
+import { MessagesStartComponent } from '../start/messages-start.compoent';
 
 @Component({
   selector: 'app-messages',
@@ -18,6 +19,7 @@ import { ActiveViewType } from '../interfaces/active-view.type';
     HlmSeparator,
     BrnSeparator,
     ConversationListComponent,
+    MessagesStartComponent,
   ],
   templateUrl: './messages-layout.component.html',
 })
