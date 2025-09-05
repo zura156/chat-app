@@ -101,13 +101,15 @@
         </section>
       } @else {
         @if(isLoading()){
-          <div class="flex items-center p-2 w-full space-x-4">
-            <hlm-skeleton class="size-12 rounded-full" />
-            <div class="space-y-2 w-9/12 md:w-10/12">
-              <hlm-skeleton class="h-4 w-full" />
-              <hlm-skeleton class="h-4 w-3/4" />
+          @for (_ of placeholders; track $index) { 
+            <div class="flex items-center p-2 w-full space-x-4">
+              <hlm-skeleton class="size-12 rounded-full" />
+              <div class="space-y-2 w-9/12 md:w-10/12">
+                <hlm-skeleton class="h-4 w-full" />
+                <hlm-skeleton class="h-4 w-3/4" />
+              </div>
             </div>
-          </div>
+          }
         } @else {
           <div
             class="flex flex-col justify-center items-center text-center pt-2 gap-y-2"

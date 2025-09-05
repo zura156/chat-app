@@ -99,6 +99,9 @@ export class ConversationListComponent {
   // Cleanup subject
   private readonly destroy$ = new Subject<void>();
 
+  // 5 placeholders; values don't matter—array length does
+  placeholders = Array.from({ length: 5 });
+
   ngOnInit(): void {
     this.searchForData();
   }

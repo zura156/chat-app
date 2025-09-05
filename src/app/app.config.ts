@@ -18,8 +18,8 @@ export const appConfig: ApplicationConfig = {
   providers: [
     provideRouter(
       routes,
-      withPreloading(PreloadAllModules),
-      withViewTransitions()
+      withPreloading(PreloadAllModules)
+      // withViewTransitions()
     ),
     provideZoneChangeDetection({ eventCoalescing: true }),
     provideHttpClient(

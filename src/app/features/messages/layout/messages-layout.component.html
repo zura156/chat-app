@@ -7,7 +7,7 @@
   <section
       class="h-dvh overflow-hidden sm:w-1/2 md:w-2/3"
     >
-    @if(isConversationListActive()) {
+    @if(activeView() !== 'chatbox') {
       <app-messages-start />
     } @else {
       <ng-container *ngTemplateOutlet="routerOutlet"></ng-container>

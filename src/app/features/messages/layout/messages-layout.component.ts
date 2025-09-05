@@ -1,14 +1,36 @@
-import { Component, inject, OnDestroy, OnInit, signal } from '@angular/core';
+import {
+  Component,
+  DestroyRef,
+  inject,
+  OnDestroy,
+  OnInit,
+  signal,
+} from '@angular/core';
 import { ReactiveFormsModule } from '@angular/forms';
 import { HlmSeparator } from '@spartan-ng/helm/separator';
 import { BrnSeparator } from '@spartan-ng/brain/separator';
 import { NgTemplateOutlet } from '@angular/common';
-import { filter, map, Subject, switchMap, takeUntil, tap } from 'rxjs';
-import { NavigationEnd, Params, Router, RouterOutlet } from '@angular/router';
+import {
+  concatMap,
+  filter,
+  map,
+  Subject,
+  switchMap,
+  takeUntil,
+  tap,
+} from 'rxjs';
+import {
+  ActivatedRoute,
+  NavigationEnd,
+  Params,
+  Router,
+  RouterOutlet,
+} from '@angular/router';
 import { ConversationListComponent } from '../list/conversation-list.component';
 import { LayoutService } from './layout.service';
 import { ActiveViewType } from '../interfaces/active-view.type';
 import { MessagesStartComponent } from '../start/messages-start.compoent';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 
 @Component({
   selector: 'app-messages',
@@ -24,8 +46,10 @@ import { MessagesStartComponent } from '../start/messages-start.compoent';
   templateUrl: './messages-layout.component.html',
 })
 export class MessagesLayoutComponent implements OnInit, OnDestroy {
-  private layoutService = inject(LayoutService);
-  private router = inject(Router);
+  private readonly destroyRef = inject(DestroyRef);
+  private readonly layoutService = inject(LayoutService);
+  private readonly router = inject(Router);
+  private readonly route = inject(ActivatedRoute);
 
   isMobile = this.layoutService.isMobile;
   activeView = this.layoutService.activeView;
@@ -37,34 +61,39 @@ export class MessagesLayoutComponent implements OnInit, OnDestroy {
   private destroy$ = new Subject<void>();
 
   ngOnInit() {
-    this.router.events
+    this.route.firstChild?.params
       .pipe(
-        filter((event) => event instanceof NavigationEnd),
-        tap((event: NavigationEnd) => {
-          this.isConversationListActive.set(
-            event.urlAfterRedirects === '/messages'
-          );
-        }),
-        map(() => {
-          let route = this.router.routerState.root;
-          while (route.firstChild) {
-            route = route.firstChild;
+        takeUntilDestroyed(this.destroyRef),
+        tap((params: Params) => {
+          const id = params['id'];
+          if (id) {
+            this.setActiveView('chatbox');
+          } else {
+            this.setActiveView('conversations');
           }
-          return route;
         }),
-        switchMap((route) =>
-          route.params.pipe(
-            tap((params: Params) => {
-              const id = params['id'];
-              if (id) {
-                this.setActiveView('chatbox');
-              } else {
-                this.setActiveView('conversations');
+        concatMap(() =>
+          this.router.events.pipe(
+            filter((event) => event instanceof NavigationEnd),
+            tap((event: NavigationEnd) => {
+              this.isConversationListActive.set(
+                event.urlAfterRedirects === '/messages'
+              );
+              this.setActiveView(
+                event.urlAfterRedirects === '/messages'
+                  ? 'conversations'
+                  : 'chatbox'
+              );
+            }),
+            map(() => {
+              let route = this.router.routerState.root;
+              while (route.firstChild) {
+                route = route.firstChild;
               }
+              return route;
             })
           )
-        ),
-        takeUntil(this.destroy$)
+        )
       )
       .subscribe();
   }
