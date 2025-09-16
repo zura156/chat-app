@@ -272,6 +272,7 @@ export class ChatboxComponent implements OnInit, OnDestroy {
         map((params) => params['id']),
         catchError((err) => this.handleError(err)),
         switchMap((id) => {
+          this.messageService.clearActiveMessages();
           this.messageOffset.set(0);
           this.conversationService.selectedConversationId.set(id);
           this.conversation = this.conversationService.activeConversation;
@@ -282,7 +283,6 @@ export class ChatboxComponent implements OnInit, OnDestroy {
             this.conversationService.selectUserForConversation(selectedUser);
             if (id === selectedUser?._id) {
               this.conversationService.createMockConversation();
-              this.messageService.clearActiveMessages();
               return of(this.conversation()).pipe(
                 tap(() => this.isLoading.set(false)),
                 switchMap(() => this.handleWebSocketMessages())
