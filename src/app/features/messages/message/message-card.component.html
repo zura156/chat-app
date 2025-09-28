@@ -97,28 +97,7 @@
                   </div>
                 } 
               } @case ('file') {
-                <div class="flex items-center p-2 sm:p-0 md:p-2">
-                  <a
-                    [href]="apiUrl + message.file?.url"
-                    target="_blank"
-                    [download]="message.file?.name"
-                    class="flex items-center justify-start"
-                  >
-                    <span
-                      class="text-blue-500 flex items-center justify-center mr-3 rounded-xl bg-blue-100 p-1.5"
-                    >
-                      <ng-icon hlm name="lucideDownload" size="base" />
-                    </span>
-                    <div class="flex flex-col items-start justify-center text-sm">
-                      <h1 class="font-medium text-ellipsis whitespace-normal [overflow-wrap:anywhere] [word-break:break-word]">
-                        {{ message.file?.name }}
-                      </h1>
-                      <span class="text-blue-500 hover:underline">
-                        {{ message.file?.size_in_bytes || 0 | fileSize }}
-                      </span>
-                    </div>
-                  </a>
-                </div>
+                <app-file-viewer [file]="message.file" />
               }
             }
           </div>

@@ -8,11 +8,13 @@ import {
   MediaViewerService,
 } from '../../../shared/services/media-viewer.service';
 import { MessageI } from '../interfaces/message.interface';
+import { AudioPlayer } from '../../../shared/components/audio-player/audio-player';
+import { FileViewer } from '../../../shared/components/file-viewer/file-viewer';
 
 @Component({
   selector: 'app-media-files-list',
   templateUrl: './media-files-list.component.html',
-  imports: [HlmTabsImports, HlmSpinner],
+  imports: [HlmTabsImports, HlmSpinner, AudioPlayer, FileViewer],
 })
 export class MediaFilesListComponent implements OnInit {
   private messageService = inject(MessageService);

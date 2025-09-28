@@ -41,6 +41,7 @@ import {
   MediaItem,
   MediaViewerService,
 } from '../../../shared/services/media-viewer.service';
+import { FileViewer } from '../../../shared/components/file-viewer/file-viewer';
 
 @Component({
   selector: 'message-card',
@@ -49,7 +50,7 @@ import {
     TimeAgoPipe,
     NgIcon,
     DatePipe,
-    FileSizePipe,
+    FileViewer,
     AudioPlayer,
     HlmIcon,
     MatTooltipModule,
@@ -68,7 +69,6 @@ import {
       lucideVolume,
       lucideVolume1,
       lucideVolume2,
-      lucideDownload,
       lucideVideo,
     }),
   ],

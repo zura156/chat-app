@@ -4,20 +4,16 @@ import { HlmButton } from '@spartan-ng/helm/button';
 import { MediaPlayerSizesT } from '../../types/media-player-sizes.type';
 import { FileI } from '../../../features/messages/interfaces/message.interface';
 import { environment } from '../../../../environments/environment';
-import { NgIcon } from '@ng-icons/core';
+import { NgIcon, provideIcons } from '@ng-icons/core';
 import { HlmIcon } from '@spartan-ng/helm/icon';
 import { HlmProgressImports } from '@spartan-ng/helm/progress';
+import { lucideCirclePause, lucideCirclePlay } from '@ng-icons/lucide';
 
 @Component({
   selector: 'app-audio-player',
   templateUrl: './audio-player.html',
-  imports: [
-    NgIcon,
-    HlmIcon,
-    FormatTimePipe,
-    HlmProgressImports,
-    HlmButton,
-  ],
+  imports: [NgIcon, HlmIcon, FormatTimePipe, HlmProgressImports, HlmButton],
+  providers: [provideIcons({ lucideCirclePlay, lucideCirclePause })],
 })
 export class AudioPlayer {
   audio = input.required<FileI>();

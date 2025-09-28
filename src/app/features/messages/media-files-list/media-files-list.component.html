@@ -31,7 +31,30 @@
             </div>
         }
     </div>
-    <div hlmTabsContent="files">
-
+    <div hlmTabsContent="files" class="flex-col space-y-1">
+        @for(message of fileMessages(); track message._id) {
+            <button class="w-full border-b border-border rounded-lg p-0.5 pb-2 hover:opacity-75 transition-all cursor-pointer hover:scale-[0.99] active:scale-95 active:opacity-100">
+                @switch(message.type) {
+                    @case('audio') {
+                        @if(message.file) {
+                            <div class="p-1">
+                                <app-audio-player [audio]="message.file"/>
+                            </div>
+                        }
+                    }
+                    @default {
+                        <app-file-viewer [file]="message.file" />
+                    }
+                }
+            </button>
+        }
+        @if(fileMessagesResource.isLoading()) {
+            <div class="w-full mx-auto items-center justify-center my-2 flex flex-col">
+                <hlm-spinner />
+                <span>
+                    Loading files...
+                </span>
+            </div>
+        }
     </div>
 </hlm-tabs>
