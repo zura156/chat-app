@@ -55,9 +55,6 @@
       "@spartan-ng/helm/scroll-area": [
         "./libs/ui/ui-scroll-area-helm/src/index.ts"
       ],
-      "@spartan-ng/helm/separator": [
-        "./libs/ui/ui-separator-helm/src/index.ts"
-      ],
       "@spartan-ng/helm/skeleton": [
         "./libs/ui/ui-skeleton-helm/src/index.ts"
       ],
@@ -69,6 +66,12 @@
       ],
       "@spartan-ng/helm/tabs": [
         "./libs/ui/ui-tabs-helm/src/index.ts"
+      ],
+      "@spartan-ng/helm/utils": [
+        "./libs/ui/ui-utils-helm/src/index.ts"
+      ],
+      "@spartan-ng/helm/separator": [
+        "./libs/ui/ui-separator-helm/src/index.ts"
       ]
     }
   },

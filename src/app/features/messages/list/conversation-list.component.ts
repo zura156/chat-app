@@ -39,8 +39,7 @@ import { ActiveViewType } from '../interfaces/active-view.type';
 import { HttpErrorResponse } from '@angular/common/http';
 import { HlmBadge } from '@spartan-ng/helm/badge';
 import { ConversationCardComponent } from '../card/conversation-card.component';
-import { HlmSeparator } from '@spartan-ng/helm/separator';
-import { BrnSeparator } from '@spartan-ng/brain/separator';
+import { HlmSeparatorImports } from '@spartan-ng/helm/separator';
 import { HlmInput } from '@spartan-ng/helm/input';
 import { HlmButton } from '@spartan-ng/helm/button';
 import { UserCardComponent } from '../../user/components/card/user-card.component';
@@ -51,8 +50,7 @@ import { HlmIcon } from '@spartan-ng/helm/icon';
   imports: [
     HlmTabsImports,
     HlmBadge,
-    HlmSeparator,
-    BrnSeparator,
+    HlmSeparatorImports,
     HlmInput,
     HlmButton,
     HlmIcon,

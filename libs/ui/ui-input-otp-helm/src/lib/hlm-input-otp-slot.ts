@@ -1,6 +1,6 @@
 import { NumberInput } from '@angular/cdk/coercion';
 import { ChangeDetectionStrategy, Component, computed, input, numberAttribute } from '@angular/core';
-import { hlm } from '@spartan-ng/brain/core';
+import { hlm } from '@spartan-ng/helm/utils';
 import { BrnInputOtpSlot } from '@spartan-ng/brain/input-otp';
 import { type ClassValue } from 'clsx';
 import { HlmInputOtpFakeCaret } from './hlm-input-otp-fake-caret';

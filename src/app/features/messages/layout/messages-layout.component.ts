@@ -7,18 +7,9 @@ import {
   signal,
 } from '@angular/core';
 import { ReactiveFormsModule } from '@angular/forms';
-import { HlmSeparator } from '@spartan-ng/helm/separator';
-import { BrnSeparator } from '@spartan-ng/brain/separator';
+import { HlmSeparatorImports } from '@spartan-ng/helm/separator';
 import { NgTemplateOutlet } from '@angular/common';
-import {
-  concatMap,
-  filter,
-  map,
-  Subject,
-  switchMap,
-  takeUntil,
-  tap,
-} from 'rxjs';
+import { concatMap, filter, map, Subject, tap } from 'rxjs';
 import {
   ActivatedRoute,
   NavigationEnd,
@@ -38,8 +29,8 @@ import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
     RouterOutlet,
     ReactiveFormsModule,
     NgTemplateOutlet,
-    HlmSeparator,
-    BrnSeparator,
+    HlmSeparatorImports,
+
     ConversationListComponent,
     MessagesStartComponent,
   ],

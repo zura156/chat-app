@@ -1,5 +1,5 @@
 {
-  "": {
+  ".": {
     "root": [
       "angular.json",
       "nx-angular-json-plugin"
@@ -45,6 +45,10 @@
       "nx-angular-json-plugin"
     ],
     "targets.build.defaultConfiguration": [
+      "angular.json",
+      "nx-angular-json-plugin"
+    ],
+    "targets.build.options.allowedCommonJsDependencies": [
       "angular.json",
       "nx-angular-json-plugin"
     ],

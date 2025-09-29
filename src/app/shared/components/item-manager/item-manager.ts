@@ -19,8 +19,7 @@ import { HttpErrorResponse } from '@angular/common/http';
 import { HlmSpinner } from '@spartan-ng/helm/spinner';
 import { toast } from 'ngx-sonner';
 import { FormGroup, ReactiveFormsModule } from '@angular/forms';
-import { BrnSeparator } from '@spartan-ng/brain/separator';
-import { HlmSeparator } from '@spartan-ng/helm/separator';
+import { HlmSeparatorImports } from '@spartan-ng/helm/separator';
 
 @Component({
   selector: 'app-item-manager',
@@ -31,8 +30,7 @@ import { HlmSeparator } from '@spartan-ng/helm/separator';
     HlmAvatarImage,
     HlmAvatar,
     HlmAvatarFallback,
-    HlmSeparator,
-    BrnSeparator,
+    HlmSeparatorImports,
     HlmSpinner,
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,

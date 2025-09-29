@@ -59,7 +59,7 @@
     "karma-jasmine-html-reporter": "~2.1.0",
     "ngx-toastr": "^19.0.0",
     "postcss": "^8.5.3",
-    "tailwind-merge": "^2.2.0",
+    "tailwind-merge": "^2.5.2",
     "tailwindcss-animate": "^1.0.6",
     "typescript": "~5.8.3"
   }

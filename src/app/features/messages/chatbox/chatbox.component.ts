@@ -33,7 +33,7 @@ import {
   ReadReceiptI,
 } from '../interfaces/conversation.interface';
 import { HlmAvatarImage, HlmAvatar } from '@spartan-ng/helm/avatar';
-import { BrnSeparator } from '@spartan-ng/brain/separator';
+
 import { HlmSeparator } from '@spartan-ng/helm/separator';
 import {
   GroupedMessages,
@@ -90,7 +90,7 @@ import { UserStateService } from '../../user/services/user-state.service';
     HlmAvatar,
     HlmSpinner,
     MessageCardComponent,
-    BrnSeparator,
+    
     ReactiveFormsModule,
     AudioRecorder,
     ChatboxSettingsComponent,
