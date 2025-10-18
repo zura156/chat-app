@@ -1,7 +1,6 @@
 import { Router } from 'express';
 import { MessageController } from '../controllers/message.controller';
 import { MessageService } from '../services/message.service';
-import { uploadMiddleware } from '../../config/multer';
 import { validateConversation } from '../middlewares/validate-conversation.middleware';
 
 const router = Router();
@@ -31,7 +30,9 @@ router.get('/:id/files', validateConversation, (req, res, next) =>
   req.messageController.getFileMessages(req, res, next)
 );
 
-router.post('/upload', uploadMiddleware.single('file'), (req, res, next) =>
+router.post('/upload', 
+  // uploadMiddleware.single('file'),
+ (req, res, next) =>
   req.messageController.uploadFileMessage(req, res, next)
 );
 

@@ -91,10 +91,10 @@ export class LoginComponent {
           this.isLoading.set(false);
           this.router.navigateByUrl('/messages');
         }),
-        catchError((err) => {
-          this.error.set(err.message);
+        catchError((errorMessage) => {
+          this.error.set(errorMessage);
           this.isLoading.set(false);
-          return throwError(() => err);
+          return throwError(() => errorMessage);
         })
       )
       .subscribe();

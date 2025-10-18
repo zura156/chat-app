@@ -3,7 +3,6 @@ import { AuthRequest } from '../../auth/middlewares/auth.middleware';
 import { ConversationController } from '../controllers/conversation.controller';
 import { ConversationService } from '../services/conversation.service';
 import { validateConversation } from '../middlewares/validate-conversation.middleware';
-import { uploadMiddleware } from '../../config/multer';
 import { MessageService } from '../services/message.service';
 
 const router = Router();
@@ -73,8 +72,10 @@ router
 
     res.json(conversationWithFilteredParticipants);
   })
-  .patch(uploadMiddleware.single('group_picture'), (req, res, next) =>
-    req.conversationController.updateConversation(req, res, next)
+  .patch(
+    // uploadMiddleware.single('group_picture'),
+    (req, res, next) =>
+      req.conversationController.updateConversation(req, res, next)
   )
   .delete((req, res, next) =>
     req.conversationController.deleteConversation(req, res, next)

@@ -119,10 +119,10 @@ export class RegisterComponent implements OnDestroy {
           this.isLoading.set(false);
           this.router.navigateByUrl('/auth/login');
         }),
-        catchError((err) => {
-          this.error.set(err.error.message);
+        catchError((errorMessage) => {
+          this.error.set(errorMessage);
           this.isLoading.set(false);
-          return throwError(() => err);
+          return throwError(() => errorMessage);
         })
       )
       .subscribe();

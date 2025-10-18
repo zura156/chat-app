@@ -12,5 +12,5 @@ export default {
   jwtRefreshTokenExpiresIn: process.env.JWT_REFRESH_EXPIRES_IN ?? '7d',
   clientUrl: process.env.CLIENT_URL ?? 'http://localhost:4200',
   nodeEnv: process.env.NODE_ENV || 'development',
-  trustedProxies: ['3.75.158.163', '3.125.183.140', '35.157.117.28'],
+  trustedProxies: process.env.TRUSTED_PROXIES?.split(',') || [],
 };

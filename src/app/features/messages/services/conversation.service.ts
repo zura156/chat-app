@@ -13,10 +13,12 @@ import { ConversationIdResponseI } from '../interfaces/conversation-id-response.
 import { toast } from 'ngx-sonner';
 import { UpdateConversationI } from '../interfaces/update-conversation.interface';
 import { MessageI } from '../interfaces/message.interface';
+import { UserStateService } from '../../user/services/user-state.service';
 
 @Injectable()
 export class ConversationService {
   private http = inject(HttpClient);
+  private userStateService = inject(UserStateService);
 
   private readonly apiUrl = environment.apiUrl;
 
@@ -34,15 +36,14 @@ export class ConversationService {
   #activeConversation = signal<ConversationI | null>(null);
   activeConversation = computed<ConversationI | null>(this.#activeConversation);
 
-  #selectedUser = signal<ParticipantI | null>(null);
-  selectedUser = computed(this.#selectedUser);
+  selectedUser = this.userStateService.selectedUser;
 
   #conversationList = signal<ConversationListI | null>(null);
   conversationList = computed<ConversationListI | null>(this.#conversationList);
 
   selectUserForConversation(user: ParticipantI): void {
     sessionStorage.setItem('selectedUser', JSON.stringify(user));
-    this.#selectedUser.set(user);
+    this.userStateService.setSelectedUser(user);
   }
 
   updateConversationState(conversation: ConversationI): void {
@@ -167,7 +168,7 @@ export class ConversationService {
       })
       .pipe(
         tap((newConversation) => {
-          this.#selectedUser.set(null);
+          this.userStateService.setSelectedUser(null);
           sessionStorage.removeItem('selectedUser');
           this.#activeConversation.set(newConversation);
           const conversationList = this.conversationList();

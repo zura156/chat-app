@@ -243,7 +243,11 @@ export class MessageService {
 
   activeMessagesResource = httpResource<MessageListI>(() => {
     const conversationId = this.conversationService.selectedConversationId();
-    if (!conversationId) {
+
+    if (
+      !conversationId ||
+      conversationId === this.userStateService.selectedUser()?._id
+    ) {
       return;
     }
 

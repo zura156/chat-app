@@ -274,8 +274,8 @@ export class AuthService {
 
     let errorMessage = 'An unknown error occurred';
 
-    if (error.error?.error) {
-      errorMessage = error.error.error;
+    if (error.error?.message) {
+      errorMessage = error.error.message;
     } else if (error.error?.errors?.length > 0) {
       errorMessage = error.error.errors.map((e: any) => e.msg).join(', ');
     } else if (error.message) {

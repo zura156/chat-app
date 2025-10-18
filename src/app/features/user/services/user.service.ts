@@ -5,6 +5,7 @@ import { UserI } from '../interfaces/user.interface';
 import { Observable, of, tap } from 'rxjs';
 import { UserListI } from '../interfaces/user-list.interface';
 import { UserStateService } from './user-state.service';
+import { ParticipantI } from '../../messages/interfaces/participant.interface';
 
 @Injectable({
   providedIn: 'root',
@@ -21,10 +22,11 @@ export class UserService {
   private readonly _SEARCH_USERS_URL = `${this.apiUrl}/user/search`;
 
   currentUser = this.userStateService.currentUser;
-  selectedUser = this.userStateService.selectedUser;
 
   #users = signal<UserListI | null>(null);
   users = computed(this.#users);
+  #selectedUser = signal<UserI | null>(null);
+  selectedUser = computed(this.#selectedUser);
 
   constructor() {}
 

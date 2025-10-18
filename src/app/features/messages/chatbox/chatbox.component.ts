@@ -90,7 +90,7 @@ import { UserStateService } from '../../user/services/user-state.service';
     HlmAvatar,
     HlmSpinner,
     MessageCardComponent,
-    
+
     ReactiveFormsModule,
     AudioRecorder,
     ChatboxSettingsComponent,
@@ -470,15 +470,19 @@ export class ChatboxComponent implements OnInit, OnDestroy {
     }
   }
 
-  loadMessages(conversationId: string) {
-    if (!this.hasMoreMessages()) return EMPTY;
+  loadMessages(conversationId: string, isMockConversation: boolean = false) {
+    if (!this.hasMoreMessages()) return [];
     this.messageService.messageOffset.update(
       (val) => val + this.messageLimit()
     );
 
-    if (!conversationId) return EMPTY;
+    if (!conversationId) return [];
 
     this.isLoading.set(false);
+
+    if (isMockConversation) {
+      return [];
+    }
     return this.messageService.activeMessages();
   }
 
@@ -495,7 +499,8 @@ export class ChatboxComponent implements OnInit, OnDestroy {
             entry.isIntersecting && !this.messagesResource.isLoading()
           );
           if (this.hasMoreMessages() && this.isVisible()) {
-            this.loadMessages(String(this.conversation()?._id));
+            console.log(String(this.conversation()?._id) === this.selectedUser()?._id)
+            this.loadMessages(String(this.conversation()?._id), String(this.conversation()?._id) === this.selectedUser()?._id);
             this.isVisibilityObserving.set(false);
           }
           if (this.totalMessagesCount() < this.messageOffset()) {
