@@ -7,9 +7,9 @@ import {
 	effect,
 	input,
 } from '@angular/core';
-import { hlm } from '@spartan-ng/helm/utils';
 import { BrnFormFieldControl } from '@spartan-ng/brain/form-field';
-import { ClassValue } from 'clsx';
+import { hlm } from '@spartan-ng/helm/utils';
+import type { ClassValue } from 'clsx';
 import { HlmError } from './hlm-error';
 
 @Component({
@@ -33,7 +33,7 @@ import { HlmError } from './hlm-error';
 })
 export class HlmFormField {
 	public readonly userClass = input<ClassValue>('', { alias: 'class' });
-	protected readonly _computedClass = computed(() => hlm('space-y-2 block', this.userClass()));
+	protected readonly _computedClass = computed(() => hlm('block space-y-2', this.userClass()));
 	public readonly control = contentChild(BrnFormFieldControl);
 
 	public readonly errorChildren = contentChildren(HlmError);

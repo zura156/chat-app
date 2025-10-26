@@ -9,7 +9,7 @@ import { repeatPasswordValidator } from '../../validators/repeat-password.valida
 import { AuthService } from '../../services/auth.service';
 import { RegisterCredentialsI } from '../../interfaces/register-credentials.interface';
 import { HlmButton } from '@spartan-ng/helm/button';
-import { HlmFormFieldModule } from '@spartan-ng/helm/form-field';
+import { HlmFormFieldImports } from '@spartan-ng/helm/form-field';
 import { HlmInput } from '@spartan-ng/helm/input';
 import { HlmIcon } from '@spartan-ng/helm/icon';
 import { NgIcon, provideIcons } from '@ng-icons/core';
@@ -28,7 +28,7 @@ import { Router, RouterLink } from '@angular/router';
   imports: [
     RouterLink,
     ReactiveFormsModule,
-    HlmFormFieldModule,
+    HlmFormFieldImports,
     HlmInput,
     HlmButton,
     HlmIcon,

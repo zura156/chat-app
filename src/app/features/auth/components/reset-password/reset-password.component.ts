@@ -8,7 +8,7 @@ import {
 import { NgIcon, provideIcons } from '@ng-icons/core';
 import { HlmAlertImports } from '@spartan-ng/helm/alert';
 import { HlmButton } from '@spartan-ng/helm/button';
-import { HlmFormFieldModule } from '@spartan-ng/helm/form-field';
+import { HlmFormFieldImports } from '@spartan-ng/helm/form-field';
 import { HlmIcon } from '@spartan-ng/helm/icon';
 import { HlmInput } from '@spartan-ng/helm/input';
 import { passwordValidator } from '../../validators/password.validator';
@@ -30,7 +30,7 @@ import { HttpErrorResponse } from '@angular/common/http';
   imports: [
     RouterLink,
     ReactiveFormsModule,
-    HlmFormFieldModule,
+    HlmFormFieldImports,
     HlmInput,
     HlmButton,
     HlmIcon,

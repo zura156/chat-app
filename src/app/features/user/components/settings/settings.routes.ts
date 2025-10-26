@@ -1,9 +1,26 @@
 import { Routes } from '@angular/router';
-import { UserSettingsComponent } from './layout/user-settings.component';
+import { AccountSettings } from './account/account-settings';
+import { ProfileSettings } from './profile/profile-settings';
+import { UserSettingsLayout } from './layout/user-settings-layout';
 
 export const settingsRoutes: Routes = [
   {
     path: '',
-    component: UserSettingsComponent,
+    component: UserSettingsLayout,
+    children: [
+      {
+        path: '',
+        redirectTo: 'profile',
+        pathMatch: 'full',
+      },
+      {
+        path: 'profile',
+        component: ProfileSettings,
+      },
+      {
+        path: 'account',
+        component: AccountSettings,
+      },
+    ],
   },
 ];
