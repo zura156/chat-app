@@ -5,6 +5,7 @@ import { NgIcon, provideIcons } from '@ng-icons/core';
 import { lucideChevronRight } from '@ng-icons/lucide';
 import { BrnCollapsibleImports } from '@spartan-ng/brain/collapsible';
 import { HlmIcon } from '@spartan-ng/helm/icon';
+import { HlmButtonImports } from '@spartan-ng/helm/button';
 
 @Component({
   selector: 'user-settings-layout',
@@ -13,6 +14,7 @@ import { HlmIcon } from '@spartan-ng/helm/icon';
     RouterOutlet,
     HlmSidebarImports,
     BrnCollapsibleImports,
+    HlmButtonImports,
     NgIcon,
     HlmIcon,
     RouterLink,

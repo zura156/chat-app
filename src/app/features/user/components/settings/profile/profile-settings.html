@@ -1,1 +1,111 @@
-FAFA
+@let user = currentUser();
+<main class="xs:p-4">
+  <header>
+    <h1 class="text-2xl font-bold">Profile</h1>
+    <p class="text-sm text-gray-600">Manage your profile settings.</p>
+  </header>
+  <hlm-separator />
+  <div hlmItem variant="outline">
+    <div
+      hlmItemMedia
+      [class]="user?.status === 'online' ? 'after:bg-green-500/70 after:border-2 after:border-white after:bottom-0 after:right-0 after:absolute after:rounded-full after:size-3' : ''"
+    >
+      <hlm-avatar class="size-10">
+        <img
+          hlmAvatarImage
+          [src]="user?.profile_picture || '/icons/avatar.svg'"
+          alt="Evil Rabbit"
+        />
+        <span hlmAvatarFallback>PFP</span>
+      </hlm-avatar>
+    </div>
+    <div hlmItemContent>
+      <div hlmItemTitle>
+        {{ `${user?.first_name} ${user?.last_name} (${user?.username})` }}
+      </div>
+      <p hlmItemDescription>
+        {{ user?.status === 'online' ? 'Online' : 'Last seen ' +
+        (user?.last_seen ?? "" | timeAgo) }}
+      </p>
+    </div>
+    <div hlmItemActions>
+      <button
+        hlmBtn
+        size="icon-sm"
+        variant="outline"
+        class="rounded-full cursor-pointer"
+        aria-label="Invite"
+        (click)="uploadProfilePicture()"
+      >
+        <ng-icon hlm size="sm" name="lucideUpload" />
+      </button>
+    </div>
+  </div>
+  <hlm-separator />
+  <form
+    class="flex justify-center w-full p-2"
+    [formGroup]="form"
+    (ngSubmit)="onSubmit()"
+  >
+    <fieldset class="space-y-4 w-full max-w-xl">
+      <hlm-form-field>
+        <label hlmLabel>Username</label>
+        <input
+          aria-label="Username"
+          formControlName="username"
+          hlmInput
+          type="text"
+          [placeholder]="user?.username"
+        />
+        <hlm-error
+          >Username must be at least 3, at most 20 characters long</hlm-error
+        >
+      </hlm-form-field>
+      <hlm-form-field>
+        <label hlmLabel>First name</label>
+        <input
+          aria-label="first_name"
+          formControlName="first_name"
+          hlmInput
+          type="text"
+          [placeholder]="user?.first_name"
+        />
+        <hlm-error
+          >First name must be at least 3, at most 20 characters long</hlm-error
+        >
+      </hlm-form-field>
+      <hlm-form-field>
+        <label hlmLabel>Last name</label>
+        <input
+          aria-label="last_name"
+          formControlName="last_name"
+          hlmInput
+          type="text"
+          [placeholder]="user?.last_name"
+        />
+        <hlm-error
+          >Last name must be at least 3, at most 20 characters long</hlm-error
+        >
+      </hlm-form-field>
+      <hlm-form-field>
+        <label hlmLabel>Bio</label>
+        <textarea
+          hlmTextarea
+          aria-label="bio"
+          formControlName="bio"
+          hlmInput
+          [placeholder]="user?.bio || 'No bio yet'"
+        ></textarea>
+        @let bioLength = form.controls['bio'].value?.length || 0;
+        <hlm-hint>{{ `${bioLength}/500` }}</hlm-hint>
+        <hlm-error>
+          You are {{ (bioLength - 500) }} characters over the limit.
+          <br />
+          Bio must be at most 500 characters long.
+        </hlm-error>
+      </hlm-form-field>
+
+      <button hlmBtn type="submit" class="cursor-pointer">Save Changes</button>
+    </fieldset>
+  </form>
+</main>

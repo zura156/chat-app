@@ -1,9 +1,9 @@
 <div hlmSidebarWrapper>
   <hlm-sidebar>
-    <header class="flex h-12 items-center justify-between px-4">
+    <!-- <header class="flex h-12 items-center justify-between px-4">
       <button hlmSidebarTrigger><span class="sr-only"></span></button>
-    </header>
-    <div hlmSidebarContent>
+    </header> -->
+    <div hlmSidebarContent class="pt-10">
       <div hlmSidebarGroup>
         <div hlmSidebarGroupContent>
           <ul hlmSidebarMenu>
@@ -48,12 +48,13 @@
       </div>
     </div>
   </hlm-sidebar>
-  @if(!isOpen()) {
-    <header class="flex h-12 items-center justify-between p-4">
-        <button hlmSidebarTrigger><span class="sr-only"></span></button>
-    </header>
-  }
-  <main class="p-4">
+  <header
+    class="z-10 absolute top-0 right-0 xs:left-0 flex h-12 p-2 items-center justify-between"
+  >
+    <button hlmSidebarTrigger><span class="sr-only"></span></button>
+  </header>
+
+  <main class="p-4 w-full">
     <router-outlet />
   </main>
 </div>
