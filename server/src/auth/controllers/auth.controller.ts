@@ -192,7 +192,7 @@ export const loginUser = async (
           },
         },
       },
-      { new: true }
+      { new: true, upsert: true }
     );
     await user.updateOne({
       $set: { last_login: new Date() },

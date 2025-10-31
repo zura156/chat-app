@@ -1,4 +1,4 @@
-import { Component, computed, inject, OnInit } from '@angular/core';
+import { Component, computed, inject, OnInit, signal } from '@angular/core';
 import { UserStateService } from '../../../services/user-state.service';
 import { HlmFormFieldImports } from '@spartan-ng/helm/form-field';
 import { HlmButton } from '@spartan-ng/helm/button';
@@ -20,6 +20,13 @@ import {
   Validators,
 } from '@angular/forms';
 import { toast } from 'ngx-sonner';
+import { ImageCropperComponent } from 'ngx-smart-cropper';
+import { base64ToFile } from '../../../../../shared/functions/base64-to-file';
+import { FileMetadata } from '../../../../../shared/interfaces/file-metadata.interface';
+import { catchError, EMPTY, switchMap } from 'rxjs';
+import { UserService } from '../../../services/user.service';
+import { FileUploadService } from '../../../../../shared/services/file-upload.service';
+import { UpdateProfilePictureI } from '../../../interfaces/update-profile-picture.interface';
 
 @Component({
   selector: 'user-profile-settings',
@@ -32,6 +39,7 @@ import { toast } from 'ngx-sonner';
     HlmItemImports,
     HlmIconImports,
     NgIcon,
+    ImageCropperComponent,
     HlmInput,
     HlmTextarea,
     HlmButton,
@@ -39,10 +47,13 @@ import { toast } from 'ngx-sonner';
     TimeAgoPipe,
     HlmLabelImports,
   ],
+  styleUrl: './profile-settings.css',
   providers: [provideIcons({ lucideUpload })],
 })
 export class ProfileSettings implements OnInit {
-  userStateService = inject(UserStateService);
+  private userService = inject(UserService);
+  private fileUploadService = inject(FileUploadService);
+  private userStateService = inject(UserStateService);
   currentUser = computed(this.userStateService.currentUser);
 
   form = new FormGroup({
@@ -61,9 +72,70 @@ export class ProfileSettings implements OnInit {
     bio: new FormControl<string>('', [Validators.maxLength(500)]),
   });
 
+  selectedImageSrc = signal<string | null>(null);
+  selectedFileMetadata = signal<FileMetadata | null>(null);
+
   ngOnInit(): void {}
 
-  uploadProfilePicture() {}
+  onImageSelected(event: Event): void {
+    const input = event.target as HTMLInputElement;
+    if (!input.files || input.files.length === 0) return;
+
+    const file = input.files[0];
+    if (file) {
+      const metadata = {
+        name: file.name,
+        size: file.size,
+        type: file.type,
+        lastModified: new Date(file.lastModified),
+      };
+      console.log('File metadata:', metadata);
+
+      const reader = new FileReader();
+      reader.onload = (e: any) => {
+        this.selectedImageSrc.set(e.target.result);
+        this.selectedFileMetadata.set(metadata);
+      };
+      reader.readAsDataURL(file);
+    }
+  }
+
+  uploadProfilePicture(imgSrc: string): void {
+    if (!imgSrc) {
+      this.selectedImageSrc.set(null);
+      toast.info('Image selection was cancelled', {
+        description: 'No image was selected for the conversation.',
+      });
+      return;
+    }
+
+    console.log(imgSrc);
+    const file = base64ToFile(imgSrc, 'pfp.png');
+
+    const userId = this.currentUser()?._id;
+    const metadata = this.selectedFileMetadata();
+    if (!userId || !metadata) {
+      toast.error('User ID or file metadata is missing.');
+      return;
+    }
+    const updateProfilePictureBody: UpdateProfilePictureI = {
+      userId,
+      profilePicture: file,
+    };
+
+    this.userService
+      .updateProfilePicture(updateProfilePictureBody)
+      .pipe(
+        catchError((error) => {
+          toast.error('Failed to update profile picture.', error.error.message);
+          return EMPTY;
+        }),
+        switchMap(({ url, profilePicture }) =>
+          this.fileUploadService.uploadFile(url, profilePicture.data)
+        )
+      )
+      .subscribe();
+  }
 
   onSubmit(): void {
     if (this.form.invalid) {

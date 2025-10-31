@@ -2,6 +2,10 @@ import { AuthRequest } from '../../auth/middlewares/auth.middleware';
 import { NextFunction, Response } from 'express';
 import { User } from '../../user/models/user.model';
 import { createCustomError } from '../../error-handling/models/custom-api-error.model';
+import { compressMedia } from '../../utils/downscale-media';
+import { PutObjectCommand } from '@aws-sdk/client-s3';
+import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
+import { s3 } from '../../utils/s3';
 
 export const getUserById = async (
   req: AuthRequest,
@@ -192,5 +196,53 @@ export const searchUsers = async (
   } catch (err) {
     console.error('Error getting users:', err);
     res.status(500).json({ message: 'Server error getting users' });
+  }
+};
+
+export const updateProfilePicture = async (
+  req: AuthRequest,
+  res: Response,
+  next: NextFunction
+): Promise<void> => {
+  try {
+    if (!req.user) {
+      next(createCustomError('Not authenticated', 401));
+      return;
+    }
+    const user = await User.findById(req.user.id);
+    if (!user) {
+      next(createCustomError('User not found', 404));
+      return;
+    }
+
+    const profilePicture = req.file;
+    if (!profilePicture) {
+      next(createCustomError('Profile picture data is required', 400));
+      return;
+    }
+
+    const fileBuffer = Buffer.from(profilePicture.buffer);
+
+    // Usage
+    const compressedPicture = await compressMedia(fileBuffer, 'image/jpeg', {
+      maxDimension: 1920,
+      quality: 80,
+      outputFormat: 'webp',
+    });
+
+    const fileKey = `${Date.now()}-${profilePicture.filename}`;
+
+    const command = new PutObjectCommand({
+      Bucket: 'profile-pictures',
+      Key: fileKey,
+      ContentType: profilePicture.mimetype,
+    });
+
+    const uploadUrl = await getSignedUrl(s3, command, { expiresIn: 3600 });
+
+    res.status(200).json({ url: uploadUrl, profilePicture: compressedPicture });
+  } catch (error) {
+    console.error('Update profile picture error:', error);
+    res.status(500).json({ message: 'Server error' });
   }
 };

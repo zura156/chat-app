@@ -35,10 +35,18 @@
         variant="outline"
         class="rounded-full cursor-pointer"
         aria-label="Invite"
-        (click)="uploadProfilePicture()"
+        (click)="fileInput.click()"
       >
         <ng-icon hlm size="sm" name="lucideUpload" />
       </button>
+      <input
+        id="image-input"
+        type="file"
+        accept="image/*"
+        #fileInput
+        hidden
+        (change)="onImageSelected($event); fileInput.value = ''"
+      />
     </div>
   </div>
   <hlm-separator />
@@ -109,3 +117,20 @@
     </fieldset>
   </form>
 </main>
+
+@if(selectedImageSrc()){
+<div
+  class="max-h-dvh fixed top-0 left-0 w-full h-full bg-black/50 flex items-center justify-center z-50"
+>
+  <div class="glass-card flex flex-col items-center p-4 pb-0 max-h-full">
+    <h1 class="text-xl mb-4">Crop profile picture</h1>
+    <ngx-smart-cropper
+      class="max-w-60 xs:max-w-xs sm:max-w-sm md:max-w-md lg:max-w-lg"
+      [imageType]="'png'"
+      [theme]="'auto'"
+      [imageSource]="selectedImageSrc()"
+      (imageCroppedEvent)="uploadProfilePicture($event)"
+    ></ngx-smart-cropper>
+  </div>
+</div>
+}

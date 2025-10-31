@@ -6,6 +6,8 @@ import { Observable, of, tap } from 'rxjs';
 import { UserListI } from '../interfaces/user-list.interface';
 import { UserStateService } from './user-state.service';
 import { ParticipantI } from '../../messages/interfaces/participant.interface';
+import { UpdateProfilePictureI } from '../interfaces/update-profile-picture.interface';
+import { UpdateProfilePictureResponseI } from '../interfaces/update-profile-picture-response.interface';
 
 @Injectable({
   providedIn: 'root',
@@ -20,6 +22,7 @@ export class UserService {
   private readonly _GET_USERS_URL = `${this.apiUrl}/user`;
   private readonly _GET_USER_BY_ID = `${this.apiUrl}/user/:id`;
   private readonly _SEARCH_USERS_URL = `${this.apiUrl}/user/search`;
+  private readonly _UPDATE_PROFILE_PICTURE_URL = `${this.apiUrl}/user/profile-picture`;
 
   currentUser = this.userStateService.currentUser;
 
@@ -29,6 +32,19 @@ export class UserService {
   selectedUser = computed(this.#selectedUser);
 
   constructor() {}
+
+  updateProfilePicture(
+    body: UpdateProfilePictureI
+  ): Observable<UpdateProfilePictureResponseI> {
+    const formData = new FormData();
+    formData.append('userId', body.userId);
+    formData.append('profilePicture', body.profilePicture);
+
+    return this.http.patch<UpdateProfilePictureResponseI>(
+      this._UPDATE_PROFILE_PICTURE_URL,
+      formData
+    );
+  }
 
   getCurrentUser(): Observable<UserI> {
     return this.http

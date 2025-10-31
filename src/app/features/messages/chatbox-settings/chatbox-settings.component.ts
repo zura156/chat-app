@@ -125,7 +125,6 @@ export class ChatboxSettingsComponent implements OnDestroy {
   private subscriptions: (Subscription | OutputRefSubscription)[] = [];
 
   initialChatImageSrc = signal<string | null>(null);
-  chatImageSrc = signal<string | null>(null);
 
   ngOnDestroy(): void {
     this.subscriptions.forEach((sub) => sub.unsubscribe());
@@ -189,17 +188,14 @@ export class ChatboxSettingsComponent implements OnDestroy {
   }
 
   onChatImageChange(imageSrc: string): void {
+    this.initialChatImageSrc.set(null);
     if (!imageSrc) {
-      this.initialChatImageSrc.set(null);
-      this.chatImageSrc.set(null);
       toast.info('Image selection was cancelled', {
         description: 'No image was selected for the conversation.',
       });
       return;
     }
 
-    this.chatImageSrc.set(imageSrc);
-    this.initialChatImageSrc.set(null);
     const file = base64ToFile(imageSrc, 'chat-image.png');
 
     const conversationId = this.conversation()?._id;
