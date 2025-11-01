@@ -30,16 +30,14 @@
                     @if(conversation.is_group) {
                         <img
                             [src]="
-                                conversation.group_picture ? 
-                                `${apiUrl}${conversation.group_picture}` : '/icons/group.svg'"
+                                conversation.group_picture ?? '/icons/group.svg'"
                             [alt]="conversation.group_name || 'group_picture'"
                             class="w-full h-full object-cover"
                         />
                     } @else {
                         <img
                             [src]="
-                                conversation.participants[0].profile_picture ? 
-                                `${apiUrl}${conversation.participants[0].profile_picture}` : '/icons/avatar.svg'"
+                                conversation.participants[0].profile_picture ?? '/icons/avatar.svg'"
                             [alt]="conversation.group_name || 'group_picture'"
                             class="w-full h-full object-cover"
                         />

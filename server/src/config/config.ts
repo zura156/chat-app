@@ -13,6 +13,7 @@ export default {
   clientUrl: process.env.CLIENT_URL ?? 'http://localhost:4200',
   nodeEnv: process.env.NODE_ENV || 'development',
   trustedProxies: process.env.TRUSTED_PROXIES?.split(',') || [],
+  R2_BUCKET_NAME: process.env.R2_BUCKET_NAME || '',
   R2_ENDPOINT: process.env.S3_ENDPOINT || '',
   R2_ACCESS_KEY_ID: process.env.R2_ACCESS_KEY_ID || '',
   R2_SECRET_ACCESS_KEY: process.env.R2_SECRET_ACCESS_KEY || '',

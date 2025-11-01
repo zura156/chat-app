@@ -2,6 +2,7 @@
   background-size: contain !important;
   max-height: 100%;
   background-position-x: center !important;
+  background-position-y: center !important;
 }
 
 ::ng-deep ngx-smart-cropper .buttons {
@@ -22,5 +23,4 @@
 ::ng-deep ngx-smart-cropper img {
   max-height: 70vh;
   object-fit: contain;
-  aspect-ratio: 1 / 1;
 }

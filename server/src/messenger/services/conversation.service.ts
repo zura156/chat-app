@@ -2,7 +2,10 @@ import { Types } from 'mongoose';
 import { Conversation, IConversation } from '../models/conversation.model';
 import { MutedConversation } from '../models/muted-conversation.model';
 import { IUser, User } from '../../user/models/user.model';
-import { createCustomError } from '../../error-handling/models/custom-api-error.model';
+import {
+  createCustomError,
+  CustomAPIError,
+} from '../../error-handling/models/custom-api-error.model';
 import { MemberChangesI } from '../interfaces/member-changes.interface';
 import { Message } from '../models/message.model';
 import { BroadcastFunction } from '../../websocket/services/websocket.service';
@@ -15,6 +18,11 @@ import { UserInterface } from '../../user/interfaces/user.interface';
 import { ConversationI } from '../interfaces/conversation.interface';
 import { MessageTypeEnum } from '../interfaces/message.interface';
 import { MessageService } from './message.service';
+import { error } from 'console';
+import { compressMedia } from '../../utils/downscale-media';
+import { PutObjectCommand } from '@aws-sdk/client-s3';
+import { s3 } from '../../utils/s3';
+import config from '../../config/config';
 export class ConversationService {
   private broadcast: BroadcastFunction;
   private messageService: MessageService;
@@ -193,8 +201,43 @@ export class ConversationService {
   ): Promise<IConversation> {
     let group_picture_url: string | undefined;
 
-    if (group_picture?.mimetype?.startsWith('image/')) {
-      group_picture_url = `/uploads/${group_picture.filename}`;
+    if (
+      group_picture &&
+      group_picture.mimetype !== 'image/jpeg' &&
+      group_picture.mimetype !== 'image/png' &&
+      group_picture.mimetype !== 'image/webp'
+    ) {
+      throw error(
+        'Unsupported file format. Only JPEG, PNG, and WEBP are allowed.',
+        400
+      );
+    }
+
+    if (group_picture) {
+      const compressedBuffer = await compressMedia(
+        group_picture.buffer,
+        group_picture.mimetype,
+        {
+          maxDimension: 500,
+          quality: 80,
+          outputFormat: 'webp',
+        }
+      );
+
+      const fileKey = `${Date.now()}-${currentUser.id}.webp`;
+
+      // Upload directly to R2
+      await s3.send(
+        new PutObjectCommand({
+          Bucket: config.R2_BUCKET_NAME,
+          Key: fileKey,
+          Body: compressedBuffer,
+          ContentType: 'image/webp',
+        })
+      );
+
+      // Generate public URL (configure R2 custom domain or public bucket)
+      group_picture_url = `${config.R2_PUBLIC_URL}/${fileKey}`;
     }
 
     const updateData: Partial<IConversation> = {};
@@ -441,4 +484,7 @@ export class ConversationService {
     );
     return { ...conversation.toObject(), participants: otherParticipants };
   }
+}
+function next(arg0: CustomAPIError) {
+  throw new Error('Function not implemented.');
 }

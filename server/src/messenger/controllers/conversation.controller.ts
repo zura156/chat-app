@@ -1,7 +1,6 @@
 import { Response, NextFunction } from 'express';
 import { AuthRequest } from '../../auth/middlewares/auth.middleware';
 import { ConversationService } from '../services/conversation.service';
-import { Conversation } from '../models/conversation.model';
 import { createCustomError } from '../../error-handling/models/custom-api-error.model';
 
 export class ConversationController {

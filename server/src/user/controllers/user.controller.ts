@@ -222,6 +222,20 @@ export const updateProfilePicture = async (
       return;
     }
 
+    if (
+      profilePicture.mimetype !== 'image/jpeg' &&
+      profilePicture.mimetype !== 'image/png' &&
+      profilePicture.mimetype !== 'image/webp'
+    ) {
+      next(
+        createCustomError(
+          'Unsupported file format. Only JPEG, PNG, and WEBP are allowed.',
+          400
+        )
+      );
+      return;
+    }
+
     const compressedBuffer = await compressMedia(
       profilePicture.buffer,
       profilePicture.mimetype,
@@ -237,7 +251,7 @@ export const updateProfilePicture = async (
     // Upload directly to R2
     await s3.send(
       new PutObjectCommand({
-        Bucket: 'profile-pictures',
+        Bucket: config.R2_BUCKET_NAME,
         Key: fileKey,
         Body: compressedBuffer,
         ContentType: 'image/webp',
