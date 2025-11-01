@@ -8,6 +8,7 @@ import { UserStateService } from './user-state.service';
 import { ParticipantI } from '../../messages/interfaces/participant.interface';
 import { UpdateProfilePictureI } from '../interfaces/update-profile-picture.interface';
 import { UpdateProfilePictureResponseI } from '../interfaces/update-profile-picture-response.interface';
+import { toast } from 'ngx-sonner';
 
 @Injectable({
   providedIn: 'root',
@@ -40,10 +41,26 @@ export class UserService {
     formData.append('userId', body.userId);
     formData.append('profilePicture', body.profilePicture);
 
-    return this.http.patch<UpdateProfilePictureResponseI>(
-      this._UPDATE_PROFILE_PICTURE_URL,
-      formData
-    );
+    return this.http
+      .patch<UpdateProfilePictureResponseI>(
+        this._UPDATE_PROFILE_PICTURE_URL,
+        formData
+      )
+      .pipe(
+        tap(({ message, profilePictureUrl }) => {
+          toast.success(message);
+          const currentUser = this.currentUser();
+          if (!currentUser) {
+            toast.error('Current user not found in state.');
+            return;
+          }
+
+          this.userStateService.setCurrentUser({
+            ...currentUser,
+            profile_picture: profilePictureUrl,
+          });
+        })
+      );
   }
 
   getCurrentUser(): Observable<UserI> {

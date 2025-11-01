@@ -1,4 +1,4 @@
 export interface UpdateProfilePictureResponseI {
-  url: string;
-  profilePicture: { type: 'Buffer'; data: ArrayBuffer };
+  message: string;
+  profilePictureUrl: string;
 }

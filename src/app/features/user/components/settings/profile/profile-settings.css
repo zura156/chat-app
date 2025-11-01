@@ -2,6 +2,7 @@
   background-size: contain !important;
   max-height: 100%;
   background-position-x: center !important;
+  background-position-y: center !important;
 }
 
 ::ng-deep ngx-smart-cropper .buttons {

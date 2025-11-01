@@ -23,7 +23,7 @@ import { toast } from 'ngx-sonner';
 import { ImageCropperComponent } from 'ngx-smart-cropper';
 import { base64ToFile } from '../../../../../shared/functions/base64-to-file';
 import { FileMetadata } from '../../../../../shared/interfaces/file-metadata.interface';
-import { catchError, EMPTY, switchMap } from 'rxjs';
+import { catchError, EMPTY, switchMap, tap } from 'rxjs';
 import { UserService } from '../../../services/user.service';
 import { FileUploadService } from '../../../../../shared/services/file-upload.service';
 import { UpdateProfilePictureI } from '../../../interfaces/update-profile-picture.interface';
@@ -89,7 +89,11 @@ export class ProfileSettings implements OnInit {
         type: file.type,
         lastModified: new Date(file.lastModified),
       };
-      console.log('File metadata:', metadata);
+
+      if (metadata.size > 5 * 1024 * 1024) {
+        toast.error('File size exceeds the 5MB limit.');
+        return;
+      }
 
       const reader = new FileReader();
       reader.onload = (e: any) => {
@@ -109,7 +113,6 @@ export class ProfileSettings implements OnInit {
       return;
     }
 
-    console.log(imgSrc);
     const file = base64ToFile(imgSrc, 'pfp.png');
 
     const userId = this.currentUser()?._id;
@@ -130,9 +133,7 @@ export class ProfileSettings implements OnInit {
           toast.error('Failed to update profile picture.', error.error.message);
           return EMPTY;
         }),
-        switchMap(({ url, profilePicture }) =>
-          this.fileUploadService.uploadFile(url, profilePicture.data)
-        )
+        tap(() => this.selectedImageSrc.set(null))
       )
       .subscribe();
   }

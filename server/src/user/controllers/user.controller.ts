@@ -3,9 +3,10 @@ import { NextFunction, Response } from 'express';
 import { User } from '../../user/models/user.model';
 import { createCustomError } from '../../error-handling/models/custom-api-error.model';
 import { compressMedia } from '../../utils/downscale-media';
-import { PutObjectCommand } from '@aws-sdk/client-s3';
+import { HeadObjectCommand, PutObjectCommand } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { s3 } from '../../utils/s3';
+import config from '../../config/config';
 
 export const getUserById = async (
   req: AuthRequest,
@@ -221,26 +222,41 @@ export const updateProfilePicture = async (
       return;
     }
 
-    const fileBuffer = Buffer.from(profilePicture.buffer);
+    const compressedBuffer = await compressMedia(
+      profilePicture.buffer,
+      profilePicture.mimetype,
+      {
+        maxDimension: 500,
+        quality: 80,
+        outputFormat: 'webp',
+      }
+    );
 
-    // Usage
-    const compressedPicture = await compressMedia(fileBuffer, 'image/jpeg', {
-      maxDimension: 1920,
-      quality: 80,
-      outputFormat: 'webp',
+    const fileKey = `${Date.now()}-${req.user.id}.webp`;
+
+    // Upload directly to R2
+    await s3.send(
+      new PutObjectCommand({
+        Bucket: 'profile-pictures',
+        Key: fileKey,
+        Body: compressedBuffer,
+        ContentType: 'image/webp',
+      })
+    );
+
+    // Generate public URL (configure R2 custom domain or public bucket)
+    const publicUrl = `${config.R2_PUBLIC_URL}/${fileKey}`;
+
+    await User.findByIdAndUpdate(
+      req.user.id,
+      { profile_picture: publicUrl },
+      { new: true }
+    );
+
+    res.status(200).json({
+      message: 'Profile picture updated',
+      profilePictureUrl: publicUrl,
     });
-
-    const fileKey = `${Date.now()}-${profilePicture.filename}`;
-
-    const command = new PutObjectCommand({
-      Bucket: 'profile-pictures',
-      Key: fileKey,
-      ContentType: profilePicture.mimetype,
-    });
-
-    const uploadUrl = await getSignedUrl(s3, command, { expiresIn: 3600 });
-
-    res.status(200).json({ url: uploadUrl, profilePicture: compressedPicture });
   } catch (error) {
     console.error('Update profile picture error:', error);
     res.status(500).json({ message: 'Server error' });
