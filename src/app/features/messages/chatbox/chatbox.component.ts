@@ -139,9 +139,7 @@ export class ChatboxComponent implements OnInit, OnDestroy {
     }
 
     if (currentConversation.is_group) {
-      return currentConversation.group_picture
-        ? `${this.apiUrl}${currentConversation.group_picture}`
-        : null;
+      return currentConversation.group_picture ?? null;
     } else {
       const otherUser = currentConversation.participants.find(
         (participant) => participant._id !== this.currentUser()?._id
@@ -499,8 +497,13 @@ export class ChatboxComponent implements OnInit, OnDestroy {
             entry.isIntersecting && !this.messagesResource.isLoading()
           );
           if (this.hasMoreMessages() && this.isVisible()) {
-            console.log(String(this.conversation()?._id) === this.selectedUser()?._id)
-            this.loadMessages(String(this.conversation()?._id), String(this.conversation()?._id) === this.selectedUser()?._id);
+            console.log(
+              String(this.conversation()?._id) === this.selectedUser()?._id
+            );
+            this.loadMessages(
+              String(this.conversation()?._id),
+              String(this.conversation()?._id) === this.selectedUser()?._id
+            );
             this.isVisibilityObserving.set(false);
           }
           if (this.totalMessagesCount() < this.messageOffset()) {

@@ -153,7 +153,7 @@
                                         <div class="flex items-center">
                                             <hlm-avatar variant="small" class="mr-2.5">
                                                 <img
-                                                    [src]="participant.profile_picture ? `${apiUrl}${participant.profile_picture}` : '/icons/avatar.svg'"
+                                                    [src]="participant.profile_picture ?? '/icons/avatar.svg'"
                                                     [alt]="participant.username"
                                                     hlmAvatarImage
                                                     />

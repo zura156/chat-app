@@ -9,7 +9,7 @@
     @if(conversation.is_group) {
       <hlm-avatar variant="medium" >
         <img
-          [src]="conversation.group_picture ? apiUrl + conversation.group_picture : '/icons/group.svg'"
+          [src]="conversation.group_picture ?? '/icons/group.svg'"
           alt="group picture"
           class="rounded-full object-cover w-full h-full bg-[#B8BAC0]"
           hlmAvatarImage
@@ -19,7 +19,7 @@
       <!-- AVATAR -->
       <hlm-avatar variant="medium">
         <img
-          [src]="imageUrl ? apiUrl + imageUrl : '/icons/avatar.svg'"
+          [src]="imageUrl ?? '/icons/avatar.svg'"
           alt="profile picture"
           hlmAvatarImage
         />
