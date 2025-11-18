@@ -181,7 +181,12 @@ export class ChatboxSettingsComponent implements OnDestroy {
     if (file) {
       const reader = new FileReader();
       reader.onload = (e: any) => {
-        this.initialChatImageSrc.set(e.target.result);
+        if (file.type.startsWith('image/')) {
+          this.initialChatImageSrc.set(e.target.result);
+        } else {
+          toast.error('Please select a valid image file.');
+          return;
+        }
       };
       reader.readAsDataURL(file);
     }

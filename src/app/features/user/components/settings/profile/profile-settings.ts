@@ -82,6 +82,11 @@ export class ProfileSettings implements OnInit {
     if (!input.files || input.files.length === 0) return;
 
     const file = input.files[0];
+    if (!file.type.startsWith('image/')) {
+      toast.error('Please select a valid image file.');
+      return;
+    }
+
     if (file) {
       const metadata = {
         name: file.name,
