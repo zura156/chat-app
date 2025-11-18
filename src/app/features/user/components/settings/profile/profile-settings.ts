@@ -25,8 +25,8 @@ import { base64ToFile } from '../../../../../shared/functions/base64-to-file';
 import { FileMetadata } from '../../../../../shared/interfaces/file-metadata.interface';
 import { catchError, EMPTY, switchMap, tap } from 'rxjs';
 import { UserService } from '../../../services/user.service';
-import { FileUploadService } from '../../../../../shared/services/file-upload.service';
 import { UpdateProfilePictureI } from '../../../interfaces/update-profile-picture.interface';
+import { UpdateProfileDataI } from '../../../interfaces/update-profile-data.interface';
 
 @Component({
   selector: 'user-profile-settings',
@@ -52,7 +52,6 @@ import { UpdateProfilePictureI } from '../../../interfaces/update-profile-pictur
 })
 export class ProfileSettings implements OnInit {
   private userService = inject(UserService);
-  private fileUploadService = inject(FileUploadService);
   private userStateService = inject(UserStateService);
   currentUser = computed(this.userStateService.currentUser);
 
@@ -149,5 +148,20 @@ export class ProfileSettings implements OnInit {
       return;
     }
     toast.success('Profile updated successfully!');
+
+    const updatedData: UpdateProfileDataI = {
+      username: this.form.value.username ?? undefined,
+      first_name: this.form.value.first_name ?? undefined,
+      last_name: this.form.value.last_name ?? undefined,
+      bio: this.form.value.bio ?? undefined,
+    };
+    this.userService.updateProfile(updatedData).subscribe({
+      next: () => {
+        toast.success('Profile updated successfully!');
+      },
+      error: (error) => {
+        toast.error('Failed to update profile.', error.error.message);
+      },
+    });
   }
 }

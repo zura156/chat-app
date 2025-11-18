@@ -5,10 +5,10 @@ import { UserI } from '../interfaces/user.interface';
 import { Observable, of, tap } from 'rxjs';
 import { UserListI } from '../interfaces/user-list.interface';
 import { UserStateService } from './user-state.service';
-import { ParticipantI } from '../../messages/interfaces/participant.interface';
 import { UpdateProfilePictureI } from '../interfaces/update-profile-picture.interface';
 import { UpdateProfilePictureResponseI } from '../interfaces/update-profile-picture-response.interface';
 import { toast } from 'ngx-sonner';
+import { UpdateProfileDataI } from '../interfaces/update-profile-data.interface';
 
 @Injectable({
   providedIn: 'root',
@@ -33,6 +33,10 @@ export class UserService {
   selectedUser = computed(this.#selectedUser);
 
   constructor() {}
+
+  // updateProfile(body: UpdateProfileDataI): Observable<UserI> {
+  //   return this.http.patch<UserI>(`${this.apiUrl}/user/profile`, body);
+  // }
 
   updateProfilePicture(
     body: UpdateProfilePictureI

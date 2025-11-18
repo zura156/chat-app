@@ -110,7 +110,6 @@ export class ChatboxSettingsComponent implements OnDestroy {
 
   closeSettings = output<void>();
 
-  private readonly CHAT_PREFERENCE_STORAGE_KEY = 'prefers-chat-settings-open';
   readonly apiUrl = environment.apiUrl;
 
   dropdownMenuStates: { [key: string]: boolean } = {
@@ -179,14 +178,18 @@ export class ChatboxSettingsComponent implements OnDestroy {
 
     const file = input.files[0];
     if (file) {
+      if (file.size > 5 * 1024 * 1024) {
+        toast.error('File size exceeds the 5MB limit.');
+        return;
+      }
+      if (!file.type.startsWith('image/')) {
+        toast.error('Please select a valid image file.');
+        return;
+      }
+
       const reader = new FileReader();
       reader.onload = (e: any) => {
-        if (file.type.startsWith('image/')) {
-          this.initialChatImageSrc.set(e.target.result);
-        } else {
-          toast.error('Please select a valid image file.');
-          return;
-        }
+        this.initialChatImageSrc.set(e.target.result);
       };
       reader.readAsDataURL(file);
     }
