@@ -155,13 +155,13 @@ export class ProfileSettings implements OnInit {
       last_name: this.form.value.last_name ?? undefined,
       bio: this.form.value.bio ?? undefined,
     };
-    this.userService.updateProfile(updatedData).subscribe({
-      next: () => {
-        toast.success('Profile updated successfully!');
-      },
-      error: (error) => {
-        toast.error('Failed to update profile.', error.error.message);
-      },
-    });
+    // this.userService.updateProfile(updatedData).subscribe({
+    //   next: () => {
+    //     toast.success('Profile updated successfully!');
+    //   },
+    //   error: (error) => {
+    //     toast.error('Failed to update profile.', error.error.message);
+    //   },
+    // });
   }
 }
