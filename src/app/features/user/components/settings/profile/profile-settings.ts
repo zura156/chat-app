@@ -147,21 +147,44 @@ export class ProfileSettings implements OnInit {
       toast.error('Please fix the errors in the form before submitting.');
       return;
     }
-    toast.success('Profile updated successfully!');
 
-    const updatedData: UpdateProfileDataI = {
-      username: this.form.value.username ?? undefined,
-      first_name: this.form.value.first_name ?? undefined,
-      last_name: this.form.value.last_name ?? undefined,
-      bio: this.form.value.bio ?? undefined,
-    };
-    // this.userService.updateProfile(updatedData).subscribe({
-    //   next: () => {
-    //     toast.success('Profile updated successfully!');
-    //   },
-    //   error: (error) => {
-    //     toast.error('Failed to update profile.', error.error.message);
-    //   },
-    // });
+    const currentUser = this.currentUser();
+    const updatedData: Partial<UpdateProfileDataI> = {};
+
+    const requiredFields = ['first_name', 'last_name', 'username'] as const;
+
+    // Handle required fields (no empty strings allowed)
+    for (const field of requiredFields) {
+      const control = this.form.controls[field];
+      const newValue = this.form.value[field]?.trim();
+      const currentValue = currentUser?.[field];
+
+      if (control.touched && newValue && newValue !== currentValue) {
+        updatedData[field] = newValue;
+      }
+    }
+
+    // Handle bio separately (empty strings allowed)
+    const bioControl = this.form.controls.bio;
+    const bioValue = this.form.value.bio?.trim() ?? '';
+    const currentBio = currentUser?.bio ?? '';
+
+    if (bioControl.touched && bioValue !== currentBio) {
+      updatedData.bio = bioValue;
+    }
+
+    if (Object.keys(updatedData).length === 0) {
+      toast.info('No changes to save.');
+      return;
+    }
+    this.userService.updateProfile(updatedData).subscribe({
+      next: () => {
+        this.form.reset();
+        toast.success('Profile updated successfully!');
+      },
+      error: (error) => {
+        toast.error('Failed to update profile.', error.error.message);
+      },
+    });
   }
 }

@@ -7,6 +7,7 @@ import { HeadObjectCommand, PutObjectCommand } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { s3 } from '../../utils/s3';
 import config from '../../config/config';
+import { UserInterface } from '../interfaces/user.interface';
 
 export const getUserById = async (
   req: AuthRequest,
@@ -78,22 +79,57 @@ export const updateUserDetails = async (
   res: Response
 ): Promise<void> => {
   try {
+    const updateDetails = req.body as Partial<UserInterface>;
+
+    if (!updateDetails || Object.keys(updateDetails).length === 0) {
+      res.status(400).json({ message: 'No update data provided' });
+      return;
+    }
+    
+    // Validate non-empty strings
+    const requiredFields = ['first_name', 'last_name', 'username'] as const;
+    for (const field of requiredFields) {
+      if (updateDetails[field] === '') {
+        res
+          .status(400)
+          .json({ message: `${field.replace('_', ' ')} cannot be empty` });
+        return;
+      }
+    }
+
     if (!req.user) {
       res.status(401).json({ message: 'Not authenticated' });
       return;
     }
 
-    const user = await User.findByIdAndUpdate(req.user.id, req.body);
+    const user = await User.findById(req.user.id).select(
+      'username first_name last_name bio'
+    );
 
     if (!user) {
       res.status(404).json({ message: 'User not found' });
       return;
     }
 
+    const allowedFields = [
+      'username',
+      'first_name',
+      'last_name',
+      'bio',
+    ] as const;
+
+    allowedFields.forEach((field) => {
+      if (req.body[field] !== undefined) {
+        (user as any)[field] = req.body[field];
+      }
+    });
+
+    await user.save();
+
     res.status(200).json({ message: 'User updated' });
   } catch (error) {
     console.error('Update user error:', error);
-    res.status(500).json({ message: 'Server error' });
+    res.status(500).json({ message: 'Server error', error });
   }
 };
 

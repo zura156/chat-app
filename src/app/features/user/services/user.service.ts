@@ -34,9 +34,24 @@ export class UserService {
 
   constructor() {}
 
-  // updateProfile(body: UpdateProfileDataI): Observable<UserI> {
-  //   return this.http.patch<UserI>(`${this.apiUrl}/user/profile`, body);
-  // }
+  updateProfile(body: UpdateProfileDataI): Observable<UserI> {
+    return this.http.patch<UserI>(`${this.apiUrl}/user/profile`, body).pipe(
+      tap(() => {
+        const currentUser = this.currentUser();
+        if (!currentUser) {
+          toast.error('Current user not found in state.');
+          return;
+        }
+        this.userStateService.setCurrentUser({
+          ...currentUser,
+          username: body.username ?? currentUser?.username,
+          first_name: body.first_name ?? currentUser?.first_name,
+          last_name: body.last_name ?? currentUser?.last_name,
+          bio: body.bio ?? currentUser?.bio,
+        });
+      })
+    );
+  }
 
   updateProfilePicture(
     body: UpdateProfilePictureI
