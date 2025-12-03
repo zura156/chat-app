@@ -165,47 +165,47 @@
                                         </div>
                                         
                                         <button
-                                            [brnMenuTriggerFor]="menu"
+                                            [hlmDropdownMenuTrigger]="menu"
                                             class="flex items-center p-1 rounded-full hover:bg-primary hover:text-secondary duration-150 cursor-pointer"
                                             >
                                             <ng-icon hlm size="sm" name="lucideMenu" />
                                         </button>
                                         
                                         <ng-template #menu>
-                                            <hlm-menu>
-                                                <hlm-menu-group>
+                                            <hlm-dropdown-menu>
+                                                <hlm-dropdown-menu-group>
                                                     <button
                                                     (click)="onMessageMember(participant)"
-                                                    hlmMenuItem
+                                                    hlmDropdownMenuItem
                                                     class="cursor-pointer"
                                                         >
                                                         <ng-icon hlm name="lucideMessageCircle" hlmMenuIcon />
                                                         <span> Message </span>
                                                     </button>
 
-                                                    <hlm-menu-separator />
+                                                    <hlm-dropdown-menu-separator />
                                                     
                                                     <button
                                                     [routerLink]="`/${participant._id}`"
-                                                    hlmMenuItem
+                                                    hlmDropdownMenuItem
                                                     class="cursor-pointer"
                                                     >
                                                     <ng-icon hlm name="lucideCircleUserRound" hlmMenuIcon />
                                                     View profile
                                                 </button>
                                                 
-                                                <hlm-menu-separator />
+                                                <hlm-dropdown-menu-separator />
 
                                                 <button
                                                 (click)="onRemoveMember(participant)"
-                                                hlmMenuItem
+                                                hlmDropdownMenuItem
                                                 class="cursor-pointer"
                                                 >
                                                 <ng-icon hlm name="lucideUserRoundMinus" hlmMenuIcon />
                                                 Remove member
                                             </button>
-                                        </hlm-menu-group>
-                                            </hlm-menu>
+                                        </hlm-dropdown-menu-group>
+                                            </hlm-dropdown-menu>
                                         </ng-template>
                                     </div>
                                 }

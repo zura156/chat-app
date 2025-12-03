@@ -3,7 +3,7 @@ import { RouterLink, RouterOutlet } from '@angular/router';
 import { HlmSidebarImports, HlmSidebarService } from '@spartan-ng/helm/sidebar';
 import { NgIcon, provideIcons } from '@ng-icons/core';
 import { lucideChevronRight } from '@ng-icons/lucide';
-import { BrnCollapsibleImports } from '@spartan-ng/brain/collapsible';
+import { HlmCollapsibleImports } from '@spartan-ng/helm/collapsible';
 import { HlmIcon } from '@spartan-ng/helm/icon';
 import { HlmButtonImports } from '@spartan-ng/helm/button';
 
@@ -13,12 +13,11 @@ import { HlmButtonImports } from '@spartan-ng/helm/button';
   imports: [
     RouterOutlet,
     HlmSidebarImports,
-    BrnCollapsibleImports,
+    HlmCollapsibleImports,
     HlmButtonImports,
     NgIcon,
     HlmIcon,
-    RouterLink,
-  ],
+    RouterLink],
   providers: [provideIcons({ lucideChevronRight })],
 })
 export class UserSettingsLayout {
@@ -29,33 +28,28 @@ export class UserSettingsLayout {
       defaultOpen: true,
       items: [
         { title: 'Profile', route: 'profile' },
-        { title: 'Account', route: 'account' },
-      ],
+        { title: 'Account', route: 'account' }],
     },
     {
       title: 'Preferences',
       defaultOpen: true,
       items: [
         { title: 'Appearance', route: 'appearance' },
-        { title: 'Notifications', route: 'notifications' },
-      ],
+        { title: 'Notifications', route: 'notifications' }],
     },
     {
       title: 'Privacy & Security',
       defaultOpen: true,
       items: [
         { title: 'Privacy', route: 'privacy' },
-        { title: 'Security', route: 'security' },
-      ],
+        { title: 'Security', route: 'security' }],
     },
     {
       title: 'Data & Support',
       defaultOpen: true,
       items: [
         { title: 'Data & Storage', route: 'data-storage' },
-        { title: 'Help & Support', route: 'help-support' },
-      ],
-    },
-  ];
+        { title: 'Help & Support', route: 'help-support' }],
+    }];
   isOpen = computed(this.sidebarService.open || this.sidebarService.openMobile);
 }

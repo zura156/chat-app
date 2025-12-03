@@ -28,14 +28,7 @@ import {
   lucideUsersRound,
 } from '@ng-icons/lucide';
 import { HlmAvatarImage, HlmAvatar } from '@spartan-ng/helm/avatar';
-import { BrnMenuTrigger } from '@spartan-ng/brain/menu';
-import {
-  HlmMenu,
-  HlmMenuGroup,
-  HlmMenuItem,
-  HlmMenuItemIcon,
-  HlmMenuSeparator,
-} from '@spartan-ng/helm/menu';
+import { HlmDropdownMenuImports } from '@spartan-ng/helm/dropdown-menu';
 import { ConversationService } from '../services/conversation.service';
 import { ParticipantI } from '../interfaces/participant.interface';
 import { HlmButton } from '@spartan-ng/helm/button';
@@ -71,13 +64,8 @@ import { Router, RouterLink } from '@angular/router';
     ReactiveFormsModule,
     HlmIcon,
     HlmAvatarImage,
-    BrnMenuTrigger,
-    HlmMenuItemIcon,
-    HlmMenuItem,
     HlmButton,
-    HlmMenu,
-    HlmMenuGroup,
-    HlmMenuSeparator,
+    HlmDropdownMenuImports,
     HlmAvatar,
     ImageCropperComponent,
     HlmSpinner,

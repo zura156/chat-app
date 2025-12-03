@@ -1,10 +1,10 @@
 import { ChangeDetectionStrategy, Component, computed, input } from '@angular/core';
-import { BrnMenuBar } from '@spartan-ng/brain/menu';
+import { HlmDropdownMenuImports } from '@spartan-ng/helm/dropdown-menu';
 import { hlm } from '@spartan-ng/helm/utils';
 import type { ClassValue } from 'clsx';
 
 @Component({
-	selector: 'hlm-menu-bar',
+	selector: 'hlm-menubar',
 	host: {
 		'[class]': '_computedClass()',
 	},
