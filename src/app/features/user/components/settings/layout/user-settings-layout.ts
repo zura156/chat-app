@@ -1,8 +1,18 @@
 import { Component, computed, inject } from '@angular/core';
-import { RouterLink, RouterOutlet } from '@angular/router';
+import { RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
 import { HlmSidebarImports, HlmSidebarService } from '@spartan-ng/helm/sidebar';
 import { NgIcon, provideIcons } from '@ng-icons/core';
-import { lucideChevronRight } from '@ng-icons/lucide';
+import {
+  lucideBell,
+  lucideChevronRight,
+  lucideDatabase,
+  lucideEye,
+  lucideHelpCircle,
+  lucidePalette,
+  lucideSettings,
+  lucideShield,
+  lucideUser2,
+} from '@ng-icons/lucide';
 import { HlmCollapsibleImports } from '@spartan-ng/helm/collapsible';
 import { HlmIcon } from '@spartan-ng/helm/icon';
 import { HlmButtonImports } from '@spartan-ng/helm/button';
@@ -17,39 +27,34 @@ import { HlmButtonImports } from '@spartan-ng/helm/button';
     HlmButtonImports,
     NgIcon,
     HlmIcon,
-    RouterLink],
-  providers: [provideIcons({ lucideChevronRight })],
+    RouterLink,
+    RouterLinkActive,
+  ],
+  providers: [
+    provideIcons({
+      lucideChevronRight,
+      lucideUser2,
+      lucideSettings,
+      lucidePalette,
+      lucideBell,
+      lucideEye,
+      lucideShield,
+      lucideDatabase,
+      lucideHelpCircle,
+    }),
+  ],
 })
 export class UserSettingsLayout {
   protected sidebarService = inject(HlmSidebarService);
-  protected readonly _items = [
-    {
-      title: 'Personal',
-      defaultOpen: true,
-      items: [
-        { title: 'Profile', route: 'profile' },
-        { title: 'Account', route: 'account' }],
-    },
-    {
-      title: 'Preferences',
-      defaultOpen: true,
-      items: [
-        { title: 'Appearance', route: 'appearance' },
-        { title: 'Notifications', route: 'notifications' }],
-    },
-    {
-      title: 'Privacy & Security',
-      defaultOpen: true,
-      items: [
-        { title: 'Privacy', route: 'privacy' },
-        { title: 'Security', route: 'security' }],
-    },
-    {
-      title: 'Data & Support',
-      defaultOpen: true,
-      items: [
-        { title: 'Data & Storage', route: 'data-storage' },
-        { title: 'Help & Support', route: 'help-support' }],
-    }];
+  protected readonly items = [
+    { title: 'Profile', url: 'profile', icon: 'lucideUser2' },
+    { title: 'Account', url: 'account', icon: 'lucideSettings' },
+    { title: 'Appearance', url: 'appearance', icon: 'lucidePalette' },
+    { title: 'Notifications', url: 'notifications', icon: 'lucideBell' },
+    { title: 'Privacy', url: 'privacy', icon: 'lucideEye' },
+    { title: 'Security', url: 'security', icon: 'lucideShield' },
+    { title: 'Data & Storage', url: 'data-storage', icon: 'lucideDatabase' },
+    { title: 'Help & Support', url: 'help-support', icon: 'lucideHelpCircle' },
+  ];
   isOpen = computed(this.sidebarService.open || this.sidebarService.openMobile);
 }

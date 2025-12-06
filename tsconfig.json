@@ -73,9 +73,6 @@
       "@spartan-ng/helm/utils": [
         "./libs/ui/ui-utils-helm/src/index.ts"
       ],
-      "@spartan-ng/helm/sidebar": [
-        "./libs/ui/ui-sidebar-helm/src/index.ts"
-      ],
       "@spartan-ng/helm/sheet": [
         "./libs/ui/ui-sheet-helm/src/index.ts"
       ],
@@ -93,6 +90,9 @@
       ],
       "@spartan-ng/helm/dropdown-menu": [
         "./libs/ui/dropdown-menu/src/index.ts"
+      ],
+      "@spartan-ng/helm/sidebar": [
+        "./libs/ui/sidebar/src/index.ts"
       ]
     }
   },

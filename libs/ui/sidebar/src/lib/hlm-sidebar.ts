@@ -1,33 +1,34 @@
-import { ChangeDetectionStrategy, Component, computed, effect, inject, input } from '@angular/core';
-import { BrnSheetContent } from '@spartan-ng/brain/sheet';
-import { HlmSheet, HlmSheetContent } from '@spartan-ng/helm/sheet';
-import { hlm } from '@spartan-ng/helm/utils';
-
-import { HlmSidebarService, type SidebarVariant } from './hlm-sidebar.service';
-
 import { NgTemplateOutlet } from '@angular/common';
+import { ChangeDetectionStrategy, Component, computed, effect, inject, input } from '@angular/core';
+import { BrnSheetImports } from '@spartan-ng/brain/sheet';
+import { HlmSheetImports } from '@spartan-ng/helm/sheet';
+import { hlm } from '@spartan-ng/helm/utils';
 import type { ClassValue } from 'clsx';
+import { HlmSidebarService, type SidebarVariant } from './hlm-sidebar.service';
 import { injectHlmSidebarConfig } from './hlm-sidebar.token';
 
 @Component({
 	selector: 'hlm-sidebar',
-
+	imports: [NgTemplateOutlet, HlmSheetImports, BrnSheetImports],
 	changeDetection: ChangeDetectionStrategy.OnPush,
-	imports: [HlmSheet, HlmSheetContent, NgTemplateOutlet, BrnSheetContent],
-
+	host: {
+		'[attr.data-slot]': '_dataSlot()',
+		'[class]': '_computedClass()',
+		'[attr.data-state]': '_dataState()',
+		'[attr.data-collapsible]': '_dataCollapsible()',
+		'[attr.data-variant]': '_dataVariant()',
+		'[attr.data-side]': '_dataSide()',
+	},
 	template: `
 		<ng-template #contentContainer>
-			<ng-content></ng-content>
+			<ng-content />
 		</ng-template>
 
 		@if (collapsible() === 'none') {
-			<div data-slot="sidebar" [class]="_nonCollapsibleComputedClass()">
-				<ng-container *ngTemplateOutlet="contentContainer"></ng-container>
-			</div>
+			<ng-container *ngTemplateOutlet="contentContainer"></ng-container>
 		} @else if (_sidebarService.isMobile()) {
 			<hlm-sheet
 				[side]="side()"
-				[closeDelay]="0"
 				[state]="_sidebarService.openMobile() ? 'open' : 'closed'"
 				(stateChanged)="_sidebarService.setOpenMobile($event === 'open')"
 			>
@@ -40,29 +41,20 @@ import { injectHlmSidebarConfig } from './hlm-sidebar.token';
 					[style.--sidebar-width]="sidebarWidthMobile()"
 				>
 					<div class="flex h-full w-full flex-col">
-						<ng-container *ngTemplateOutlet="contentContainer"></ng-container>
+						<ng-container *ngTemplateOutlet="contentContainer" />
 					</div>
 				</hlm-sheet-content>
 			</hlm-sheet>
 		} @else {
-			<div
-				class="text-sidebar-foreground group peer hidden md:block"
-				[attr.data-state]="_sidebarService.state()"
-				[attr.data-collapsible]="_sidebarService.state() === 'collapsed' ? collapsible() : ''"
-				[attr.data-variant]="variant()"
-				[attr.data-side]="side()"
-				data-slot="sidebar"
-			>
-				<!-- Sidebar gap on desktop -->
-				<div data-slot="sidebar-gap" [class]="_sidebarGapComputedClass()"></div>
-				<div data-slot="sidebar-container" [class]="_sidebarContainerComputedClass()">
-					<div
-						data-sidebar="sidebar"
-						data-slot="sidebar-inner"
-						class="bg-sidebar group-data-[variant=floating]:border-sidebar-border flex h-full w-full flex-col group-data-[variant=floating]:rounded-lg group-data-[variant=floating]:border group-data-[variant=floating]:shadow"
-					>
-						<ng-container *ngTemplateOutlet="contentContainer"></ng-container>
-					</div>
+			<!-- Sidebar gap on desktop -->
+			<div data-slot="sidebar-gap" [class]="_sidebarGapComputedClass()"></div>
+			<div data-slot="sidebar-container" [class]="_sidebarContainerComputedClass()">
+				<div
+					data-sidebar="sidebar"
+					data-slot="sidebar-inner"
+					class="bg-sidebar group-data-[variant=floating]:border-sidebar-border flex h-full w-full flex-col group-data-[variant=floating]:rounded-lg group-data-[variant=floating]:border group-data-[variant=floating]:shadow"
+				>
+					<ng-container *ngTemplateOutlet="contentContainer" />
 				</div>
 			</div>
 		}
@@ -72,16 +64,13 @@ export class HlmSidebar {
 	protected readonly _sidebarService = inject(HlmSidebarService);
 	private readonly _config = injectHlmSidebarConfig();
 
-	public readonly sidebarWidthMobile = input(this._config.sidebarWidthMobile);
+	public readonly userClass = input<ClassValue>('', { alias: 'class' });
+	public readonly sidebarWidthMobile = input<string>(this._config.sidebarWidthMobile);
 
 	public readonly side = input<'left' | 'right'>('left');
 	public readonly variant = input<SidebarVariant>(this._sidebarService.variant());
 	public readonly collapsible = input<'offcanvas' | 'icon' | 'none'>('offcanvas');
-	public readonly userClass = input<ClassValue>('', { alias: 'class' });
 
-	protected readonly _nonCollapsibleComputedClass = computed(() =>
-		hlm('bg-sidebar text-sidebar-foreground flex h-full w-[var(--sidebar-width)] flex-col', this.userClass()),
-	);
 	protected readonly _sidebarGapComputedClass = computed(() =>
 		hlm(
 			'relative w-[var(--sidebar-width)] bg-transparent transition-[width] duration-200 ease-linear',
@@ -93,6 +82,7 @@ export class HlmSidebar {
 		),
 	);
 
+	public readonly sidebarContainerClass = input<ClassValue>('');
 	protected readonly _sidebarContainerComputedClass = computed(() =>
 		hlm(
 			'fixed inset-y-0 z-10 hidden h-svh w-[var(--sidebar-width)] transition-[left,right,width] duration-200 ease-linear md:flex',
@@ -102,9 +92,46 @@ export class HlmSidebar {
 			this.variant() === 'floating' || this.variant() === 'inset'
 				? 'p-2 group-data-[collapsible=icon]:w-[calc(var(--sidebar-width-icon)_+_theme(spacing.4)_+2px)]'
 				: 'group-data-[collapsible=icon]:w-[var(--sidebar-width-icon)] group-data-[side=left]:border-r group-data-[side=right]:border-l',
-			this.userClass(),
+			this.sidebarContainerClass(),
 		),
 	);
+
+	protected readonly _computedClass = computed(() => {
+		if (this.collapsible() === 'none') {
+			return hlm('bg-sidebar text-sidebar-foreground flex h-svh w-[var(--sidebar-width)] flex-col', this.userClass());
+		} else if (this._sidebarService.isMobile()) {
+			return hlm(this.userClass());
+		} else {
+			return hlm('text-sidebar-foreground group peer hidden md:block', this.userClass());
+		}
+	});
+
+	protected readonly _dataSlot = computed(() => {
+		return !this._sidebarService.isMobile() ? 'sidebar' : undefined;
+	});
+
+	private readonly _collapsibleAndNonMobile = computed(() => {
+		return this.collapsible() !== 'none' && !this._sidebarService.isMobile();
+	});
+
+	protected readonly _dataState = computed(() => {
+		return this._collapsibleAndNonMobile() ? this._sidebarService.state() : undefined;
+	});
+
+	protected readonly _dataCollapsible = computed(() => {
+		if (this._collapsibleAndNonMobile()) {
+			return this._sidebarService.state() === 'collapsed' ? this.collapsible() : '';
+		}
+		return undefined;
+	});
+
+	protected readonly _dataVariant = computed(() => {
+		return this._collapsibleAndNonMobile() ? this.variant() : undefined;
+	});
+
+	protected readonly _dataSide = computed(() => {
+		return this._collapsibleAndNonMobile() ? this.side() : undefined;
+	});
 
 	constructor() {
 		// Sync variant input with service

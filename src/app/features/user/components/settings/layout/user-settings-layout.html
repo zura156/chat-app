@@ -1,1 +1,34 @@
-<div hlmSidebarWrapper> <hlm-sidebar> <!-- <header class="flex h-12 items-center justify-between px-4"> <button hlmSidebarTrigger><span class="sr-only"></span></button> </header> --> <div hlmSidebarContent class="pt-10"> <div hlmSidebarGroup> <div hlmSidebarGroupContent> <ul hlmSidebarMenu> @for (item of _items; track item.title) { <hlm-collapsible [expanded]="item.defaultOpen" class="group/collapsible" > <li hlmSidebarMenuItem> <button hlmCollapsibleTrigger hlmSidebarMenuButton class="flex w-full items-center justify-between" > <span>{{ item.title }}</span> <ng-icon name="lucideChevronRight" class="ml-auto transition-transform group-data-[state=open]/collapsible:rotate-90" hlm /> </button> <hlm-collapsible-content> <ul hlmSidebarMenuSub> @for (subItem of item.items; track subItem.title) { <li hlmSidebarMenuSubItem> <button [routerLink]="subItem.route" hlmSidebarMenuSubButton class="w-full" > <span>{{ subItem.title }}</span> </button> </li> } </ul> </hlm-collapsible-content> </li> </hlm-collapsible> } </ul> </div> </div> </div> </hlm-sidebar> <header class="z-10 absolute top-0 right-0 xs:left-0 flex h-12 p-2 items-center justify-between" > <button hlmSidebarTrigger><span class="sr-only"></span></button> </header> <main class="p-4 w-full"> <router-outlet /> </main> </div> 
+<div hlmSidebarWrapper>
+  <hlm-sidebar>
+    <div hlmSidebarContent>
+      <div hlmSidebarGroup>
+        <div hlmSidebarGroupLabel>Settings</div>
+        <div hlmSidebarGroupContent>
+          <ul hlmSidebarMenu>
+            @for(item of items; track item.title){
+            <li hlmSidebarMenuItem>
+              <a
+                hlmSidebarMenuButton
+                [routerLink]="item.url"
+                routerLinkActive="active"
+                [routerLinkActiveOptions]="{ exact: true }"
+              >
+                <ng-icon hlm [name]="item.icon" />
+                <span>{{ item.title }}</span>
+              </a>
+            </li>
+            }
+          </ul>
+        </div>
+      </div>
+    </div>
+  </hlm-sidebar>
+  <ng-content />
+
+  <div class="md:flex w-full h-full">
+    <button hlmSidebarTrigger class="m-2">
+      <span class="sr-only"></span>
+    </button>
+    <main class="p-4 w-full"><router-outlet /></main>
+  </div>
+</div>

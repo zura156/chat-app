@@ -1,21 +1,20 @@
 import { computed, Directive, input } from '@angular/core';
 import { hlm } from '@spartan-ng/helm/utils';
-
 import type { ClassValue } from 'clsx';
 
 @Directive({
-	selector: 'div[hlmSidebarContent]',
-
+	selector: 'main[hlmSidebarInset]',
 	host: {
-		'data-sidebar': 'content',
+		'data-slot': 'sidebar-inset',
 		'[class]': '_computedClass()',
 	},
 })
-export class HlmSidebarContent {
+export class HlmSidebarInset {
 	public readonly userClass = input<ClassValue>('', { alias: 'class' });
 	protected readonly _computedClass = computed(() =>
 		hlm(
-			'flex min-h-0 flex-1 flex-col gap-2 overflow-auto group-data-[collapsible=icon]:overflow-hidden',
+			'bg-background relative flex w-full flex-1 flex-col',
+			'md:peer-data-[variant=inset]:m-2 md:peer-data-[variant=inset]:ml-0 md:peer-data-[variant=inset]:rounded-xl md:peer-data-[variant=inset]:shadow-sm md:peer-data-[variant=inset]:peer-data-[state=collapsed]:ml-2',
 			this.userClass(),
 		),
 	);

@@ -1,17 +1,16 @@
 import { computed, Directive, input } from '@angular/core';
 import { hlm } from '@spartan-ng/helm/utils';
-
 import type { ClassValue } from 'clsx';
 
 @Directive({
-	selector: 'li[hlmSidebarMenuItem]',
-
+	selector: 'div[hlmSidebarGroupContent]',
 	host: {
-		'data-sidebar': 'menu-item',
+		'data-slot': 'sidebar-group-content',
+		'data-sidebar': 'group-content',
 		'[class]': '_computedClass()',
 	},
 })
-export class HlmSidebarMenuItem {
+export class HlmSidebarGroupContent {
 	public readonly userClass = input<ClassValue>('', { alias: 'class' });
-	protected readonly _computedClass = computed(() => hlm('group/menu-item relative', this.userClass()));
+	protected readonly _computedClass = computed(() => hlm('w-full text-sm', this.userClass()));
 }

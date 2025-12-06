@@ -1,22 +1,20 @@
 import { computed, Directive, input } from '@angular/core';
 import { hlm } from '@spartan-ng/helm/utils';
-
 import type { ClassValue } from 'clsx';
 
 @Directive({
-	selector: 'ul[hlmSidebarMenuSub]',
-
+	selector: '[hlmSidebarContent],hlm-sidebar-content',
 	host: {
-		'data-sidebar': 'menu-sub',
+		'data-slot': 'sidebar-content',
+		'data-sidebar': 'content',
 		'[class]': '_computedClass()',
 	},
 })
-export class HlmSidebarMenuSub {
+export class HlmSidebarContent {
 	public readonly userClass = input<ClassValue>('', { alias: 'class' });
 	protected readonly _computedClass = computed(() =>
 		hlm(
-			'border-sidebar-border mx-3.5 flex min-w-0 translate-x-px flex-col gap-1 border-l px-2.5 py-0.5',
-			'group-data-[collapsible=icon]:hidden',
+			'flex min-h-0 flex-1 flex-col gap-2 overflow-auto group-data-[collapsible=icon]:overflow-hidden',
 			this.userClass(),
 		),
 	);
