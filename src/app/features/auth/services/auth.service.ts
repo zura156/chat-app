@@ -7,8 +7,6 @@ import {
   throwError,
   switchMap,
   retry,
-  timer,
-  Subscription,
 } from 'rxjs';
 import { HttpClient, HttpErrorResponse } from '@angular/common/http';
 import { RegisterCredentialsI } from '../interfaces/register-credentials.interface';
@@ -55,7 +53,6 @@ export class AuthService {
   // private readonly LAST_ACTIVE_TIME_KEY = 'lastActiveTime';
   // private readonly AUTO_LOGOUT_TIME = Math.floor(3600 * 1000);
   private readonly IS_AUTHENTICATED_KEY = 'isAuthenticated';
-  private refreshTimer: Subscription | null = null;
 
   /*
    * Signals for reactive state management
@@ -111,7 +108,6 @@ export class AuthService {
           })
         )
       ),
-      tap(() => this.startTokenRefresh()),
       catchError(this.handleError)
     );
   }
@@ -175,8 +171,6 @@ export class AuthService {
         localStorage.setItem(this.IS_AUTHENTICATED_KEY, 'true');
         this.isAuthenticated.set(true);
 
-        this.startTokenRefresh();
-
         return this.initializeAuth().pipe(
           tap(() => this.router.navigateByUrl('/messages'))
         );
@@ -224,26 +218,6 @@ export class AuthService {
     );
   }
 
-  private startTokenRefresh() {
-    this.stopTokenRefresh();
-
-    this.refreshTimer = timer(14 * 60 * 1000, 14 * 60 * 1000)
-      .pipe(switchMap(() => this.refreshToken()))
-      .subscribe({
-        error: (error) => {
-          this.handleAuthFailure();
-          this.handleError(error);
-        },
-      });
-  }
-
-  private stopTokenRefresh() {
-    if (this.refreshTimer) {
-      this.refreshTimer.unsubscribe();
-      this.refreshTimer = null;
-    }
-  }
-
   /*
    * Loggin user out of session.
    */
@@ -252,8 +226,6 @@ export class AuthService {
 
     return this.http.post<AuthResponseI>(this._LOGOUT_URL, {}).pipe(
       tap(() => {
-        this.stopTokenRefresh();
-
         this.userStateService.setCurrentUser(null);
         localStorage.clear();
         this.isAuthenticated.set(false);
@@ -305,7 +277,6 @@ export class AuthService {
 
   private handleAuthFailure() {
     this.userStateService.setCurrentUser(null);
-    this.stopTokenRefresh();
     this.router.navigateByUrl('/auth/login');
   }
 }

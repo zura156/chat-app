@@ -4,18 +4,18 @@ import {
   HttpInterceptorFn,
   HttpHandlerFn,
   HttpErrorResponse,
-  HttpClient,
 } from '@angular/common/http';
-import { inject } from '@angular/core';
+import { inject, Injector } from '@angular/core';
 import { catchError, Observable, switchMap, throwError } from 'rxjs';
-import { environment } from '../../../../environments/environment';
 import { Router } from '@angular/router';
+import { AuthService } from '../services/auth.service';
 
 export const authInterceptor: HttpInterceptorFn = (
   request: HttpRequest<unknown>,
   next: HttpHandlerFn
 ): Observable<HttpEvent<unknown>> => {
-  const http = inject(HttpClient);
+  const injector = inject(Injector);
+  let authService: AuthService | undefined = undefined;
   const router = inject(Router);
 
   return next(request).pipe(
@@ -32,15 +32,13 @@ export const authInterceptor: HttpInterceptorFn = (
           return throwError(() => error);
         }
 
-        // Attempt token refresh directly in interceptor
-        const refreshUrl = `${environment.apiUrl}/auth/refresh`;
-
-        return http.post(refreshUrl, {}, { withCredentials: true }).pipe(
+        authService ??= injector.get(AuthService);
+        return authService.refreshToken().pipe(
           switchMap(() => {
             // Retry the original request after successful refresh
             return next(request);
           }),
-          catchError((refreshError) => {
+          catchError((error) => {
             // If refresh fails, redirect to login
             localStorage.removeItem('isAuthenticated');
             router.navigate(['/auth/login']);

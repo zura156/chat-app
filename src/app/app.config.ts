@@ -2,7 +2,6 @@ import { ApplicationConfig, provideZoneChangeDetection } from '@angular/core';
 import {
   PreloadAllModules,
   provideRouter,
-  withViewTransitions,
   withPreloading,
 } from '@angular/router';
 import { routes } from './app.routes';
@@ -16,11 +15,7 @@ import { httpOptionsInterceptor } from './features/auth/interceptors/http-option
 
 export const appConfig: ApplicationConfig = {
   providers: [
-    provideRouter(
-      routes,
-      withPreloading(PreloadAllModules)
-      // withViewTransitions()
-    ),
+    provideRouter(routes, withPreloading(PreloadAllModules)),
     provideZoneChangeDetection({ eventCoalescing: true }),
     provideHttpClient(
       withFetch(),
