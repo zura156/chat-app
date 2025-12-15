@@ -1,4 +1,9 @@
-import { ApplicationConfig, provideZoneChangeDetection } from '@angular/core';
+import {
+  ApplicationConfig,
+  inject,
+  provideAppInitializer,
+  provideZoneChangeDetection,
+} from '@angular/core';
 import {
   PreloadAllModules,
   provideRouter,
@@ -12,6 +17,7 @@ import {
 } from '@angular/common/http';
 import { authInterceptor } from './features/auth/interceptors/auth.interceptor';
 import { httpOptionsInterceptor } from './features/auth/interceptors/http-options.interceptor';
+import { AuthService } from './features/auth/services/auth.service';
 
 export const appConfig: ApplicationConfig = {
   providers: [
@@ -21,5 +27,9 @@ export const appConfig: ApplicationConfig = {
       withFetch(),
       withInterceptors([httpOptionsInterceptor, authInterceptor])
     ),
+    provideAppInitializer(() => {
+      const auth = inject(AuthService);
+      return auth.init();
+    }),
   ],
 };

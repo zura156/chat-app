@@ -74,7 +74,7 @@ export class AuthService {
   /*
    * Setting state for authorization and .
    */
-  constructor() {
+  init(): void {
     if (this.isAuthenticated()) {
       this.initializeAuth().subscribe();
       this.setupUnloadListener();

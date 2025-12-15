@@ -14,8 +14,7 @@ export const authInterceptor: HttpInterceptorFn = (
   request: HttpRequest<unknown>,
   next: HttpHandlerFn
 ): Observable<HttpEvent<unknown>> => {
-  const injector = inject(Injector);
-  let authService: AuthService | undefined = undefined;
+  const authService = inject(AuthService);
   const router = inject(Router);
 
   return next(request).pipe(
@@ -32,7 +31,6 @@ export const authInterceptor: HttpInterceptorFn = (
           return throwError(() => error);
         }
 
-        authService ??= injector.get(AuthService);
         return authService.refreshToken().pipe(
           switchMap(() => {
             // Retry the original request after successful refresh
