@@ -1,5 +1,5 @@
 export const environment = {
   production: true,
-  apiUrl: 'https://chat-app-tx6u.onrender.com',
-  wsUrl: 'wss://chat-app-tx6u.onrender.com',
+  apiUrl: 'https://api-chat-app.zura156.xyz',
+  wsUrl: 'wss://api-chat-app.zura156.xyz',
 };
