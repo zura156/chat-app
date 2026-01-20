@@ -15,7 +15,6 @@ import { RouterLink } from '@angular/router';
 import { toast } from 'ngx-sonner';
 import { AuthService } from '../../services/auth.service';
 import { catchError, throwError } from 'rxjs';
-import { HttpErrorResponse } from '@angular/common/http';
 import {
   lucideCircleAlert,
   lucideLoader,
@@ -67,16 +66,12 @@ export class ForgotPasswordComponent {
     this.authService
       .forgotPassword(email)
       .pipe(
-        catchError((error: HttpErrorResponse) => {
+        catchError((error: string) => {
           this.isLoading.set(false);
-          this.error.set(error.message);
-
-          toast.error('Error occured!', {
-            description: error.message,
-          });
+          this.error.set(error);
 
           return throwError(() => error);
-        })
+        }),
       )
       .subscribe((res) => {
         this.error.set(null);

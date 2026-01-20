@@ -64,11 +64,11 @@ export class AuthService {
   public readonly loading = this.#loading.asReadonly();
   public readonly error = this.#error.asReadonly();
   public readonly isAuthenticated = signal(
-    localStorage.getItem(this.IS_AUTHENTICATED_KEY) === 'true'
+    localStorage.getItem(this.IS_AUTHENTICATED_KEY) === 'true',
   );
   // public readonly isAdmin = computed(() => this.#user()?.role === 'admin');
   public readonly isEmailVerified = computed(
-    () => this.user()?.is_email_verified ?? false
+    () => this.user()?.is_email_verified ?? false,
   );
 
   /*
@@ -105,10 +105,10 @@ export class AuthService {
               };
               this.webSocketService.sendMessage(data);
             }
-          })
-        )
+          }),
+        ),
       ),
-      catchError(this.handleError)
+      catchError(this.handleError),
     );
   }
 
@@ -151,7 +151,7 @@ export class AuthService {
 
     return this.http.post<AuthResponseI>(this._REGISTER_URL, credentials).pipe(
       tap(() => this.#loading.set(false)),
-      catchError(this.handleError)
+      catchError(this.handleError),
     );
   }
 
@@ -172,10 +172,10 @@ export class AuthService {
         this.isAuthenticated.set(true);
 
         return this.initializeAuth().pipe(
-          tap(() => this.router.navigateByUrl('/messages'))
+          tap(() => this.router.navigateByUrl('/messages')),
         );
       }),
-      catchError(this.handleError)
+      catchError(this.handleError),
     );
   }
 
@@ -201,7 +201,9 @@ export class AuthService {
    * Set new password (link approach)
    */
   resetPassword(body: ResetPasswordI): Observable<MessageResponseI> {
-    return this.http.post<MessageResponseI>(this._RESET_PASSWORD_URL, body);
+    return this.http
+      .post<MessageResponseI>(this._RESET_PASSWORD_URL, body)
+      .pipe(catchError(this.handleError));
   }
 
   /*
@@ -214,7 +216,7 @@ export class AuthService {
         this.handleAuthFailure();
         return this.handleError(error);
       }),
-      switchMap(() => this.csrfService.getCSRFToken())
+      switchMap(() => this.csrfService.getCSRFToken()),
     );
   }
 
@@ -234,7 +236,7 @@ export class AuthService {
 
         this.router.navigateByUrl('/auth/login');
       }),
-      catchError(this.handleError.bind(this))
+      catchError(this.handleError.bind(this)),
     );
   }
 

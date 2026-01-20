@@ -22,7 +22,6 @@ import {
   lucideTriangleAlert,
 } from '@ng-icons/lucide';
 import { ResetPasswordI } from '../../interfaces/reset-password.interface';
-import { HttpErrorResponse } from '@angular/common/http';
 
 @Component({
   selector: 'app-reset-password',
@@ -53,7 +52,6 @@ export class ResetPasswordComponent {
   isLoading = signal<boolean>(false);
   error = signal<string | null>(null);
   showPass = signal<boolean>(false);
-  userId = signal<string>('');
   resetToken = signal<string>('');
 
   onSubmit(): void {
@@ -71,19 +69,16 @@ export class ResetPasswordComponent {
 
     this.route.queryParams
       .pipe(
-        switchMap(({ token }) => {
+        switchMap(({ token, id }) => {
           const body: ResetPasswordI = {
             token,
             new_password,
+            userId: id,
           };
           return this.authService.resetPassword(body).pipe(
-            catchError((error: HttpErrorResponse) => {
+            catchError((error: string) => {
               this.isLoading.set(false);
-              this.error.set(error.message);
-
-              toast.error('Error occured!', {
-                description: error.message,
-              });
+              this.error.set(error);
 
               return throwError(() => error);
             }),
@@ -96,11 +91,11 @@ export class ResetPasswordComponent {
             }),
             switchMap(() =>
               timer(5000).pipe(
-                tap(() => this.router.navigateByUrl('/auth/login'))
-              )
-            )
+                tap(() => this.router.navigateByUrl('/auth/login')),
+              ),
+            ),
           );
-        })
+        }),
       )
       .subscribe();
   }

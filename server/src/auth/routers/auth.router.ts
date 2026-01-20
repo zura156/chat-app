@@ -1,4 +1,4 @@
-import { Request, Response, NextFunction, Router } from 'express';
+import { Response, NextFunction, Router } from 'express';
 import {
   registerUser,
   loginUser,
@@ -8,6 +8,7 @@ import {
   refreshToken,
   logOut,
   verifyEmail,
+  unlockAccount,
 } from '../controllers/auth.controller';
 
 import { body } from 'express-validator';
@@ -35,7 +36,7 @@ const relaxedLimiter = rateLimit({
 function dynamicCsrfRateLimiter(
   req: AuthRequest,
   res: Response,
-  next: NextFunction
+  next: NextFunction,
 ) {
   const isAuthenticated = !!req.user;
 
@@ -51,7 +52,7 @@ const validateRegistration = [
     .withMessage('Password must be at least 8 characters')
     .matches(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]/)
     .withMessage(
-      'Password must contain uppercase, lowercase, number and special character'
+      'Password must contain uppercase, lowercase, number and special character',
     ),
 ];
 
@@ -66,24 +67,25 @@ router.post(
   strictLimiter,
   unauthenticatedGuard,
   validateRegistration,
-  registerUser
+  registerUser,
 );
 router.post(
   '/login',
   strictLimiter,
   unauthenticatedGuard,
   validateLogin,
-  loginUser
+  loginUser,
 );
 router.post('/logout', strictLimiter, authenticateToken, logOut);
 
 router.post('/forgot-password', strictLimiter, forgotPassword);
 router.post('/reset-password', strictLimiter, resetPassword);
 router.post('/verify-email', dynamicCsrfRateLimiter, verifyEmail);
+router.post('/unlock-account', dynamicCsrfRateLimiter, unlockAccount);
 router.get(
   '/csrf-token',
   // dynamicCsrfRateLimiter,
-  getCSRFToken
+  getCSRFToken,
 );
 router.post('/refresh', dynamicCsrfRateLimiter, refreshToken);
 

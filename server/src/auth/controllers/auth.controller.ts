@@ -3,17 +3,20 @@ import { User } from '../../user/models/user.model';
 import { generateTokens } from '../services/jwt.service';
 import { createCustomError } from '../../error-handling/models/custom-api-error.model';
 import config from '../../config/config';
-import { v4 as uuidv4 } from 'uuid';
-import crypto from 'crypto';
 import { LoginDto } from '../dtos/login.dto';
 import { RegisterDto } from '../dtos/register.dto';
 import { TokenModel } from '../models/token.model';
-import { PasswordResetTokenModel } from '../models/password-reset.model';
+import {
+  AccountTokenEnum,
+  AccountTokensModel,
+} from '../models/account-tokens.model';
 import sendEmail from '../../utils/mailer';
-import { EmailVerificationTokenModel } from '../models/email-verification.model';
 import jwt from 'jsonwebtoken';
 import { AuthRequest } from '../middlewares/auth.middleware';
 import { csrfTokens, generateCSRFToken } from '../services/csrf.service';
+import { getLockoutEmailHTML } from '../../templates/lockout-email';
+import { generateLink } from '../services/auth.service';
+import crypto from 'crypto';
 
 const parseExpiry = (time: string) => {
   const duration = parseInt(time, 10);
@@ -32,7 +35,7 @@ const parseExpiry = (time: string) => {
 export const getCSRFToken = async (
   req: Request,
   res: Response,
-  next: NextFunction
+  next: NextFunction,
 ): Promise<void> => {
   const sessionIdCookie = req.cookies.sessionId;
   if (sessionIdCookie) {
@@ -46,7 +49,7 @@ export const getCSRFToken = async (
 
   res.cookie('sessionId', sessionId, {
     httpOnly: true,
-    secure: process.env.NODE_ENV === 'production',
+    secure: config.nodeEnv === 'production',
     sameSite: config.nodeEnv === 'production' ? 'none' : 'lax',
     maxAge: 24 * 60 * 60 * 1000,
   });
@@ -57,7 +60,7 @@ export const getCSRFToken = async (
 export const registerUser = async (
   req: Request,
   res: Response,
-  next: NextFunction
+  next: NextFunction,
 ): Promise<void> => {
   try {
     const { first_name, last_name, username, email, password }: RegisterDto =
@@ -84,33 +87,19 @@ export const registerUser = async (
 
     await user.save();
 
-    await EmailVerificationTokenModel.deleteMany({ user_id: user._id });
-
-    const rawToken: string = uuidv4();
-    const hashedToken = crypto
-      .createHash('sha256')
-      .update(rawToken)
-      .digest('hex');
-    const expires_at = new Date();
-
-    expires_at.setHours(expires_at.getHours() + 1);
-
-    await EmailVerificationTokenModel.create({
-      user_id: user._id,
-      token: hashedToken,
-      expires_at,
-    });
-
-    const resetLink = `${process.env.CLIENT_URL}/verify-email?token=${rawToken}&id=${user._id}`;
+    const verifyLink = await generateLink(
+      AccountTokenEnum.EMAIL_VERIFICATION,
+      user.id,
+    );
 
     const emailHtml = `
         <h2>Verify Email</h2>
         <p>Please verify your email to unlock all the features on our platform. Click the link below to verify email:</p>
-        <a href="${resetLink}">Verify</a>
+        <a href="${verifyLink}">Verify</a>
         <p>This link will expire in 1 hour.</p>
       `;
 
-    sendEmail(user.email, 'Please Verify Your Email', emailHtml);
+    await sendEmail(user.email, 'Please Verify Your Email', emailHtml);
 
     res.status(201).json({
       message: 'User registered successfully',
@@ -133,7 +122,7 @@ export const registerUser = async (
 export const loginUser = async (
   req: Request,
   res: Response,
-  next: NextFunction
+  next: NextFunction,
 ): Promise<void> => {
   try {
     const { email, password }: LoginDto = req.body;
@@ -153,9 +142,32 @@ export const loginUser = async (
     }
 
     if (user.lock_until && user.lock_until > new Date()) {
-      res
-        .status(423)
-        .json({ message: 'Account temporarily locked. Try again later.' });
+      const tokenExists = await AccountTokensModel.findOne({
+        user_id: user._id,
+        type: 'unlock_account',
+      });
+
+      if (!tokenExists || tokenExists.expires_at < new Date()) {
+        const passwordResetLink = await generateLink(
+          AccountTokenEnum.PASSWORD_RESET,
+          user.id,
+        );
+        const unlockAccountLink = await generateLink(
+          AccountTokenEnum.UNLOCK_ACCOUNT,
+          user.id,
+        );
+
+        await sendEmail(
+          user.email,
+          'Account Locked',
+          getLockoutEmailHTML(unlockAccountLink, passwordResetLink),
+        );
+      }
+
+      res.status(423).json({
+        message:
+          'Account temporarily locked. Check your email, or try again later.',
+      });
       return;
     }
 
@@ -192,7 +204,7 @@ export const loginUser = async (
           },
         },
       },
-      { new: true, upsert: true }
+      { new: true, upsert: true },
     );
     await user.updateOne({
       $set: { last_login: new Date() },
@@ -226,7 +238,7 @@ export const loginUser = async (
 export const refreshToken = async (
   req: Request,
   res: Response,
-  next: NextFunction
+  next: NextFunction,
 ): Promise<void> => {
   try {
     const refreshToken = req.cookies.refreshToken;
@@ -248,7 +260,7 @@ export const refreshToken = async (
     }
 
     const { accessToken, refreshToken: newRefreshToken } = generateTokens(
-      decoded.userId
+      decoded.userId,
     );
 
     await refreshTokens.updateOne({
@@ -287,7 +299,7 @@ export const refreshToken = async (
 export const logOut = async (
   req: AuthRequest,
   res: Response,
-  next: NextFunction
+  next: NextFunction,
 ): Promise<void> => {
   try {
     const refreshToken = req.cookies.refreshToken;
@@ -303,7 +315,7 @@ export const logOut = async (
         { user_id: user.id },
         {
           $pull: { refreshTokens: { token: refreshToken } },
-        }
+        },
       );
     }
 
@@ -329,7 +341,7 @@ export const logOut = async (
 export const forgotPassword = async (
   req: Request,
   res: Response,
-  next: NextFunction
+  next: NextFunction,
 ): Promise<void> => {
   const { email } = req.body;
 
@@ -348,24 +360,10 @@ export const forgotPassword = async (
       return;
     }
 
-    await PasswordResetTokenModel.deleteMany({ user_id: user._id });
-
-    const rawToken: string = uuidv4();
-    const hashedToken = crypto
-      .createHash('sha256')
-      .update(rawToken)
-      .digest('hex');
-    const expires_at = new Date();
-
-    expires_at.setHours(expires_at.getHours() + 1);
-
-    await PasswordResetTokenModel.create({
-      user_id: user._id,
-      token: hashedToken,
-      expires_at,
-    });
-
-    const resetLink = `${process.env.CLIENT_URL}/reset-password?token=${rawToken}`;
+    const resetLink = await generateLink(
+      AccountTokenEnum.PASSWORD_RESET,
+      user.id,
+    );
 
     const emailHtml = `
         <h2>Password Reset</h2>
@@ -393,9 +391,9 @@ export const forgotPassword = async (
 export const resetPassword = async (
   req: Request,
   res: Response,
-  next: NextFunction
+  next: NextFunction,
 ): Promise<void> => {
-  const { token, new_password } = req.body;
+  const { token, new_password, userId } = req.body;
 
   if (!token || !new_password) {
     res.status(400).json('Not all details were provided!');
@@ -405,8 +403,10 @@ export const resetPassword = async (
   const hashedToken = crypto.createHash('sha256').update(token).digest('hex');
 
   try {
-    const resetToken = await PasswordResetTokenModel.findOne({
+    const resetToken = await AccountTokensModel.findOne({
+      user_id: userId,
       token: hashedToken,
+      type: 'password_reset',
       expires_at: { $gt: new Date() }, // not expired
     });
 
@@ -429,9 +429,14 @@ export const resetPassword = async (
     }
 
     user.password = new_password;
+    user.login_attempts = 0;
+    user.lock_until = undefined;
 
     await user.save();
-    await PasswordResetTokenModel.deleteMany({ user_id: user._id });
+    await AccountTokensModel.deleteMany({
+      user_id: user._id,
+      type: 'password_reset',
+    });
 
     res.status(200).json({
       message: 'Password reset successful.',
@@ -450,9 +455,9 @@ export const resetPassword = async (
 export const verifyEmail = async (
   req: AuthRequest,
   res: Response,
-  next: NextFunction
+  next: NextFunction,
 ): Promise<void> => {
-  const { token } = req.body;
+  const { token, id } = req.body;
 
   if (!token) {
     res.status(400).json('Token was not provided!');
@@ -462,8 +467,10 @@ export const verifyEmail = async (
   const hashedToken = crypto.createHash('sha256').update(token).digest('hex');
 
   try {
-    const resetToken = await EmailVerificationTokenModel.findOne({
+    const resetToken = await AccountTokensModel.findOne({
+      user_id: id,
       token: hashedToken,
+      type: 'email_verification',
       expires_at: { $gt: new Date() }, // not expired
     });
 
@@ -487,7 +494,74 @@ export const verifyEmail = async (
     user.is_email_verified = true;
 
     await user.save();
-    await EmailVerificationTokenModel.deleteMany({ user_id: user._id });
+    await AccountTokensModel.deleteMany({
+      user_id: user._id,
+      type: 'email_verification',
+    });
+
+    res.status(200).json({
+      message: 'Email verification successful.',
+    });
+
+    return;
+  } catch (error: any) {
+    if (error.message) {
+      next(createCustomError(error.message, 400));
+      return;
+    }
+    next(createCustomError('Server error during forgot password request', 500));
+  }
+};
+
+export const unlockAccount = async (
+  req: Request,
+  res: Response,
+  next: NextFunction,
+): Promise<void> => {
+  const { token, id } = req.body;
+
+  if (!token || !id) {
+    res.status(400).json('Not all details were provided!');
+    return;
+  }
+
+  const hashedToken = crypto.createHash('sha256').update(token).digest('hex');
+
+  try {
+    const unlockAccountToken = await AccountTokensModel.findOne({
+      user_id: id,
+      token: hashedToken,
+      type: 'unlock_account',
+      expires_at: { $gt: new Date() }, // not expired
+    });
+
+    if (!unlockAccountToken) {
+      res
+        .status(400)
+        .json({ message: 'Invalid or expired unlock account token.' });
+      return;
+    }
+
+    const user = await User.findById(unlockAccountToken.user_id);
+
+    if (!user) {
+      res.status(404).json({ message: 'User not found.' });
+      return;
+    }
+
+    if (!user.lock_until) {
+      res.status(409).json({ message: 'User account already unlocked.' });
+      return;
+    }
+
+    user.login_attempts = 0;
+    user.lock_until = undefined;
+
+    await user.save();
+    await AccountTokensModel.deleteMany({
+      user_id: user._id,
+      type: 'email_verification',
+    });
 
     res.status(200).json({
       message: 'Email verification successful.',
