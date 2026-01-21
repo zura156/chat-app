@@ -24,6 +24,23 @@ export const authRoutes: Routes = [
   },
   {
     path: 'reset-password',
-    component: ResetPasswordComponent,
+    loadComponent: () =>
+      import('./components/reset-password/reset-password.component').then(
+        (m) => m.ResetPasswordComponent,
+      ),
+  },
+  {
+    path: 'unlock-account',
+    loadComponent: () => 
+      import('./components/unlock-account/unlock-account.component').then(
+        (m) => m.UnlockAccountComponent
+      )
+  },
+  {
+    path: 'verify-email',
+    loadComponent: () => 
+      import('./components/verify-email/verify-email.component').then(
+        (m) => m.VerifyEmailComponent
+      )
   },
 ];

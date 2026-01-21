@@ -23,6 +23,7 @@ import { UserService } from '../../user/services/user.service';
 import { CSRFService } from './csrf.service';
 import { Router } from '@angular/router';
 import { toast } from 'ngx-sonner';
+import { UnlockAccountI } from '../interfaces/unlock-account.interface';
 
 @Injectable({
   providedIn: 'root',
@@ -47,6 +48,7 @@ export class AuthService {
   private readonly _LOGOUT_URL = `${environment.apiUrl}/auth/logout`;
   private readonly _FORGOT_PASSWORD_URL = `${environment.apiUrl}/auth/forgot-password`;
   private readonly _RESET_PASSWORD_URL = `${environment.apiUrl}/auth/reset-password`;
+  private readonly _UNLOCK_ACCOUNT_URL = `${environment.apiUrl}/auth/unlock-account`;
   private readonly _VERIFY_EMAIL_URL = `${environment.apiUrl}/auth/verify-email`;
   private readonly _REFRESH_TOKEN_URL = `${environment.apiUrl}/auth/refresh`;
 
@@ -203,6 +205,12 @@ export class AuthService {
   resetPassword(body: ResetPasswordI): Observable<MessageResponseI> {
     return this.http
       .post<MessageResponseI>(this._RESET_PASSWORD_URL, body)
+      .pipe(catchError(this.handleError));
+  }
+
+  unlockAccount(body: UnlockAccountI): Observable<MessageResponseI> {
+    return this.http
+      .post<MessageResponseI>(this._UNLOCK_ACCOUNT_URL, body)
       .pipe(catchError(this.handleError));
   }
 

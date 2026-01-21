@@ -518,9 +518,9 @@ export const unlockAccount = async (
   res: Response,
   next: NextFunction,
 ): Promise<void> => {
-  const { token, id } = req.body;
+  const { token, userId } = req.body;
 
-  if (!token || !id) {
+  if (!token || !userId) {
     res.status(400).json('Not all details were provided!');
     return;
   }
@@ -529,7 +529,7 @@ export const unlockAccount = async (
 
   try {
     const unlockAccountToken = await AccountTokensModel.findOne({
-      user_id: id,
+      user_id: userId,
       token: hashedToken,
       type: 'unlock_account',
       expires_at: { $gt: new Date() }, // not expired
