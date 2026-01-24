@@ -15,34 +15,43 @@ import { body } from 'express-validator';
 import { authenticateToken, AuthRequest } from '../middlewares/auth.middleware';
 import { rateLimit } from 'express-rate-limit';
 import { unauthenticatedGuard } from '../middlewares/unauthenticated.middleware';
+import config from '../../config/config';
 
 const router = Router();
 
-const strictLimiter = rateLimit({
+// Rename for clarity
+const authOperationsLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 10,
+  message: 'Too many authentication attempts, please try again later',
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+const csrfTokenLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 100, // reasonable for unauthenticated CSRF requests
   message: 'Too many CSRF token requests, please try again later',
   standardHeaders: true,
   legacyHeaders: false,
 });
 
-const relaxedLimiter = rateLimit({
+const authenticatedUserLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: 500, // much higher for authenticated users
+  max: 500,
   standardHeaders: true,
   legacyHeaders: false,
 });
 
+// Dynamic limiter stays same, just update references
 function dynamicCsrfRateLimiter(
   req: AuthRequest,
   res: Response,
   next: NextFunction,
 ) {
-  const isAuthenticated = !!req.user;
-
-  return isAuthenticated
-    ? relaxedLimiter(req, res, next)
-    : strictLimiter(req, res, next);
+  return req.user
+    ? authenticatedUserLimiter(req, res, next)
+    : csrfTokenLimiter(req, res, next);
 }
 
 const validateRegistration = [
@@ -64,27 +73,29 @@ const validateLogin = [
 // Public routes
 router.post(
   '/register',
-  strictLimiter,
+  authOperationsLimiter,
   unauthenticatedGuard,
   validateRegistration,
   registerUser,
 );
 router.post(
   '/login',
-  strictLimiter,
+  authOperationsLimiter,
   unauthenticatedGuard,
   validateLogin,
   loginUser,
 );
-router.post('/logout', strictLimiter, authenticateToken, logOut);
+router.post('/logout', authOperationsLimiter, authenticateToken, logOut);
 
-router.post('/forgot-password', strictLimiter, forgotPassword);
-router.post('/reset-password', strictLimiter, resetPassword);
+router.post('/forgot-password', authOperationsLimiter, forgotPassword);
+router.post('/reset-password', authOperationsLimiter, resetPassword);
 router.post('/verify-email', dynamicCsrfRateLimiter, verifyEmail);
 router.post('/unlock-account', dynamicCsrfRateLimiter, unlockAccount);
 router.get(
   '/csrf-token',
-  // dynamicCsrfRateLimiter,
+  config.nodeEnv === 'production'
+    ? dynamicCsrfRateLimiter
+    : (next: NextFunction) => next(),
   getCSRFToken,
 );
 router.post('/refresh', dynamicCsrfRateLimiter, refreshToken);

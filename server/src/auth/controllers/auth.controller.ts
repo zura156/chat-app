@@ -14,7 +14,7 @@ import sendEmail from '../../utils/mailer';
 import jwt from 'jsonwebtoken';
 import { AuthRequest } from '../middlewares/auth.middleware';
 import { csrfTokens, generateCSRFToken } from '../services/csrf.service';
-import { getLockoutEmailHTML } from '../../templates/lockout-email';
+import { getSecurityAlertEmailHTML } from '../../templates/security-alert-email';
 import { generateLink } from '../services/auth.service';
 import crypto from 'crypto';
 
@@ -141,35 +141,43 @@ export const loginUser = async (
       return;
     }
 
-    if (user.lock_until && user.lock_until > new Date()) {
-      const tokenExists = await AccountTokensModel.findOne({
-        user_id: user._id,
-        type: 'unlock_account',
-      });
+    // // mimic
+    // let attempts = 0;
 
-      if (!tokenExists || tokenExists.expires_at < new Date()) {
-        const passwordResetLink = await generateLink(
-          AccountTokenEnum.PASSWORD_RESET,
-          user.id,
-        );
-        const unlockAccountLink = await generateLink(
-          AccountTokenEnum.UNLOCK_ACCOUNT,
-          user.id,
-        );
+    // if (attempts >= 15) {
+    //   const tokenExists = await AccountTokensModel.findOne({
+    //     user_id: user._id,
+    //     type: 'password_reset',
+    //   });
 
-        await sendEmail(
-          user.email,
-          'Account Locked',
-          getLockoutEmailHTML(unlockAccountLink, passwordResetLink),
-        );
-      }
+    //   if (!tokenExists || tokenExists.expires_at < new Date()) {
+    //     const passwordResetLink = await generateLink(
+    //       AccountTokenEnum.PASSWORD_RESET,
+    //       user.id,
+    //     );
 
-      res.status(423).json({
-        message:
-          'Account temporarily locked. Check your email, or try again later.',
-      });
-      return;
-    }
+    //     // await sendEmail(
+    //     //   user.email,
+    //     //   'Account Locked',
+    //     //   getSecurityAlertEmailHTML(
+    //     //     passwordResetLink,
+    //     //     secureAccountLink,
+    //     //     timestamp,
+    //     //     ipAddress,
+    //     //     location,
+    //     //     machineName,
+    //     //   ),
+    //     // );
+    //   }
+    // }
+
+    // if (attempts >= 10) {
+    //   // Request captcha
+    // }
+
+    // if (attempts >= 5) {
+    //   // Request captcha
+    // }
 
     // Check password
     const isValidPassword = await user.comparePassword(password);
@@ -177,15 +185,6 @@ export const loginUser = async (
       await user.incLoginAttempts();
       res.status(400).json({ message: 'Invalid credentials' });
       return;
-    }
-
-    if (user.login_attempts > 0 || user.lock_until) {
-      await user.updateOne({
-        $set: {
-          login_attempts: 0,
-        },
-        $unset: { lock_until: 1 },
-      });
     }
 
     // Generate JWT token

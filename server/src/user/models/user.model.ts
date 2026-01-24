@@ -55,10 +55,6 @@ const UserSchema = new Schema<IUser>(
       type: Boolean,
       default: false,
     },
-    login_attempts: {
-      type: Number,
-      default: 0,
-    },
     lock_until: {
       type: Date,
       required: false,
@@ -83,7 +79,7 @@ const UserSchema = new Schema<IUser>(
     last_seen: { type: Date, default: Date.now },
     blocked_users: [{ type: Schema.Types.ObjectId, ref: 'User' }],
   },
-  { timestamps: true }
+  { timestamps: true },
 );
 
 UserSchema.pre<IUser>('save', async function (next) {
@@ -98,29 +94,8 @@ UserSchema.pre<IUser>('save', async function (next) {
   }
 });
 
-UserSchema.methods.incLoginAttempts = async function () {
-  if (this.lock_until && this.lock_until < Date.now()) {
-    // Unlock and reset attempts
-    return this.updateOne({
-      $unset: { lock_until: 1 },
-      $set: { login_attempts: 1 },
-    });
-  }
-
-  const updates: any = { $inc: { login_attempts: 1 } };
-
-  // If reached 5 failed attempts, and not locked yet, then lock
-  if (this.login_attempts + 1 >= 5 && !this.lock_until) {
-    updates.$set = {
-      lock_until: new Date(Date.now() + 2 * 60 * 60 * 1000), // Lock for 2 hours
-    };
-  }
-
-  return this.updateOne(updates);
-};
-
 UserSchema.methods.comparePassword = async function (
-  candidatePassword: string
+  candidatePassword: string,
 ): Promise<boolean> {
   return bcrypt.compare(candidatePassword, this.password);
 };

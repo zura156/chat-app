@@ -2,7 +2,6 @@ import { Routes } from '@angular/router';
 import { RegisterComponent } from './components/register/register.component';
 import { LoginComponent } from './components/login/login.component';
 import { ForgotPasswordComponent } from './components/forgot-password/forgot-password.component';
-import { ResetPasswordComponent } from './components/reset-password/reset-password.component';
 
 export const authRoutes: Routes = [
   {
@@ -31,16 +30,16 @@ export const authRoutes: Routes = [
   },
   {
     path: 'unlock-account',
-    loadComponent: () => 
+    loadComponent: () =>
       import('./components/unlock-account/unlock-account.component').then(
-        (m) => m.UnlockAccountComponent
-      )
+        (m) => m.UnlockAccountComponent,
+      ),
   },
   {
     path: 'verify-email',
-    loadComponent: () => 
+    loadComponent: () =>
       import('./components/verify-email/verify-email.component').then(
-        (m) => m.VerifyEmailComponent
-      )
+        (m) => m.VerifyEmailComponent,
+      ),
   },
 ];
