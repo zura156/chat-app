@@ -1,0 +1,6 @@
+export const environment = {
+  production: true || false,
+  apiUrl: "YOUR_API_URL_HERE",
+  wsUrl: "YOUR_WS_URL_HERE",
+  recaptchaSiteKey: "YOUR_RECAPTCHA_SITE_KEY_HERE",
+};

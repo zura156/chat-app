@@ -19,7 +19,6 @@ export interface IUser extends Document {
   last_seen: Date;
   blocked_users: Types.ObjectId[];
   comparePassword(candidatePassword: string): Promise<boolean>;
-  incLoginAttempts(): Promise<any>;
 }
 
 const UserSchema = new Schema<IUser>(

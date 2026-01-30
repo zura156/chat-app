@@ -26,6 +26,7 @@ import { authenticateToken } from './auth/middlewares/auth.middleware';
 import { validateCSRF } from './auth/middlewares/csrf.middleware';
 import ffmpeg from 'fluent-ffmpeg';
 import ffmpegPath from 'ffmpeg-static';
+import { connectRedis } from './utils/redis';
 
 const app: Application = express();
 const port: number | 3000 = parseInt(config.port.toString());
@@ -41,7 +42,7 @@ app.use(
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization', 'X-CSRF-Token'],
     exposedHeaders: ['X-CSRF-Token'],
-  })
+  }),
 );
 
 setupWebSocket(server);
@@ -67,7 +68,7 @@ app.use(
       includeSubDomains: true,
       preload: true,
     },
-  })
+  }),
 );
 
 app.use(compression());
@@ -85,7 +86,7 @@ app.use(
     // res.setHeader('Cross-Origin-Opener-Policy', 'same-origin');
     next();
   },
-  express.static(path.resolve('uploads'))
+  express.static(path.resolve('uploads')),
 );
 app.use(express.json({ limit: '30mb' }));
 app.use(express.urlencoded({ limit: '30mb', extended: true }));
@@ -110,7 +111,7 @@ app.use(
   '/conversations',
   generalLimiter,
   authenticateToken,
-  conversationRouter
+  conversationRouter,
 );
 app.use('/messages', generalLimiter, authenticateToken, messageRouter);
 
@@ -118,7 +119,8 @@ app.use((err: Error, req: Request, res: Response, next: NextFunction) => {
   errorMiddleware(err, req, res, next);
 });
 
-server.listen(port, () => {
+server.listen(port, async () => {
+  await connectRedis();
   logger.info(`Server is listening at port ${port}`);
 });
 

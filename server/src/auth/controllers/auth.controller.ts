@@ -17,6 +17,7 @@ import { csrfTokens, generateCSRFToken } from '../services/csrf.service';
 import { getSecurityAlertEmailHTML } from '../../templates/security-alert-email';
 import { generateLink } from '../services/auth.service';
 import crypto from 'crypto';
+import { redisClient } from '../../utils/redis';
 
 const parseExpiry = (time: string) => {
   const duration = parseInt(time, 10);
@@ -72,7 +73,7 @@ export const registerUser = async (
     });
 
     if (existingUser) {
-      res.status(409).json({ error: 'User already exists' });
+      res.status(409).json({ message: 'User already exists' });
       return;
     }
 
@@ -132,6 +133,20 @@ export const loginUser = async (
       return;
     }
 
+    const cooldownKey = `cooldown:${email}:${req.ip}`;
+
+    const cooldownTTL = await redisClient.ttl(cooldownKey);
+    if (cooldownTTL > 0) {
+      res.status(429).json({
+        message: 'Too many failed attempts. Please try again later.',
+        retryAfter: cooldownTTL,
+      });
+      return;
+    }
+
+    const attemptsKey = `attempts:${email}:${req.ip}`;
+    const attemptsStr = await redisClient.get(attemptsKey);
+
     const sanitizedEmail = email.trim().toLowerCase();
     // Find a user
     const user = await User.findOne({ email: sanitizedEmail });
@@ -141,51 +156,44 @@ export const loginUser = async (
       return;
     }
 
-    // // mimic
-    // let attempts = 0;
-
-    // if (attempts >= 15) {
-    //   const tokenExists = await AccountTokensModel.findOne({
-    //     user_id: user._id,
-    //     type: 'password_reset',
-    //   });
-
-    //   if (!tokenExists || tokenExists.expires_at < new Date()) {
-    //     const passwordResetLink = await generateLink(
-    //       AccountTokenEnum.PASSWORD_RESET,
-    //       user.id,
-    //     );
-
-    //     // await sendEmail(
-    //     //   user.email,
-    //     //   'Account Locked',
-    //     //   getSecurityAlertEmailHTML(
-    //     //     passwordResetLink,
-    //     //     secureAccountLink,
-    //     //     timestamp,
-    //     //     ipAddress,
-    //     //     location,
-    //     //     machineName,
-    //     //   ),
-    //     // );
-    //   }
-    // }
-
-    // if (attempts >= 10) {
-    //   // Request captcha
-    // }
-
-    // if (attempts >= 5) {
-    //   // Request captcha
-    // }
-
     // Check password
     const isValidPassword = await user.comparePassword(password);
     if (!isValidPassword) {
-      await user.incLoginAttempts();
-      res.status(400).json({ message: 'Invalid credentials' });
+      const newAttempts = await redisClient.incr(attemptsKey);
+
+      await redisClient.expire(attemptsKey, 900); // 15 minutes
+
+      if (newAttempts >= 15) {
+        await redisClient.setEx(cooldownKey, 1800, '1'); // 30 min cooldown
+        res.status(429).json({
+          message: 'Too many failed attempts. Try again in 30 minutes.',
+          retryAfter: 1800,
+        });
+        return;
+      } else if (newAttempts >= 10) {
+        await redisClient.setEx(cooldownKey, 900, '1'); // 15 min cooldown
+        res.status(429).json({
+          message: 'Too many failed attempts. Try again in 15 minutes.',
+          retryAfter: 900,
+        });
+        return;
+      } else if (newAttempts >= 5) {
+        await redisClient.setEx(cooldownKey, 300, '1'); // 5 min cooldown
+        res.status(429).json({
+          message: 'Too many failed attempts. Try again in 5 minutes.',
+          retryAfter: 300,
+        });
+        return;
+      }
+
+      res.status(401).json({
+        message: 'Invalid credentials',
+      });
       return;
     }
+
+    await redisClient.del(attemptsKey);
+    await redisClient.del(cooldownKey);
 
     // Generate JWT token
 

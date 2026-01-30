@@ -278,9 +278,9 @@ export class AuthService {
       }
     }
 
-    toast.error('Something went wrong.', {
-      description: errorMessage,
-    });
+    // toast.error('Something went wrong.', {
+    //   description: errorMessage,
+    // });
 
     return throwError(() => errorMessage);
   };

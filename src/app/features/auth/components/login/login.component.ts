@@ -94,7 +94,7 @@ export class LoginComponent {
           this.error.set(errorMessage);
           this.isLoading.set(false);
           return throwError(() => errorMessage);
-        })
+        }),
       )
       .subscribe();
   }
