@@ -18,6 +18,11 @@ import { getSecurityAlertEmailHTML } from '../../templates/security-alert-email'
 import { generateLink } from '../services/auth.service';
 import crypto from 'crypto';
 import { redisClient } from '../../utils/redis';
+import { sanitize } from 'express-mongo-sanitize';
+import {
+  clearRateLimit,
+  loginRateLimitIncrement,
+} from '../middlewares/rate-limiter';
 
 const parseExpiry = (time: string) => {
   const duration = parseInt(time, 10);
@@ -133,69 +138,29 @@ export const loginUser = async (
       return;
     }
 
-    const cooldownKey = `cooldown:${email}:${req.ip}`;
-
-    const cooldownTTL = await redisClient.ttl(cooldownKey);
-    if (cooldownTTL > 0) {
-      res.status(429).json({
-        message: 'Too many failed attempts. Please try again later.',
-        retryAfter: cooldownTTL,
-      });
-      return;
-    }
-
-    const attemptsKey = `attempts:${email}:${req.ip}`;
-    const attemptsStr = await redisClient.get(attemptsKey);
-
     const sanitizedEmail = email.trim().toLowerCase();
     // Find a user
     const user = await User.findOne({ email: sanitizedEmail });
 
     if (!user) {
-      res.status(404).json({ message: 'User not found!' });
-      return;
+      return loginRateLimitIncrement(req, res, () => {
+        res.status(404).json({ message: 'User not found!' });
+      });
     }
 
     // Check password
     const isValidPassword = await user.comparePassword(password);
     if (!isValidPassword) {
-      const newAttempts = await redisClient.incr(attemptsKey);
-
-      await redisClient.expire(attemptsKey, 900); // 15 minutes
-
-      if (newAttempts >= 15) {
-        await redisClient.setEx(cooldownKey, 1800, '1'); // 30 min cooldown
-        res.status(429).json({
-          message: 'Too many failed attempts. Try again in 30 minutes.',
-          retryAfter: 1800,
+      return loginRateLimitIncrement(req, res, () => {
+        res.status(401).json({
+          message: 'Invalid credentials',
         });
-        return;
-      } else if (newAttempts >= 10) {
-        await redisClient.setEx(cooldownKey, 900, '1'); // 15 min cooldown
-        res.status(429).json({
-          message: 'Too many failed attempts. Try again in 15 minutes.',
-          retryAfter: 900,
-        });
-        return;
-      } else if (newAttempts >= 5) {
-        await redisClient.setEx(cooldownKey, 300, '1'); // 5 min cooldown
-        res.status(429).json({
-          message: 'Too many failed attempts. Try again in 5 minutes.',
-          retryAfter: 300,
-        });
-        return;
-      }
-
-      res.status(401).json({
-        message: 'Invalid credentials',
       });
-      return;
     }
 
-    await redisClient.del(attemptsKey);
-    await redisClient.del(cooldownKey);
+    await clearRateLimit()(req, res, () => {});
 
-    // Generate JWT token
+    // generate JWT token
 
     const { accessToken, refreshToken } = generateTokens(user.id);
 
@@ -213,9 +178,13 @@ export const loginUser = async (
       },
       { new: true, upsert: true },
     );
+
+    // update last login time
     await user.updateOne({
       $set: { last_login: new Date() },
     });
+
+    // set cookies
 
     res.cookie('accessToken', accessToken, {
       httpOnly: true,
