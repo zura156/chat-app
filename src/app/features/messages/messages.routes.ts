@@ -13,14 +13,14 @@ export const messagesRoutes: Routes = [
         path: '',
         loadComponent: () =>
           import('./list/conversation-list.component').then(
-            (c) => c.ConversationListComponent
+            (c) => c.ConversationListComponent,
           ),
       },
       {
         path: 'new',
         loadComponent: () =>
           import('./new-chat/new-chat.component').then(
-            (c) => c.NewChatComponent
+            (c) => c.NewChatComponent,
           ),
       },
       {

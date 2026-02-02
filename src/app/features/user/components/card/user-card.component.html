@@ -1,18 +1,20 @@
 @let user = this.user();
-@if(user) {
+@if (user) {
   <main
     class="p-2 flex items-center gap-x-2 cursor-pointer border border-border hover:ring-[3px] hover:ring-ring/50 transition-all rounded-lg"
   >
     <!-- AVATAR -->
     <hlm-avatar variant="medium">
       <img
-      [src]="imageUrl ?? '/icons/avatar.svg'"
-      [alt]="user.username"
-      hlmAvatarImage
+        [src]="imageUrl ?? '/icons/avatar.svg'"
+        [alt]="user.username"
+        hlmAvatarImage
       />
-      <span class="bg-black text-white text-sm" hlmAvatarFallback>PFP</span>
+      <span class="bg-black text-white text-sm" hlmAvatarFallback>
+        <img src="/icons/avatar.svg" />
+      </span>
     </hlm-avatar>
-    
+
     <section>
       <!-- Group title -->
       <h1 class="font-medium text-base">{{ user.username }}</h1>

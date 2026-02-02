@@ -8,150 +8,124 @@
     [attr.data-state]="state()"
     class="relative w-full max-w-lg rounded-lg glass-card p-6 shadow-lg max-h-[95vh] overflow-hidden animate-duration-200 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[state=closed]:slide-out-to-top-[2%] data-[state=open]:slide-in-from-top-[2%]"
     (animationend)="animationEnd.emit()"
-    >
+  >
     <!-- Modal Header -->
     <header class="py-2">
-      <h1 class="font-bold text-2xl">
-        {{ headerText() }}
-      </h1>
-      <h2 class="italic text-gray-500">
-        {{ description() }}
-      </h2>
+      <h1 class="font-bold text-2xl">{{ headerText() }}</h1>
+      <h2 class="italic text-gray-500">{{ description() }}</h2>
     </header>
     <!-- Modal Body -->
-    
+
     @if(isLoading()) {
-      <div class="flex justify-center items-center py-16">
-        <hlm-spinner />
+    <div class="flex justify-center items-center py-16">
+      <hlm-spinner />
+    </div>
+    } @else { @switch (variant()) { @case('user-list') {
+    <input
+      type="text"
+      id="search"
+      placeholder="Search people..."
+      class="flex h-10 w-full rounded-md transition-all border border-input bg-background px-3 py-2 text-sm text-foreground shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-offset-1 disabled:cursor-not-allowed disabled:opacity-50"
+    />
+
+    <hlm-separator decorative />
+    <div
+      class="max-h-[50vh] glass-card rounded-lg space-y-2 border-border p-4 size-full overflow-y-auto"
+    >
+      @let items = this.items(); @if(items && items.length > 0) { @for(item of
+      items; let i = $index; track i) {
+      <main
+        (click)="toggleCheckbox(i)"
+        class="px-2 py-1 flex items-center glass-card hover:bg-accent transition-colors justify-between cursor-pointer hover:text-accent-foreground"
+      >
+        <div class="flex items-center space-x-2">
+          <!-- AVATAR -->
+          <hlm-avatar variant="medium" class="select-none">
+            <img
+              [src]="item.profile_picture ? `${apiUrl}${item.profile_picture}` : '/icons/avatar.svg'"
+              [alt]="item.username"
+              hlmAvatarImage
+            />
+            <span class="bg-black text-white text-sm" hlmAvatarFallback>
+              <img src="/icons/avatar.svg" />
+            </span>
+          </hlm-avatar>
+
+          <section>
+            <!-- Group title -->
+            <h1 class="font-medium text-base">
+              {{ `${item.first_name} ${item.last_name}` }}
+            </h1>
+            <h2 class="text-sm text-gray-500">{{ item.username }}</h2>
+          </section>
+        </div>
+
+        <div class="relative bg-white rounded-full">
+          <button
+            class="cursor-pointer bg-blue-500 text-white rounded-full size-5 flex items-center justify-center transition-all ease-in-out"
+            [class.opacity-0]="!isChecked(i)"
+            [class.scale-0]="!isChecked(i)"
+            [class.opacity-100]="isChecked(i)"
+            [class.scale-100]="isChecked(i)"
+          >
+            <svg viewBox="0 0 12 10" class="size-3 stroke-white fill-none">
+              <polyline
+                points="1.5 6 4.5 9 10.5 1"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                class="[ stroke-dasharray:16px; stroke-dashoffset:16px; transition:stroke-dashoffset_0.4s_ease_150ms ]"
+                [attr.style]="isChecked(i) ? 'stroke-dashoffset: 0' : 'stroke-dashoffset: 16px'"
+              />
+            </svg>
+          </button>
+        </div>
+      </main>
+      } } @else {
+      <div class="text-center">
+        <span> User list is empty. </span>
       </div>
-    } @else {
-
-      @switch (variant()) {
-        
-        @case('user-list') {
-          <input
-            type="text"
-            id="search"
-            placeholder="Search people..."
-            class="flex h-10 w-full rounded-md transition-all border border-input bg-background px-3 py-2 text-sm text-foreground shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-offset-1 disabled:cursor-not-allowed disabled:opacity-50"
-          />
-          
-          <hlm-separator decorative /> 
-          <div class="max-h-[50vh] glass-card rounded-lg space-y-2 border-border p-4 size-full overflow-y-auto">
-            @let items = this.items();
-            @if(items && items.length > 0) {
-              @for(item of items; let i = $index; track i) {
-                <main (click)="toggleCheckbox(i)" class="px-2 py-1 flex items-center glass-card hover:bg-accent transition-colors justify-between cursor-pointer hover:text-accent-foreground">
-                  <div class="flex items-center space-x-2">
-                    <!-- AVATAR -->
-                    <hlm-avatar variant="medium" class="select-none">
-                        <img
-                          [src]="item.profile_picture ? `${apiUrl}${item.profile_picture}` : '/icons/avatar.svg'"
-                          [alt]="item.username"
-                          hlmAvatarImage
-                        />
-                      <span class="bg-black text-white text-sm" hlmAvatarFallback>PFP</span>
-                    </hlm-avatar>
-                                
-                    <section>
-                      <!-- Group title -->
-                      <h1 class="font-medium text-base">
-                        {{ `${item.first_name} ${item.last_name}` }}
-                      </h1>
-                      <h2 class="text-sm text-gray-500">
-                        {{ item.username }}
-                      </h2>
-                    </section>
-                  </div>
-
-                  <div class="relative bg-white rounded-full">
-                    <button
-                      class="cursor-pointer bg-blue-500 text-white rounded-full size-5 flex items-center justify-center transition-all ease-in-out"
-                      [class.opacity-0]="!isChecked(i)"
-                      [class.scale-0]="!isChecked(i)"
-                      [class.opacity-100]="isChecked(i)"
-                      [class.scale-100]="isChecked(i)"
-                    >
-                      <svg
-                        viewBox="0 0 12 10"
-                        class="size-3 stroke-white fill-none"
-                      >
-                        <polyline
-                          points="1.5 6 4.5 9 10.5 1"
-                          stroke="currentColor"
-                          stroke-width="2"
-                          stroke-linecap="round"
-                          stroke-linejoin="round"
-                          class="[
-                            stroke-dasharray:16px;
-                            stroke-dashoffset:16px;
-                            transition:stroke-dashoffset_0.4s_ease_150ms
-                          ]"
-                          [attr.style]="isChecked(i) ? 'stroke-dashoffset: 0' : 'stroke-dashoffset: 16px'"
-                        />
-                      </svg>
-                    </button> 
-                  </div>
-                </main>
-              }
-            } @else {
-              <div class="text-center">
-                <span>
-                  User list is empty.
-                </span>
-              </div>
-            }
-
-          </div>
-        }
-        @case('form') {
-          @let form = this.form();
-          @if(form) {
-            <form [formGroup]="form" (ngSubmit)="onSubmit()" class="space-y-4">
-              @if(form.get('groupName')) {
-                <div class="space-y-2">
-                  <label for="groupName" class="text-sm font-medium text-foreground">
-                    Conversation Name
-                  </label>
-                  <input
-                    type="text"
-                    id="groupName"
-                    formControlName="groupName"
-                    placeholder="Enter conversation name..."
-                    class="flex h-10 w-full rounded-md transition-all border border-input bg-background px-3 py-2 text-sm text-foreground shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-offset-1 disabled:cursor-not-allowed disabled:opacity-50"
-                    [class.border-destructive]="form.get('groupName')?.invalid && form.get('groupName')?.touched"
-                  />
-                  
-                  <!-- Error Messages -->
-                  @if(form.get('groupName')?.invalid && form.get('groupName')?.touched) {
-                    <div class="text-sm text-destructive">
-                      @if(form.get('groupName')?.errors?.['required']) {
-                        <p>Conversation name is required.</p>
-                      }
-                      @if(form.get('groupName')?.errors?.['minlength']) {
-                        <p>Conversation name must be at least 1 character long.</p>
-                      }
-                      @if(form.get('groupName')?.errors?.['maxlength']) {
-                        <p>Conversation name must not exceed 50 characters.</p>
-                      }
-                      @if(form.get('groupName')?.errors?.['whitespace']) {
-                        <p>Conversation name cannot contain only whitespace.</p>
-                      }
-                    </div>
-                  }
-                </div>
-              }
-              @if(form.get('groupName')) {
-                <div class="text-xs text-muted-foreground text-right">
-                  {{ form.get('groupName')?.value?.length || 0 }}/50 characters
-                </div>
-              }
-            </form>
-          }
-          
-        }
       }
-    }
+    </div>
+    } @case('form') { @let form = this.form(); @if(form) {
+    <form [formGroup]="form" (ngSubmit)="onSubmit()" class="space-y-4">
+      @if(form.get('groupName')) {
+      <div class="space-y-2">
+        <label for="groupName" class="text-sm font-medium text-foreground">
+          Conversation Name
+        </label>
+        <input
+          type="text"
+          id="groupName"
+          formControlName="groupName"
+          placeholder="Enter conversation name..."
+          class="flex h-10 w-full rounded-md transition-all border border-input bg-background px-3 py-2 text-sm text-foreground shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-offset-1 disabled:cursor-not-allowed disabled:opacity-50"
+          [class.border-destructive]="form.get('groupName')?.invalid && form.get('groupName')?.touched"
+        />
+
+        <!-- Error Messages -->
+        @if(form.get('groupName')?.invalid && form.get('groupName')?.touched) {
+        <div class="text-sm text-destructive">
+          @if(form.get('groupName')?.errors?.['required']) {
+          <p>Conversation name is required.</p>
+          } @if(form.get('groupName')?.errors?.['minlength']) {
+          <p>Conversation name must be at least 1 character long.</p>
+          } @if(form.get('groupName')?.errors?.['maxlength']) {
+          <p>Conversation name must not exceed 50 characters.</p>
+          } @if(form.get('groupName')?.errors?.['whitespace']) {
+          <p>Conversation name cannot contain only whitespace.</p>
+          }
+        </div>
+        }
+      </div>
+      } @if(form.get('groupName')) {
+      <div class="text-xs text-muted-foreground text-right">
+        {{ form.get('groupName')?.value?.length || 0 }}/50 characters
+      </div>
+      }
+    </form>
+    } } } }
 
     <!-- Modal Footer -->
     <footer class="py-2 flex justify-end items-center gap-x-2">

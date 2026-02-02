@@ -128,7 +128,7 @@ export class ChatboxComponent implements OnInit, OnDestroy {
   private readonly TIME_GAP_THRESHOLD: number = 15;
 
   conversation: Signal<ConversationI | null> = signal<ConversationI | null>(
-    null
+    null,
   );
   private previousConversationId = this.messageService.previousConversationId;
 
@@ -142,7 +142,7 @@ export class ChatboxComponent implements OnInit, OnDestroy {
       return currentConversation.group_picture ?? null;
     } else {
       const otherUser = currentConversation.participants.find(
-        (participant) => participant._id !== this.currentUser()?._id
+        (participant) => participant._id !== this.currentUser()?._id,
       );
       return otherUser?.profile_picture ?? null;
     }
@@ -150,7 +150,7 @@ export class ChatboxComponent implements OnInit, OnDestroy {
 
   messages = this.messageService.activeMessages;
   totalMessagesCount = linkedSignal<number>(() =>
-    this.messageService.totalMessagesCount()
+    this.messageService.totalMessagesCount(),
   );
 
   groupedMessages = linkedSignal<GroupedMessages[]>(() => {
@@ -211,7 +211,7 @@ export class ChatboxComponent implements OnInit, OnDestroy {
   // handling chat settings open state
   private readonly CHAT_PREFERENCE_STORAGE_KEY = 'prefers-chat-settings-open';
   isSettingsOpen = signal<boolean>(
-    localStorage.getItem(this.CHAT_PREFERENCE_STORAGE_KEY) === 'true'
+    localStorage.getItem(this.CHAT_PREFERENCE_STORAGE_KEY) === 'true',
   );
 
   private recordingResult?: RecordingResult;
@@ -275,7 +275,7 @@ export class ChatboxComponent implements OnInit, OnDestroy {
           this.conversationService.selectedConversationId.set(id);
           this.conversation = this.conversationService.activeConversation;
           const selectedUser: UserI | null = JSON.parse(
-            sessionStorage.getItem('selectedUser') ?? 'null'
+            sessionStorage.getItem('selectedUser') ?? 'null',
           );
           if (selectedUser) {
             this.conversationService.selectUserForConversation(selectedUser);
@@ -283,16 +283,16 @@ export class ChatboxComponent implements OnInit, OnDestroy {
               this.conversationService.createMockConversation();
               return of(this.conversation()).pipe(
                 tap(() => this.isLoading.set(false)),
-                switchMap(() => this.handleWebSocketMessages())
+                switchMap(() => this.handleWebSocketMessages()),
               );
             }
           }
           return this.conversationService.getConversationById(id).pipe(
             tap(() => this.isLoading.set(false)),
             switchMap(() => this.handleWebSocketMessages()),
-            catchError((err) => this.handleError(err, true))
+            catchError((err) => this.handleError(err, true)),
           );
-        })
+        }),
       )
       .subscribe();
   }
@@ -354,7 +354,7 @@ export class ChatboxComponent implements OnInit, OnDestroy {
             takeUntil(this.destroy$),
             tap((res) => {
               this.messageService.addMessage(res);
-            })
+            }),
           )
           .subscribe();
       }
@@ -384,7 +384,7 @@ export class ChatboxComponent implements OnInit, OnDestroy {
             this.messageService.addMessage(res);
             this.isRecording.set(false);
             this.recordingResult = undefined;
-          })
+          }),
         )
         .subscribe();
       return;
@@ -418,7 +418,7 @@ export class ChatboxComponent implements OnInit, OnDestroy {
             };
 
             const participants = conversation.participants.filter(
-              (u) => u._id !== sender?._id
+              (u) => u._id !== sender?._id,
             );
 
             this.router.navigateByUrl(`/messages/${conversation._id}`);
@@ -432,9 +432,9 @@ export class ChatboxComponent implements OnInit, OnDestroy {
                 tap(() => {
                   this.isLoading.set(false);
                   this.messageControl.reset();
-                })
+                }),
               );
-          })
+          }),
         )
         .subscribe();
     } else {
@@ -449,7 +449,7 @@ export class ChatboxComponent implements OnInit, OnDestroy {
         timestamp: new Date().toISOString(),
       };
       const participants = convo.participants.filter(
-        (u) => u._id !== sender?._id
+        (u) => u._id !== sender?._id,
       );
 
       this.messageService
@@ -462,7 +462,7 @@ export class ChatboxComponent implements OnInit, OnDestroy {
             this.conversation = this.conversationService.activeConversation;
             this.isLoading.set(false);
             this.messageControl.reset();
-          })
+          }),
         )
         .subscribe();
     }
@@ -471,7 +471,7 @@ export class ChatboxComponent implements OnInit, OnDestroy {
   loadMessages(conversationId: string, isMockConversation: boolean = false) {
     if (!this.hasMoreMessages()) return [];
     this.messageService.messageOffset.update(
-      (val) => val + this.messageLimit()
+      (val) => val + this.messageLimit(),
     );
 
     if (!conversationId) return [];
@@ -494,15 +494,15 @@ export class ChatboxComponent implements OnInit, OnDestroy {
       this.divTopIntersectionObserver = new IntersectionObserver(
         ([entry]) => {
           this.isVisible.set(
-            entry.isIntersecting && !this.messagesResource.isLoading()
+            entry.isIntersecting && !this.messagesResource.isLoading(),
           );
           if (this.hasMoreMessages() && this.isVisible()) {
             console.log(
-              String(this.conversation()?._id) === this.selectedUser()?._id
+              String(this.conversation()?._id) === this.selectedUser()?._id,
             );
             this.loadMessages(
               String(this.conversation()?._id),
-              String(this.conversation()?._id) === this.selectedUser()?._id
+              String(this.conversation()?._id) === this.selectedUser()?._id,
             );
             this.isVisibilityObserving.set(false);
           }
@@ -512,11 +512,11 @@ export class ChatboxComponent implements OnInit, OnDestroy {
         },
         {
           threshold: 0.01,
-        }
+        },
       );
 
       this.divTopIntersectionObserver.observe(
-        this.observedElement()?.nativeElement
+        this.observedElement()?.nativeElement,
       );
     }
   }
@@ -533,7 +533,7 @@ export class ChatboxComponent implements OnInit, OnDestroy {
     const messageDate = new Date(
       timestamp.getFullYear(),
       timestamp.getMonth(),
-      timestamp.getDate()
+      timestamp.getDate(),
     );
 
     // Format time component
@@ -608,7 +608,12 @@ export class ChatboxComponent implements OnInit, OnDestroy {
                 this.messageService.addMessage(message);
               }
 
-              this.setLastMessageAndMarkAsRead(conversation._id, message);
+              this.setLastMessageAndMarkAsRead(
+                isCurrentConversation
+                  ? conversation._id
+                  : String(message.conversation),
+                message,
+              );
               return;
             case 'user-status':
               const { user_id, status: userStatus } = res;
@@ -622,7 +627,7 @@ export class ChatboxComponent implements OnInit, OnDestroy {
               this.conversationService.updateParticipantStatus(
                 user_id,
                 userStatus,
-                last_seen
+                last_seen,
               );
               break;
             case 'message-status':
@@ -651,14 +656,14 @@ export class ChatboxComponent implements OnInit, OnDestroy {
 
               this.messageService.updateMessageStatus(
                 last_message_id,
-                messageStatus as MessageStatus
+                messageStatus as MessageStatus,
               );
               break;
 
             case 'conversation-update':
               const updatedConversation = res.conversation as ConversationI;
               this.conversationService.updateConversationState(
-                updatedConversation
+                updatedConversation,
               );
 
               break;
@@ -669,11 +674,11 @@ export class ChatboxComponent implements OnInit, OnDestroy {
                 added_by,
               } = res;
               this.conversationService.addConversationToList(
-                joinedConversation as ConversationI
+                joinedConversation as ConversationI,
               );
               const addedUsernames = joinedConversation.participants
                 ?.filter((participant) =>
-                  added_users?.includes(participant._id)
+                  added_users?.includes(participant._id),
                 )
                 .map((participant) => participant.username);
 
@@ -685,7 +690,7 @@ export class ChatboxComponent implements OnInit, OnDestroy {
                   description: `${addedUsernames?.join(', ')} ${
                     addedUsernames && addedUsernames.length > 1 ? 'were' : 'was'
                   } added by ${added_by.username}.`,
-                }
+                },
               );
               break;
             case 'conversation-leave':
@@ -696,12 +701,12 @@ export class ChatboxComponent implements OnInit, OnDestroy {
               } = res;
 
               this.conversationService.removeConversationFromList(
-                leftConversation as ConversationI
+                leftConversation as ConversationI,
               );
 
               const removedUsernames = leftConversation.participants
                 ?.filter((participant) =>
-                  removed_users.includes(participant._id)
+                  removed_users.includes(participant._id),
                 )
                 .map((participant) => participant.username);
               if (user && removed_users.includes(user._id)) {
@@ -716,7 +721,7 @@ export class ChatboxComponent implements OnInit, OnDestroy {
               break;
           }
         }),
-        catchError((err) => this.handleError(err))
+        catchError((err) => this.handleError(err)),
       ) || EMPTY
     );
   }
@@ -748,14 +753,14 @@ export class ChatboxComponent implements OnInit, OnDestroy {
             conversation_id: convo._id,
           };
           this.webSocketService.sendMessage(data);
-        })
+        }),
       )
       .subscribe();
   }
 
   private handleError(
     err: any,
-    navigation: boolean = false
+    navigation: boolean = false,
   ): Observable<never> {
     this.isLoading.set(false);
     if (navigation) {
@@ -789,13 +794,17 @@ export class ChatboxComponent implements OnInit, OnDestroy {
 
   private setLastMessageAndMarkAsRead(
     conversationId: string,
-    message: MessageI
+    message: MessageI,
   ): void {
     this.conversationService.setLastMessageInConversation(
       conversationId,
-      message
+      message,
     );
-    if (message._id) {
+    if (
+      message._id &&
+      message.sender._id !== this.currentUser()?._id &&
+      !this.conversation()?.is_group
+    ) {
       this.markMessageAsRead(message._id);
     }
   }

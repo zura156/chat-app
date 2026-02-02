@@ -2,73 +2,117 @@
 @let isCurrentUserMessage = this.isCurrentUserMessage(message);
 <div
   class="flex items-center mt-2 w-full overflow-x-hidden"
-  [class]="message.type === 'info' ? 'justify-center' : isCurrentUserMessage ? 'justify-end': 'justify-start'"
-  >
+  [class]="
+    message.type === 'info'
+      ? 'justify-center'
+      : isCurrentUserMessage
+        ? 'justify-end'
+        : 'justify-start'
+  "
+>
   <div class="flex flex-col w-fit">
-    @if(isGroup() && !isCurrentUserMessage && message.type !== 'info') {
+    @if (isGroup() && !isCurrentUserMessage && message.type !== "info") {
       <span class="text-gray-500 text-sm">
         {{ message.sender.username }}
       </span>
     }
     <div class="flex justify-start items-end">
-      @if(!isCurrentUserMessage && message.type !== 'info') {
+      @if (!isCurrentUserMessage && message.type !== "info") {
         <hlm-avatar variant="small" class="size-5 mr-1.5 mb-2">
           <img
             [src]="imageUrl() || '/icons/avatar.svg'"
             [alt]="message.sender.username"
             hlmAvatarImage
           />
-          <span class="bg-black text-white" hlmAvatarFallback> PFP </span>
+          <span class="bg-black text-white" hlmAvatarFallback>
+            <img src="/icons/avatar.svg" />
+          </span>
         </hlm-avatar>
       }
       <div class="flex flex-col">
         <div
           class="border rounded-lg"
-
-          [class]="message.type === 'audio' || message.type === 'video' || message.type === 'info' ? 'border-none' : isCurrentUserMessage ? 'bg-accent border-border text-accent-foreground' : 'border-border'"
+          [class]="
+            message.type === 'audio' ||
+            message.type === 'video' ||
+            message.type === 'info'
+              ? 'border-none'
+              : isCurrentUserMessage
+                ? 'bg-accent border-border text-accent-foreground'
+                : 'border-border'
+          "
         >
           <div
             class="py-1 text-ellipsis max-w-xs"
             [class]="message.type === 'audio' ? '' : 'px-2 md:px-3'"
           >
-            @switch(message.type) {
-              @case ('info') {
+            @switch (message.type) {
+              @case ("info") {
                 <p class="text-gray-500 text-sm text-center">
                   {{ message.content }}
                 </p>
               }
-              @case ('text') {
-                <p class="whitespace-normal [overflow-wrap:anywhere] [word-break:break-word]">{{ message.content }}</p>
-              } 
-              @case ('image') {
-                <div class="py-1.5 w-fit h-fit cursor-pointer" (click)="openMedia(message, 0)">
+              @case ("text") {
+                <p
+                  class="whitespace-normal [overflow-wrap:anywhere] [word-break:break-word]"
+                >
+                  {{ message.content }}
+                </p>
+              }
+              @case ("image") {
+                <div
+                  class="py-1.5 w-fit h-fit cursor-pointer"
+                  (click)="openMedia(message, 0)"
+                >
                   <img
                     class="object-contain max-h-96 max-w-full rounded-lg image-pixelated"
                     [class]="isImageLoaded() ? 'h-fit' : 'h-96'"
                     [src]="
                       isImageLoaded()
                         ? apiUrl + message.file?.url
-                        : apiUrl + (message.file?.mime_type === 'image/gif' ? message.file?.url : message.file?.placeholder_url)
+                        : apiUrl +
+                          (message.file?.mime_type === 'image/gif'
+                            ? message.file?.url
+                            : message.file?.placeholder_url)
                     "
                     (load)="onFullImageLoad()"
                     [alt]="message.content"
                   />
                 </div>
-              } @case ('video') { 
-                @if(message.file) {
+              }
+              @case ("video") {
+                @if (message.file) {
                   <div class="max-w-3xs sm:max-w-xs relative">
-                    @if(loadedVideoMessageId() === message._id) {
-                      <div (click)="$event.stopPropagation(); openMedia(message, 0)" class="w-full h-full">
-                        <app-video-player #videoPlayerComponent [video]="message.file" [disableContainerClickToggle]="true"></app-video-player>
+                    @if (loadedVideoMessageId() === message._id) {
+                      <div
+                        (click)="
+                          $event.stopPropagation(); openMedia(message, 0)
+                        "
+                        class="w-full h-full"
+                      >
+                        <app-video-player
+                          #videoPlayerComponent
+                          [video]="message.file"
+                          [disableContainerClickToggle]="true"
+                        ></app-video-player>
                       </div>
                     } @else {
-                      <div class="relative cursor-pointer" (click)="loadVideo(message._id || '')" >
-                        <img 
+                      <div
+                        class="relative cursor-pointer"
+                        (click)="loadVideo(message._id || '')"
+                      >
+                        <img
                           class="rounded-xl h-full"
-                          [src]="apiUrl + (message.file.thumbnail_url || message.file.placeholder_url)" 
-                          [alt]="message.file.name" 
+                          [src]="
+                            apiUrl +
+                            (message.file.thumbnail_url ||
+                              message.file.placeholder_url)
+                          "
+                          [alt]="message.file.name"
                         />
-                        <div class="absolute top-1/2 left-1/2 -translate-1/2 flex flex-col gap-y-2 items-center justify-center bg-muted p-2 rounded-full">
+                        <div
+                          class="absolute top-1/2 left-1/2 -translate-1/2 flex flex-col gap-y-2 items-center justify-center bg-muted p-2 rounded-full"
+                        >
                           <ng-icon hlm name="lucideCirclePlay" size="lg" />
                         </div>
                       </div>
@@ -77,26 +121,32 @@
                 } @else {
                   <div class="w-full h-full py-2 relative">
                     <hlm-skeleton class="w-96 h-96" />
-                    <div class="absolute top-1/2 left-1/2 -translate-1/2 flex flex-col gap-y-2 items-center justify-center">
+                    <div
+                      class="absolute top-1/2 left-1/2 -translate-1/2 flex flex-col gap-y-2 items-center justify-center"
+                    >
                       <ng-icon hlm name="lucideCirclePlay" size="xl" />
                       <span> Loading </span>
                     </div>
                   </div>
-                } 
-              } @case ('audio') {
-                @if(message.file) {
+                }
+              }
+              @case ("audio") {
+                @if (message.file) {
                   <div class="w-3xs sm:w-40 md:w-52 sm:max-w-3xs">
                     <app-audio-player [audio]="message.file"></app-audio-player>
                   </div>
                 } @else {
                   <div class="w-full h-full py-2 relative">
                     <hlm-skeleton class="w-96 h-10 rounded-full" />
-                    <span class="absolute top-1/2 -translate-1/2 left-1/2 select-none">
+                    <span
+                      class="absolute top-1/2 -translate-1/2 left-1/2 select-none"
+                    >
                       Loading audio...
                     </span>
                   </div>
-                } 
-              } @case ('file') {
+                }
+              }
+              @case ("file") {
                 <app-file-viewer [file]="message.file" />
               }
             }
@@ -107,26 +157,33 @@
   </div>
 </div>
 
-@if(readReceipts() && readReceipts().length > 0 && isGroup())
-{
+@if (readReceipts() && readReceipts().length > 0 && isGroup()) {
   <div class="w-full flex items-center gap-x-1 justify-end pt-2">
-    @if(readReceipts().length > 4) { 
-      @for(readReceipt of readReceipts().slice(0, 4); track readReceipt.user_id) {
+    @if (readReceipts().length > 4) {
+      @for (
+        readReceipt of readReceipts().slice(0, 4);
+        track readReceipt.user_id
+      ) {
         @let userCredentials = this.getUserCredentials(readReceipt.user_id);
-        @if(readReceipt.last_message_read_id === message._id) {
+        @if (readReceipt.last_message_read_id === message._id) {
           <hlm-avatar class="size-4">
             <img
-            [src]="userCredentials.profile_picture || '/icons/avatar.svg'"
-            [alt]="userCredentials.username"
-            hlmAvatarImage
+              [src]="userCredentials.profile_picture || '/icons/avatar.svg'"
+              [alt]="userCredentials.username"
+              hlmAvatarImage
             />
           </hlm-avatar>
         }
       }
-      <span class="text-xs text-gray-500">+{{ readReceipts().length - 4 }}</span>
+      <span class="text-xs text-gray-500"
+        >+{{ readReceipts().length - 4 }}</span
+      >
     } @else {
-      @for(readReceipt of readReceipts(); track readReceipt.user_id) {
-        @if(currentUser()._id !== readReceipt.user_id && readReceipt.last_message_read_id === message._id) {
+      @for (readReceipt of readReceipts(); track readReceipt.user_id) {
+        @if (
+          currentUser()._id !== readReceipt.user_id &&
+          readReceipt.last_message_read_id === message._id
+        ) {
           @let userCredentials = this.getUserCredentials(readReceipt.user_id);
           <button
             type="button"
@@ -134,7 +191,7 @@
             matTooltipPosition="above"
             aria-label="Button that displays a date when hovered user has read a message"
             matTooltip="Seen by {{ userCredentials.username }} at {{
-              readReceipt.read_at | date : 'short'
+              readReceipt.read_at | date: 'short'
             }}"
             class="w-fit"
           >
@@ -150,10 +207,10 @@
       }
     }
   </div>
-} @else if(isCurrentUserMessage && isLastMessage() && !isGroup()) {
+} @else if (isCurrentUserMessage && isLastMessage() && !isGroup()) {
   <div hlmCardDescription class="text-xs text-end mt-1 opacity-70">
-    <span
-      >{{ `${(message.status | titlecase)} ${message.status !== 'sending' && message.status !== 'failed' ? (message.timestamp | timeAgo) : ''}` }}</span
-    >
+    <span>{{
+      `${(message.status | titlecase)} ${message.status !== "sending" && message.status !== "failed" ? (message.timestamp | timeAgo) : ""}`
+    }}</span>
   </div>
 }
