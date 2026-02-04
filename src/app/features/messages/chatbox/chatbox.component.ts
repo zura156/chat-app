@@ -32,7 +32,11 @@ import {
   ConversationI,
   ReadReceiptI,
 } from '../interfaces/conversation.interface';
-import { HlmAvatarImage, HlmAvatar } from '@spartan-ng/helm/avatar';
+import {
+  HlmAvatarImage,
+  HlmAvatar,
+  HlmAvatarFallback,
+} from '@spartan-ng/helm/avatar';
 
 import { HlmSeparator } from '@spartan-ng/helm/separator';
 import {
@@ -90,11 +94,11 @@ import { UserStateService } from '../../user/services/user-state.service';
     HlmAvatar,
     HlmSpinner,
     MessageCardComponent,
-
     ReactiveFormsModule,
     AudioRecorder,
     ChatboxSettingsComponent,
     HlmSkeleton,
+    HlmAvatarFallback,
   ],
   providers: [
     provideIcons({
@@ -125,7 +129,7 @@ export class ChatboxComponent implements OnInit, OnDestroy {
 
   private readonly destroy$ = new Subject<void>();
 
-  private readonly TIME_GAP_THRESHOLD: number = 15;
+  private readonly MESSAGE_TIME_GAP_THRESHOLD: number = 15;
 
   conversation: Signal<ConversationI | null> = signal<ConversationI | null>(
     null,
@@ -168,7 +172,7 @@ export class ChatboxComponent implements OnInit, OnDestroy {
           (lastTimestamp.getTime() - new Date(message.timestamp).getTime()) /
           (1000 * 60); // in minutes
 
-        if (timeDifference >= this.TIME_GAP_THRESHOLD) {
+        if (timeDifference >= this.MESSAGE_TIME_GAP_THRESHOLD) {
           groupedMessages.push({
             timeframe: this.formatTimestamp(lastTimestamp.toISOString()), // Format the last timestamp of the group
             messages: currentGroup,
@@ -207,6 +211,7 @@ export class ChatboxComponent implements OnInit, OnDestroy {
   isVisible = signal<boolean>(false);
   isVisibilityObserving = signal<boolean>(false);
   isRecording = signal<boolean>(false);
+  canMessage = signal<boolean>(false);
 
   // handling chat settings open state
   private readonly CHAT_PREFERENCE_STORAGE_KEY = 'prefers-chat-settings-open';
@@ -220,6 +225,9 @@ export class ChatboxComponent implements OnInit, OnDestroy {
 
   private divTopIntersectionObserver?: IntersectionObserver;
   private messageIntersectionObserver?: IntersectionObserver;
+
+  private lastMessageSentAt = 0;
+  private readonly MIN_MESSAGE_INTERVAL = 300; // 300 milliseconds
 
   constructor() {
     effect(() => {
@@ -247,9 +255,12 @@ export class ChatboxComponent implements OnInit, OnDestroy {
         messagesAvailable &&
         currentId
       ) {
-        const lastMessageId = messages.messages[0]?._id;
-        if (lastMessageId) {
-          this.markMessageAsRead(lastMessageId);
+        const lastMessage = messages.messages[0];
+        if (
+          lastMessage._id &&
+          lastMessage.sender._id !== this.currentUser()?._id
+        ) {
+          this.markMessageAsRead(lastMessage);
         }
         this.previousConversationId.set(currentId);
       }
@@ -282,13 +293,19 @@ export class ChatboxComponent implements OnInit, OnDestroy {
             if (id === selectedUser?._id) {
               this.conversationService.createMockConversation();
               return of(this.conversation()).pipe(
-                tap(() => this.isLoading.set(false)),
+                tap(() => {
+                  this.isLoading.set(false);
+                  this.canMessage.set(true);
+                }),
                 switchMap(() => this.handleWebSocketMessages()),
               );
             }
           }
           return this.conversationService.getConversationById(id).pipe(
-            tap(() => this.isLoading.set(false)),
+            tap(() => {
+              this.isLoading.set(false);
+              this.canMessage.set(true);
+            }),
             switchMap(() => this.handleWebSocketMessages()),
             catchError((err) => this.handleError(err, true)),
           );
@@ -364,7 +381,18 @@ export class ChatboxComponent implements OnInit, OnDestroy {
   sendMessage(): void {
     const sender = this.currentUser();
     const convo = this.conversation();
-    if (!convo || !sender) return;
+    const content = this.messageControl.value;
+    const canMessage = this.canMessage();
+    const now = Date.now();
+
+    if (
+      !convo ||
+      !sender ||
+      (content && this.isMash(content)) ||
+      !canMessage ||
+      now - this.lastMessageSentAt < this.MIN_MESSAGE_INTERVAL
+    )
+      return;
 
     if (this.recordingResult) {
       const result = this.recordingResult;
@@ -375,6 +403,8 @@ export class ChatboxComponent implements OnInit, OnDestroy {
       formData.append('senderId', sender._id);
       formData.append('conversationId', convo._id);
 
+      this.canMessage.set(false);
+
       this.messageService
         .uploadFileMessage(formData)
         .pipe(
@@ -384,13 +414,13 @@ export class ChatboxComponent implements OnInit, OnDestroy {
             this.messageService.addMessage(res);
             this.isRecording.set(false);
             this.recordingResult = undefined;
+            this.canMessage.set(true);
+            this.lastMessageSentAt = Date.now();
           }),
         )
         .subscribe();
       return;
     }
-
-    const content = this.messageControl.value;
 
     if (content && content.length > 2000) {
       toast.error('Message is too long. Maximum length is 2000 characters.');
@@ -407,6 +437,8 @@ export class ChatboxComponent implements OnInit, OnDestroy {
         .pipe(
           catchError((err) => this.handleError(err)),
           switchMap((conversation) => {
+            this.canMessage.set(false);
+
             this.conversation = this.conversationService.activeConversation;
             const message: MessageI = {
               sender: sender,
@@ -431,6 +463,8 @@ export class ChatboxComponent implements OnInit, OnDestroy {
                 catchError((err) => this.handleError(err)),
                 tap(() => {
                   this.isLoading.set(false);
+                  this.canMessage.set(true);
+                  this.lastMessageSentAt = Date.now();
                   this.messageControl.reset();
                 }),
               );
@@ -439,6 +473,7 @@ export class ChatboxComponent implements OnInit, OnDestroy {
         .subscribe();
     } else {
       this.isLoading.set(true);
+      this.canMessage.set(false);
 
       const message: MessageI = {
         sender: sender,
@@ -461,6 +496,8 @@ export class ChatboxComponent implements OnInit, OnDestroy {
           tap(() => {
             this.conversation = this.conversationService.activeConversation;
             this.isLoading.set(false);
+            this.canMessage.set(true);
+            this.lastMessageSentAt = Date.now();
             this.messageControl.reset();
           }),
         )
@@ -600,7 +637,7 @@ export class ChatboxComponent implements OnInit, OnDestroy {
 
               if (!isInfoMessage && isCurrentUser) {
                 this.messageService.fillInMessageDetails(message);
-                this.setLastMessageAndMarkAsRead(conversation._id, message);
+                this.markMessageAsRead(message);
                 return;
               }
 
@@ -608,12 +645,7 @@ export class ChatboxComponent implements OnInit, OnDestroy {
                 this.messageService.addMessage(message);
               }
 
-              this.setLastMessageAndMarkAsRead(
-                isCurrentConversation
-                  ? conversation._id
-                  : String(message.conversation),
-                message,
-              );
+              this.markMessageAsRead(message);
               return;
             case 'user-status':
               const { user_id, status: userStatus } = res;
@@ -726,12 +758,15 @@ export class ChatboxComponent implements OnInit, OnDestroy {
     );
   }
 
-  private markMessageAsRead(lastMessageId: string): void {
+  private markMessageAsRead(message: MessageI): void {
     const user = this.currentUser();
     const conversation = this.conversation();
     if (!user || !conversation) return;
 
-    this.messageService.markMessageAsRead(lastMessageId);
+    if (message._id && message.sender._id !== this.currentUser()?._id) {
+      this.messageService.markMessageAsRead(message._id);
+      return;
+    }
   }
 
   private trackTypingStatus(): void {
@@ -792,20 +827,13 @@ export class ChatboxComponent implements OnInit, OnDestroy {
     }
   }
 
-  private setLastMessageAndMarkAsRead(
-    conversationId: string,
-    message: MessageI,
-  ): void {
-    this.conversationService.setLastMessageInConversation(
-      conversationId,
-      message,
-    );
-    if (
-      message._id &&
-      message.sender._id !== this.currentUser()?._id &&
-      !this.conversation()?.is_group
-    ) {
-      this.markMessageAsRead(message._id);
-    }
+  private isMash(text: string): boolean {
+    // 1. Simple repetitive character check (e.g., "aaaaaaaa")
+    const repetitive = /(.)\1{5,}/.test(text);
+
+    // 2. High-speed "gibberish" check: No spaces in a long string
+    const noSpaces = text.length > 20 && !text.includes(' ');
+
+    return repetitive || noSpaces;
   }
 }

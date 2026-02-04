@@ -25,14 +25,12 @@ import {
   lucideCirclePause,
   lucideCirclePlay,
   lucideCircleX,
-  lucideDownload,
   lucideVolume,
   lucideVolume2,
   lucideVolume1,
   lucideVideo,
 } from '@ng-icons/lucide';
 import { HlmIcon } from '@spartan-ng/helm/icon';
-import { FileSizePipe } from '../../../shared/pipes/file-size.pipe';
 import { VideoPlayer } from '../../../shared/components/video-player/video-player';
 
 import { AudioPlayer } from '../../../shared/components/audio-player/audio-player';
@@ -42,10 +40,12 @@ import {
   MediaViewerService,
 } from '../../../shared/services/media-viewer.service';
 import { FileViewer } from '../../../shared/components/file-viewer/file-viewer';
+import { RouterLink } from '@angular/router';
 
 @Component({
   selector: 'message-card',
   imports: [
+    RouterLink,
     TitleCasePipe,
     TimeAgoPipe,
     NgIcon,
@@ -72,8 +72,7 @@ import { FileViewer } from '../../../shared/components/file-viewer/file-viewer';
       lucideVideo,
     }),
   ],
-  styles: `
-  `,
+  styles: ``,
   templateUrl: './message-card.component.html',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })

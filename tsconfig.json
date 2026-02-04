@@ -93,6 +93,9 @@
       ],
       "@spartan-ng/helm/sidebar": [
         "./libs/ui/sidebar/src/index.ts"
+      ],
+      "@spartan-ng/helm/hover-card": [
+        "./libs/ui/hover-card/src/index.ts"
       ]
     }
   },

@@ -18,7 +18,14 @@
     }
     <div class="flex justify-start items-end">
       @if (!isCurrentUserMessage && message.type !== "info") {
-        <hlm-avatar variant="small" class="size-5 mr-1.5 mb-2">
+        <hlm-avatar
+          variant="small"
+          class="size-5 mr-1.5 mb-2 cursor-pointer hover:opacity-80"
+          [routerLink]="['/', message.sender._id]"
+          matTooltipClass="dark:bg-gray-300 text-start text-xs rounded-md dark:text-black"
+          matTooltipPosition="left"
+          [matTooltip]="message.sender.username"
+        >
           <img
             [src]="imageUrl() || '/icons/avatar.svg'"
             [alt]="message.sender.username"
@@ -187,9 +194,9 @@
           @let userCredentials = this.getUserCredentials(readReceipt.user_id);
           <button
             type="button"
+            aria-label="Button that displays a date when hovered user has read a message"
             matTooltipClass="dark:bg-gray-300 text-start text-xs rounded-md dark:text-black"
             matTooltipPosition="above"
-            aria-label="Button that displays a date when hovered user has read a message"
             matTooltip="Seen by {{ userCredentials.username }} at {{
               readReceipt.read_at | date: 'short'
             }}"
@@ -201,6 +208,9 @@
                 [alt]="userCredentials.username"
                 hlmAvatarImage
               />
+              <span hlmAvatarFallback>
+                <img src="/icons/avatar.svg" alt="avatar fallback" />
+              </span>
             </hlm-avatar>
           </button>
         }

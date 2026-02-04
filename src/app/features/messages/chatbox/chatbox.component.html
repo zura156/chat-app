@@ -18,6 +18,7 @@
     "
   >
     <hlm-separator decorative />
+
     <header class="flex w-full items-start py-2 px-2 justify-between">
       @if (isLoading()) {
         <div class="flex items-center justify-start">
@@ -41,6 +42,13 @@
               class="object-cover"
               hlmAvatarImage
             />
+            <span hlmAvatarFallback>
+              <img
+                src="/icons/avatar.svg"
+                alt="Avatar Fallback"
+                hlmAvatarImage
+              />
+            </span>
           </hlm-avatar>
           <h1 class="font-medium text-2xl flex-col justify-center gap-x-4">
             @if (conversation) {
@@ -94,7 +102,9 @@
         </div>
       }
     </header>
+
     <hlm-separator decorative />
+
     <section
       (scroll)="onChatTopVisible()"
       #chatboxSection
@@ -129,7 +139,11 @@
                   hlmAvatarImage
                 />
                 <span class="bg-black text-white" hlmAvatarFallback>
-                  <img src="/icons/avatar.svg" />
+                  <img
+                    src="/icons/avatar.svg"
+                    hlmAvatarImage
+                    alt="Avatar Fallback"
+                  />
                 </span>
               </hlm-avatar>
               <hlm-card
@@ -286,6 +300,7 @@
         <button
           hlmBtn
           variant="ghost"
+          [disabled]="!canMessage()"
           (click)="sendMessage()"
           class="sm:p-2 sm:pr-0.5 md:p-2 flex items-center justify-center rounded-full cursor-pointer"
         >

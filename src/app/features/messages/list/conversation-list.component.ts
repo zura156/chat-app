@@ -44,6 +44,7 @@ import { HlmInput } from '@spartan-ng/helm/input';
 import { HlmButton } from '@spartan-ng/helm/button';
 import { UserCardComponent } from '../../user/components/card/user-card.component';
 import { HlmIcon } from '@spartan-ng/helm/icon';
+import { MessageI } from '../interfaces/message.interface';
 
 @Component({
   selector: 'app-conversation-list',
@@ -102,6 +103,8 @@ export class ConversationListComponent {
 
   ngOnInit(): void {
     this.searchForData();
+
+    this.handleWebSocketMessages().subscribe();
   }
 
   ngOnDestroy(): void {
@@ -135,7 +138,7 @@ export class ConversationListComponent {
     // Find if there's an existing conversation with this user
     const existingConversation = this.conversations()?.conversations.find(
       (conv) =>
-        !conv.is_group && conv.participants.some((p) => p._id === user._id)
+        !conv.is_group && conv.participants.some((p) => p._id === user._id),
     );
 
     if (existingConversation) {
@@ -152,7 +155,7 @@ export class ConversationListComponent {
       this.searchControl.valueChanges.pipe(
         startWith(''),
         debounceTime(300),
-        distinctUntilChanged()
+        distinctUntilChanged(),
       ),
       this.activeView$,
     ])
@@ -168,16 +171,16 @@ export class ConversationListComponent {
             case 'conversations':
             default:
               return this.fetchConversations(query || '').pipe(
-                switchMap(() => this.handleWebSocketMessages())
+                switchMap(() => this.handleWebSocketMessages()),
               );
           }
-        })
+        }),
       )
       .subscribe();
   }
 
   private fetchConversations(
-    query: string = ''
+    query: string = '',
   ): Observable<ConversationListI> {
     if (
       this.conversations() &&
@@ -196,7 +199,7 @@ export class ConversationListComponent {
     return request$.pipe(
       takeUntil(this.destroy$),
       catchError((err) => this.handleError(err)),
-      tap(() => this.isLoading.set(false))
+      tap(() => this.isLoading.set(false)),
     );
   }
 
@@ -216,7 +219,7 @@ export class ConversationListComponent {
     return request$.pipe(
       takeUntil(this.destroy$),
       catchError((err) => this.handleError(err)),
-      tap(() => this.isLoading.set(false))
+      tap(() => this.isLoading.set(false)),
     );
   }
 
@@ -225,9 +228,25 @@ export class ConversationListComponent {
       this.webSocketService.onMessage().pipe(
         tap((res) => {
           switch (res.type) {
+            case 'message':
+              const message: MessageI = res.message;
+              const conversation: string | ConversationI = message.conversation;
+
+              if (!message || !conversation) {
+                return;
+              }
+
+              this.conversationService.setLastMessageInConversation(
+                typeof conversation === 'string'
+                  ? conversation
+                  : conversation._id,
+                message,
+              );
+
+              return;
             case 'conversation-update':
               this.conversationService.updateConversationState(
-                res.conversation
+                res.conversation,
               );
               break;
             case 'conversation-join':
@@ -237,7 +256,7 @@ export class ConversationListComponent {
                 break;
               } else {
                 this.conversationService.addConversationToList(
-                  joinedConversation as ConversationI
+                  joinedConversation as ConversationI,
                 );
               }
               break;
@@ -246,19 +265,19 @@ export class ConversationListComponent {
               const { conversation: leftConversation } = res;
 
               this.conversationService.removeConversationFromList(
-                leftConversation as ConversationI
+                leftConversation as ConversationI,
               );
               break;
           }
         }),
-        catchError((err) => this.handleError(err))
+        catchError((err) => this.handleError(err)),
       ) || EMPTY
     );
   }
 
   private handleError(
     err: HttpErrorResponse,
-    navigation: boolean = false
+    navigation: boolean = false,
   ): Observable<never> {
     this.isLoading.set(false);
     if (navigation) {
