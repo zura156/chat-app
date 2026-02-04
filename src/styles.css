@@ -95,9 +95,10 @@ body {
 body {
   margin: 0;
   font-family:
-    "SF Pro",
-    "SF Georgia",
-    "SF Georgia Rounded" "Helvetica Neue";
+    SF Pro,
+    SF Georgia,
+    SF Georgia Rounded,
+    sans-serif;
 }
 
 .image-pixelated {
