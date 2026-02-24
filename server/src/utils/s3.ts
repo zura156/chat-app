@@ -3,9 +3,9 @@ import config from '../config/config';
 
 export const s3 = new S3Client({
   region: 'auto',
-  endpoint: config.R2_ENDPOINT,
+  endpoint: config.s3Url,
   credentials: {
-    accessKeyId: config.R2_ACCESS_KEY_ID,
-    secretAccessKey: config.R2_SECRET_ACCESS_KEY,
+    accessKeyId: config.s3AccessKey,
+    secretAccessKey: config.s3SecretKey,
   },
 });
