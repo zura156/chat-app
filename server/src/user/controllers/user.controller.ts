@@ -287,7 +287,7 @@ export const updateProfilePicture = async (
     // Upload directly to R2
     await s3.send(
       new PutObjectCommand({
-        Bucket: config.R2_BUCKET_NAME,
+        Bucket: config.s3SharedBucket,
         Key: fileKey,
         Body: compressedBuffer,
         ContentType: 'image/webp',
@@ -295,7 +295,7 @@ export const updateProfilePicture = async (
     );
 
     // Generate public URL (configure R2 custom domain or public bucket)
-    const publicUrl = `${config.R2_PUBLIC_URL}/${fileKey}`;
+    const publicUrl = `${config.s3Url}/${fileKey}`;
 
     await User.findByIdAndUpdate(
       req.user.id,

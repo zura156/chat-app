@@ -229,7 +229,7 @@ export class ConversationService {
       // Upload directly to R2
       await s3.send(
         new PutObjectCommand({
-          Bucket: config.R2_BUCKET_NAME,
+          Bucket: config.s3SharedBucket,
           Key: fileKey,
           Body: compressedBuffer,
           ContentType: 'image/webp',
@@ -237,7 +237,7 @@ export class ConversationService {
       );
 
       // Generate public URL (configure R2 custom domain or public bucket)
-      group_picture_url = `${config.R2_PUBLIC_URL}/${fileKey}`;
+      group_picture_url = `${config.s3Url}/${fileKey}`;
     }
 
     const updateData: Partial<IConversation> = {};
