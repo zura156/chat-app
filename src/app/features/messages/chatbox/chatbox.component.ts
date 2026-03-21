@@ -537,9 +537,6 @@ export class ChatboxComponent implements OnInit, OnDestroy {
             entry.isIntersecting && !this.messagesResource.isLoading(),
           );
           if (this.hasMoreMessages() && this.isVisible()) {
-            console.log(
-              String(this.conversation()?._id) === this.selectedUser()?._id,
-            );
             this.loadMessages(
               String(this.conversation()?._id),
               String(this.conversation()?._id) === this.selectedUser()?._id,

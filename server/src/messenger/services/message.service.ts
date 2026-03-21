@@ -209,7 +209,6 @@ export class MessageService {
             })
             .on('end', () => resolve())
             .on('error', (err: any) => {
-              console.log(err);
               return reject(err);
             });
         });
