@@ -6,11 +6,11 @@ import { ObjectId } from 'mongodb';
 export async function validateConversation(
   req: AuthRequest,
   res: Response,
-  next: NextFunction
+  next: NextFunction,
 ): Promise<void> {
   try {
     const conversationId = req.params.id;
-    const { id: userId } = req.user!;
+    const userId = req.user!._id.toString();
 
     const conversation = await Conversation.findById(conversationId);
 
@@ -20,8 +20,7 @@ export async function validateConversation(
     }
 
     // Check if user has access (could be based on different criteria)
-    const hasAccess =
-      conversation.participants.includes(new ObjectId(userId));
+    const hasAccess = conversation.participants.includes(new ObjectId(userId));
     if (!hasAccess) {
       res.status(403).json({ error: 'Access denied to this conversation' });
       return;

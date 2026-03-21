@@ -24,6 +24,7 @@ export interface IMessage extends Document {
   timestamp: Date;
   edited_at?: Date;
 }
+
 const MessageSchema = new Schema<IMessage>({
   sender: { type: Schema.Types.ObjectId, ref: 'User', required: true },
   conversation: {
@@ -31,18 +32,16 @@ const MessageSchema = new Schema<IMessage>({
     ref: 'Conversation',
     required: true,
   },
-  content: { type: String, required: false },
-
+  content: { type: String },
   file: {
     url: { type: String },
-    placeholder_url: { type: String, required: false },
-    thumbnail_url: { type: String, required: false },
-    duration: { type: Number, required: false },
+    placeholder_url: { type: String },
+    thumbnail_url: { type: String },
+    duration: { type: Number },
     name: { type: String },
     mime_type: { type: String },
     size_in_bytes: { type: Number },
   },
-
   type: {
     type: String,
     enum: Object.values(MessageTypeEnum),
@@ -54,16 +53,14 @@ const MessageSchema = new Schema<IMessage>({
     default: MessageStatusEnum.SENT,
   },
   timestamp: { type: Date, default: Date.now },
-  edited_at: { type: Date, required: false },
+  edited_at: { type: Date },
 });
 
-MessageSchema.pre('validate', function (next) {
-  if ((!this.content || this.content.trim().length === 0) && !this.file) {
-    next(
-      new Error('Message must have either text content or a file attachment.')
+MessageSchema.pre('validate', function validateContentOrFile() {
+  if (!this.content?.trim() && !this.file) {
+    throw new Error(
+      'Message must have either text content or a file attachment.',
     );
-  } else {
-    next();
   }
 });
 

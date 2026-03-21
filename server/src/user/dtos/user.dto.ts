@@ -1,4 +1,4 @@
-export interface UserInterface {
+export interface UserDTO {
   _id: string;
   first_name: string;
   last_name: string;
@@ -13,5 +13,5 @@ export interface UserInterface {
   profile_picture?: string;
   status: 'offline' | 'online';
   last_seen: string;
-  blocked_users: string[] | UserInterface[];
+  blocked_users: string[] | UserDTO[];
 }

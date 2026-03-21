@@ -14,7 +14,7 @@ import {
   ConversationLeaveMessage,
   ConversationUpdateMessage,
 } from '../../websocket/dtos/websocket.dto';
-import { UserInterface } from '../../user/interfaces/user.interface';
+import { UserDTO } from '../../user/dtos/user.dto';
 import { ConversationI } from '../interfaces/conversation.interface';
 import { MessageTypeEnum } from '../interfaces/message.interface';
 import { MessageService } from './message.service';
@@ -29,7 +29,7 @@ export class ConversationService {
 
   constructor(
     broadcastFunction: BroadcastFunction,
-    messageService: MessageService
+    messageService: MessageService,
   ) {
     this.broadcast = broadcastFunction;
     this.messageService = messageService;
@@ -90,7 +90,7 @@ export class ConversationService {
 
   public async findConversationIdByUserId(
     userId: string,
-    participantId: string
+    participantId: string,
   ) {
     const userObjectId = new Object(userId);
     const participantObjectId = new Object(participantId);
@@ -119,16 +119,16 @@ export class ConversationService {
    */
   public async getConversationById(
     conversation: IConversation,
-    userId: string
+    userId: string,
   ) {
     conversation.populate(
       'participants',
-      'first_name last_name username profile_picture status last_seen'
+      'first_name last_name username profile_picture status last_seen',
     );
 
     // Logic to filter the current user from the participants list for the client
     const otherParticipants = conversation.participants.filter(
-      (p: any) => p._id.toString() !== userId.toString()
+      (p: any) => p._id.toString() !== userId.toString(),
     );
 
     return { ...conversation.toObject(), participants: otherParticipants };
@@ -142,7 +142,7 @@ export class ConversationService {
     is_group: boolean,
     created_by: string,
     group_name?: string,
-    group_picture?: string
+    group_picture?: string,
   ) {
     // Business logic: Prevent duplicate 1-on-1 conversations
     if (!is_group && participants.length === 2) {
@@ -153,7 +153,7 @@ export class ConversationService {
       if (existing) {
         throw createCustomError(
           'A conversation with these users already exists',
-          409
+          409,
         );
       }
     }
@@ -172,7 +172,7 @@ export class ConversationService {
 
     const populatedConversation = (await conversation.populate(
       'participants created_by',
-      'first_name last_name username profile_picture'
+      'first_name last_name username profile_picture',
     )) as ConversationI;
 
     if (!populatedConversation || !populatedConversation._id) {
@@ -182,7 +182,7 @@ export class ConversationService {
     const message: ConversationJoinMessage = {
       type: 'conversation-join',
       conversation: populatedConversation,
-      added_by: populatedConversation.created_by as UserInterface,
+      added_by: populatedConversation.created_by as UserDTO,
     };
 
     this.broadcast(message);
@@ -197,7 +197,7 @@ export class ConversationService {
     conversation: IConversation,
     currentUser: IUser,
     group_name?: string,
-    group_picture?: Express.Multer.File
+    group_picture?: Express.Multer.File,
   ): Promise<IConversation> {
     let group_picture_url: string | undefined;
 
@@ -209,7 +209,7 @@ export class ConversationService {
     ) {
       throw error(
         'Unsupported file format. Only JPEG, PNG, and WEBP are allowed.',
-        400
+        400,
       );
     }
 
@@ -221,10 +221,10 @@ export class ConversationService {
           maxDimension: 500,
           quality: 80,
           outputFormat: 'webp',
-        }
+        },
       );
 
-      const fileKey = `${Date.now()}-${currentUser.id}.webp`;
+      const fileKey = `${Date.now()}-${currentUser._id.toString()}.webp`;
 
       // Upload directly to R2
       await s3.send(
@@ -233,7 +233,7 @@ export class ConversationService {
           Key: fileKey,
           Body: compressedBuffer,
           ContentType: 'image/webp',
-        })
+        }),
       );
 
       // Generate public URL (configure R2 custom domain or public bucket)
@@ -257,12 +257,12 @@ export class ConversationService {
     await conversation.save();
     const populatedConversation = (await conversation.populate(
       'participants created_by',
-      'first_name last_name username profile_picture status last_seen'
+      'first_name last_name username profile_picture status last_seen',
     )) as ConversationI;
 
     let infoMessage = {
-      sender: currentUser.id,
-      conversation: conversation.id,
+      sender: currentUser._id.toString(),
+      conversation: conversation._id.toString(),
       content: `Conversation was updated by ${currentUser.username}.`,
       type: MessageTypeEnum.INFO,
     };
@@ -273,7 +273,7 @@ export class ConversationService {
         infoMessage.sender,
         infoMessage.conversation,
         infoMessage.content,
-        infoMessage.type
+        infoMessage.type,
       );
     }
     if (group_name) {
@@ -286,7 +286,7 @@ export class ConversationService {
         infoMessage.sender,
         infoMessage.conversation,
         infoMessage.content,
-        infoMessage.type
+        infoMessage.type,
       );
     }
 
@@ -295,7 +295,7 @@ export class ConversationService {
         infoMessage.sender,
         infoMessage.conversation,
         infoMessage.content,
-        infoMessage.type
+        infoMessage.type,
       );
 
     const message: ConversationUpdateMessage = {
@@ -318,7 +318,7 @@ export class ConversationService {
     if (!conversation.participants.map((p) => p.toString()).includes(userId)) {
       throw createCustomError(
         'You are not authorized to delete this conversation',
-        403
+        403,
       );
     }
     await conversation.deleteOne();
@@ -362,7 +362,7 @@ export class ConversationService {
   public async manageConversationMembers(
     conversation: IConversation,
     userId: string,
-    memberChanges: MemberChangesI
+    memberChanges: MemberChangesI,
   ): Promise<IConversation> {
     const removeSet = new Set(memberChanges.remove);
     const addSet = new Set(memberChanges.add);
@@ -374,11 +374,11 @@ export class ConversationService {
       .lean();
 
     conversation.participants = conversation.participants.filter(
-      (participant) => !removeSet.has(participant.toString())
+      (participant) => !removeSet.has(participant.toString()),
     );
 
     const currentParticipantIds = new Set(
-      conversation.participants.map((id) => id.toString())
+      conversation.participants.map((id) => id.toString()),
     );
 
     for (const id of addSet) {
@@ -402,7 +402,7 @@ export class ConversationService {
     let message: ConversationLeaveMessage | ConversationJoinMessage | undefined;
 
     const participants =
-      populatedConversation.participants as Partial<UserInterface>[];
+      populatedConversation.participants as Partial<UserDTO>[];
     const currentUser = participants.find((p) => p._id?.toString() === userId);
 
     if (removeSet.size > 0) {
@@ -430,7 +430,7 @@ export class ConversationService {
         infoMessage.sender,
         infoMessage.conversation,
         infoMessage.content,
-        infoMessage.type
+        infoMessage.type,
       );
 
       this.broadcast(message);
@@ -459,7 +459,7 @@ export class ConversationService {
       const infoMessage = {
         sender: currentUser?._id || userId,
         conversation: String(populatedConversation._id),
-        content: `${(message.conversation.participants as UserInterface[])
+        content: `${(message.conversation.participants as UserDTO[])
           .filter((p) => addSet.has(p._id.toString()))
           .map((p) => p.username)
           .join(', ')} have been added to the conversation by ${
@@ -472,7 +472,7 @@ export class ConversationService {
         infoMessage.sender,
         infoMessage.conversation,
         infoMessage.content,
-        infoMessage.type
+        infoMessage.type,
       );
 
       this.broadcast(message);
@@ -480,7 +480,7 @@ export class ConversationService {
 
     // Logic to filter the current user from the participants list for the client
     const otherParticipants = conversation.participants.filter(
-      (p: any) => p._id.toString() !== userId.toString()
+      (p: any) => p._id.toString() !== userId.toString(),
     );
     return { ...conversation.toObject(), participants: otherParticipants };
   }

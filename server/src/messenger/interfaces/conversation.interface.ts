@@ -1,4 +1,4 @@
-import { UserInterface } from '../../user/interfaces/user.interface';
+import { UserInterface } from '../../user/dtos/user.dto';
 import { MessageI } from './message.interface';
 import { ReadReceiptI } from './read-receipt.interface';
 

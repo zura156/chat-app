@@ -6,13 +6,13 @@ import { AuthRequest } from '../../auth/middlewares/auth.middleware';
 export const markNotificationsAsSeen = async (
   req: AuthRequest,
   res: Response,
-  next: NextFunction
+  next: NextFunction,
 ): Promise<void> => {
   try {
-    const userId = new Types.ObjectId(req.user?.id);
+    const userId = new Types.ObjectId(req.user?._id.toString());
     await Notification.updateMany(
       { user: userId, seen: false },
-      { seen: true }
+      { seen: true },
     );
 
     res.status(200).json({ message: 'Notifications marked as seen' });

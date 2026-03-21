@@ -13,16 +13,16 @@ export class ConversationController {
   public getConversations = async (
     req: AuthRequest,
     res: Response,
-    next: NextFunction
+    next: NextFunction,
   ) => {
     try {
-      const userId = req.user!.id;
+      const userId = req.user!._id.toString();
       const limit = parseInt(req.query.limit as string) || 20;
       const offset = parseInt(req.query.offset as string) || 0;
       const result = await this.conversationService.getConversations(
         userId,
         limit,
-        offset
+        offset,
       );
       res.status(200).json(result);
     } catch (error) {
@@ -33,14 +33,14 @@ export class ConversationController {
   public searchConversations = async (
     req: AuthRequest,
     res: Response,
-    next: NextFunction
+    next: NextFunction,
   ) => {
     try {
-      const userId = req.user!.id;
+      const userId = req.user!._id.toString();
       const query = req.query['q'] as string;
       const conversations = await this.conversationService.searchConversations(
         userId,
-        query
+        query,
       );
       res.status(200).json({ conversations, totalCount: conversations.length });
     } catch (error) {
@@ -51,15 +51,20 @@ export class ConversationController {
   public findConversationIdByUserId = async (
     req: AuthRequest,
     res: Response,
-    next: NextFunction
+    next: NextFunction,
   ): Promise<void> => {
     try {
-      const userId = req.user!.id;
-      const participantId = req.params.participantId;
+      const userId = req.user!._id.toString();
+      const { participantId } = req.params;
+      if (typeof participantId !== 'string') {
+        next(createCustomError('Participant ID is missing or invalid!', 400));
+        return;
+      }
+
       const conversation =
         await this.conversationService.findConversationIdByUserId(
           userId,
-          participantId
+          participantId,
         );
       res.status(200).json({ conversationId: conversation._id });
     } catch (error) {
@@ -70,17 +75,17 @@ export class ConversationController {
   public getConversationById = async (
     req: AuthRequest,
     res: Response,
-    next: NextFunction
+    next: NextFunction,
   ) => {
     try {
-      const userId = req.user!.id;
+      const userId = req.user!._id.toString();
       const conversation = req.conversation;
 
       if (!conversation) {
         res
           .status(403)
           .json(
-            'Conversation either does not exist, or you do not have the access to this conversation.'
+            'Conversation either does not exist, or you do not have the access to this conversation.',
           );
         return;
       }
@@ -88,7 +93,7 @@ export class ConversationController {
       const filteredConversation =
         await this.conversationService.getConversationById(
           conversation,
-          userId
+          userId,
         );
       res.status(200).json(filteredConversation);
     } catch (error) {
@@ -99,10 +104,10 @@ export class ConversationController {
   public createConversation = async (
     req: AuthRequest,
     res: Response,
-    next: NextFunction
+    next: NextFunction,
   ) => {
     try {
-      const { id: userId } = req.user!;
+      const userId = req.user!._id.toString();
       const { participants, is_group, group_name, group_picture } =
         req.body.conversation;
       const conversation = await this.conversationService.createConversation(
@@ -110,7 +115,7 @@ export class ConversationController {
         is_group,
         userId,
         group_name,
-        group_picture
+        group_picture,
       );
       res.status(201).json(conversation);
     } catch (error) {
@@ -121,7 +126,7 @@ export class ConversationController {
   public updateConversation = async (
     req: AuthRequest,
     res: Response,
-    next: NextFunction
+    next: NextFunction,
   ) => {
     try {
       const { conversation } = req; // Using 'id' to match your router
@@ -145,7 +150,7 @@ export class ConversationController {
           conversation,
           user,
           group_name,
-          group_picture
+          group_picture,
         );
       res.status(200).json(updatedConversation);
     } catch (error) {
@@ -156,11 +161,11 @@ export class ConversationController {
   public deleteConversation = async (
     req: AuthRequest,
     res: Response,
-    next: NextFunction
+    next: NextFunction,
   ) => {
     try {
       const { conversation } = req;
-      const userId = req.user!.id;
+      const userId = req.user!._id.toString();
       if (!conversation || !userId) {
         next(createCustomError('Conversation or user ID is missing!', 400));
         return;
@@ -175,11 +180,15 @@ export class ConversationController {
   public muteConversation = async (
     req: AuthRequest,
     res: Response,
-    next: NextFunction
+    next: NextFunction,
   ) => {
     try {
       const { conversationId } = req.params;
-      const userId = req.user!.id;
+      if (typeof conversationId !== 'string') {
+        next(createCustomError('Conversation ID is missing or invalid!', 400));
+        return;
+      }
+      const userId = req.user!._id.toString();
       await this.conversationService.muteConversation(conversationId, userId);
       res.status(200).json({ message: 'Conversation muted successfully' });
     } catch (error) {
@@ -190,11 +199,15 @@ export class ConversationController {
   public unmuteConversation = async (
     req: AuthRequest,
     res: Response,
-    next: NextFunction
+    next: NextFunction,
   ) => {
     try {
       const { conversationId } = req.params;
-      const userId = req.user!.id;
+      if (typeof conversationId !== 'string') {
+        next(createCustomError('Conversation ID is missing or invalid!', 400));
+        return;
+      }
+      const userId = req.user!._id.toString();
       await this.conversationService.unmuteConversation(conversationId, userId);
       res.status(200).json({ message: 'Conversation unmuted successfully' });
     } catch (error) {
@@ -205,10 +218,10 @@ export class ConversationController {
   public manageConversationMembers = async (
     req: AuthRequest,
     res: Response,
-    next: NextFunction
+    next: NextFunction,
   ) => {
     const { conversation } = req;
-    const userId = req.user?.id;
+    const userId = req.user?._id.toString();
     const { add, remove } = req.body;
 
     if (!userId) {
@@ -228,7 +241,7 @@ export class ConversationController {
         await this.conversationService.manageConversationMembers(
           conversation,
           userId,
-          { add, remove }
+          { add, remove },
         );
 
       res.status(200).json(updatedConversation);

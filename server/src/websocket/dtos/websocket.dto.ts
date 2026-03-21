@@ -1,7 +1,7 @@
 import { MessageI } from '../../messenger/interfaces/message.interface';
 import { ConversationI } from '../../messenger/interfaces/conversation.interface';
 import { ReadReceiptI } from '../../messenger/interfaces/read-receipt.interface';
-import { UserInterface } from '../../user/interfaces/user.interface';
+import { UserInterface } from '../../user/dtos/user.dto';
 
 export type MessageContentType = 'text' | 'audio' | 'image' | 'video' | 'file';
 

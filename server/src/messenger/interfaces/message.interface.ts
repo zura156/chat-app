@@ -1,4 +1,4 @@
-import { UserInterface } from '../../user/interfaces/user.interface';
+import { UserDTO } from '../../user/dtos/user.dto';
 import { IFile } from '../models/message.model';
 
 export enum MessageTypeEnum {
@@ -18,7 +18,7 @@ export enum MessageStatusEnum {
 }
 
 export interface MessageI {
-  sender: Partial<UserInterface> | string;
+  sender: Partial<UserDTO> | string;
   conversation: string;
   content: string;
   file?: IFile;

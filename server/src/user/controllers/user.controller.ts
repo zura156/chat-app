@@ -3,16 +3,15 @@ import { NextFunction, Response } from 'express';
 import { User } from '../../user/models/user.model';
 import { createCustomError } from '../../error-handling/models/custom-api-error.model';
 import { compressMedia } from '../../utils/downscale-media';
-import { HeadObjectCommand, PutObjectCommand } from '@aws-sdk/client-s3';
-import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
+import { PutObjectCommand } from '@aws-sdk/client-s3';
 import { s3 } from '../../utils/s3';
 import config from '../../config/config';
-import { UserInterface } from '../interfaces/user.interface';
+import { UserDTO } from '../dtos/user.dto';
 
 export const getUserById = async (
   req: AuthRequest,
   res: Response,
-  next: NextFunction
+  next: NextFunction,
 ): Promise<void> => {
   const { id } = req.params;
 
@@ -48,7 +47,7 @@ export const getUserById = async (
 export const getCurrentUser = async (
   req: AuthRequest,
   res: Response,
-  next: NextFunction
+  next: NextFunction,
 ): Promise<void> => {
   try {
     if (!req.user) {
@@ -56,7 +55,7 @@ export const getCurrentUser = async (
       return;
     }
 
-    const user = await User.findById(req.user.id).select([
+    const user = await User.findById(req.user._id.toString()).select([
       '-password',
       '-accessToken',
       '-refreshToken',
@@ -76,16 +75,16 @@ export const getCurrentUser = async (
 
 export const updateUserDetails = async (
   req: AuthRequest,
-  res: Response
+  res: Response,
 ): Promise<void> => {
   try {
-    const updateDetails = req.body as Partial<UserInterface>;
+    const updateDetails = req.body as Partial<UserDTO>;
 
     if (!updateDetails || Object.keys(updateDetails).length === 0) {
       res.status(400).json({ message: 'No update data provided' });
       return;
     }
-    
+
     // Validate non-empty strings
     const requiredFields = ['first_name', 'last_name', 'username'] as const;
     for (const field of requiredFields) {
@@ -102,8 +101,8 @@ export const updateUserDetails = async (
       return;
     }
 
-    const user = await User.findById(req.user.id).select(
-      'username first_name last_name bio'
+    const user = await User.findById(req.user._id.toString()).select(
+      'username first_name last_name bio',
     );
 
     if (!user) {
@@ -136,7 +135,7 @@ export const updateUserDetails = async (
 export const deleteUser = async (
   req: AuthRequest,
   res: Response,
-  next: NextFunction
+  next: NextFunction,
 ): Promise<void> => {
   try {
     if (!req.user) {
@@ -144,7 +143,7 @@ export const deleteUser = async (
       return;
     }
 
-    const user = await User.findById(req.user.id, req.body);
+    const user = await User.findById(req.user._id.toString(), req.body);
 
     if (!user) {
       next(createCustomError('User not found', 404));
@@ -163,7 +162,7 @@ export const deleteUser = async (
 export const getUsers = async (
   req: AuthRequest,
   res: Response,
-  next: NextFunction
+  next: NextFunction,
 ) => {
   try {
     const user = req.user;
@@ -176,12 +175,12 @@ export const getUsers = async (
     }
 
     const [users, totalCount] = await Promise.all([
-      User.find({ _id: { $ne: user.id } })
+      User.find({ _id: { $ne: user._id.toString() } })
         .sort({ updatedAt: -1 })
         .skip(offset)
         .limit(limit)
         .select('-password'),
-      User.countDocuments({ participants: user.id }),
+      User.countDocuments({ participants: user._id.toString() }),
     ]);
 
     if (!users) {
@@ -199,13 +198,13 @@ export const getUsers = async (
 export const searchUsers = async (
   req: AuthRequest,
   res: Response,
-  next: NextFunction
+  next: NextFunction,
 ) => {
   try {
-    const searchQuery = req.query['q'];
+    const searchQuery = req.query['q']?.toString().trim();
     const user = req.user;
 
-    if (!searchQuery) {
+    if (!searchQuery || typeof searchQuery !== 'string') {
       next(createCustomError('Search query is required', 400));
       return;
     }
@@ -215,14 +214,10 @@ export const searchUsers = async (
       return;
     }
 
-    const users = await User.find({
-      _id: { $ne: user.id },
-      $or: [
-        { first_name: { $regex: searchQuery, $options: 'i' } },
-        { last_name: { $regex: searchQuery, $options: 'i' } },
-        { username: { $regex: searchQuery, $options: 'i' } },
-      ],
-    });
+    const users = await User.find(
+      { _id: { $ne: user._id }, $text: { $search: searchQuery } },
+      { score: { $meta: 'textScore' } },
+    ).sort({ score: { $meta: 'textScore' } });
 
     if (!users) {
       next(createCustomError('Could not fetch users!', 502));
@@ -239,14 +234,14 @@ export const searchUsers = async (
 export const updateProfilePicture = async (
   req: AuthRequest,
   res: Response,
-  next: NextFunction
+  next: NextFunction,
 ): Promise<void> => {
   try {
     if (!req.user) {
       next(createCustomError('Not authenticated', 401));
       return;
     }
-    const user = await User.findById(req.user.id);
+    const user = await User.findById(req.user._id.toString());
     if (!user) {
       next(createCustomError('User not found', 404));
       return;
@@ -266,8 +261,8 @@ export const updateProfilePicture = async (
       next(
         createCustomError(
           'Unsupported file format. Only JPEG, PNG, and WEBP are allowed.',
-          400
-        )
+          400,
+        ),
       );
       return;
     }
@@ -279,10 +274,10 @@ export const updateProfilePicture = async (
         maxDimension: 500,
         quality: 80,
         outputFormat: 'webp',
-      }
+      },
     );
 
-    const fileKey = `${Date.now()}-${req.user.id}.webp`;
+    const fileKey = `${Date.now()}-${req.user._id.toString()}.webp`;
 
     // Upload directly to R2
     await s3.send(
@@ -291,16 +286,16 @@ export const updateProfilePicture = async (
         Key: fileKey,
         Body: compressedBuffer,
         ContentType: 'image/webp',
-      })
+      }),
     );
 
     // Generate public URL (configure R2 custom domain or public bucket)
     const publicUrl = `${config.s3Url}/${fileKey}`;
 
     await User.findByIdAndUpdate(
-      req.user.id,
+      req.user._id.toString(),
       { profile_picture: publicUrl },
-      { new: true }
+      { new: true },
     );
 
     res.status(200).json({

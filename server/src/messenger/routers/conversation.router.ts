@@ -17,12 +17,12 @@ router.use((req, res, next) => {
   if (!req.conversationService) {
     req.conversationService = new ConversationService(
       broadcastMessage,
-      req.messageService
+      req.messageService,
     );
   }
   if (!req.conversationController) {
     req.conversationController = new ConversationController(
-      req.conversationService
+      req.conversationService,
     );
   }
   next();
@@ -32,25 +32,25 @@ router.use((req, res, next) => {
 router
   .route('/')
   .get((req, res, next) =>
-    req.conversationController.getConversations(req, res, next)
+    req.conversationController.getConversations(req, res, next),
   )
   .post((req, res, next) =>
-    req.conversationController.createConversation(req, res, next)
+    req.conversationController.createConversation(req, res, next),
   );
 
 router.get('/find/:participantId', (req, res, next) =>
-  req.conversationController.findConversationIdByUserId(req, res, next)
+  req.conversationController.findConversationIdByUserId(req, res, next),
 );
 
 router.get('/search', (req, res, next) =>
-  req.conversationController.searchConversations(req, res, next)
+  req.conversationController.searchConversations(req, res, next),
 );
 
 router
   .route('/:id/members')
   .all(validateConversation)
   .patch((req, res, next) =>
-    req.conversationController.manageConversationMembers(req, res, next)
+    req.conversationController.manageConversationMembers(req, res, next),
   );
 
 router
@@ -59,11 +59,11 @@ router
   .get(async (req: AuthRequest, res) => {
     const conversation = await req.conversation?.populate(
       'participants',
-      'first_name last_name username profile_picture status last_seen'
+      'first_name last_name username profile_picture status last_seen',
     );
 
     const otherParticipants = conversation?.participants.filter(
-      (p: any) => p._id.toString() !== req.user?.id
+      (p: any) => p._id.toString() !== req.user?._id.toString(),
     );
 
     const conversationWithFilteredParticipants = {
@@ -74,10 +74,10 @@ router
     res.json(conversationWithFilteredParticipants);
   })
   .patch(upload.single('group_picture'), (req, res, next) =>
-    req.conversationController.updateConversation(req, res, next)
+    req.conversationController.updateConversation(req, res, next),
   )
   .delete((req, res, next) =>
-    req.conversationController.deleteConversation(req, res, next)
+    req.conversationController.deleteConversation(req, res, next),
   );
 
 export default router;

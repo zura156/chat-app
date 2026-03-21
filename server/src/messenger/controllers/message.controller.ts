@@ -20,18 +20,18 @@ export class MessageController {
   public getMessagesByConversationId = async (
     req: AuthRequest,
     res: Response,
-    next: NextFunction
+    next: NextFunction,
   ): Promise<void> => {
     try {
       const limit = parseInt(req.query.limit as string) || 20;
       const offset = parseInt(req.query.offset as string) || 0;
 
-      const conversationId = req.conversation?.id;
+      const conversationId = req.conversation?._id.toString();
       if (!conversationId) {
         res
           .status(403)
           .json(
-            'Conversation either does not exist, or you do not have the access to this conversation.'
+            'Conversation either does not exist, or you do not have the access to this conversation.',
           );
         return;
       }
@@ -40,7 +40,7 @@ export class MessageController {
       const result = await this.messageService.getMessagesForConversation(
         conversationId,
         limit,
-        offset
+        offset,
       );
 
       res.status(200).json(result);
@@ -53,18 +53,18 @@ export class MessageController {
   public getMediaMessages = async (
     req: AuthRequest,
     res: Response,
-    next: NextFunction
+    next: NextFunction,
   ): Promise<void> => {
     const limit = parseInt(req.query.limit as string) || 20;
     const offset = parseInt(req.query.offset as string) || 0;
 
-    const conversationId = req.conversation?.id;
+    const conversationId = req.conversation?._id.toString();
 
     if (!conversationId) {
       res
         .status(403)
         .json(
-          'Conversation either does not exist, or you do not have the access to this conversation.'
+          'Conversation either does not exist, or you do not have the access to this conversation.',
         );
       return;
     }
@@ -73,7 +73,7 @@ export class MessageController {
       const result = await this.messageService.getMediaMessages(
         conversationId,
         limit,
-        offset
+        offset,
       );
 
       res.status(200).json(result);
@@ -85,18 +85,18 @@ export class MessageController {
   public getFileMessages = async (
     req: AuthRequest,
     res: Response,
-    next: NextFunction
+    next: NextFunction,
   ): Promise<void> => {
     const limit = parseInt(req.query.limit as string) || 20;
     const offset = parseInt(req.query.offset as string) || 0;
 
-    const conversationId = req.conversation?.id;
+    const conversationId = req.conversation?._id.toString();
 
     if (!conversationId) {
       res
         .status(403)
         .json(
-          'Conversation either does not exist, or you do not have the access to this conversation.'
+          'Conversation either does not exist, or you do not have the access to this conversation.',
         );
       return;
     }
@@ -105,7 +105,7 @@ export class MessageController {
       const result = await this.messageService.getFileMessages(
         conversationId,
         limit,
-        offset
+        offset,
       );
 
       res.status(200).json(result);
@@ -195,24 +195,24 @@ export class MessageController {
   public uploadFileMessage = async (
     req: AuthRequest,
     res: Response,
-    next: NextFunction
+    next: NextFunction,
   ): Promise<void> => {
     try {
       const { conversationId, duration } = req.body; // Assuming conversationId is sent in the form data
-      const senderId = req.user?.id;
+      const senderId = req.user?._id.toString();
 
       if (!req.file) {
         return next(createCustomError('No file was uploaded.', 400));
       }
       if (!senderId || !conversationId) {
         return next(
-          createCustomError('Sender ID and Conversation ID are required.', 400)
+          createCustomError('Sender ID and Conversation ID are required.', 400),
         );
       }
 
       if (req.file.mimetype.startsWith('audio/') && !duration) {
         console.warn(
-          'Warning: Audio file received without a duration from the client.'
+          'Warning: Audio file received without a duration from the client.',
         );
       }
 
@@ -221,7 +221,7 @@ export class MessageController {
         req.file,
         senderId,
         conversationId,
-        duration // Pass the duration to the service
+        duration, // Pass the duration to the service
       );
 
       res.status(201).json(savedMessage);

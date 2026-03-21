@@ -7,7 +7,7 @@ import { Conversation } from '../../messenger/models/conversation.model';
 import { User } from '../../user/models/user.model';
 import { Message } from '../../messenger/models/message.model';
 import { MessageStatusEnum } from '../../messenger/interfaces/message.interface';
-import { UserInterface } from '../../user/interfaces/user.interface';
+import { UserDTO } from '../../user/dtos/user.dto';
 import { ObjectId } from 'mongodb';
 
 export class WebSocketController {
@@ -15,7 +15,7 @@ export class WebSocketController {
 
   constructor(
     private websocketService: WebSocketService,
-    private messageService: MessageService
+    private messageService: MessageService,
   ) {}
 
   /**
@@ -24,7 +24,7 @@ export class WebSocketController {
    */
   public handleIncomingMessage(
     ws: WebSocket,
-    data: DTO.WebSocketMessage
+    data: DTO.WebSocketMessage,
   ): void {
     switch (data.type) {
       case 'authenticate':
@@ -51,7 +51,7 @@ export class WebSocketController {
       default:
         logger.warn(
           'Unknown WebSocket message type received:',
-          (data as any).type
+          (data as any).type,
         );
         break;
     }
@@ -75,7 +75,7 @@ export class WebSocketController {
       logger.debug('Typing data received:', data);
 
       const conversation = await Conversation.findById(
-        new ObjectId(data.conversation_id)
+        new ObjectId(data.conversation_id),
       )
         .select('participants')
         .lean();
@@ -100,7 +100,7 @@ export class WebSocketController {
           } catch (socketErr) {
             logger.error(
               `Failed to send typing to ${participantStr}:`,
-              socketErr
+              socketErr,
             );
           }
         }
@@ -116,10 +116,9 @@ export class WebSocketController {
       // The controller delegates the core task of creating a message to the MessageService.
       // The MessageService will save it and then call the broadcast function itself.
       await this.messageService.createTextMessage(
-        (sender as Partial<UserInterface>)?._id!.toString() ??
-          sender.toString(),
+        (sender as Partial<UserDTO>)?._id!.toString() ?? sender.toString(),
         conversation.toString(),
-        content as string
+        content as string,
       );
     } catch (error) {
       logger.error('Failed to handle incoming chat message:', error);
@@ -127,12 +126,12 @@ export class WebSocketController {
   }
 
   private async handleConversationJoin(
-    data: DTO.ConversationJoinMessage
+    data: DTO.ConversationJoinMessage,
   ): Promise<void> {
     const { conversation, added_by } = data;
     try {
       const fullConversation = await Conversation.findById(
-        conversation._id
+        conversation._id,
       ).populate('participants');
       if (!fullConversation) return;
 
@@ -151,7 +150,7 @@ export class WebSocketController {
   }
 
   private async handleConversationLeave(
-    data: DTO.ConversationLeaveMessage
+    data: DTO.ConversationLeaveMessage,
   ): Promise<void> {
     const { conversation, removed_by, removed_users } = data;
     try {
@@ -172,7 +171,7 @@ export class WebSocketController {
   }
 
   private async handleMessageStatus(
-    data: DTO.MessageStatusMessage
+    data: DTO.MessageStatusMessage,
   ): Promise<void> {
     const { read_receipt, conversation_id } = data;
     try {
@@ -197,7 +196,7 @@ export class WebSocketController {
         {
           new: true,
           select: 'participants',
-        }
+        },
       );
 
       // If no document was found/updated, it means no existing receipt exists
@@ -216,7 +215,7 @@ export class WebSocketController {
           {
             new: true,
             select: 'participants',
-          }
+          },
         );
 
         if (!updatedConversation) return;
@@ -277,7 +276,7 @@ export class WebSocketController {
   private async finalizeUserStatusUpdate(
     userId: string,
     status: 'online' | 'offline',
-    lastSeen?: string
+    lastSeen?: string,
   ): Promise<void> {
     try {
       await User.findByIdAndUpdate(userId, {

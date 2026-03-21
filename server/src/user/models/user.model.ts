@@ -1,13 +1,12 @@
 import mongoose, { Document, Schema, Types } from 'mongoose';
 import bcrypt from 'bcrypt';
 import validator from 'validator';
-import { createCustomError } from '../../error-handling/models/custom-api-error.model';
 
 export interface IUser extends Document {
   first_name: string;
   last_name: string;
   username: string;
-  bio: string;
+  bio?: string;
   email: string;
   password: string;
   is_email_verified: boolean;
@@ -23,53 +22,33 @@ export interface IUser extends Document {
 
 const UserSchema = new Schema<IUser>(
   {
-    first_name: {
-      type: String,
-      required: [true, 'First name is required! \n'],
-      unique: false,
-    },
-    last_name: {
-      type: String,
-      required: [true, 'Last name is required! \n'],
-      unique: false,
-    },
+    first_name: { type: String, required: [true, 'First name is required'] },
+    last_name: { type: String, required: [true, 'Last name is required'] },
     username: {
       type: String,
-      required: [true, 'Username is required! \n'],
+      required: [true, 'Username is required'],
       unique: true,
     },
-    bio: {
-      type: String,
-      required: false,
-      unique: false,
-    },
+    bio: { type: String },
     email: {
       type: String,
-      required: [true, 'Email is required! \n'],
-      validate: [validator.isEmail, 'Invalid email! \n'],
-      createIndexes: { unique: true },
+      required: [true, 'Email is required'],
       unique: true,
+      validate: [validator.isEmail, 'Invalid email'],
     },
-    is_email_verified: {
-      type: Boolean,
-      default: false,
-    },
-    lock_until: {
-      type: Date,
-      required: false,
-    },
-    last_login: { type: Date, required: false },
+    is_email_verified: { type: Boolean, default: false },
+    login_attempts: { type: Number, default: 0 },
+    lock_until: { type: Date },
+    last_login: { type: Date },
     password: {
       type: String,
+      required: [true, 'Password is required'],
       validate: [
         validator.isStrongPassword,
-        'Password is not strong enough! \n It must be at least 8 characters, containing: uppercase and lowercase letters, symbols and numbers.',
+        'Password must be 8+ chars with uppercase, lowercase, numbers, and symbols',
       ],
-      required: [true, 'Password is required! \n'],
     },
-    profile_picture: {
-      type: String,
-    },
+    profile_picture: { type: String },
     status: {
       type: String,
       enum: ['offline', 'online', 'away'],
@@ -81,16 +60,18 @@ const UserSchema = new Schema<IUser>(
   { timestamps: true },
 );
 
-UserSchema.pre<IUser>('save', async function (next) {
-  if (!this.isModified('password')) return next();
+UserSchema.index(
+  { first_name: 'text', last_name: 'text', username: 'text' },
+  {
+    weights: { username: 10, first_name: 5, last_name: 5 },
+    name: 'user_search_index',
+  },
+);
 
-  try {
-    const salt = await bcrypt.genSalt(10);
-    this.password = await bcrypt.hash(this.password, salt);
-    next();
-  } catch (error: any) {
-    next(createCustomError(error.message, error.statusCode || 500));
-  }
+UserSchema.pre('save', async function hashPassword() {
+  if (!this.isModified('password')) return;
+  const salt = await bcrypt.genSalt(10);
+  this.password = await bcrypt.hash(this.password, salt);
 });
 
 UserSchema.methods.comparePassword = async function (

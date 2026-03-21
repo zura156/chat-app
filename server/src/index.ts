@@ -1,5 +1,5 @@
 import express, { Request, Response, Application, NextFunction } from 'express';
-import authRouter from './auth/routers/auth.router';
+import authRouter from './auth/auth.router';
 import userRouter from './user/routers/user.router';
 import { errorMiddleware } from './error-handling/middlewares/error.middleware';
 import { connectDB } from './config/db';
@@ -14,19 +14,20 @@ import {
 
 import cors from 'cors';
 import http from 'http';
-import path from 'path';
 import cookieParser from 'cookie-parser';
 import helmet from 'helmet';
 import rateLimit from 'express-rate-limit';
 import compression from 'compression';
+// import path from 'path';
 // import morgan from 'morgan';
-import mongoSanitize from 'express-mongo-sanitize';
+import mongoSanitize from '@exortek/express-mongo-sanitize';
 import hpp from 'hpp';
 import { authenticateToken } from './auth/middlewares/auth.middleware';
 import { validateCSRF } from './auth/middlewares/csrf.middleware';
 import ffmpeg from 'fluent-ffmpeg';
 import ffmpegPath from 'ffmpeg-static';
 import { connectRedis } from './utils/redis';
+import uploadRouter from './upload/upload.router';
 
 const app: Application = express();
 const port: number | 3000 = parseInt(config.port.toString());
@@ -77,16 +78,17 @@ app.use(hpp());
 
 // Middlewares
 app.use(
-  '/uploads',
-  (req, res, next) => {
-    res.setHeader('Access-Control-Allow-Credentials', 'true');
-    res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
-    // Optionally for COEP/COOP requirements:
-    // res.setHeader('Cross-Origin-Embedder-Policy', 'require-corp');
-    // res.setHeader('Cross-Origin-Opener-Policy', 'same-origin');
-    next();
-  },
-  express.static(path.resolve('uploads')),
+  '/upload',
+  uploadRouter,
+  // (req, res, next) => {
+  //   res.setHeader('Access-Control-Allow-Credentials', 'true');
+  //   res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
+  //   // Optionally for COEP/COOP requirements:
+  //   // res.setHeader('Cross-Origin-Embedder-Policy', 'require-corp');
+  //   // res.setHeader('Cross-Origin-Opener-Policy', 'same-origin');
+  //   next();
+  // },
+  // express.static(path.resolve('uploads')),
 );
 app.use(express.json({ limit: '30mb' }));
 app.use(express.urlencoded({ limit: '30mb', extended: true }));

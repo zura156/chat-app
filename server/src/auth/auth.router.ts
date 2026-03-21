@@ -9,12 +9,12 @@ import {
   logOut,
   verifyEmail,
   unlockAccount,
-} from '../controllers/auth.controller';
+} from './auth.controller';
 
 import { body } from 'express-validator';
-import { authenticateToken } from '../middlewares/auth.middleware';
-import { unauthenticatedGuard } from '../middlewares/unauthenticated.middleware';
-import { loginRateLimiter } from '../middlewares/rate-limiter';
+import { authenticateToken } from './middlewares/auth.middleware';
+import { unauthenticatedGuard } from './middlewares/unauthenticated.middleware';
+import { loginRateLimiter } from './middlewares/rate-limiter';
 
 const router = Router();
 
@@ -41,7 +41,13 @@ router.post(
   validateRegistration,
   registerUser,
 );
-router.post('/login', loginRateLimiter, unauthenticatedGuard, validateLogin, loginUser);
+router.post(
+  '/login',
+  loginRateLimiter,
+  unauthenticatedGuard,
+  validateLogin,
+  loginUser,
+);
 router.post('/logout', authenticateToken, logOut);
 
 router.post('/forgot-password', forgotPassword);

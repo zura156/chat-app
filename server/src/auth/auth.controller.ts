@@ -1,28 +1,25 @@
 import { NextFunction, Request, Response } from 'express';
-import { User } from '../../user/models/user.model';
-import { generateTokens } from '../services/jwt.service';
-import { createCustomError } from '../../error-handling/models/custom-api-error.model';
-import config from '../../config/config';
-import { LoginDto } from '../dtos/login.dto';
-import { RegisterDto } from '../dtos/register.dto';
-import { TokenModel } from '../models/token.model';
+import { User } from '../user/models/user.model';
+import { generateTokens } from './services/jwt.service';
+import { createCustomError } from '../error-handling/models/custom-api-error.model';
+import config from '../config/config';
+import { LoginDto } from './dtos/login.dto';
+import { RegisterDto } from './dtos/register.dto';
+import { TokenModel } from './models/token.model';
 import {
   AccountTokenEnum,
   AccountTokensModel,
-} from '../models/account-tokens.model';
-import sendEmail from '../../utils/mailer';
+} from './models/account-tokens.model';
+import sendEmail from '../utils/mailer';
 import jwt from 'jsonwebtoken';
-import { AuthRequest } from '../middlewares/auth.middleware';
-import { csrfTokens, generateCSRFToken } from '../services/csrf.service';
-import { getSecurityAlertEmailHTML } from '../../templates/security-alert-email';
-import { generateLink } from '../services/auth.service';
+import { AuthRequest } from './middlewares/auth.middleware';
+import { csrfTokens, generateCSRFToken } from './services/csrf.service';
+import { generateLink } from './services/auth.service';
 import crypto from 'crypto';
-import { redisClient } from '../../utils/redis';
-import { sanitize } from 'express-mongo-sanitize';
 import {
   clearRateLimit,
   loginRateLimitIncrement,
-} from '../middlewares/rate-limiter';
+} from './middlewares/rate-limiter';
 
 const parseExpiry = (time: string) => {
   const duration = parseInt(time, 10);
@@ -288,7 +285,7 @@ export const logOut = async (
 
     if (refreshToken) {
       await TokenModel.findOneAndUpdate(
-        { user_id: user.id },
+        { user_id: user._id },
         {
           $pull: { refreshTokens: { token: refreshToken } },
         },
