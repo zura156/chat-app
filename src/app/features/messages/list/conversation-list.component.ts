@@ -35,7 +35,7 @@ import { toObservable } from '@angular/core/rxjs-interop';
 import { WebSocketMessageT } from '../interfaces/web-socket-message.interface';
 import { WebSocketService } from '../services/web-socket.service';
 import { ConversationI } from '../interfaces/conversation.interface';
-import { ActiveViewType } from '../interfaces/active-view.type';
+import { ActiveListViewType } from '../interfaces/active-view.types';
 import { HttpErrorResponse } from '@angular/common/http';
 import { HlmBadge } from '@spartan-ng/helm/badge';
 import { ConversationCardComponent } from '../card/conversation-card.component';
@@ -80,7 +80,7 @@ export class ConversationListComponent {
   private layoutService = inject(LayoutService);
 
   // State signals
-  readonly activeView = this.layoutService.activeView;
+  readonly activeListView = this.layoutService.activeListView;
   readonly isLoading = signal<boolean>(false);
   readonly error = signal<string | null>(null);
   readonly searchQuery = signal<string>('');
@@ -93,7 +93,9 @@ export class ConversationListComponent {
   readonly users = this.userService.users;
   readonly currentUser = this.userService.currentUser;
 
-  activeView$: Observable<ActiveViewType> = toObservable(this.activeView);
+  activeListView$: Observable<ActiveListViewType> = toObservable(
+    this.activeListView,
+  );
 
   // Cleanup subject
   private readonly destroy$ = new Subject<void>();
@@ -114,12 +116,12 @@ export class ConversationListComponent {
 
   // View switching methods
   switchToConversations(): void {
-    this.layoutService.setActiveView('conversations');
+    this.layoutService.setActiveListView('conversations');
     this.searchControl.setValue('');
   }
 
   switchToUsers(): void {
-    this.layoutService.setActiveView('users');
+    this.layoutService.setActiveListView('users');
     this.searchControl.setValue('');
   }
 
@@ -157,7 +159,7 @@ export class ConversationListComponent {
         debounceTime(300),
         distinctUntilChanged(),
       ),
-      this.activeView$,
+      this.activeListView$,
     ])
       .pipe(
         takeUntil(this.destroy$),

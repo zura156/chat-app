@@ -1,18 +1,16 @@
+import { Injectable, OnDestroy, signal } from '@angular/core';
 import {
-  computed,
-  Injectable,
-  linkedSignal,
-  OnDestroy,
-  signal,
-} from '@angular/core';
-import { ActiveViewType } from '../interfaces/active-view.type';
+  ActiveListViewType,
+  ActiveViewType,
+} from '../interfaces/active-view.types';
 import { BreakpointObserver } from '@angular/cdk/layout';
 import { Subject, takeUntil } from 'rxjs';
 
 @Injectable()
 export class LayoutService implements OnDestroy {
   isMobile = signal<boolean>(false);
-  activeView = signal<ActiveViewType>('conversations');
+  activeView = signal<ActiveViewType>('chatbox');
+  activeListView = signal<ActiveListViewType>('conversations');
 
   private destroy$ = new Subject<void>();
 
@@ -28,6 +26,10 @@ export class LayoutService implements OnDestroy {
   ngOnDestroy(): void {
     this.destroy$.next();
     this.destroy$.complete();
+  }
+
+  setActiveListView(view: ActiveListViewType): void {
+    this.activeListView.update(() => view);
   }
 
   setActiveView(view: ActiveViewType): void {

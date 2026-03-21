@@ -281,10 +281,12 @@ export class ChatboxComponent implements OnInit, OnDestroy {
         map((params) => params['id']),
         catchError((err) => this.handleError(err)),
         switchMap((id) => {
-          this.messageService.clearActiveMessages();
-          this.messageOffset.set(0);
-          this.conversationService.selectedConversationId.set(id);
           this.conversation = this.conversationService.activeConversation;
+          if (this.conversation()?._id !== id) {
+            this.messageService.clearActiveMessages();
+            this.messageOffset.set(0);
+          }
+          this.conversationService.selectedConversationId.set(id);
           const selectedUser: UserI | null = JSON.parse(
             sessionStorage.getItem('selectedUser') ?? 'null',
           );
@@ -820,10 +822,17 @@ export class ChatboxComponent implements OnInit, OnDestroy {
 
     if (deltaX < -100 && !this.isSettingsOpen()) {
       this.toggleSettingsView();
+      return;
     }
 
     if (deltaX > 100 && this.isSettingsOpen()) {
       this.toggleSettingsView();
+      return;
+    }
+
+    if (deltaX > 100 && !this.isSettingsOpen()) {
+      this.router.navigateByUrl('/messages');
+      return;
     }
   }
 

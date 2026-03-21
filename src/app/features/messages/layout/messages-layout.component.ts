@@ -19,7 +19,7 @@ import {
 } from '@angular/router';
 import { ConversationListComponent } from '../list/conversation-list.component';
 import { LayoutService } from './layout.service';
-import { ActiveViewType } from '../interfaces/active-view.type';
+import { ActiveViewType } from '../interfaces/active-view.types';
 import { MessagesStartComponent } from '../start/messages-start.compoent';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 
@@ -60,7 +60,7 @@ export class MessagesLayoutComponent implements OnInit, OnDestroy {
           if (id) {
             this.setActiveView('chatbox');
           } else {
-            this.setActiveView('conversations');
+            this.setActiveView('lists');
           }
         }),
         concatMap(() =>
@@ -68,12 +68,10 @@ export class MessagesLayoutComponent implements OnInit, OnDestroy {
             filter((event) => event instanceof NavigationEnd),
             tap((event: NavigationEnd) => {
               this.isConversationListActive.set(
-                event.urlAfterRedirects === '/messages'
+                event.urlAfterRedirects === '/messages',
               );
               this.setActiveView(
-                event.urlAfterRedirects === '/messages'
-                  ? 'conversations'
-                  : 'chatbox'
+                event.urlAfterRedirects === '/messages' ? 'lists' : 'chatbox',
               );
             }),
             map(() => {
@@ -82,9 +80,9 @@ export class MessagesLayoutComponent implements OnInit, OnDestroy {
                 route = route.firstChild;
               }
               return route;
-            })
-          )
-        )
+            }),
+          ),
+        ),
       )
       .subscribe();
   }

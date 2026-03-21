@@ -92,12 +92,11 @@ export class MessageService {
       } else {
         const messageMap = new Map<string, MessageI>();
         previousMessages.forEach((msg) =>
-          msg._id ? messageMap.set(msg._id, msg) : ''
+          msg._id ? messageMap.set(msg._id, msg) : '',
         );
         newResource.messages.forEach((msg) =>
-          msg._id ? messageMap.set(msg._id, msg) : ''
+          msg._id ? messageMap.set(msg._id, msg) : '',
         );
-
         const messages = Array.from(messageMap.values());
 
         return messages;
@@ -105,9 +104,9 @@ export class MessageService {
     },
   });
 
-  activeMessages: Signal<MessageI[]> = computed<MessageI[]>(
-    this.#activeMessages
-  );
+  activeMessages: Signal<MessageI[]> = computed<MessageI[]>(() => {
+    return this.#activeMessages();
+  });
 
   #totalMessagesCount: WritableSignal<number> = linkedSignal<number>(() => {
     const totalCount = this.activeMessagesResource.value()?.totalCount;
@@ -115,7 +114,7 @@ export class MessageService {
     return totalCount || 0;
   });
   totalMessagesCount: Signal<number> = computed<number>(
-    this.#totalMessagesCount
+    this.#totalMessagesCount,
   );
 
   #activeMediaMessages = linkedSignal<MessageListI, MessageI[]>({
@@ -142,10 +141,10 @@ export class MessageService {
       } else {
         const messageMap = new Map<string, MessageI>();
         previousMessages.forEach((msg) =>
-          msg._id ? messageMap.set(msg._id, msg) : ''
+          msg._id ? messageMap.set(msg._id, msg) : '',
         );
         newResource.messages.forEach((msg) =>
-          msg._id ? messageMap.set(msg._id, msg) : ''
+          msg._id ? messageMap.set(msg._id, msg) : '',
         );
 
         const messages = Array.from(messageMap.values());
@@ -156,7 +155,7 @@ export class MessageService {
   });
 
   activeMediaMessages: Signal<MessageI[]> = computed<MessageI[]>(
-    this.#activeMediaMessages
+    this.#activeMediaMessages,
   );
 
   #totalMediaMessagesCount: WritableSignal<number> = linkedSignal<number>(
@@ -164,10 +163,10 @@ export class MessageService {
       const totalCount = this.activeMediaMessagesResource.value()?.totalCount;
 
       return totalCount || 0;
-    }
+    },
   );
   totalMediaMessagesCount: Signal<number> = computed<number>(
-    this.#totalMediaMessagesCount
+    this.#totalMediaMessagesCount,
   );
 
   #activeFileMessages = linkedSignal<MessageListI, MessageI[]>({
@@ -194,10 +193,10 @@ export class MessageService {
       } else {
         const messageMap = new Map<string, MessageI>();
         previousMessages.forEach((msg) =>
-          msg._id ? messageMap.set(msg._id, msg) : ''
+          msg._id ? messageMap.set(msg._id, msg) : '',
         );
         newResource.messages.forEach((msg) =>
-          msg._id ? messageMap.set(msg._id, msg) : ''
+          msg._id ? messageMap.set(msg._id, msg) : '',
         );
 
         const messages = Array.from(messageMap.values());
@@ -208,7 +207,7 @@ export class MessageService {
   });
 
   activeFileMessages: Signal<MessageI[]> = computed<MessageI[]>(
-    this.#activeFileMessages
+    this.#activeFileMessages,
   );
 
   #totalFileMessagesCount: WritableSignal<number> = linkedSignal<number>(() => {
@@ -217,7 +216,7 @@ export class MessageService {
     return totalCount || 0;
   });
   totalFileMessagesCount: Signal<number> = computed<number>(
-    this.#totalFileMessagesCount
+    this.#totalFileMessagesCount,
   );
 
   // Control signals for on-demand fetching
@@ -227,7 +226,7 @@ export class MessageService {
   sendMessage(
     message: MessageI,
     participants: Partial<ParticipantI>[],
-    isNewest: boolean = false
+    isNewest: boolean = false,
   ): Observable<MessageI> {
     const data: ChatMessage = {
       type: 'message',
@@ -308,7 +307,7 @@ export class MessageService {
   loadMoreMediaMessages(): void {
     if (this.hasMoreMediaMessages()) {
       this.mediaMessageOffset.update(
-        (offset) => offset + this.mediaMessageLimit()
+        (offset) => offset + this.mediaMessageLimit(),
       );
     }
   }
@@ -317,7 +316,7 @@ export class MessageService {
   loadMoreFileMessages(): void {
     if (this.hasMoreFileMessages()) {
       this.fileMessageOffset.update(
-        (offset) => offset + this.fileMessageLimit()
+        (offset) => offset + this.fileMessageLimit(),
       );
     }
   }
