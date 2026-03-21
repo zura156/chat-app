@@ -22,7 +22,7 @@ import { CSRFTokenI } from '../interfaces/csrf-token.interface';
 import { UserService } from '../../user/services/user.service';
 import { CSRFService } from './csrf.service';
 import { Router } from '@angular/router';
-import { toast } from 'ngx-sonner';
+import { toast } from '@spartan-ng/brain/sonner';
 import { UnlockAccountI } from '../interfaces/unlock-account.interface';
 
 @Injectable({

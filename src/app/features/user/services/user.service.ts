@@ -7,7 +7,7 @@ import { UserListI } from '../interfaces/user-list.interface';
 import { UserStateService } from './user-state.service';
 import { UpdateProfilePictureI } from '../interfaces/update-profile-picture.interface';
 import { UpdateProfilePictureResponseI } from '../interfaces/update-profile-picture-response.interface';
-import { toast } from 'ngx-sonner';
+import { toast } from '@spartan-ng/brain/sonner';
 import { UpdateProfileDataI } from '../interfaces/update-profile-data.interface';
 
 @Injectable({

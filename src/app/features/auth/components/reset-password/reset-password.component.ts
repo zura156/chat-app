@@ -12,7 +12,7 @@ import { HlmFormFieldImports } from '@spartan-ng/helm/form-field';
 import { HlmIcon } from '@spartan-ng/helm/icon';
 import { HlmInput } from '@spartan-ng/helm/input';
 import { passwordValidator } from '../../validators/password.validator';
-import { toast } from 'ngx-sonner';
+import { toast } from '@spartan-ng/brain/sonner';
 import { AuthService } from '../../services/auth.service';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { catchError, switchMap, tap, throwError, timer } from 'rxjs';

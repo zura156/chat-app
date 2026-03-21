@@ -75,8 +75,9 @@ import { ChatboxSettingsComponent } from '../chatbox-settings/chatbox-settings.c
 import { PanGestureDirective } from '../../../shared/directives/pan.directive';
 import { HlmSkeleton } from '@spartan-ng/helm/skeleton';
 import { environment } from '../../../../environments/environment';
-import { toast } from 'ngx-sonner';
+import { toast } from '@spartan-ng/brain/sonner';
 import { UserStateService } from '../../user/services/user-state.service';
+import { NgScrollbar } from 'ngx-scrollbar';
 
 @Component({
   selector: 'app-chatbox',

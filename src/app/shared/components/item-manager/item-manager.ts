@@ -17,7 +17,7 @@ import {
 import { environment } from '../../../../environments/environment';
 import { HttpErrorResponse } from '@angular/common/http';
 import { HlmSpinner } from '@spartan-ng/helm/spinner';
-import { toast } from 'ngx-sonner';
+import { toast } from '@spartan-ng/brain/sonner';
 import { FormGroup, ReactiveFormsModule } from '@angular/forms';
 import { HlmSeparatorImports } from '@spartan-ng/helm/separator';
 

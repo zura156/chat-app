@@ -35,7 +35,7 @@ import { HlmButton } from '@spartan-ng/helm/button';
 import { ItemManagerComponent } from '../../../shared/components/item-manager/item-manager';
 import { catchError, Subscription, tap, throwError } from 'rxjs';
 import { UserService } from '../../user/services/user.service';
-import { toast } from 'ngx-sonner';
+import { toast } from '@spartan-ng/brain/sonner';
 import { MemberChangesI } from '../interfaces/member-changes.interface';
 import { UserI } from '../../user/interfaces/user.interface';
 import {

@@ -17,7 +17,10 @@
 @layer base {
   * {
     @apply border-border;
+    scrollbar-width: thin;
+    scrollbar-color: var(--border) transparent;
   }
+
   :root {
     --radius: 0.625rem;
     --background: oklch(1 0 0);

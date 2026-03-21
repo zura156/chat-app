@@ -3,7 +3,7 @@ import { webSocket, WebSocketSubject } from 'rxjs/webSocket';
 import { environment } from '../../../../environments/environment';
 import { WebSocketMessageT } from '../interfaces/web-socket-message.interface';
 import { catchError, EMPTY, Observable, share, Subject } from 'rxjs';
-import { toast } from 'ngx-sonner';
+import { toast } from '@spartan-ng/brain/sonner';
 
 @Injectable({
   providedIn: 'root',

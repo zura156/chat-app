@@ -26,7 +26,7 @@ import { FormControl, ReactiveFormsModule, Validators } from '@angular/forms';
 import { HlmInput } from '@spartan-ng/helm/input';
 import { HlmSeparator } from '@spartan-ng/helm/separator';
 import { UserI } from '../../user/interfaces/user.interface';
-import { NgScrollbarModule } from 'ngx-scrollbar';
+import { NgScrollbar } from 'ngx-scrollbar';
 import { UserCardComponent } from '../../user/components/card/user-card.component';
 import { ClickOutsideDirective } from '../../../shared/directives/click-outside.directive';
 import { NgIcon, provideIcons } from '@ng-icons/core';
@@ -45,7 +45,7 @@ import { ParticipantI } from '../interfaces/participant.interface';
     HlmLabel,
     HlmInput,
     HlmError,
-    NgScrollbarModule,
+    NgScrollbar,
     UserCardComponent,
     ClickOutsideDirective,
     HlmIcon,
@@ -82,7 +82,7 @@ export class NewChatComponent implements OnInit, OnDestroy {
       (user) =>
         `${user.first_name} ${user.last_name}`.toLowerCase().includes(query) ||
         user.username.toLowerCase().includes(query) ||
-        user.email.toLowerCase().includes(query)
+        user.email.toLowerCase().includes(query),
     );
   });
 
@@ -109,7 +109,7 @@ export class NewChatComponent implements OnInit, OnDestroy {
         takeUntil(this.destroy$),
         distinctUntilChanged(),
         map((q) => q?.toString()),
-        tap((q) => this.fetchUsersIfNeeded(q))
+        tap((q) => this.fetchUsersIfNeeded(q)),
       )
       .subscribe();
   }
@@ -174,7 +174,7 @@ export class NewChatComponent implements OnInit, OnDestroy {
       .createConversation(
         selectedUsersIds,
         isGroup,
-        this.groupNameControl.value ?? ''
+        this.groupNameControl.value ?? '',
       )
       .pipe(
         takeUntil(this.destroy$),
@@ -185,7 +185,7 @@ export class NewChatComponent implements OnInit, OnDestroy {
         catchError((err) => {
           this.isLoading.set(false);
           return throwError(() => err);
-        })
+        }),
       )
       .subscribe();
   }
@@ -242,7 +242,7 @@ export class NewChatComponent implements OnInit, OnDestroy {
           console.error('Error fetching users:', err);
           this.isLoading.set(false);
           return EMPTY;
-        })
+        }),
       )
       .subscribe((result) => {
         this.#users.set(result.users || result);

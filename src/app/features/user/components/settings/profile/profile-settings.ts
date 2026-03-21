@@ -19,7 +19,7 @@ import {
   ReactiveFormsModule,
   Validators,
 } from '@angular/forms';
-import { toast } from 'ngx-sonner';
+import { toast } from '@spartan-ng/brain/sonner';
 import { ImageCropperComponent } from 'ngx-smart-cropper';
 import { base64ToFile } from '../../../../../shared/functions/base64-to-file';
 import { FileMetadata } from '../../../../../shared/interfaces/file-metadata.interface';

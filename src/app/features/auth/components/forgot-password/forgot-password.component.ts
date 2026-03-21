@@ -12,7 +12,7 @@ import { HlmFormFieldImports } from '@spartan-ng/helm/form-field';
 import { HlmIcon } from '@spartan-ng/helm/icon';
 import { HlmInput } from '@spartan-ng/helm/input';
 import { RouterLink } from '@angular/router';
-import { toast } from 'ngx-sonner';
+import { toast } from '@spartan-ng/brain/sonner';
 import { AuthService } from '../../services/auth.service';
 import { catchError, throwError } from 'rxjs';
 import {
