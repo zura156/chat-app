@@ -66,32 +66,15 @@
 /* SF Georgia Regular */
 @font-face {
   font-family: "SF Georgia";
-  src: url("/fonts/SF-Georgia/SF-Georgia-Regular.otf") format("opentype");
+  src: url("/fonts/SF-Georgia/SF-Georgia.ttf") format("opentype");
   font-weight: 400;
-  font-style: normal;
-}
-
-/* SF Georgia Bold */
-@font-face {
-  font-family: "SF Georgia";
-  src: url("/fonts/SF-Georgia/SF-Georgia-Bold.otf") format("opentype");
-  font-weight: 700;
   font-style: normal;
 }
 
 /* SF Georgia Rounded Regular */
 @font-face {
   font-family: "SF Georgia Rounded";
-  src: url("/fonts/SF-Georgia/SF-Georgia-Rounded-Regular.otf")
-    format("opentype");
+  src: url("/fonts/SF-Georgia/SF-Georgia-Rounded.ttf") format("opentype");
   font-weight: 400;
-  font-style: normal;
-}
-
-/* SF Georgia Rounded Bold */
-@font-face {
-  font-family: "SF Georgia Rounded";
-  src: url("/fonts/SF-Georgia/SF-Georgia-Rounded-Bold.otf") format("opentype");
-  font-weight: 700;
   font-style: normal;
 }
