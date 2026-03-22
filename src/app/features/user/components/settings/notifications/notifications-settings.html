@@ -1,0 +1,46 @@
+<main class="max-w-2xl mx-auto px-4 py-8 space-y-8">
+
+  <div>
+    <h1 class="text-lg font-semibold tracking-tight">Notifications (MOCK COMPONENT)</h1>
+    <p class="text-sm text-muted-foreground">Control what you get notified about.</p>
+  </div>
+
+  <hlm-separator decorative />
+
+  @for (group of notificationGroups(); track group.label) {
+    <section class="space-y-3">
+      <h3 class="text-sm font-medium">{{ group.label }}</h3>
+      <div class="space-y-1">
+        @for (item of group.items; track item.key) {
+          <div class="flex items-center justify-between px-4 py-3 rounded-xl hover:bg-muted/40 transition-colors">
+            <div>
+              <p class="text-sm">{{ item.label }}</p>
+              @if (item.description) {
+                <p class="text-xs text-muted-foreground">{{ item.description }}</p>
+              }
+            </div>
+            <button
+              type="button"
+              role="switch"
+              [attr.aria-checked]="item.enabled()"
+              class="relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2
+                     border-transparent transition-colors duration-200 focus-visible:outline-none
+                     focus-visible:ring-2 focus-visible:ring-ring"
+              [class.bg-primary]="item.enabled()"
+              [class.bg-muted]="!item.enabled()"
+              (click)="item.enabled.update(v => !v)">
+              <span
+                class="pointer-events-none inline-block size-4 rounded-full bg-background shadow
+                       transition-transform duration-200"
+                [class.translate-x-4]="item.enabled()"
+                [class.translate-x-0]="!item.enabled()">
+              </span>
+            </button>
+          </div>
+        }
+      </div>
+    </section>
+    <hlm-separator decorative />
+  }
+
+</main>

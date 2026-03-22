@@ -1,249 +1,170 @@
 <div
-  class="fixed inset-0 glass-card bg-black/50 rounded-none z-50 flex flex-col data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[state=closed]:slide-out-to-top-[2%] data-[state=open]:slide-in-from-top-[2%]"
+  class="fixed inset-0 z-50 bg-black flex flex-col data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 animate-duration-200"
   [attr.data-state]="state()"
-  >
-  <!-- Header with controls -->
+>
+  <!-- Top bar -->
   <div
-    class="absolute top-0 left-0 right-0 z-10 bg-gradient-to-b from-black/70 to-transparent"
+    class="absolute top-0 inset-x-0 z-10 flex items-center justify-between px-4 py-3 bg-linear-to-b from-black/80 to-transparent"
   >
-    <div class="flex items-center justify-between p-4">
-      <!-- Media info -->
-      <div class="flex items-center gap-3 text-white">
-        <span class="text-sm opacity-75">
-          {{ currentMedia.name || "Media" }}
-        </span>
-        @if(config.enableGallery) {
-        <span class="text-xs opacity-50">
-          {{ currentIndex + 1 }} of {{ mediaMessages.length }}
-        </span>
-        }
-      </div>
+    <div class="flex items-center gap-x-3">
+      <span class="text-sm text-white/80 font-medium truncate max-w-48">
+        {{ currentMedia.name || "Media" }}
+      </span>
+      @if (config.enableGallery) {
+      <span class="text-xs text-white/40 tabular-nums">
+        {{ currentIndex + 1 }} / {{ mediaMessages.length }}
+      </span>
+      }
+    </div>
 
-      <!-- Action buttons -->
-      <div class="flex items-center gap-2">
-        @if(config.allowDownload){
-        <button
-          (click)="downloadMedia()"
-          class="p-2 rounded-lg bg-white/10 hover:bg-white/20 text-white transition-colors cursor-pointer"
-          title="Download"
-        >
-          <svg
-            class="w-5 h-5"
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-          >
-            <path
-              stroke-linecap="round"
-              stroke-linejoin="round"
-              stroke-width="2"
-              d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"
-            />
-          </svg>
-        </button>
-        }
-
-        <button
-          (click)="closeViewer()"
-          class="p-2 rounded-lg bg-white/10 hover:bg-white/20 text-white transition-colors cursor-pointer"
-          title="Close"
-        >
-          <svg
-            class="w-5 h-5"
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-          >
-            <path
-              stroke-linecap="round"
-              stroke-linejoin="round"
-              stroke-width="2"
-              d="M6 18L18 6M6 6l12 12"
-            />
-          </svg>
-        </button>
-      </div>
+    <div class="flex items-center gap-x-1">
+      @if (config.allowDownload) {
+      <button
+        (click)="downloadMedia()"
+        class="size-9 flex items-center justify-center rounded-full text-white/70 hover:text-white hover:bg-white/10 transition-colors cursor-pointer"
+        title="Download"
+      >
+        <ng-icon hlm name="lucideDownload" size="sm" />
+      </button>
+      }
+      <button
+        (click)="closeViewer()"
+        class="size-9 flex items-center justify-center rounded-full text-white/70 hover:text-white hover:bg-white/10 transition-colors cursor-pointer"
+        title="Close"
+      >
+        <ng-icon hlm name="lucideX" size="sm" />
+      </button>
     </div>
   </div>
 
-  <!-- Main media display area -->
-  <div 
-    class="flex-1 flex items-center justify-center relative overflow-hidden" 
+  <!-- Main viewport -->
+  <div
+    class="flex-1 flex items-center justify-center relative overflow-hidden"
     (click)="onBackdropClick($event)"
   >
-    <!-- Navigation arrows (only show if gallery enabled and multiple items) -->
-    @if(config.enableGallery && canNavigatePrevious()) {
+    <!-- Prev arrow -->
+    @if (config.enableGallery && canNavigatePrevious()) {
     <button
       (click)="navigateToMedia(currentIndex - 1)"
-      class="absolute left-4 z-10 p-3 rounded-full bg-black/50 hover:bg-black/70 text-white transition-colors cursor-pointer"
-      title="Previous media"
+      class="absolute left-3 z-10 size-10 flex items-center justify-center rounded-full bg-black/40 hover:bg-black/70 text-white transition-colors cursor-pointer backdrop-blur-sm"
+      title="Previous"
     >
-      <svg
-        class="w-6 h-6"
-        fill="none"
-        stroke="currentColor"
-        viewBox="0 0 24 24"
-      >
-        <path
-          stroke-linecap="round"
-          stroke-linejoin="round"
-          stroke-width="2"
-          d="M15 19l-7-7 7-7"
-        />
-      </svg>
+      <ng-icon hlm name="lucideChevronLeft" size="sm" />
     </button>
     }
 
-    <!-- Media content -->
-    <div class="max-w-full max-h-full flex items-center justify-center p-4">
-      <!-- Loading state -->
-      @if(isLoading()) {
-        <div class="flex items-center justify-center text-white">
-          <hlm-spinner />
-        </div>
-      }
-      <!-- Error state -->
-      @else if(hasError()) {
-        <div class="flex flex-col items-center gap-4 text-white">
-          <svg
-            class="w-16 h-16 text-red-400"
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-          >
-            <path
-              stroke-linecap="round"
-              stroke-linejoin="round"
-              stroke-width="2"
-              d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.082 16.5c-.77.833.192 2.5 1.732 2.5z"
-            />
-          </svg>
-          <p>Failed to load media</p>
-        </div>
-      }
-
-      <!-- Image -->
-      @if(currentMedia.type === 'image') {
-        <img
-          [src]="apiUrl + currentMedia.url"
-          [alt]="currentMedia.name || 'Image'"
-          (load)="onMediaLoad()"
-          (error)="onMediaError()"
-          class="max-w-full max-h-full object-contain cursor-zoom-in"
-          [class.cursor-zoom-out]="isZoomed()"
-          [style.transform]="getImageTransform()"
-          [class.hidden]="isLoading() || hasError()"
-          (click)="toggleZoom()"
-          #mediaElement
-        />
-      }
-
-      <!-- Video -->
-      @if(currentMedia.type === 'video') {
-        <app-video-player 
-          [video]="currentMedia" 
-          [class.hidden]="isLoading() || hasError()" 
-          (loaded)="onMediaLoad()"
-        />
+    <!-- Content -->
+    <div
+      class="max-w-full max-h-full flex items-center justify-center p-4 md:p-16"
+    >
+      @if (isLoading()) {
+      <hlm-spinner />
+      } @else if (hasError()) {
+      <div class="flex flex-col items-center gap-y-3 text-white/60">
+        <ng-icon hlm name="lucideImageOff" size="xl" />
+        <p class="text-sm">Failed to load media</p>
+      </div>
+      } @if (currentMedia.type === 'image') {
+      <img
+        #mediaElement
+        [src]="apiUrl + currentMedia.url"
+        [alt]="currentMedia.name || 'Image'"
+        (load)="onMediaLoad()"
+        (error)="onMediaError()"
+        (click)="toggleZoom()"
+        [style.transform]="getImageTransform()"
+        class="max-w-full max-h-full object-contain transition-transform duration-200 select-none"
+        [class.hidden]="isLoading() || hasError()"
+        [class.cursor-zoom-in]="!isZoomed()"
+        [class.cursor-zoom-out]="isZoomed()"
+      />
+      } @if (currentMedia.type === 'video') {
+      <app-video-player
+        [video]="currentMedia"
+        [class.hidden]="isLoading() || hasError()"
+        (loaded)="onMediaLoad()"
+      />
       }
     </div>
-    
-    <!-- Next arrow -->
-    @if(config.enableGallery && canNavigateNext()) {
 
+    <!-- Next arrow -->
+    @if (config.enableGallery && canNavigateNext()) {
     <button
       (click)="navigateToMedia(currentIndex + 1)"
-      class="absolute right-4 z-10 p-3 rounded-full bg-black/50 hover:bg-black/70 text-white transition-colors cursor-pointer"
-      title="Next media"
+      class="absolute right-3 z-10 size-10 flex items-center justify-center rounded-full bg-black/40 hover:bg-black/70 text-white transition-colors cursor-pointer backdrop-blur-sm"
+      title="Next"
     >
-      <svg
-        class="w-6 h-6"
-        fill="none"
-        stroke="currentColor"
-        viewBox="0 0 24 24"
-      >
-        <path
-          stroke-linecap="round"
-          stroke-linejoin="round"
-          stroke-width="2"
-          d="M9 5l7 7-7 7"
-        />
-      </svg>
+      <ng-icon hlm name="lucideChevronRight" size="sm" />
     </button>
     }
   </div>
 
-  <!-- Thumbnail strip (bottom) -->
-  @if(config.enableGallery && config.showThumbnails && mediaMessages.length > 1)
-  {
+  <!-- Thumbnail strip -->
+  @if (config.enableGallery && config.showThumbnails && mediaMessages.length >
+  1) {
   <div
-    class="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/70 to-transparent"
+    class="absolute bottom-0 inset-x-0 bg-linear-to-t from-black/80 to-transparent"
   >
-    <div class="p-4">
-      <div class="flex gap-2 py-2 justify-center overflow-x-auto scrollbar-hide">
-        @for(media of mediaMessages; let i = $index; track media._id) {
+    <div
+      class="flex gap-x-1.5 px-4 py-4 justify-center overflow-x-auto scrollbar-hide"
+    >
+      @for (media of mediaMessages; let i = $index; track media._id) {
+      <button
+        (click)="navigateToMedia(i)"
+        class="shrink-0 size-14 rounded-lg overflow-hidden relative ring-offset-black transition-all cursor-pointer hover:opacity-100 hover:ring-2 hover:ring-white/50"
+        [class.ring-2]="i === currentIndex"
+        [class.ring-white]="i === currentIndex"
+        [class.opacity-100]="i === currentIndex"
+        [class.opacity-40]="i !== currentIndex"
+      >
+        <!-- * dim inactive thumbnails -->
 
-        <button
-          (click)="navigateToMedia(i)"
-          [class.ring-2]="i === currentIndex"
-          [class.ring-white]="i === currentIndex"
-          class="flex-shrink-0 w-16 h-16 rounded-lg overflow-hidden bg-white/10 hover:bg-white/20 hover:ring-2 hover:ring-ring hover:ring-offset-2 transition-all cursor-pointer"
+        @if (getThumbnailState(i).loading) {
+        <div class="size-full flex items-center justify-center bg-white/10">
+          <hlm-spinner />
+        </div>
+        } @else if (getThumbnailState(i).error) {
+        <div class="size-full flex items-center justify-center bg-white/10">
+          <ng-icon hlm name="lucideImageOff" size="sm" class="text-white/40" />
+        </div>
+        } @if (media.type === 'image') {
+        <img
+          [src]="apiUrl + media.url"
+          [alt]="media.name || 'Thumbnail'"
+          class="size-full object-cover"
+          [class.hidden]="getThumbnailState(i).loading || getThumbnailState(i).error"
+          (load)="setThumbnailLoading(i, false)"
+          (error)="setThumbnailError(i, true)"
+        />
+        } @if (media.type === 'video') {
+        <div
+          class="size-full relative"
+          [class.hidden]="getThumbnailState(i).loading || getThumbnailState(i).error"
         >
-
-          @if(getThumbnailState(i).loading) {
-            <div class="flex items-center justify-center text-white">
-              <hlm-spinner />
-            </div>
-          } @else if(getThumbnailState(i).error) {
-            <div class="flex items-center justify-center">
-              <svg
-                class="w-8 h-8 text-red-400"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                  stroke-width="2"
-                  d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.082 16.5c-.77.833.192 2.5 1.732 2.5z"
-                />
-              </svg>
-            </div>
-          }
-
-          @if(media.type === 'image'){
-
-            <img
-              [src]="apiUrl + media.url"
-              [alt]="media.name || 'Thumbnail'"
-              class="w-full h-full object-cover"
-              [class.hidden]="getThumbnailState(i).loading || getThumbnailState(i).error" 
-              (load)="setThumbnailLoading(i, false)"
-              (error)="setThumbnailError(i, true)"
-            />
-
-          } @if(media.type === 'video') {
-
-          <div
-            class="w-full h-full flex items-center relative justify-center text-white"
-            [class.hidden]="getThumbnailState(i).loading || getThumbnailState(i).error" 
+          <img
+            [src]="apiUrl + media.thumbnail_url"
+            [alt]="media.name || 'Thumbnail'"
+            class="size-full object-cover"
+            (load)="setThumbnailLoading(i, false)"
+            (error)="setThumbnailError(i, true)"
+          />
+          <!-- * play badge -->
+          <div class="absolute inset-0 flex items-center justify-center">
+            <div
+              class="size-5 rounded-full bg-black/60 flex items-center justify-center"
             >
-            <img
-              [src]="apiUrl + media.thumbnail_url" 
-              [alt]="media.name || 'Thumbnail'"
-              class="h-full w-full object-cover"
-              (load)="setThumbnailLoading(i, false)"
-              (error)="setThumbnailError(i, true)"
-            />
-            <svg class="w-6 h-6 z-10 absolute bg-secondary rounded-md fill-primary" viewBox="0 0 24 24">
-              <path d="M8 5v14l11-7z" />
-            </svg>
+              <ng-icon
+                hlm
+                name="lucidePlay"
+                size="xs"
+                class="text-white ml-0.5"
+              />
+            </div>
           </div>
-          }
-        </button>
+        </div>
         }
-      </div>
+      </button>
+      }
     </div>
   </div>
   }

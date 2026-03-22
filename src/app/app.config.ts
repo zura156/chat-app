@@ -18,6 +18,7 @@ import {
 import { authInterceptor } from './features/auth/interceptors/auth.interceptor';
 import { httpOptionsInterceptor } from './features/auth/interceptors/http-options.interceptor';
 import { AuthService } from './features/auth/services/auth.service';
+import { provideLoadingBarRouter } from '@ngx-loading-bar/router';
 
 export const appConfig: ApplicationConfig = {
   providers: [
@@ -25,11 +26,12 @@ export const appConfig: ApplicationConfig = {
     provideZoneChangeDetection({ eventCoalescing: true }),
     provideHttpClient(
       withFetch(),
-      withInterceptors([httpOptionsInterceptor, authInterceptor])
+      withInterceptors([httpOptionsInterceptor, authInterceptor]),
     ),
     provideAppInitializer(() => {
       const auth = inject(AuthService);
       return auth.init();
     }),
+    provideLoadingBarRouter(),
   ],
 };

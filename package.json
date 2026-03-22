@@ -24,6 +24,8 @@
     "@capacitor/core": "^8.2.0",
     "@ng-icons/core": "^33.1.0",
     "@ng-icons/lucide": "^33.1.0",
+    "@ngx-loading-bar/core": "^7.0.1",
+    "@ngx-loading-bar/router": "^7.0.1",
     "@ngx-translate/core": "^17.0.0",
     "@tailwindcss/postcss": "^4.2.2",
     "class-variance-authority": "^0.7.1",

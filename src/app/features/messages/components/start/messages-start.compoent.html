@@ -1,0 +1,30 @@
+<main
+  class="flex justify-center items-center h-full w-full bg-linear-to-br from-background via-background to-muted/30"
+>
+  <section class="text-center px-6 flex flex-col items-center">
+    <div class="relative mb-6">
+      <div
+        class="absolute inset-0 rounded-2xl bg-primary/10 blur-xl scale-150"
+      ></div>
+      <img
+        [src]="isDarkMode() ? '/chat-favicon-light.png' : '/chat-favicon.png'"
+        alt="chat-favicon"
+        class="relative size-16 mx-auto rounded-2xl shadow-lg"
+      />
+    </div>
+    <h1 class="text-2xl font-bold tracking-tight mb-2">Welcome back</h1>
+    <p class="text-sm text-muted-foreground mb-1">
+      Select a conversation to get started.
+    </p>
+    <p class="text-sm text-muted-foreground mb-5">or</p>
+    <button
+      hlmBtn
+      variant="outline"
+      class="cursor-pointer rounded-full px-5 hover:bg-primary dark:hover:bg-primary dark:hover:text-primary-foreground hover:text-primary-foreground transition-colors"
+      [routerLink]="'/messages/new'"
+    >
+      <ng-icon hlm name="lucidePencil" class="mr-1.5" size="sm" />
+      New Conversation
+    </button>
+  </section>
+</main>

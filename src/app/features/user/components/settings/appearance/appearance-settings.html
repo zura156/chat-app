@@ -1,0 +1,100 @@
+<main class="max-w-2xl mx-auto px-4 py-8 space-y-8">
+  <div>
+    <h1 class="text-lg font-semibold tracking-tight">Appearance (MOCK COMPONENT)</h1>
+    <p class="text-sm text-muted-foreground">Customize how the app looks.</p>
+  </div>
+
+  <hlm-separator decorative />
+
+  <!-- Theme -->
+  <section class="space-y-4">
+    <div>
+      <h3 class="text-sm font-medium">Theme</h3>
+      <p class="text-xs text-muted-foreground">
+        Choose your preferred color scheme
+      </p>
+    </div>
+    <div class="grid grid-cols-3 gap-3">
+      @for (theme of ["Light", "Dark", "System"]; track theme) {
+        <button
+          class="flex flex-col items-center gap-y-2 p-4 rounded-xl border border-border hover:bg-muted/40 transition-colors cursor-pointer group"
+          [class.border-primary]="selectedTheme() === theme.toLowerCase()"
+          [class.bg-muted/40]="selectedTheme() === theme.toLowerCase()"
+          (click)="setTheme(theme.toLowerCase())"
+        >
+          <!-- Preview box -->
+          <div
+            class="w-full h-10 rounded-lg overflow-hidden border border-border"
+          >
+            @if (theme === "Light") {
+              <div class="w-full h-full bg-white"></div>
+            } @else if (theme === "Dark") {
+              <div class="w-full h-full bg-zinc-900"></div>
+            } @else {
+              <div class="w-full h-full grid grid-cols-2">
+                <div class="bg-white"></div>
+                <div class="bg-zinc-900"></div>
+              </div>
+            }
+          </div>
+          <span class="text-xs font-medium">{{ theme }}</span>
+          @if (selectedTheme() === theme.toLowerCase()) {
+            <ng-icon hlm name="lucideCheck" size="xs" class="text-primary" />
+          }
+        </button>
+      }
+    </div>
+  </section>
+
+  <hlm-separator decorative />
+
+  <!-- Font size -->
+  <section class="space-y-4">
+    <div>
+      <h3 class="text-sm font-medium">Font size</h3>
+      <p class="text-xs text-muted-foreground">
+        Adjust the text size across the app
+      </p>
+    </div>
+    <div class="flex items-center gap-x-4">
+      <span class="text-xs text-muted-foreground shrink-0">A</span>
+      <input
+        type="range"
+        min="12"
+        max="20"
+        step="1"
+        class="flex-1 accent-primary cursor-pointer"
+        [value]="fontSize()"
+        (input)="setFontSize($event)"
+      />
+      <span class="text-lg text-muted-foreground shrink-0">A</span>
+      <span class="text-xs text-muted-foreground w-8 text-right tabular-nums">
+        {{ fontSize() }}px
+      </span>
+    </div>
+  </section>
+
+  <hlm-separator decorative />
+
+  <!-- Chat bubbles -->
+  <section class="space-y-4">
+    <div>
+      <h3 class="text-sm font-medium">Message density</h3>
+      <p class="text-xs text-muted-foreground">
+        Control spacing between messages
+      </p>
+    </div>
+    <div class="grid grid-cols-2 gap-3">
+      @for (density of ["Comfortable", "Compact"]; track density) {
+        <button
+          class="p-4 rounded-xl border border-border hover:bg-muted/40 transition-colors cursor-pointer text-sm text-left"
+          [class.border-primary]="selectedDensity() === density.toLowerCase()"
+          [class.bg-muted/40]="selectedDensity() === density.toLowerCase()"
+          (click)="setDensity(density.toLowerCase())"
+        >
+          {{ density }}
+        </button>
+      }
+    </div>
+  </section>
+</main>

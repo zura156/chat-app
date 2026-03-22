@@ -2,8 +2,8 @@
 
 <div
   #playerContainer
-  class="relative w-full flex items-center justify-center py-0 sm:py-3 outline-none"
-  [class]="isOverlayVisible() ? '' : 'cursor-none'"
+  class="relative w-full flex items-center justify-center rounded-xl overflow-hidden outline-none bg-black group"
+  [class.cursor-none]="!isOverlayVisible()"
   tabindex="0"
   (mouseenter)="onMouseEnter()"
   (mouseleave)="onMouseLeave()"
@@ -11,166 +11,139 @@
   (focus)="isFocused.set(true)"
   (blur)="isFocused.set(false)"
   (click)="!disableContainerClickToggle() && togglePlayback()"
-  [class]="disableContainerClickToggle() ? 'cursor-pointer' : ''"
 >
   <video
-    class="rounded-xl h-full"
+    class="w-full h-full rounded-xl"
     #videoPlayer
     [src]="`${apiUrl}${video.url}`"
     [volume]="volume()"
     (timeupdate)="onTimeUpdate(videoPlayer)"
     (loadeddata)="duration.set(videoPlayer.duration); loaded.emit()"
-  >
-  </video>
+  ></video>
 
-  @if(currentTime() === duration()) {
-    <!-- Cover -->
-    <div class="bg-black opacity-50 absolute top-0 left-0 h-full w-full"></div>
-    <div
-      (click)="$event.stopPropagation()"
-      class="text-white z-10 absolute inset-0 flex flex-col items-center justify-center"
+  <!-- End screen -->
+  @if (currentTime() === duration()) {
+  <div
+    class="absolute inset-0 bg-black/60 flex flex-col items-center justify-center gap-y-2 z-10"
+  >
+    <span class="text-white/80 text-sm select-none">Ended</span>
+    <button
+      hlmBtn
+      size="icon"
+      variant="ghost"
+      class="cursor-pointer rounded-full text-white hover:bg-white/10"
+      (click)="$event.stopPropagation(); videoPlayer.play()"
     >
-      <!-- Rewind screen -->
-      <span class="select-none" [class]=" size === 'lg' ? 'text-xl' : ''">
-        Restart
-      </span>
-      <button
-        (click)="videoPlayer.play()"
-        hlmBtn
-        [size]="'icon'"
-        variant="ghost"
-        class="cursor-pointer"
-      >
-        <ng-icon hlm name="lucideRotateCcw" />
-      </button>
-    </div>
+      <ng-icon
+        hlm
+        name="lucideRotateCcw"
+        [size]="size === 'lg' ? 'lg' : 'base'"
+      />
+    </button>
+  </div>
+
   } @else {
-    <div
-      class="text-white z-10 absolute inset-0 flex flex-col items-center justify-center pointer-events-none"
-      [class]="showIndicator() ? 'opacity-100' : 'duration-300 opacity-0'"
-    >
-      @switch (indicatorType()) {
-        @case ('play') {
-          <div class="p-2 bg-accent rounded-full flex items-center justify-center">
-            <ng-icon hlm [size]="size === 'lg' ? 'lg' : 'base'" name="lucideCirclePlay" />
-          </div>
-        }
-        @case ('pause') {
-          <div class="p-2 bg-accent rounded-full flex items-center justify-center">
-            <ng-icon hlm [size]="size === 'lg' ? 'lg' : 'base'" name="lucideCirclePause" />
-          </div>
-        }
-        @case ('forward') {
-          <div class="bg-accent opacity-90 rounded-xl p-2 absolute top-1/2 -translate-y-1/2 right-2 flex-col">
-            <div class="p-2 pb-0 bg-accent rounded-full flex items-center justify-center">
-              <ng-icon hlm [size]="size === 'lg' ? 'lg' : 'base'" name="lucideFastForward" />
-            </div>
-            <span>
-              5 seconds
-            </span>
-          </div>
-          <div class="p-2 bg-accent rounded-full flex items-center justify-center">
-            <ng-icon hlm [size]="size === 'lg' ? 'lg' : 'base'" name="lucideCircleArrowRight" />
-          </div>
-        }
-        @case ('backward') {
-          <div class="bg-accent opacity-90 rounded-xl p-2 absolute top-1/2 -translate-y-1/2 left-2 flex-col">
-            <div class="p-2 pb-0 bg-accent rounded-full flex items-center justify-center">
-              <ng-icon hlm [size]="size === 'lg' ? 'lg' : 'base'" class="rotate-y-180" name="lucideFastForward" />
-            </div>
-            <span>
-              5 seconds
-            </span>
-          </div>
-          <div class="p-2 bg-accent rounded-full flex items-center justify-center">
-            <ng-icon hlm [size]="size === 'lg' ? 'lg' : 'base'" name="lucideCircleArrowLeft" />
-          </div>
-        }
-        @case ('volume-change') {
-          <div class="p-2 bg-accent rounded-full flex flex-col items-center justify-center">
-            <ng-container *ngTemplateOutlet="audioIcon"></ng-container>
-            <span [class]="size === 'lg' ? 'text-lg' : 'text-base'">
-              {{ (volume() * 100).toFixed() + '%' }}
-            </span>
-          </div>
-        }
-        <!-- @case ('rewind') {
-          <div class="p-2 bg-accent rounded-full flex items-center justify-center">
-            <ng-icon hlm [size]="size === 'lg' ? 'lg' : 'base'" name="lucideRotateCcw" />
-          </div>
-        } -->
-      }
+  <!-- Playback indicator -->
+  <div
+    class="absolute inset-0 z-10 flex items-center justify-center pointer-events-none transition-opacity duration-300"
+    [class.opacity-100]="showIndicator()"
+    [class.opacity-0]="!showIndicator()"
+  >
+    @switch (indicatorType()) { @case ('play') {
+    <div class="p-3 bg-black/50 backdrop-blur-sm rounded-full">
+      <ng-icon hlm [size]="size === 'lg' ? 'lg' : 'base'" name="lucidePlay" />
     </div>
+    } @case ('pause') {
+    <div class="p-3 bg-black/50 backdrop-blur-sm rounded-full">
+      <ng-icon hlm [size]="size === 'lg' ? 'lg' : 'base'" name="lucidePause" />
+    </div>
+    } @case ('forward') {
+    <div
+      class="absolute top-1/2 -translate-y-1/2 right-3 bg-black/50 backdrop-blur-sm rounded-xl px-3 py-2 flex flex-col items-center gap-y-0.5 text-white text-xs"
+    >
+      <ng-icon hlm size="sm" name="lucideFastForward" />
+      <span class="select-none">+5s</span>
+    </div>
+    } @case ('backward') {
+    <div
+      class="absolute top-1/2 -translate-y-1/2 left-3 bg-black/50 backdrop-blur-sm rounded-xl px-3 py-2 flex flex-col items-center gap-y-0.5 text-white text-xs"
+    >
+      <ng-icon hlm size="sm" name="lucideRewind" />
+      <span class="select-none">-5s</span>
+    </div>
+    } @case ('volume-change') {
+    <div
+      class="bg-black/50 backdrop-blur-sm rounded-xl px-3 py-2 flex flex-col items-center gap-y-0.5 text-white text-xs"
+    >
+      <ng-container *ngTemplateOutlet="audioIcon"></ng-container>
+      <span class="tabular-nums select-none"
+        >{{ (volume() * 100).toFixed() }}%</span
+      >
+    </div>
+    } }
+  </div>
   }
 
-  <!-- Controls -->
+  <!-- Controls overlay -->
   <div
-    class="h-full w-full absolute top-0 left-0 flex duration-150 items-end"
-    [class]="isOverlayVisible() ? '' : 'pointer-events-none opacity-0'"
+    class="absolute inset-0 flex items-end z-20 transition-opacity duration-150 bg-linear-to-t from-black/70 via-transparent to-transparent"
+    [class.opacity-0]="!isOverlayVisible()"
+    [class.pointer-events-none]="!isOverlayVisible()"
   >
     <div
+      class="w-full px-3 pb-3 pt-6 flex flex-col gap-y-1"
       (click)="$event.stopPropagation()"
-      class="z-10 flex flex-col w-full justify-end px-2 py-3 overflow-hidden"
     >
-      <section class="w-full h-2">
-        <div class="flex gap-x-2 items-center h-full w-full relative">
-          <div
-            #timeline
-            class="w-full h-full bg-primary rounded-full relative overflow cursor-pointer"
-            (mousedown)="onTimelineMousedown($event)"
-          >
-            <div
-              class="bg-secondary h-full rounded-full rounded-r-none w-full"
-              [style.width.%]="progressPercentage()"
-            >
-              <div
-                class="size-4 hover:scale-105 -translate-x-2 active:scale-90 transition-transform bg-accent rounded-full absolute top-1/2 -translate-y-1/2"
-                [style.left.%]="progressPercentage()"
-              ></div>
-            </div>
-          </div>
-        </div>
-      </section>
-      <section
-        class="flex w-full h-full items-center justify-between in-fullscreen:pt-2 pt-1 text-white"
+      <!-- Timeline -->
+      <div
+        #timeline
+        class="w-full h-1 bg-white/20 rounded-full relative cursor-pointer group/timeline hover:h-1.5 transition-all duration-150"
+        (mousedown)="onTimelineMousedown($event)"
       >
-        <div class="flex items-center justify-start">
+        <div
+          class="bg-white h-full rounded-full relative"
+          [style.width.%]="progressPercentage()"
+        >
+          <!-- Scrub handle -->
+          <div
+            class="size-3 bg-white rounded-full absolute top-1/2 -translate-y-1/2 right-0 translate-x-1/2 scale-0 group-hover/timeline:scale-100 transition-transform shadow-sm"
+          ></div>
+        </div>
+      </div>
+
+      <!-- Bottom controls row -->
+      <div class="flex items-center justify-between text-white">
+        <div class="flex items-center gap-x-0.5">
+          <!-- Play/pause -->
           <button
             hlmBtn
-            [size]="'icon'"
+            size="icon"
             variant="ghost"
-            class="flex items-center rounded-full cursor-pointer"
+            class="rounded-full cursor-pointer hover:bg-white/10 text-white size-8"
             (click)="togglePlayback()"
           >
             <ng-icon
               hlm
-              [size]="size === 'lg' ? 'lg' : 'base'"
-              [name]="
-                videoPlayer.currentTime === videoPlayer.duration
-                  ? 'lucideRotateCcw'
-                  : videoPlayer.paused
-                  ? 'lucideCirclePlay'
-                  : 'lucideCirclePause'
-              "
-            ></ng-icon>
+              [size]="size === 'lg' ? 'lg' : 'sm'"
+              [name]="videoPlayer.currentTime === videoPlayer.duration
+                ? 'lucideRotateCcw'
+                : videoPlayer.paused ? 'lucidePlay' : 'lucidePause'"
+            />
           </button>
-          <button
-            #button
-            hlmBtn
-            size="default"
-            variant="ghost"
-            class="flex items-center justify-start rounded-full px-1.5 fullscreen:h-11 fullscreen:px-8"
+
+          <!-- Volume -->
+          <div
+            class="flex items-center"
             (mouseover)="audioControl.classList.remove('hidden')"
             (mouseout)="audioControl.classList.add('hidden')"
           >
             <button
+              class="size-8 flex items-center justify-center rounded-full hover:bg-white/10 transition-colors cursor-pointer text-white"
               (click)="videoPlayer.muted = !videoPlayer.muted"
-              class="flex items-center rounded-full cursor-pointer"
             >
               <ng-container *ngTemplateOutlet="audioIcon"></ng-container>
             </button>
-
-            <div #audioControl class="hidden px-2">
+            <div #audioControl class="hidden">
               <input
                 type="range"
                 min="0"
@@ -179,61 +152,44 @@
                 [value]="volume()"
                 (input)="setVolume($event)"
                 (wheel)="onVolumeScroll($event)"
-                class="w-12 h-1 flex items-center justify-center bg-primary/20 rounded-full appearance-none cursor-pointer"
-                />
-              </div>
-          </button>
+                class="w-14 h-1 bg-white/20 rounded-full appearance-none cursor-pointer accent-white"
+              />
+            </div>
+          </div>
 
-          <span class="ml-3 text-sm select-none">
-            {{ `${(currentTime() | formatTime)} / ${(duration() | formatTime)}` }}
+          <!-- Time -->
+          <span class="text-xs text-white/70 tabular-nums select-none ml-1">
+            {{ currentTime() | formatTime }} / {{ duration() | formatTime }}
           </span>
         </div>
 
-        <div>
-          <button
-            hlmBtn
-            size="icon"
-            variant="ghost"
-            class="flex items-center rounded-full cursor-pointer"
-            (click)="toggleFullscreen()"
-          >
-            <ng-icon
-              hlm
-              [size]="size === 'lg' ? 'lg' : 'base'"
-              [name]="isFullscreen() ? 'lucideMinimize' : 'lucideFullscreen'"
-            ></ng-icon>
-          </button>
-        </div>
-      </section>
+        <!-- Fullscreen -->
+        <button
+          hlmBtn
+          size="icon"
+          variant="ghost"
+          class="rounded-full cursor-pointer hover:bg-white/10 text-white size-8"
+          (click)="toggleFullscreen()"
+        >
+          <ng-icon
+            hlm
+            [size]="size === 'lg' ? 'lg' : 'sm'"
+            [name]="isFullscreen() ? 'lucideMinimize' : 'lucideMaximize'"
+          />
+        </button>
+      </div>
     </div>
   </div>
 </div>
 
-
 <ng-template #audioIcon>
-  @if(volume() === 0 || videoPlayer.muted) {
-    <ng-icon
-      [size]="size === 'lg' ? 'lg' : 'base'"
-      hlm
-      name="lucideVolumeX"
-    />
-  } @else if(volume() < 0.33) {
-    <ng-icon
-      [size]="size === 'lg' ? 'lg' : 'base'"
-      hlm
-      name="lucideVolume"
-    />
-  } @else if(volume() < 0.66) {
-    <ng-icon
-      [size]="size === 'lg' ? 'lg' : 'base'"
-      hlm
-      name="lucideVolume1"
-    />
+  @if (volume() === 0 || videoPlayer.muted) {
+  <ng-icon hlm [size]="size === 'lg' ? 'lg' : 'sm'" name="lucideVolumeX" />
+  } @else if (volume() < 0.33) {
+  <ng-icon hlm [size]="size === 'lg' ? 'lg' : 'sm'" name="lucideVolume" />
+  } @else if (volume() < 0.66) {
+  <ng-icon hlm [size]="size === 'lg' ? 'lg' : 'sm'" name="lucideVolume1" />
   } @else {
-    <ng-icon
-      [size]="size === 'lg' ? 'lg' : 'base'"
-      hlm
-      name="lucideVolume2"
-    />
+  <ng-icon hlm [size]="size === 'lg' ? 'lg' : 'sm'" name="lucideVolume2" />
   }
 </ng-template>

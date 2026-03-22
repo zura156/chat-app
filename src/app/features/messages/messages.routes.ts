@@ -1,32 +1,36 @@
 import { Routes } from '@angular/router';
-import { MessagesLayoutComponent } from './layout/messages-layout.component';
-import { LayoutService } from './layout/layout.service';
+import { MessagesLayoutComponent } from './components/layout/messages-layout.component';
+import { LayoutService } from './services/layout.service';
 import { MediaViewerService } from '../../shared/services/media-viewer.service';
+import { conversationsResolver } from './services/conversations.resolver';
 
 export const messagesRoutes: Routes = [
   {
     path: '',
     component: MessagesLayoutComponent,
     providers: [LayoutService],
+    resolve: [conversationsResolver],
     children: [
       {
         path: '',
         loadComponent: () =>
-          import('./list/conversation-list.component').then(
+          import('./components/list/conversation-list.component').then(
             (c) => c.ConversationListComponent,
           ),
       },
       {
         path: 'new',
         loadComponent: () =>
-          import('./new-chat/new-chat.component').then(
+          import('./components/new-chat/new-chat.component').then(
             (c) => c.NewChatComponent,
           ),
       },
       {
         path: ':id',
         loadComponent: () =>
-          import('./chatbox/chatbox.component').then((c) => c.ChatboxComponent),
+          import('./components/chatbox/chatbox.component').then(
+            (c) => c.ChatboxComponent,
+          ),
         providers: [MediaViewerService],
       },
     ],

@@ -1,1 +1,117 @@
-FAFA
+@if(user) {
+<main class="max-w-2xl mx-auto px-4 py-8 space-y-8">
+  <div>
+    <h1 class="text-lg font-semibold tracking-tight">
+      Account (MOCK COMPONENT)
+    </h1>
+    <p class="text-sm text-muted-foreground">
+      Manage your account details and linked services.
+    </p>
+  </div>
+
+  <hlm-separator decorative />
+
+  <!-- Email -->
+  <section class="space-y-4">
+    <div>
+      <h3 class="text-sm font-medium">Email address</h3>
+      <p class="text-xs text-muted-foreground">Your login email</p>
+    </div>
+    <div
+      class="flex items-center justify-between gap-x-4 p-4 rounded-xl bg-muted/40 border border-border"
+    >
+      <div>
+        <p class="text-sm font-medium">{{ user.email }}</p>
+        <p class="text-xs text-muted-foreground">Primary email</p>
+      </div>
+      <button
+        hlmBtn
+        variant="outline"
+        size="sm"
+        class="rounded-full cursor-pointer shrink-0"
+      >
+        Change
+      </button>
+    </div>
+  </section>
+
+  <hlm-separator decorative />
+
+  <!-- Password -->
+  <section class="space-y-4">
+    <div>
+      <h3 class="text-sm font-medium">Password</h3>
+      <p class="text-xs text-muted-foreground">
+        Update your password regularly to keep your account secure
+      </p>
+    </div>
+    <button
+      hlmBtn
+      variant="outline"
+      class="rounded-full cursor-pointer"
+      [routerLink]="'/auth/forgot-password'"
+    >
+      <ng-icon hlm name="lucideLockKeyhole" size="sm" class="mr-1.5" />
+      Change password
+    </button>
+  </section>
+
+  <hlm-separator decorative />
+
+  <!-- Sessions -->
+  <section class="space-y-4">
+    <div>
+      <h3 class="text-sm font-medium">Active sessions</h3>
+      <p class="text-xs text-muted-foreground">
+        Devices currently logged into your account
+      </p>
+    </div>
+    <div class="space-y-2">
+      <div
+        class="flex items-center justify-between p-4 rounded-xl bg-muted/40 border border-border"
+      >
+        <div class="flex items-center gap-x-3">
+          <ng-icon
+            hlm
+            name="lucideMonitor"
+            class="text-muted-foreground"
+            size="sm"
+          />
+          <div>
+            <p class="text-sm font-medium">This device</p>
+            <p class="text-xs text-muted-foreground">Active now</p>
+          </div>
+        </div>
+        <span class="text-xs text-green-500 font-medium">Current</span>
+      </div>
+    </div>
+    <button
+      hlmBtn
+      variant="outline"
+      size="sm"
+      class="rounded-full cursor-pointer text-destructive hover:bg-destructive/10 hover:border-destructive/50"
+    >
+      <ng-icon hlm name="lucideLogOut" size="sm" class="mr-1.5" />
+      Sign out all other devices
+    </button>
+  </section>
+
+  <hlm-separator decorative />
+
+  <!-- Danger zone -->
+  <section class="space-y-4">
+    <div>
+      <h3 class="text-sm font-medium text-destructive">Danger zone</h3>
+      <p class="text-xs text-muted-foreground">Irreversible actions</p>
+    </div>
+    <button
+      hlmBtn
+      variant="outline"
+      class="rounded-full cursor-pointer text-destructive hover:bg-destructive/10 hover:border-destructive/50"
+    >
+      <ng-icon hlm name="lucideTrash2" size="sm" class="mr-1.5" />
+      Delete account
+    </button>
+  </section>
+</main>
+}

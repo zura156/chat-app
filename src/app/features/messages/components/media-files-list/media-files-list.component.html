@@ -1,0 +1,105 @@
+<hlm-tabs
+  (tabActivated)="
+    $event === 'media' ? fetchMedia() : $event === 'files' ? fetchFiles() : ''
+  "
+  tab="media"
+  class="w-full mt-2"
+>
+  <hlm-tabs-list
+    aria-label="media & files"
+    class="w-full bg-muted/40 rounded-lg p-0.5"
+  >
+    <button
+      hlmTabsTrigger="media"
+      (select)="fetchMedia()"
+      class="cursor-pointer rounded-md text-sm flex-1"
+    >
+      Media
+    </button>
+    <button
+      hlmTabsTrigger="files"
+      (select)="fetchFiles()"
+      class="cursor-pointer rounded-md text-sm flex-1"
+    >
+      Files
+    </button>
+  </hlm-tabs-list>
+
+  <div
+    hlmTabsContent="media"
+    class="grid grid-cols-3 gap-0.5 max-h-80 overflow-y-auto py-2"
+  >
+    @for (message of mediaMessages(); track message._id) {
+      <button
+        class="aspect-square overflow-hidden rounded-md hover:opacity-80 active:scale-95 transition-all cursor-pointer"
+        (click)="openMedia(message, $index)"
+      >
+        @switch (message.type) {
+          @case ("image") {
+            <img
+              class="w-full h-full object-cover image-pixelated"
+              loading="lazy"
+              [src]="apiUrl + message.file?.url"
+              [alt]="message.content"
+            />
+          }
+          @case ("video") {
+            <div class="relative w-full h-full">
+              <img
+                class="w-full h-full object-cover pointer-events-none"
+                [src]="apiUrl + message.file?.thumbnail_url"
+              />
+              <div
+                class="absolute inset-0 flex items-center justify-center bg-black/20"
+              >
+                <ng-icon
+                  hlm
+                  name="lucideCirclePlay"
+                  size="sm"
+                  class="text-white"
+                />
+              </div>
+            </div>
+          }
+        }
+      </button>
+    }
+    @if (mediaMessagesResource.isLoading()) {
+      <div
+        class="col-span-3 flex flex-col items-center justify-center py-4 gap-y-1.5 text-muted-foreground"
+      >
+        <hlm-spinner />
+        <span class="text-xs">Loading media...</span>
+      </div>
+    }
+  </div>
+
+  <div hlmTabsContent="files" class="flex flex-col divide-y divide-border">
+    @for (message of fileMessages(); track message._id) {
+      <button
+        class="w-full py-1.5 px-1 text-start hover:bg-muted active:scale-[0.99] transition-all cursor-pointer rounded-lg"
+      >
+        @switch (message.type) {
+          @case ("audio") {
+            @if (message.file) {
+              <div class="p-1">
+                <app-audio-player [audio]="message.file" />
+              </div>
+            }
+          }
+          @default {
+            <app-file-viewer [file]="message.file" />
+          }
+        }
+      </button>
+    }
+    @if (fileMessagesResource.isLoading()) {
+      <div
+        class="flex flex-col items-center justify-center py-4 gap-y-1.5 text-muted-foreground"
+      >
+        <hlm-spinner />
+        <span class="text-xs">Loading files...</span>
+      </div>
+    }
+  </div>
+</hlm-tabs>

@@ -8,7 +8,12 @@ import { HlmSeparatorImports } from '@spartan-ng/helm/separator';
 import { HlmCardImports } from '@spartan-ng/helm/card';
 import { NgIcon, provideIcons } from '@ng-icons/core';
 import { HlmAvatarImports } from '@spartan-ng/helm/avatar';
-import { lucideUpload } from '@ng-icons/lucide';
+import {
+  lucideCamera,
+  lucideLockKeyhole,
+  lucideLogOut,
+  lucideUpload,
+} from '@ng-icons/lucide';
 import { HlmItemImports } from '@spartan-ng/helm/item';
 import { HlmIconImports } from '@spartan-ng/helm/icon';
 import { TimeAgoPipe } from '../../../../../shared/pipes/time-ago.pipe';
@@ -27,11 +32,13 @@ import { catchError, EMPTY, switchMap, tap } from 'rxjs';
 import { UserService } from '../../../services/user.service';
 import { UpdateProfilePictureI } from '../../../interfaces/update-profile-picture.interface';
 import { UpdateProfileDataI } from '../../../interfaces/update-profile-data.interface';
+import { RouterLink } from '@angular/router';
 
 @Component({
   selector: 'user-profile-settings',
   templateUrl: './profile-settings.html',
   imports: [
+    RouterLink,
     HlmCardImports,
     HlmFormFieldImports,
     HlmAvatarImports,
@@ -48,7 +55,14 @@ import { UpdateProfileDataI } from '../../../interfaces/update-profile-data.inte
     HlmLabelImports,
   ],
   styleUrl: './profile-settings.css',
-  providers: [provideIcons({ lucideUpload })],
+  providers: [
+    provideIcons({
+      lucideUpload,
+      lucideCamera,
+      lucideLogOut,
+      lucideLockKeyhole,
+    }),
+  ],
 })
 export class ProfileSettings implements OnInit {
   private userService = inject(UserService);
@@ -137,7 +151,7 @@ export class ProfileSettings implements OnInit {
           toast.error('Failed to update profile picture.', error.error.message);
           return EMPTY;
         }),
-        tap(() => this.selectedImageSrc.set(null))
+        tap(() => this.selectedImageSrc.set(null)),
       )
       .subscribe();
   }

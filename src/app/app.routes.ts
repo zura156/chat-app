@@ -4,6 +4,7 @@ import { authGuard } from './features/auth/guards/auth.guard';
 import { unauthenticatedGuard } from './features/auth/guards/unauthenticated.guard';
 import { ConversationService } from './features/messages/services/conversation.service';
 import { NotificationService } from './features/messages/services/notification.service';
+import { NotFoundPage } from './shared/components/not-found/not-found.page';
 
 export const routes: Routes = [
   {
@@ -21,7 +22,7 @@ export const routes: Routes = [
     path: 'settings', // preference & user profile settings (e.g. display name, pfp, theme preferences, etc.)
     loadChildren: () =>
       import('./features/user/components/settings/settings.routes').then(
-        (m) => m.settingsRoutes
+        (m) => m.settingsRoutes,
       ),
     canActivate: [authGuard],
   },
@@ -29,7 +30,7 @@ export const routes: Routes = [
     path: 'messages',
     loadChildren: () =>
       import('./features/messages/messages.routes').then(
-        (m) => m.messagesRoutes
+        (m) => m.messagesRoutes,
       ),
     providers: [MessageService, ConversationService, NotificationService],
     canActivate: [authGuard],
@@ -38,13 +39,15 @@ export const routes: Routes = [
     path: ':id', // User page
     loadComponent: () =>
       import('./features/user/components/page/user-page.component').then(
-        (c) => c.UserPageComponent
+        (c) => c.UserPageComponent,
       ),
     canActivate: [authGuard],
   },
   {
     path: '**',
-    redirectTo: '',
-    pathMatch: 'full',
+    loadComponent: () =>
+      import('./shared/components/not-found/not-found.page').then(
+        (c) => c.NotFoundPage,
+      ),
   },
 ];

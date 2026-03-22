@@ -1,1 +1,51 @@
-verify email component template
+<main class="flex min-h-full flex-col justify-center items-center px-6 py-12">
+
+  <div class="w-full max-w-sm space-y-6 text-center">
+
+    <!-- Icon -->
+    <div class="flex flex-col items-center gap-y-3">
+      <div class="size-14 rounded-2xl bg-muted flex items-center justify-center">
+        <ng-icon hlm name="lucideMail" size="xl" class="text-muted-foreground" />
+      </div>
+      <h1 class="text-xl font-semibold tracking-tight">Check your email</h1>
+      <p class="text-sm text-muted-foreground">
+        We sent a verification link to your email address. Click it to activate your account.
+      </p>
+    </div>
+
+    <!-- Alerts -->
+    @if (isLoading()) {
+      <div hlmAlert>
+        <ng-icon hlm hlmAlertIcon name="lucideLoader" class="animate-spin" />
+        <h4 hlmAlertTitle>Processing</h4>
+        <p hlmAlertDesc>Please wait...</p>
+      </div>
+    } @else if (error()) {
+      <div hlmAlert variant="destructive" class="cursor-pointer text-start" (click)="clearError()">
+        <ng-icon hlm hlmAlertIcon name="lucideTriangleAlert" />
+        <h4 hlmAlertTitle>Error</h4>
+        <p hlmAlertDesc>{{ error() }}</p>
+      </div>
+    } @else if (success()) {
+      <div hlmAlert class="text-start">
+        <ng-icon hlm hlmAlertIcon name="lucideCircleCheck" />
+        <h4 hlmAlertTitle>Email sent</h4>
+        <p hlmAlertDesc>Check your inbox for the new link.</p>
+      </div>
+    }
+
+    <!-- Resend -->
+    <div class="space-y-3">
+      <button hlmBtn variant="outline" class="w-full cursor-pointer rounded-full"
+        [disabled]="isLoading()"
+        (click)="resendVerification()">
+        Resend verification email
+      </button>
+      <p class="text-xs text-muted-foreground">
+        Wrong account?
+        <a [routerLink]="'/auth/login'" class="text-foreground underline-offset-4 hover:underline cursor-pointer">Sign in with another</a>
+      </p>
+    </div>
+
+  </div>
+</main>

@@ -9,10 +9,10 @@ import {
 } from '@angular/core';
 import { NgIcon, provideIcons } from '@ng-icons/core';
 import {
-  lucideCirclePause,
-  lucideCirclePlay,
-  lucideCircleStop,
-  lucideCircleX,
+  lucidePause,
+  lucidePlay,
+  lucideSquare,
+  lucideTrash2,
 } from '@ng-icons/lucide';
 
 import { HlmButton } from '@spartan-ng/helm/button';
@@ -27,10 +27,10 @@ import { HlmProgressImports } from '@spartan-ng/helm/progress';
   imports: [NgIcon, HlmButton, HlmIcon, HlmProgressImports],
   providers: [
     provideIcons({
-      lucideCircleStop,
-      lucideCirclePause,
-      lucideCirclePlay,
-      lucideCircleX,
+      lucideTrash2,
+      lucideSquare,
+      lucidePlay,
+      lucidePause,
     }),
   ],
 })
@@ -48,14 +48,15 @@ export class AudioRecorder implements OnInit, OnDestroy {
   mediaRecorder?: MediaRecorder;
   private recordingTime = signal<number>(0);
   recordingPercentage = linkedSignal<number>(() =>
-    Math.min((this.recordingTime() / this.TIME_LIMIT) * 100, 100)
+    Math.min((this.recordingTime() / this.TIME_LIMIT) * 100, 100),
   );
   audioUrl = signal<string>('');
 
   constructor() {
     // Initialize AudioContext once.
-    this.audioContext = new (window.AudioContext ||
-      (window as any).webkitAudioContext)();
+    this.audioContext = new (
+      window.AudioContext || (window as any).webkitAudioContext
+    )();
   }
 
   async ngOnInit() {
@@ -99,9 +100,8 @@ export class AudioRecorder implements OnInit, OnDestroy {
 
         try {
           const arrayBuffer = await blob.arrayBuffer();
-          const audioBuffer = await this.audioContext.decodeAudioData(
-            arrayBuffer
-          );
+          const audioBuffer =
+            await this.audioContext.decodeAudioData(arrayBuffer);
           const accurateDuration = audioBuffer.duration;
 
           this.recordingDone.emit({ blob, duration: accurateDuration });

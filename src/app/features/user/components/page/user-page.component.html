@@ -1,25 +1,397 @@
-@let user = this.selectedUser(); 
-@if(user) {
-    <div class="h-full w-full p-2 xs:p-4 sm:p-8 md:p-16">
-        <section hlmCard>
-            <div hlmCardHeader>
-                <div class="flex items-center justify-between">
-                    <div>
-                        <h3 hlmCardTitle class="font-medium">{{ `${user.first_name} ${user.last_name} (${user.username})` }}</h3>
-                        <p hlmCardDescription>{{ user.bio || "User doesn't have a bio" }}</p>
-                    </div>
-                    <div>
-                        <hlm-avatar>
-                            <img 
-                                [src]='user.profile_picture ? `${apiUrl}/${user.profile_picture}` : "/icons/avatar.svg"' 
-                                [alt]='user.username' hlmAvatarImage 
-                            />
-                        </hlm-avatar>
-                    </div>
-                </div>
-            </div>
-            <!-- <hlm-separator decorative /> <p hlmCardContent>{{ user.status }}</p>
-            <p hlmCardFooter>Card Footer</p> -->
-        </section>
+@let user = this.user();
+@if (user) {
+  <div class="min-h-screen bg-background text-foreground">
+    <!-- Cover / Banner -->
+    <div
+      class="relative h-48 bg-linear-to-br from-primary/20 via-primary/10 to-muted overflow-hidden"
+    >
+      <div
+        class="absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,var(--tw-gradient-stops))] from-primary/30 via-transparent to-transparent"
+      ></div>
+      <!-- Edit Cover Button -->
+      <button
+        hlmBtn
+        variant="outline"
+        size="sm"
+        class="absolute top-4 right-4 text-xs opacity-80 hover:opacity-100"
+      >
+        <svg
+          class="w-3.5 h-3.5 mr-1.5"
+          fill="none"
+          stroke="currentColor"
+          viewBox="0 0 24 24"
+        >
+          <path
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            stroke-width="2"
+            d="M15.232 5.232l3.536 3.536M9 13l6.586-6.586a2 2 0 012.828 0l.172.172a2 2 0 010 2.828L12 16H9v-3z"
+          />
+        </svg>
+        Edit Cover
+      </button>
     </div>
+
+    <!-- Profile Header -->
+    <div class="max-w-4xl mx-auto px-4 sm:px-6">
+      <div
+        class="relative -mt-16 pb-6 flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4"
+      >
+        <!-- Avatar -->
+        <div class="flex items-end gap-5">
+          <div class="relative shrink-0">
+            <div
+              class="w-28 h-28 rounded-full border-4 border-background bg-muted overflow-hidden shadow-lg"
+            >
+              <img
+                [src]="user.profile_picture"
+                [alt]="user.first_name + user.last_name"
+                class="w-full h-full object-cover"
+                onerror="this.src = '/icons/avatar.svg'"
+              />
+            </div>
+            <!-- Online indicator -->
+            @if (user.status === "online") {
+              <span
+                class="absolute bottom-1 right-1 w-4 h-4 rounded-full bg-green-500 border-2 border-background"
+              ></span>
+            }
+          </div>
+
+          <div class="pb-1">
+            <h1 class="text-2xl font-bold tracking-tight">
+              {{ user.first_name + user.last_name }}
+            </h1>
+            <p class="text-sm text-muted-foreground">
+              &#64;{{ user.username }}
+            </p>
+          </div>
+        </div>
+
+        <!-- Action Buttons -->
+        <div class="flex items-center gap-2 sm:pb-1">
+          <button
+            (click)="goToChat(user)"
+            hlmBtn
+            variant="outline"
+            size="sm"
+            class="cursor-pointer"
+          >
+            <svg
+              class="w-4 h-4 mr-1.5"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                stroke-width="2"
+                d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"
+              />
+            </svg>
+            Message
+          </button>
+          <button hlmBtn size="sm">
+            <svg
+              class="w-4 h-4 mr-1.5"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                stroke-width="2"
+                d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z"
+              />
+            </svg>
+            Follow
+          </button>
+          <!-- Kebab menu -->
+          <button hlmBtn variant="outline" size="icon" class="shrink-0">
+            <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+              <circle cx="12" cy="5" r="1.5" />
+              <circle cx="12" cy="12" r="1.5" />
+              <circle cx="12" cy="19" r="1.5" />
+            </svg>
+          </button>
+        </div>
+      </div>
+
+      <!-- Bio & Meta -->
+      <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 pb-8">
+        <!-- Left: Info Card -->
+        <div class="lg:col-span-1 space-y-4">
+          <div hlmCard class="p-5 space-y-4 gap-0">
+            <!-- Bio -->
+            <div>
+              <p class="text-sm leading-relaxed text-foreground/80">
+                {{ user.bio || "User has no bio yet." }}
+              </p>
+            </div>
+
+            <hr class="border-border" />
+
+            <!-- Meta info -->
+            <ul class="space-y-2.5 text-sm text-muted-foreground">
+              <li class="flex items-center gap-2.5">
+                <svg
+                  class="w-4 h-4 shrink-0"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    stroke-width="2"
+                    d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"
+                  />
+                  <path
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    stroke-width="2"
+                    d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"
+                  />
+                </svg>
+                <span>
+                  <!-- {{ user.location }} -->
+                  Moon
+                </span>
+              </li>
+              <li class="flex items-center gap-2.5">
+                <svg
+                  class="w-4 h-4 shrink-0"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    stroke-width="2"
+                    d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101"
+                  />
+                  <path
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    stroke-width="2"
+                    d="M10.172 13.828a4 4 0 015.656 0l4-4a4 4 0 10-5.656-5.656l-1.1 1.1"
+                  />
+                </svg>
+                <!-- [href]="user.website" -->
+                <a
+                  href="https://zura156.xyz"
+                  class="hover:text-primary transition-colors truncate"
+                >
+                  <!-- {{ user.website }} -->
+                  Not mine
+                </a>
+              </li>
+              <li class="flex items-center gap-2.5">
+                <svg
+                  class="w-4 h-4 shrink-0"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    stroke-width="2"
+                    d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
+                  />
+                </svg>
+                <!-- <span>Joined {{ user.joinedDate | date: "MMMM yyyy" }}</span> -->
+                <span>Joined 01/01/00</span>
+              </li>
+            </ul>
+
+            <hr class="border-border" />
+
+            <!-- Stats -->
+            <div class="grid grid-cols-3 gap-2 text-center">
+              <div>
+                <p class="font-semibold text-lg">
+                  <!-- {{ user.stats.posts }} -->
+                  0
+                </p>
+                <p class="text-xs text-muted-foreground">Posts</p>
+              </div>
+              <div>
+                <p class="font-semibold text-lg">
+                  <!-- {{ user.stats.followers }} -->
+                  0
+                </p>
+                <p class="text-xs text-muted-foreground">Followers</p>
+              </div>
+              <div>
+                <p class="font-semibold text-lg">
+                  <!-- {{ user.stats.following }} -->
+                  0
+                </p>
+                <p class="text-xs text-muted-foreground">Following</p>
+              </div>
+            </div>
+          </div>
+
+          <!-- Badges / Roles -->
+          <div hlmCard class="p-5 gap-0">
+            <h3 class="text-sm font-semibold mb-3">Roles</h3>
+            <div class="flex flex-wrap gap-2">
+              <!-- @for (role of user.roles; track role) {
+                <span hlmBadge variant="secondary">{{ role }}</span>
+                } -->
+              <span hlmBadge variant="secondary">Breather</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Right: Activity / Posts -->
+        <div class="lg:col-span-2 space-y-4">
+          <!-- Tabs -->
+          <hlm-tabs tab="posts">
+            <hlm-tabs-list class="w-full justify-start">
+              <button hlmTabsTrigger value="posts">Posts</button>
+              <button hlmTabsTrigger value="media">Media</button>
+              <button hlmTabsTrigger value="likes">Likes</button>
+            </hlm-tabs-list>
+
+            <!-- Posts Tab -->
+            <div hlmTabsContent="posts" class="space-y-3 mt-4">
+              @for (post of posts; track post.id) {
+                <div
+                  hlmCard
+                  class="p-4 hover:bg-muted/30 transition-colors cursor-pointer"
+                >
+                  <div class="flex items-start gap-3">
+                    <img
+                      [src]="user.profile_picture"
+                      [alt]="`${user.first_name} ${user.last_name}`"
+                      class="w-9 h-9 rounded-full object-cover shrink-0 mt-0.5"
+                      onerror="this.src = '/icons/avatar.svg'"
+                    />
+                    <div class="flex-1 min-w-0">
+                      <div class="flex items-center gap-1.5 flex-wrap">
+                        <span class="font-semibold text-sm">{{
+                          `${user.first_name} ${user.last_name}`
+                        }}</span>
+                        <span class="text-muted-foreground text-xs"
+                          >&#64;{{ user.username }}</span
+                        >
+                        <span class="text-muted-foreground text-xs">·</span>
+                        <span class="text-muted-foreground text-xs">{{
+                          post.createdAt | date: "MMM d"
+                        }}</span>
+                      </div>
+                      <p class="text-sm mt-1 leading-relaxed">
+                        {{ post.content }}
+                      </p>
+                      <!-- Post actions -->
+                      <div class="flex gap-5 mt-3 text-muted-foreground">
+                        <button
+                          class="flex items-center gap-1.5 text-xs hover:text-primary transition-colors group"
+                        >
+                          <svg
+                            class="w-4 h-4 group-hover:scale-110 transition-transform"
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
+                          >
+                            <path
+                              stroke-linecap="round"
+                              stroke-linejoin="round"
+                              stroke-width="2"
+                              d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"
+                            />
+                          </svg>
+                          {{ post.likes }}
+                        </button>
+                        <button
+                          class="flex items-center gap-1.5 text-xs hover:text-primary transition-colors group"
+                        >
+                          <svg
+                            class="w-4 h-4 group-hover:scale-110 transition-transform"
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
+                          >
+                            <path
+                              stroke-linecap="round"
+                              stroke-linejoin="round"
+                              stroke-width="2"
+                              d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"
+                            />
+                          </svg>
+                          {{ post.replies }}
+                        </button>
+                        <button
+                          class="flex items-center gap-1.5 text-xs hover:text-primary transition-colors group"
+                        >
+                          <svg
+                            class="w-4 h-4 group-hover:scale-110 transition-transform"
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
+                          >
+                            <path
+                              stroke-linecap="round"
+                              stroke-linejoin="round"
+                              stroke-width="2"
+                              d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+                            />
+                          </svg>
+                          {{ post.reposts }}
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              }
+            </div>
+
+            <!-- Media Tab -->
+            <div hlmTabsContent="media" class="mt-4">
+              <div class="grid grid-cols-3 gap-1.5">
+                @for (img of mediaImages; track img) {
+                  <div
+                    class="aspect-square rounded-md bg-muted overflow-hidden"
+                  >
+                    <img
+                      [src]="img"
+                      alt="media"
+                      class="w-full h-full object-cover hover:scale-105 transition-transform duration-300"
+                    />
+                  </div>
+                }
+              </div>
+            </div>
+
+            <!-- Likes Tab -->
+            <div hlmTabsContent="likes" class="mt-4">
+              <div
+                class="flex flex-col items-center justify-center py-12 text-muted-foreground"
+              >
+                <svg
+                  class="w-10 h-10 mb-3 opacity-40"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    stroke-width="1.5"
+                    d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"
+                  />
+                </svg>
+                <p class="text-sm">No liked posts yet</p>
+              </div>
+            </div>
+          </hlm-tabs>
+        </div>
+      </div>
+    </div>
+  </div>
 }

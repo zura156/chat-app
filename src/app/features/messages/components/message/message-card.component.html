@@ -1,0 +1,232 @@
+@let message = this.message();
+@let isCurrentUserMessage = this.isCurrentUserMessage(message);
+
+<div
+  class="flex items-center mt-2 w-full overflow-x-hidden"
+  [class]="
+    message.type === 'info'
+      ? 'justify-center'
+      : isCurrentUserMessage
+        ? 'justify-end'
+        : 'justify-start'
+  "
+>
+  <div class="flex flex-col w-fit">
+    @if (isGroup() && !isCurrentUserMessage && message.type !== "info") {
+      <span class="text-xs text-muted-foreground ml-7 mb-0.5">
+        {{ message.sender.username }}
+      </span>
+    }
+    <div class="flex justify-start items-end gap-x-1.5">
+      @if (!isCurrentUserMessage && message.type !== "info") {
+        <hlm-avatar
+          variant="small"
+          class="size-5 shrink-0 mb-1.5 cursor-pointer hover:opacity-80 transition-opacity"
+          [routerLink]="['/', message.sender._id]"
+          matTooltipClass="text-xs rounded-md"
+          matTooltipPosition="left"
+          [matTooltip]="message.sender.username"
+        >
+          <img
+            [src]="imageUrl() || '/icons/avatar.svg'"
+            [alt]="message.sender.username"
+            hlmAvatarImage
+          />
+          <span hlmAvatarFallback>
+            <img src="/icons/avatar.svg" />
+          </span>
+        </hlm-avatar>
+      }
+
+      <div class="flex flex-col">
+        <div
+          class="rounded-2xl overflow-hidden"
+          [class]="
+            message.type === 'audio' ||
+            message.type === 'video' ||
+            message.type === 'info'
+              ? 'bg-transparent'
+              : isCurrentUserMessage
+                ? 'bg-primary text-primary-foreground'
+                : 'bg-muted text-foreground border border-border'
+          "
+        >
+          <div
+            class="py-1.5 text-ellipsis max-w-xs"
+            [class]="message.type === 'audio' ? '' : 'px-3'"
+          >
+            @switch (message.type) {
+              @case ("info") {
+                <p class="text-muted-foreground text-xs text-center px-2">
+                  {{ message.content }}
+                </p>
+              }
+              @case ("text") {
+                <p
+                  class="whitespace-normal text-sm [overflow-wrap:anywhere] [word-break:break-word]"
+                >
+                  {{ message.content }}
+                </p>
+              }
+              @case ("image") {
+                <div
+                  class="py-1 w-fit h-fit cursor-pointer"
+                  (click)="openMedia(message, 0)"
+                >
+                  <img
+                    class="object-contain max-h-72 max-w-full rounded-xl image-pixelated"
+                    [class]="isImageLoaded() ? 'h-fit' : 'h-72'"
+                    [src]="
+                      isImageLoaded()
+                        ? apiUrl + message.file?.url
+                        : apiUrl +
+                          (message.file?.mime_type === 'image/gif'
+                            ? message.file?.url
+                            : message.file?.placeholder_url)
+                    "
+                    (load)="onFullImageLoad()"
+                    [alt]="message.content"
+                  />
+                </div>
+              }
+              @case ("video") {
+                @if (message.file) {
+                  <div class="max-w-3xs sm:max-w-xs relative">
+                    @if (loadedVideoMessageId() === message._id) {
+                      <div
+                        (click)="
+                          $event.stopPropagation(); openMedia(message, 0)
+                        "
+                        class="w-full h-full"
+                      >
+                        <app-video-player
+                          #videoPlayerComponent
+                          [video]="message.file"
+                          [disableContainerClickToggle]="true"
+                        ></app-video-player>
+                      </div>
+                    } @else {
+                      <div
+                        class="relative cursor-pointer rounded-xl overflow-hidden"
+                        (click)="loadVideo(message._id || '')"
+                      >
+                        <img
+                          class="w-full h-full object-cover"
+                          [src]="
+                            apiUrl +
+                            (message.file.thumbnail_url ||
+                              message.file.placeholder_url)
+                          "
+                          [alt]="message.file.name"
+                        />
+                        <div
+                          class="absolute inset-0 flex items-center justify-center bg-black/20"
+                        >
+                          <div
+                            class="bg-background/80 backdrop-blur-sm p-2 rounded-full"
+                          >
+                            <ng-icon hlm name="lucideCirclePlay" size="lg" />
+                          </div>
+                        </div>
+                      </div>
+                    }
+                  </div>
+                } @else {
+                  <div class="w-full h-full py-2 relative">
+                    <hlm-skeleton class="w-64 h-48 rounded-xl" />
+                    <div
+                      class="absolute inset-0 flex flex-col gap-y-1 items-center justify-center"
+                    >
+                      <ng-icon hlm name="lucideCirclePlay" size="xl" />
+                      <span class="text-xs text-muted-foreground">Loading</span>
+                    </div>
+                  </div>
+                }
+              }
+              @case ("audio") {
+                @if (message.file) {
+                  <div class="w-3xs sm:w-40 md:w-52 sm:max-w-3xs">
+                    <app-audio-player [audio]="message.file"></app-audio-player>
+                  </div>
+                } @else {
+                  <div class="relative py-2">
+                    <hlm-skeleton class="w-48 h-10 rounded-full" />
+                    <span
+                      class="absolute inset-0 flex items-center justify-center text-xs text-muted-foreground select-none"
+                    >
+                      Loading audio...
+                    </span>
+                  </div>
+                }
+              }
+              @case ("file") {
+                <app-file-viewer [file]="message.file" />
+              }
+            }
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+@if (readReceipts() && readReceipts().length > 0 && isGroup()) {
+  <div class="w-full flex items-center gap-x-1 justify-end pt-1">
+    @if (readReceipts().length > 4) {
+      @for (
+        readReceipt of readReceipts().slice(0, 4);
+        track readReceipt.user_id
+      ) {
+        @let userCredentials = this.getUserCredentials(readReceipt.user_id);
+        @if (readReceipt.last_message_read_id === message._id) {
+          <hlm-avatar class="size-4">
+            <img
+              [src]="userCredentials.profile_picture || '/icons/avatar.svg'"
+              [alt]="userCredentials.username"
+              hlmAvatarImage
+            />
+          </hlm-avatar>
+        }
+      }
+      <span class="text-xs text-muted-foreground"
+        >+{{ readReceipts().length - 4 }}</span
+      >
+    } @else {
+      @for (readReceipt of readReceipts(); track readReceipt.user_id) {
+        @if (
+          currentUser()._id !== readReceipt.user_id &&
+          readReceipt.last_message_read_id === message._id
+        ) {
+          @let userCredentials = this.getUserCredentials(readReceipt.user_id);
+          <button
+            type="button"
+            matTooltipClass="text-xs rounded-md"
+            matTooltipPosition="above"
+            matTooltip="Seen by {{ userCredentials.username }} at {{
+              readReceipt.read_at | date: 'short'
+            }}"
+            class="w-fit"
+          >
+            <hlm-avatar class="size-4">
+              <img
+                [src]="userCredentials.profile_picture || '/icons/avatar.svg'"
+                [alt]="userCredentials.username"
+                hlmAvatarImage
+              />
+              <span hlmAvatarFallback
+                ><img src="/icons/avatar.svg" alt="avatar fallback"
+              /></span>
+            </hlm-avatar>
+          </button>
+        }
+      }
+    }
+  </div>
+} @else if (isCurrentUserMessage && isLastMessage() && !isGroup()) {
+  <div class="text-xs text-end mt-0.5 opacity-60 pr-1">
+    {{ message.status | titlecase }}
+    @if (message.status !== "sending" && message.status !== "failed") {
+      · {{ message.timestamp | timeAgo }}
+    }
+  </div>
+}

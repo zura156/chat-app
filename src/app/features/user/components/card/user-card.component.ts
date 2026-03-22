@@ -10,5 +10,4 @@ import { ParticipantI } from '../../../messages/interfaces/participant.interface
 })
 export class UserCardComponent {
   user = input<UserI | ParticipantI>();
-  imageUrl = this.user()?.profile_picture;
 }

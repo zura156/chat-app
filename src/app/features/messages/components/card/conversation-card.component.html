@@ -1,0 +1,101 @@
+@let conversation = this.conversation();
+@if (conversation) {
+  <main
+    class="px-2.5 py-2.5 flex items-center gap-x-3 cursor-pointer rounded-xl hover:bg-muted/60 active:scale-[0.99] transition-all duration-150 select-none border-b border-border last:border-b-0"
+    (click)="switchView(conversation._id)"
+  >
+    <!-- AVATAR -->
+    <div class="shrink-0">
+      @if (conversation.is_group) {
+        <hlm-avatar variant="medium">
+          <img
+            [src]="conversation.group_picture ?? '/icons/group.svg'"
+            alt="group picture"
+            class="rounded-full object-cover w-full h-full bg-muted"
+            hlmAvatarImage
+          />
+        </hlm-avatar>
+      } @else {
+        @for (participant of conversation.participants; track participant._id) {
+          @if (participant._id !== currentUser()?._id) {
+            <hlm-avatar variant="medium">
+              <img
+                [src]="participant?.profile_picture ?? '/icons/avatar.svg'"
+                alt="profile picture"
+                hlmAvatarImage
+              />
+            </hlm-avatar>
+          }
+        }
+      }
+    </div>
+
+    <section class="flex-1 min-w-0">
+      <div class="flex items-baseline justify-between gap-x-1">
+        <h1 class="font-semibold text-sm truncate">
+          @let participants = this.participants();
+          @if (!conversation.is_group) {
+            @for (participant of participants; track $index) {
+              @if (participant._id !== currentUser()?._id) {
+                <span>{{ participant.username }}</span>
+              }
+            }
+          } @else {
+            @if (conversation.group_name) {
+              {{ conversation.group_name }}
+            } @else {
+              @for (
+                participant of participants;
+                let i = $index;
+                track participant._id
+              ) {
+                @if (participant._id !== currentUser()?._id) {
+                  <span>{{
+                    participant.username +
+                      (i + 1 !== participants?.length ? "," : "")
+                  }}</span>
+                }
+              }
+            }
+          }
+        </h1>
+        @if (conversation.last_message?.timestamp) {
+          <span class="text-xs text-muted-foreground shrink-0">
+            {{ conversation.last_message?.timestamp ?? "" | timeAgo }}
+          </span>
+        }
+      </div>
+
+      <p
+        class="text-xs text-muted-foreground flex items-center gap-x-1 truncate mt-0.5"
+      >
+        @if (conversation.last_message?.type !== "info") {
+          @if (conversation.last_message?.sender?._id === currentUser()?._id) {
+            <span class="shrink-0">You:</span>
+          }
+          @if (
+            conversation.is_group &&
+            conversation.last_message?.sender &&
+            conversation.last_message?.sender?._id !== currentUser()?._id
+          ) {
+            <span class="shrink-0"
+              >{{ conversation.last_message?.sender?.username }}:</span
+            >
+          }
+        }
+        @if (conversation.last_message?.content) {
+          <span
+            class="truncate"
+            [class]="
+              hasRead(conversation)
+                ? 'text-muted-foreground'
+                : 'font-semibold text-foreground'
+            "
+          >
+            {{ conversation.last_message?.content }}
+          </span>
+        }
+      </p>
+    </section>
+  </main>
+}

@@ -16,14 +16,12 @@ import {
 } from '@angular/core';
 import { NgIcon, provideIcons } from '@ng-icons/core';
 import {
-  lucideCircleArrowLeft,
-  lucideCircleArrowRight,
-  lucideCirclePause,
-  lucideCirclePlay,
-  lucideCircleStop,
   lucideFastForward,
-  lucideFullscreen,
+  lucideMaximize,
   lucideMinimize,
+  lucidePause,
+  lucidePlay,
+  lucideRewind,
   lucideRotateCcw,
   lucideVolume,
   lucideVolume1,
@@ -44,19 +42,17 @@ import { VideoActionsT } from '../../interfaces/video-actions.interface';
   imports: [NgIcon, HlmButton, HlmIcon, FormatTimePipe, NgTemplateOutlet],
   providers: [
     provideIcons({
-      lucideCirclePlay,
-      lucideCirclePause,
-      lucideCircleStop,
+      lucidePlay,
+      lucidePause,
       lucideRotateCcw,
+      lucideRewind,
+      lucideFastForward,
       lucideVolume,
       lucideVolume1,
       lucideVolume2,
       lucideVolumeX,
       lucideMinimize,
-      lucideFullscreen,
-      lucideCircleArrowLeft,
-      lucideCircleArrowRight,
-      lucideFastForward,
+      lucideMaximize,
     }),
   ],
   templateUrl: './video-player.html',
@@ -91,7 +87,7 @@ export class VideoPlayer implements AfterViewInit, OnDestroy {
     return this.videoPlayer()?.nativeElement.duration || 0;
   });
   volume = linkedSignal<number>(
-    () => Number(this.videoPlayer()?.nativeElement.getAttribute('volume')) || 1
+    () => Number(this.videoPlayer()?.nativeElement.getAttribute('volume')) || 1,
   );
   lastVolumeBeforeMute: number = this.volume();
 
@@ -118,7 +114,7 @@ export class VideoPlayer implements AfterViewInit, OnDestroy {
         (this.document as any).webkitFullscreenElement ||
         (this.document as any).mozFullScreenElement ||
         (this.document as any).msFullscreenElement
-      )
+      ),
     );
   }
 
@@ -323,7 +319,7 @@ export class VideoPlayer implements AfterViewInit, OnDestroy {
 
   @HostListener('window:keydown', ['$event'])
   handleKeyDown(event: KeyboardEvent) {
-    event.stopPropagation()
+    event.stopPropagation();
     if (this.disableContainerClickToggle()) return;
     if (!this.isFocused()) return;
 
@@ -424,7 +420,7 @@ export class VideoPlayer implements AfterViewInit, OnDestroy {
 
       videoElement.currentTime = Math.min(
         videoElement.duration,
-        videoElement.currentTime + 5
+        videoElement.currentTime + 5,
       );
       this.currentTime.set(videoElement.currentTime);
       this.indicatorType.set('forward');

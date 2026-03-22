@@ -1,289 +1,242 @@
-<div class="flex min-h-full flex-col justify-center px-6 py-12 lg:px-8">
-  <div class="sm:mx-auto sm:w-full sm:max-w-sm">
-    <div class="mb- text-center tracking-tight">
+<div class="flex min-h-dvh flex-col justify-center items-center px-6 py-12">
+  <!-- Logo + heading -->
+  <div class="w-full max-w-sm text-center mb-8">
+    <div
+      class="inline-flex items-center justify-center size-14 bg-black rounded-2xl mb-4"
+    >
       <img
-        class="mx-auto h-14 w-auto my-2 p-2 bg-black rounded-xl"
         src="chat-favicon-light.png"
         alt="Chat app"
+        class="size-8 object-contain"
       />
-      <h1 class="text-2xl/9 font-medium text-primary">
-        Create Your Account
-      </h1>
-      <h2 class="text-gray-500 p-2">
-        Join us in just a few steps. Sign up to enjoy full access, personalized features, and a seamless experience.
-      </h2>
     </div>
+    <h1 class="text-2xl font-semibold tracking-tight">Create an account</h1>
+    <p class="text-sm text-muted-foreground mt-1.5">
+      Fill in your details to get started
+    </p>
   </div>
 
-  @if (isLoading()) {
-  <div class="mx-auto w-full max-w-sm">
-    <div hlmAlert>
-      <ng-icon hlm hlmAlertIcon name="lucideLoader" />
-      <h4 hlmAlertTitle>Processing</h4>
-      <p hlmAlertDesc>Please wait...</p>
-    </div>
-  </div>
-  } @else { @if (error()) {
-  <div class="mx-auto w-full max-w-sm cursor-pointer" (click)="clearError()">
-    <div hlmAlert variant="destructive">
-      <ng-icon hlm hlmAlertIcon name="lucideTriangleAlert" />
-      <h4 hlmAlertTitle>Unexpected Error</h4>
-      <p hlmAlertDesc>{{ error() }}</p>
-    </div>
-  </div>
-  } } @if(form.get('password')?.errors?.['passwordStrength'] !== null &&
-  !form.controls['password'].hasError('required')) {
-  <div
-    hlmAlert
-    class="mx-auto md:max-w-sm hover:ring-[3px] hover:ring-ring/50 transition-all"
-  >
-    <ng-icon hlm hlmAlertIcon name="lucideCircleAlert" />
-    <h1 hlmAlertTitle>Password is invalid!</h1>
-    <ul hlmAlertDesc class="list-disc text-destructive">
-      @if (!form.get('password')?.errors?.['passwordStrength']?.hasLength) {
-      <li>
-        <hlm-error class="flex items-center gap-x-1 mt-2 mb-px">
-          Password must be at least 8 characters long.
-        </hlm-error>
-      </li>
-      } @if (!form.get('password')?.errors?.['passwordStrength']?.hasUppercase)
-      {
-      <li>
-        <hlm-error class="flex items-center gap-x-1 mt-2 mb-px">
-          Password must contain at least one uppercase letter.
-        </hlm-error>
-      </li>
-      } @if (!form.get('password')?.errors?.['passwordStrength']?.hasNumeric) {
-      <li>
-        <hlm-error class="flex items-center gap-x-1 mt-2 mb-px">
-          Password must contain at least one number.
-        </hlm-error>
-      </li>
-      } @if (!form.get('password')?.errors?.['passwordStrength']?.hasSpecial) {
-      <li>
-        <hlm-error class="flex items-center gap-x-1 mt-2 mb-px">
-          Password must contain at least one special character.
-        </hlm-error>
-      </li>
-      }
-    </ul>
-  </div>
-  }
+  <!-- Alerts -->
+  <div class="w-full max-w-sm space-y-2 mb-4">
+    @if (isLoading()) {
+      <div hlmAlert>
+        <ng-icon hlm hlmAlertIcon name="lucideLoader" />
+        <h4 hlmAlertTitle>Processing</h4>
+        <p hlmAlertDesc>Please wait...</p>
+      </div>
+    } @else if (error()) {
+      <div
+        hlmAlert
+        variant="destructive"
+        class="cursor-pointer"
+        (click)="clearError()"
+      >
+        <ng-icon hlm hlmAlertIcon name="lucideTriangleAlert" />
+        <h4 hlmAlertTitle>Error</h4>
+        <p hlmAlertDesc>{{ error() }}</p>
+      </div>
+    }
 
-  <div class="mt-5 sm:mx-auto sm:w-full sm:max-w-sm">
-    <form [formGroup]="form" (ngSubmit)="onSubmit()">
-      <fieldset class="mb-2">
+    <!-- Password strength alert -->
+    @if (
+      form.get("password")?.errors?.["passwordStrength"] !== null &&
+      !form.controls["password"].hasError("required") &&
+      form.controls["password"].dirty
+    ) {
+      <div hlmAlert variant="destructive">
+        <ng-icon hlm hlmAlertIcon name="lucideCircleAlert" />
+        <h4 hlmAlertTitle>Weak password</h4>
+        <ul hlmAlertDesc class="list-disc pl-4 space-y-0.5 mt-1">
+          @if (!form.get("password")?.errors?.["passwordStrength"]?.hasLength) {
+            <li>At least 8 characters</li>
+          }
+          @if (
+            !form.get("password")?.errors?.["passwordStrength"]?.hasUppercase
+          ) {
+            <li>At least one uppercase letter</li>
+          }
+          @if (
+            !form.get("password")?.errors?.["passwordStrength"]?.hasNumeric
+          ) {
+            <li>At least one number</li>
+          }
+          @if (
+            !form.get("password")?.errors?.["passwordStrength"]?.hasSpecial
+          ) {
+            <li>At least one special character</li>
+          }
+        </ul>
+      </div>
+    }
+  </div>
+
+  <!-- Form -->
+  <div class="w-full max-w-sm">
+    <form [formGroup]="form" (ngSubmit)="onSubmit()" class="space-y-3">
+      <!-- First + last name row * -->
+      <div class="grid grid-cols-2 gap-x-2">
         <hlm-form-field>
           <input
+            hlmInput
             type="text"
             name="first_name"
             formControlName="first_name"
             id="first_name"
             autocomplete="given-name"
             required
-            class="w-full"
-            hlmInput
             placeholder="First name"
+            class="w-full"
           />
-          @if (form.controls['first_name'].hasError('required')) {
-          <hlm-error class="flex items-center gap-x-1"
-            ><ng-icon hlm size="sm" name="lucideCircleAlert"></ng-icon> First
-            name is required!</hlm-error
-          >
-          } @if (form.controls['first_name'].hasError('minLength')) {
-          <hlm-error class="flex items-center gap-x-1"
-            ><ng-icon hlm size="sm" name="lucideCircleAlert"></ng-icon> First
-            name must be at least 3 characters long.
-          </hlm-error>
-          } @if (form.controls['first_name'].hasError('maxLength')) {
-          <hlm-error class="flex items-center gap-x-1"
-            ><ng-icon hlm size="sm" name="lucideCircleAlert"></ng-icon> First
-            name must be at most 32 characters long.
-          </hlm-error>
+          @if (form.controls["first_name"].hasError("required")) {
+            <hlm-error>Required</hlm-error>
+          }
+          @if (form.controls["first_name"].hasError("minLength")) {
+            <hlm-error>Min 3 characters</hlm-error>
           }
         </hlm-form-field>
-      </fieldset>
-      <fieldset class="mb-2">
+
         <hlm-form-field>
           <input
+            hlmInput
             type="text"
             name="last_name"
             formControlName="last_name"
             id="last_name"
             autocomplete="family-name"
             required
-            class="w-full"
-            hlmInput
             placeholder="Last name"
-          />
-          @if (form.controls['last_name'].hasError('required')) {
-          <hlm-error class="flex items-center gap-x-1"
-            ><ng-icon hlm size="sm" name="lucideCircleAlert"></ng-icon> Last
-            name is required!</hlm-error
-          >
-          } @if (form.controls['last_name'].hasError('minLength')) {
-          <hlm-error class="flex items-center gap-x-1"
-            ><ng-icon hlm size="sm" name="lucideCircleAlert"></ng-icon> Last
-            name must be at least 3 characters long.
-          </hlm-error>
-          } @if (form.controls['last_name'].hasError('maxLength')) {
-          <hlm-error class="flex items-center gap-x-1"
-            ><ng-icon hlm size="sm" name="lucideCircleAlert"></ng-icon> Last
-            name must be at most 32 characters long.
-          </hlm-error>
-          }
-        </hlm-form-field>
-      </fieldset>
-      <fieldset class="mb-2">
-        <hlm-form-field>
-          <input
-            type="text"
-            name="username"
-            formControlName="username"
-            id="username"
-            autocomplete="username"
-            required
             class="w-full"
-            hlmInput
-            placeholder="Username"
           />
-          @if (form.controls['username'].hasError('required')) {
-          <hlm-error class="flex items-center gap-x-1"
-            ><ng-icon hlm size="sm" name="lucideCircleAlert"></ng-icon> Username
-            is required!</hlm-error
-          >
-          } @if (form.controls['username'].hasError('minLength')) {
-          <hlm-error class="flex items-center gap-x-1"
-            ><ng-icon hlm size="sm" name="lucideCircleAlert"></ng-icon> Username
-            must be at least 3 characters long.
-          </hlm-error>
-          } @if (form.controls['username'].hasError('maxLength')) {
-          <hlm-error class="flex items-center gap-x-1"
-            ><ng-icon hlm size="sm" name="lucideCircleAlert"></ng-icon> Username
-            must be at most 32 characters long.
-          </hlm-error>
+          @if (form.controls["last_name"].hasError("required")) {
+            <hlm-error>Required</hlm-error>
+          }
+          @if (form.controls["last_name"].hasError("minLength")) {
+            <hlm-error>Min 3 characters</hlm-error>
           }
         </hlm-form-field>
-      </fieldset>
-      <fieldset class="mb-2">
-        <hlm-form-field>
-          <input
-            type="email"
-            name="email"
-            formControlName="email"
-            id="email"
-            autocomplete="email"
-            required
-            class="w-full"
-            hlmInput
-            placeholder="Email"
-          />
-          @if (form.controls['email'].hasError('required')) {
-          <hlm-error class="flex items-center gap-x-1"
-            ><ng-icon hlm size="sm" name="lucideCircleAlert"></ng-icon> Email
-            required!</hlm-error
-          >
-          } @if (form.controls['email'].hasError('email')) {
-          <hlm-error class="flex items-center gap-x-1"
-            ><ng-icon hlm size="sm" name="lucideCircleAlert"></ng-icon> Email
-            invalid!
-          </hlm-error>
-          }
-        </hlm-form-field>
-      </fieldset>
-      <fieldset class="mb-2">
-        <div class="text-sm"></div>
-        <div class="relative">
-          <hlm-form-field>
-            <div class="relative">
-              <input
-                [type]="showPass() ? 'text' : 'password'"
-                name="password"
-                formControlName="password"
-                id="password"
-                class="w-full rounded-r-[calc(var(--radius))]"
-                placeholder="Password"
-                autocomplete="current-password"
-                required
-                hlmInput
-              />
-              <button
-                type="button"
-                hlmBtn
-                class="absolute top-0 right-0 rounded-l-none duration-300 h-full min-w-16 cursor-pointer"
-                (click)="togglePasswordVisibility()"
-              >
-                {{ showPass() ? "Hide" : "Show" }}
-              </button>
-            </div>
-            @if (form.controls['password'].hasError('required')) {
-            <hlm-error class="flex items-center gap-x-1 mt-2 mb-px"
-              ><ng-icon hlm size="sm" name="lucideCircleAlert"></ng-icon>
-              Password required!</hlm-error
-            >
-            }
-          </hlm-form-field>
-        </div>
-      </fieldset>
-      <fieldset class="mb-2">
-        <div class="text-sm"></div>
-        <div>
-          <hlm-form-field>
-            <div class="relative">
-              <input
-                [type]="showRepeatPass() ? 'text' : 'password'"
-                name="repeat_password"
-                formControlName="repeat_password"
-                id="repeat_password"
-                class="w-full rounded-r-[calc(var(--radius))]"
-                placeholder="Repeat password"
-                autocomplete="current-password"
-                required
-                hlmInput
-              />
-              <button
-                type="button"
-                hlmBtn
-                class="absolute top-0 right-0 rounded-l-none duration-300 h-full min-w-16 cursor-pointer"
-                (click)="toggleRepeatPasswordVisibility()"
-              >
-                {{ showRepeatPass() ? "Hide" : "Show" }}
-              </button>
-            </div>
-            @if (form.controls['repeat_password'].hasError('required')) {
-            <hlm-error class="flex items-center gap-x-1 mt-2 mb-px"
-              ><ng-icon hlm size="sm" name="lucideCircleAlert"></ng-icon> Repeat
-              Password is required!</hlm-error
-            >
-            } @if (form.controls['repeat_password'].hasError('mustMatch')) {
-            <hlm-error class="flex items-center gap-x-1 mt-2 mb-px"
-              ><ng-icon hlm size="sm" name="lucideCircleAlert"></ng-icon>
-              Passwords do not match!</hlm-error
-            >
-            }
-          </hlm-form-field>
-        </div>
-      </fieldset>
+      </div>
 
-      <fieldset class="mt-4">
-        <button
-          type="submit"
-          hlmBtn
-          variant="default"
-          class="w-full cursor-pointer"
-        >
-          Sign up
-        </button>
-      </fieldset>
+      <hlm-form-field>
+        <input
+          hlmInput
+          type="text"
+          name="username"
+          formControlName="username"
+          id="username"
+          autocomplete="username"
+          required
+          placeholder="Username"
+          class="w-full"
+        />
+        @if (form.controls["username"].hasError("required")) {
+          <hlm-error>Username is required</hlm-error>
+        }
+        @if (form.controls["username"].hasError("minLength")) {
+          <hlm-error>Min 3 characters</hlm-error>
+        }
+        @if (form.controls["username"].hasError("maxLength")) {
+          <hlm-error>Max 32 characters</hlm-error>
+        }
+      </hlm-form-field>
+
+      <hlm-form-field>
+        <input
+          hlmInput
+          type="email"
+          name="email"
+          formControlName="email"
+          id="email"
+          autocomplete="email"
+          required
+          placeholder="Email"
+          class="w-full"
+        />
+        @if (form.controls["email"].hasError("required")) {
+          <hlm-error>Email is required</hlm-error>
+        }
+        @if (form.controls["email"].hasError("email")) {
+          <hlm-error>Invalid email address</hlm-error>
+        }
+      </hlm-form-field>
+
+      <hlm-form-field>
+        <div class="relative">
+          <input
+            hlmInput
+            [type]="showPass() ? 'text' : 'password'"
+            name="password"
+            formControlName="password"
+            id="password"
+            placeholder="Password"
+            autocomplete="new-password"
+            required
+            class="w-full pr-20"
+          />
+          <button
+            type="button"
+            hlmBtn
+            variant="ghost"
+            size="sm"
+            class="absolute right-1 top-1/2 -translate-y-1/2 h-7 px-2.5 text-xs text-muted-foreground hover:text-foreground cursor-pointer"
+            (click)="togglePasswordVisibility()"
+          >
+            {{ showPass() ? "Hide" : "Show" }}
+          </button>
+        </div>
+        @if (form.controls["password"].hasError("required")) {
+          <hlm-error>Password is required</hlm-error>
+        }
+      </hlm-form-field>
+
+      <hlm-form-field>
+        <div class="relative">
+          <input
+            hlmInput
+            [type]="showRepeatPass() ? 'text' : 'password'"
+            name="repeat_password"
+            formControlName="repeat_password"
+            id="repeat_password"
+            placeholder="Confirm password"
+            autocomplete="new-password"
+            required
+            class="w-full pr-20"
+          />
+          <button
+            type="button"
+            hlmBtn
+            variant="ghost"
+            size="sm"
+            class="absolute right-1 top-1/2 -translate-y-1/2 h-7 px-2.5 text-xs text-muted-foreground hover:text-foreground cursor-pointer"
+            (click)="toggleRepeatPasswordVisibility()"
+          >
+            {{ showRepeatPass() ? "Hide" : "Show" }}
+          </button>
+        </div>
+        @if (form.controls["repeat_password"].hasError("required")) {
+          <hlm-error>Please confirm your password</hlm-error>
+        }
+        @if (form.controls["repeat_password"].hasError("mustMatch")) {
+          <hlm-error>Passwords don't match</hlm-error>
+        }
+      </hlm-form-field>
+
+      <button
+        type="submit"
+        hlmBtn
+        class="w-full cursor-pointer rounded-full mt-2"
+      >
+        Create account
+      </button>
     </form>
 
-    <p class="mt-2 text-center text-sm/6 text-gray-500">
-      Already have an acount?
+    <p class="mt-5 text-center text-sm text-muted-foreground">
+      Already have an account?
       <a
         [routerLink]="'/auth/login'"
-        class="text-primary cursor-pointer"
-        >Login now</a
+        class="text-foreground font-medium hover:underline cursor-pointer ml-1"
       >
+        Sign in
+      </a>
     </p>
   </div>
 </div>

@@ -1,0 +1,301 @@
+<main class="w-full min-h-dvh flex flex-col md:flex-row overflow-hidden">
+  <!-- ── LEFT PANEL: Search & select ── -->
+  <section class="flex flex-col md:w-1/2 h-dvh border-r border-border">
+    <!-- Header -->
+    <div class="px-6 pt-8 pb-5 shrink-0">
+      <button
+        hlmBtn
+        variant="ghost"
+        class="rounded-full size-8 p-0 flex items-center justify-center mb-6 -ml-1 cursor-pointer md:hidden"
+        [routerLink]="'/messages'"
+      >
+        <ng-icon hlm name="lucideArrowLeft" size="sm" />
+      </button>
+      <p
+        class="text-xs font-medium tracking-widest uppercase text-muted-foreground mb-1"
+      >
+        New
+      </p>
+      <h1 class="text-3xl font-bold tracking-tight">Conversation</h1>
+    </div>
+
+    <!-- Group name — only shown when 2+ selected * -->
+    @if (selectedUsers().length > 1) {
+      <div
+        class="px-6 pb-4 shrink-0 animate-in fade-in-0 slide-in-from-top-2 duration-200"
+      >
+        <input
+          id="groupName"
+          hlmInput
+          [formControl]="groupNameControl"
+          type="text"
+          placeholder="Group name (optional)"
+          class="w-full bg-muted/50 border-transparent focus:bg-background focus:border-border transition-all rounded-full px-4"
+        />
+        <div class="mt-1.5 px-1">
+          @if (groupNameControl.hasError("minlength")) {
+            <hlm-error class="flex items-center gap-x-1.5 text-xs">
+              <ng-icon hlm size="sm" name="lucideCircleAlert" />
+              At least 3 characters
+            </hlm-error>
+          }
+          @if (groupNameControl.hasError("maxlength")) {
+            <hlm-error class="flex items-center gap-x-1.5 text-xs">
+              <ng-icon hlm size="sm" name="lucideCircleAlert" />
+              At most 32 characters
+            </hlm-error>
+          }
+        </div>
+      </div>
+    }
+
+    <!-- Search -->
+    <div class="px-6 pb-3 shrink-0" (clickOutside)="closeUserList()">
+      <div class="relative">
+        <ng-icon
+          hlm
+          name="lucideSearch"
+          size="sm"
+          class="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none"
+        />
+        <input
+          hlmInput
+          id="userSearch"
+          type="search"
+          class="w-full pl-9 bg-muted/50 border-transparent focus:bg-background focus:border-border transition-all rounded-full"
+          placeholder="Search people..."
+          [formControl]="searchControl"
+          autocomplete="off"
+          (focus)="showUserList()"
+        />
+      </div>
+    </div>
+
+    <!-- Selected chips row -->
+    @if (selectedUsers().length > 0) {
+      <div
+        class="px-6 pb-3 flex flex-wrap gap-1.5 shrink-0 animate-in fade-in-0 duration-150 cursor-default"
+      >
+        @for (user of selectedUsers(); track user._id) {
+          <div
+            class="inline-flex items-center gap-x-1.5 bg-primary text-primary-foreground text-xs rounded-full pl-3 pr-1.5 py-1 font-medium"
+          >
+            {{ user.username }}
+            <button
+              type="button"
+              class="size-4 flex items-center justify-center rounded-full bg-primary-foreground/20 hover:bg-primary-foreground/30 transition-colors cursor-pointer"
+              (click)="removeFromConversation(user)"
+            >
+              <ng-icon hlm size="xs" name="lucideX" />
+            </button>
+          </div>
+        }
+      </div>
+    }
+
+    <hlm-separator decorative />
+
+    <!-- User list -->
+    <div class="flex-1 overflow-y-auto">
+      @if (users() && users().length > 0) {
+        <div class="flex flex-col py-2 px-3">
+          @for (user of users(); track user._id) {
+            @if (!isUserSelected(user._id)) {
+              <button
+                type="button"
+                class="w-full flex items-center gap-x-3 px-3 py-2.5 rounded-xl hover:bg-muted transition-colors cursor-pointer text-start group"
+                (click)="addToConversation(user)"
+              >
+                <hlm-avatar variant="medium" class="shrink-0">
+                  <img
+                    [src]="user.profile_picture"
+                    [alt]="user.username"
+                    hlmAvatarImage
+                  />
+                  <span hlmAvatarFallback>
+                    <img
+                      src="icons/avatar.svg"
+                      [alt]="user.username"
+                      hlmAvatarImage
+                    />
+                  </span>
+                </hlm-avatar>
+                <div class="flex-1 min-w-0">
+                  <p class="text-sm font-medium truncate">
+                    {{ user.first_name + " " + user.last_name }}
+                  </p>
+                  <p class="text-xs text-muted-foreground truncate">
+                    &#64;{{ user.username }}
+                  </p>
+                </div>
+                <div
+                  class="size-5 rounded-full border border-border flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity shrink-0"
+                >
+                  <ng-icon hlm size="xs" name="lucidePlus" />
+                </div>
+              </button>
+            }
+          }
+        </div>
+      } @else {
+        <div
+          class="flex flex-col items-center justify-center h-full gap-y-2 text-muted-foreground py-12"
+        >
+          <ng-icon
+            hlm
+            name="lucideUserSearch"
+            class="opacity-30 mb-1"
+            size="xl"
+          />
+          <p class="text-sm font-medium">No users found</p>
+          <p class="text-xs opacity-70">Try a different search</p>
+        </div>
+      }
+    </div>
+  </section>
+
+  <!-- ── RIGHT PANEL: Preview & confirm ── * moved to right -->
+  <section
+    class="flex flex-col items-center justify-center md:w-1/2 h-dvh px-8 bg-muted/20"
+  >
+    @if (selectedUsers().length === 0) {
+      <!-- Empty state -->
+      <div class="flex flex-col items-center gap-y-3 text-center select-none">
+        <div
+          class="size-16 rounded-2xl bg-muted flex items-center justify-center mb-2"
+        >
+          <ng-icon
+            hlm
+            name="lucideMessageCirclePlus"
+            class="text-muted-foreground opacity-60"
+            size="xl"
+          />
+        </div>
+        <p class="text-base font-medium text-muted-foreground">
+          Select people to start
+        </p>
+        <p class="text-sm text-muted-foreground opacity-60 max-w-48">
+          Search for someone on the left to add them
+        </p>
+      </div>
+    } @else {
+      <!-- Conversation preview * -->
+      <div
+        class="flex flex-col items-center gap-y-6 w-full max-w-xs animate-in fade-in-0 zoom-in-95 duration-200"
+      >
+        <!-- Avatar stack -->
+        <div class="relative flex items-center justify-center h-20">
+          @if (selectedUsers().length === 1) {
+            <hlm-avatar
+              variant="large"
+              class="size-20 border-4 border-background shadow-sm"
+            >
+              <img
+                [src]="
+                  selectedUsers()[0].profile_picture ?? '/icons/avatar.svg'
+                "
+                [alt]="selectedUsers()[0].username"
+                hlmAvatarImage
+              />
+              <span hlmAvatarFallback>{{
+                selectedUsers()[0].username[0]
+              }}</span>
+            </hlm-avatar>
+          } @else {
+            <!-- Stacked avatars for group * -->
+            <div class="relative flex">
+              @for (
+                user of selectedUsers().slice(0, 3);
+                track user._id;
+                let i = $index
+              ) {
+                <div
+                  class="size-14 rounded-full border-4 border-background overflow-hidden -ml-3 first:ml-0 shadow-sm"
+                  [style.z-index]="10 - i"
+                >
+                  <img
+                    [src]="user.profile_picture ?? '/icons/avatar.svg'"
+                    [alt]="user.username"
+                    class="w-full h-full object-cover"
+                  />
+                </div>
+              }
+              @if (selectedUsers().length > 3) {
+                <div
+                  class="size-14 rounded-full border-4 border-background bg-muted flex items-center justify-center -ml-3 shadow-sm text-xs font-semibold text-muted-foreground"
+                  style="z-index: 7"
+                >
+                  +{{ selectedUsers().length - 3 }}
+                </div>
+              }
+            </div>
+          }
+        </div>
+
+        <!-- Name -->
+        <div class="text-center">
+          @if (selectedUsers().length === 1) {
+            <p class="text-xl font-semibold">
+              {{
+                selectedUsers()[0].first_name +
+                  " " +
+                  selectedUsers()[0].last_name
+              }}
+            </p>
+            <p class="text-sm text-muted-foreground">
+              &#64;{{ selectedUsers()[0].username }}
+            </p>
+          } @else {
+            <p class="text-xl font-semibold">
+              @if (groupNameControl.value) {
+                {{ groupNameControl.value }}
+              } @else {
+                Group · {{ selectedUsers().length }} people
+              }
+            </p>
+            <p class="text-sm text-muted-foreground truncate max-w-56">
+              {{ selectedUsers().map(u => u.username).join(', ') }}
+            </p>
+          }
+        </div>
+
+        <!-- Start button -->
+        <button
+          hlmBtn
+          class="w-full cursor-pointer rounded-full h-11 text-sm font-semibold tracking-wide"
+          type="button"
+          (click)="onSubmit()"
+        >
+          <ng-icon hlm name="lucideMessageCircle" class="mr-2" size="sm" />
+          Start conversation
+        </button>
+
+        <!-- Clear all * -->
+        <button
+          type="button"
+          class="text-xs text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
+          (click)="selectedUsers().forEach(u => removeFromConversation(u))"
+        >
+          Clear all
+        </button>
+      </div>
+    }
+  </section>
+  <!-- Mobile submit FAB — only visible when users selected on small screens -->
+  @if (selectedUsers().length > 0) {
+    <button
+      hlmBtn
+      class="fixed bottom-6 right-6 rounded-full h-14 px-6 shadow-lg flex items-center gap-x-2 cursor-pointer md:hidden animate-in fade-in-0 zoom-in-95 duration-200 z-50"
+      type="button"
+      (click)="onSubmit()"
+    >
+      <ng-icon hlm name="lucideMessageCircle" size="sm" />
+      Start
+      <span
+        class="bg-primary-foreground/20 text-primary-foreground text-xs rounded-full px-1.5 py-0.5 font-semibold ml-1"
+      >
+        {{ selectedUsers().length }}
+      </span>
+    </button>
+  }
+</main>

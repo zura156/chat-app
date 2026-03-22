@@ -5,8 +5,6 @@ import {
   OnInit,
   signal,
   ChangeDetectionStrategy,
-  DestroyRef,
-  viewChild,
 } from '@angular/core';
 import { DialogRef, DIALOG_DATA } from '@angular/cdk/dialog';
 import { environment } from '../../../../environments/environment';
@@ -17,8 +15,15 @@ import {
 import { VideoPlayer } from '../video-player/video-player';
 import { HlmSpinner } from '@spartan-ng/helm/spinner';
 import { ModalStatesT } from '../../interfaces/modal-states.type';
-import { takeUntil, tap } from 'rxjs';
-import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
+import { NgIcon, provideIcons } from '@ng-icons/core';
+import { HlmIconImports } from '@spartan-ng/helm/icon';
+import {
+  lucideChevronLeft,
+  lucideDownload,
+  lucideImageOff,
+  lucidePlay,
+  lucideX,
+} from '@ng-icons/lucide';
 
 interface MediaViewerData {
   mediaMessages: MediaItem[];
@@ -29,7 +34,16 @@ interface MediaViewerData {
 @Component({
   selector: 'app-media-viewer',
   standalone: true,
-  imports: [VideoPlayer, HlmSpinner],
+  imports: [VideoPlayer, HlmSpinner, NgIcon, HlmIconImports],
+  providers: [
+    provideIcons({
+      lucideDownload,
+      lucideX,
+      lucideChevronLeft,
+      lucideImageOff,
+      lucidePlay,
+    }),
+  ],
   templateUrl: './media-viewer.html',
   styles: [
     `

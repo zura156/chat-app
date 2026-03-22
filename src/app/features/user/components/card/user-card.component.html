@@ -1,23 +1,25 @@
 @let user = this.user();
 @if (user) {
   <main
-    class="p-2 flex items-center gap-x-2 cursor-pointer border border-border hover:ring-[3px] hover:ring-ring/50 transition-all rounded-lg"
+    class="px-2.5 py-2 flex items-center gap-x-3 cursor-pointer rounded-xl hover:bg-muted/60 active:scale-[0.99] transition-all duration-150 select-none border-b border-border/40 last:border-b-0"
   >
-    <!-- AVATAR -->
     <hlm-avatar variant="medium">
       <img
-        [src]="imageUrl ?? '/icons/avatar.svg'"
+        [src]="user.profile_picture ?? '/icons/avatar.svg'"
         [alt]="user.username"
         hlmAvatarImage
       />
-      <span class="bg-black text-white text-sm" hlmAvatarFallback>
+      <span hlmAvatarFallback>
         <img src="/icons/avatar.svg" />
       </span>
     </hlm-avatar>
-
     <section>
-      <!-- Group title -->
-      <h1 class="font-medium text-base">{{ user.username }}</h1>
+      <h1 class="font-medium text-sm">{{ user.username }}</h1>
+      @if (user.first_name || user.last_name) {
+        <p class="text-xs text-muted-foreground">
+          {{ user.first_name }} {{ user.last_name }}
+        </p>
+      }
     </section>
   </main>
 }

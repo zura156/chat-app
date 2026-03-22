@@ -1,0 +1,150 @@
+<main class="p-3 w-full max-h-dvh h-full flex flex-col gap-y-3">
+  <header class="h-fit">
+    <section class="mb-3 flex justify-between items-center">
+      <h1 class="text-2xl font-bold tracking-tight">Chats</h1>
+      <div class="flex items-center gap-x-1.5">
+        <button
+          [routerLink]="'/settings'"
+          hlmBtn
+          variant="ghost"
+          class="cursor-pointer rounded-full size-9 p-0 flex items-center justify-center hover:bg-muted transition-colors"
+        >
+          <ng-icon hlm size="sm" name="lucideMenu" />
+        </button>
+        <button
+          (click)="navigateToNewConversation()"
+          hlmBtn
+          variant="ghost"
+          class="cursor-pointer rounded-full size-9 p-0 flex items-center justify-center hover:bg-muted transition-colors"
+        >
+          <ng-icon hlm size="sm" name="lucidePencil" />
+        </button>
+      </div>
+    </section>
+
+    <div class="w-full">
+      <input
+        hlmInput
+        id="userSearch"
+        type="search"
+        class="w-full bg-muted/50 border-transparent focus:bg-background focus:border-border transition-all"
+        placeholder="Search..."
+        [formControl]="searchControl"
+      />
+    </div>
+  </header>
+
+  <hlm-tabs tab="conversations" class="flex flex-col h-full min-h-0">
+    <div class="w-full h-fit">
+      <hlm-separator decorative />
+    </div>
+
+    <div>
+      <hlm-tabs-list
+        class="w-full h-fit grid grid-cols-2 bg-muted/40 rounded-lg p-0.5"
+        aria-label="switch between conversations and users"
+      >
+        <button
+          hlmTabsTrigger="conversations"
+          class="cursor-pointer rounded-md text-sm"
+          (click)="switchToConversations()"
+        >
+          Conversations
+        </button>
+        <button
+          hlmTabsTrigger="users"
+          class="cursor-pointer rounded-md text-sm"
+          (click)="switchToUsers()"
+        >
+          Users
+        </button>
+      </hlm-tabs-list>
+    </div>
+
+    <section
+      hlmTabsContent="users"
+      class="flex-1 overflow-y-auto rounded-lg mt-1"
+    >
+      @if (users() && (users()?.users?.length ?? 0 > 0)) {
+        <section class="flex flex-col gap-y-1 py-2 px-0.5">
+          @for (user of users()?.users; track user._id) {
+            <app-user-card
+              [user]="user"
+              (click)="selectUser(user)"
+            ></app-user-card>
+          }
+        </section>
+      } @else {
+        @if (isLoading()) {
+          <div class="flex items-center p-2 w-full space-x-4">
+            <hlm-skeleton class="size-12 rounded-full" />
+            <div class="space-y-2 w-9/12 md:w-10/12">
+              <hlm-skeleton class="h-4 w-full" />
+            </div>
+          </div>
+        } @else {
+          <div
+            class="flex flex-col justify-center items-center pt-8 gap-y-1.5 text-muted-foreground"
+          >
+            <ng-icon hlm name="lucideUsers" class="opacity-30 mb-1" size="xl" />
+            <p class="text-sm font-medium">No users found</p>
+            <p class="text-xs opacity-70">Try different keywords.</p>
+          </div>
+        }
+      }
+    </section>
+
+    <section
+      hlmTabsContent="conversations"
+      class="flex-1 overflow-y-auto rounded-lg mt-1"
+    >
+      @if (
+        conversations() && (conversations()?.conversations?.length ?? 0 > 0)
+      ) {
+        <section class="h-full w-full flex flex-col gap-y-1 py-2 px-0.5">
+          @for (
+            conversation of conversations()?.conversations;
+            track conversation._id
+          ) {
+            <app-conversation-card
+              class="conversation-item"
+              [conversation]="conversation"
+            ></app-conversation-card>
+          }
+        </section>
+      } @else {
+        @if (isLoading()) {
+          @for (_ of placeholders; track $index) {
+            <div class="flex items-center p-2 w-full space-x-4">
+              <hlm-skeleton class="size-12 rounded-full" />
+              <div class="space-y-2 w-9/12 md:w-10/12">
+                <hlm-skeleton class="h-4 w-full" />
+                <hlm-skeleton class="h-4 w-3/4" />
+              </div>
+            </div>
+          }
+        } @else {
+          <div
+            class="flex flex-col justify-center items-center text-center pt-8 gap-y-2 text-muted-foreground"
+          >
+            <ng-icon
+              hlm
+              name="lucideMessageCircleDashed"
+              class="opacity-30 mb-1"
+              size="xl"
+            />
+            <p class="text-sm font-medium">No conversations yet</p>
+            <a
+              class="text-xs mt-1"
+              [routerLink]="['/messages/new']"
+              hlmBadge
+              variant="outline"
+            >
+              Start messaging now!
+            </a>
+          </div>
+        }
+      }
+    </section>
+  </hlm-tabs>
+</main>

@@ -1,0 +1,90 @@
+<main class="max-w-2xl mx-auto px-4 py-8 space-y-8">
+  <div>
+    <h1 class="text-lg font-semibold tracking-tight">
+      Privacy (MOCK COMPONENT)
+    </h1>
+    <p class="text-sm text-muted-foreground">
+      Control who can see your information.
+    </p>
+  </div>
+
+  <hlm-separator decorative />
+
+  <section class="space-y-3">
+    <h3 class="text-sm font-medium">Visibility</h3>
+    <div class="space-y-1">
+      @for (item of privacyItems(); track item.key) {
+      <div
+        class="flex items-center justify-between px-4 py-3 rounded-xl hover:bg-muted/40 transition-colors"
+      >
+        <div>
+          <p class="text-sm">{{ item.label }}</p>
+          <p class="text-xs text-muted-foreground">{{ item.description }}</p>
+        </div>
+        <!-- select -->
+        <select
+          class="text-xs bg-muted border border-border rounded-full px-3 py-1.5 cursor-pointer focus:outline-none focus:ring-1 focus:ring-ring"
+          [value]="item.value()"
+          (change)="item.value.set($any($event.target).value)"
+        >
+          <option value="everyone">Everyone</option>
+          <option value="contacts">Contacts</option>
+          <option value="nobody">Nobody</option>
+        </select>
+      </div>
+      }
+    </div>
+  </section>
+
+  <hlm-separator decorative />
+
+  <section class="space-y-3">
+    <h3 class="text-sm font-medium">Blocked users</h3>
+    <p class="text-xs text-muted-foreground">
+      People you've blocked can't message you or see your profile.
+    </p>
+    @if (blockedUsers().length === 0) {
+    <div
+      class="flex flex-col items-center justify-center py-8 gap-y-2 text-muted-foreground"
+    >
+      <ng-icon hlm name="lucideShieldOff" class="opacity-30" size="xl" />
+      <p class="text-sm">No blocked users</p>
+    </div>
+    } @else {
+    <div class="space-y-1">
+      @for (user of blockedUsers(); track user._id) {
+      <div
+        class="flex items-center justify-between px-3 py-2.5 rounded-xl hover:bg-muted/40 transition-colors"
+      >
+        <div class="flex items-center gap-x-3">
+          <hlm-avatar variant="small">
+            <img
+              [src]="user.profile_picture ?? '/icons/avatar.svg'"
+              [alt]="user.username"
+              hlmAvatarImage
+            />
+          </hlm-avatar>
+          <div>
+            <p class="text-sm font-medium">
+              {{ user.first_name }} {{ user.last_name }}
+            </p>
+            <p class="text-xs text-muted-foreground">
+              &#64;{{ user.username }}
+            </p>
+          </div>
+        </div>
+        <button
+          hlmBtn
+          variant="outline"
+          size="sm"
+          class="rounded-full cursor-pointer text-xs"
+          (click)="unblock(user)"
+        >
+          Unblock
+        </button>
+      </div>
+      }
+    </div>
+    }
+  </section>
+</main>

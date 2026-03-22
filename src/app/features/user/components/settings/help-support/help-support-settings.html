@@ -1,0 +1,127 @@
+<main class="max-w-2xl mx-auto px-4 py-8 space-y-8">
+  <div>
+    <h1 class="text-lg font-semibold tracking-tight">
+      Help & Support (MOCK COMPONENT)
+    </h1>
+    <p class="text-sm text-muted-foreground">Find answers or get in touch.</p>
+  </div>
+
+  <hlm-separator decorative />
+
+  <!-- FAQ -->
+  <section class="space-y-3">
+    <h3 class="text-sm font-medium">Frequently asked questions</h3>
+    <div class="space-y-1">
+      @for (faq of faqs(); track faq.q) {
+      <div class="rounded-xl border border-border overflow-hidden">
+        <button
+          class="w-full flex items-center justify-between px-4 py-3 hover:bg-muted/40 transition-colors cursor-pointer text-start"
+          (click)="faq.open.update(v => !v)"
+        >
+          <span class="text-sm font-medium">{{ faq.q }}</span>
+          <ng-icon
+            hlm
+            size="sm"
+            class="text-muted-foreground shrink-0 transition-transform duration-200"
+            [class.rotate-180]="faq.open()"
+            name="lucideChevronDown"
+          />
+        </button>
+        @if (faq.open()) {
+        <div
+          class="px-4 pb-3 text-sm text-muted-foreground animate-in fade-in-0 slide-in-from-top-1 duration-150"
+        >
+          {{ faq.a }}
+        </div>
+        }
+      </div>
+      }
+    </div>
+  </section>
+
+  <hlm-separator decorative />
+
+  <!-- Contact -->
+  <section class="space-y-3">
+    <h3 class="text-sm font-medium">Contact support</h3>
+    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+      <a
+        href="mailto:support@yourapp.com"
+        class="flex items-center gap-x-3 p-4 rounded-xl border border-border hover:bg-muted/40 transition-colors cursor-pointer"
+      >
+        <div
+          class="size-9 rounded-xl bg-muted flex items-center justify-center shrink-0"
+        >
+          <ng-icon
+            hlm
+            name="lucideMail"
+            size="sm"
+            class="text-muted-foreground"
+          />
+        </div>
+        <div>
+          <p class="text-sm font-medium">Email us</p>
+          <p class="text-xs text-muted-foreground">support@yourapp.com</p>
+        </div>
+      </a>
+      <a
+        href="#"
+        class="flex items-center gap-x-3 p-4 rounded-xl border border-border hover:bg-muted/40 transition-colors cursor-pointer"
+      >
+        <div
+          class="size-9 rounded-xl bg-muted flex items-center justify-center shrink-0"
+        >
+          <ng-icon
+            hlm
+            name="lucideMessageCircle"
+            size="sm"
+            class="text-muted-foreground"
+          />
+        </div>
+        <div>
+          <p class="text-sm font-medium">Live chat</p>
+          <p class="text-xs text-muted-foreground">
+            Typically replies in minutes
+          </p>
+        </div>
+      </a>
+    </div>
+  </section>
+
+  <hlm-separator decorative />
+
+  <!-- App info -->
+  <section class="space-y-3">
+    <h3 class="text-sm font-medium">App info</h3>
+    <div class="space-y-1 text-sm">
+      <div
+        class="flex justify-between px-4 py-2.5 rounded-xl hover:bg-muted/40 transition-colors"
+      >
+        <span class="text-muted-foreground">Version</span>
+        <span class="tabular-nums font-medium">1.0.0</span>
+      </div>
+      <div
+        class="flex justify-between px-4 py-2.5 rounded-xl hover:bg-muted/40 transition-colors"
+      >
+        <span class="text-muted-foreground">Terms of service</span>
+        <ng-icon
+          hlm
+          name="lucideExternalLink"
+          size="xs"
+          class="text-muted-foreground"
+        />
+      </div>
+      <div
+        class="flex justify-between px-4 py-2.5 rounded-xl hover:bg-muted/40 transition-colors"
+      >
+        <span class="text-muted-foreground">Privacy policy</span>
+        <ng-icon
+          hlm
+          name="lucideExternalLink"
+          size="xs"
+          class="text-muted-foreground"
+        />
+      </div>
+    </div>
+  </section>
+</main>
