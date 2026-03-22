@@ -1,13 +1,22 @@
-import { Component, computed, inject } from '@angular/core';
-import { RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
+import { Component, computed, inject, OnInit, signal } from '@angular/core';
+import {
+  ActivatedRoute,
+  NavigationEnd,
+  Router,
+  RouterLink,
+  RouterLinkActive,
+  RouterOutlet,
+} from '@angular/router';
 import { HlmSidebarImports, HlmSidebarService } from '@spartan-ng/helm/sidebar';
 import { NgIcon, provideIcons } from '@ng-icons/core';
 import {
+  lucideArrowLeft,
   lucideBell,
   lucideChevronRight,
   lucideDatabase,
   lucideEye,
   lucideHelpCircle,
+  lucideLogOut,
   lucidePalette,
   lucideSettings,
   lucideShield,
@@ -16,6 +25,11 @@ import {
 import { HlmCollapsibleImports } from '@spartan-ng/helm/collapsible';
 import { HlmIcon } from '@spartan-ng/helm/icon';
 import { HlmButtonImports } from '@spartan-ng/helm/button';
+import { HlmSeparatorImports } from '@spartan-ng/helm/separator';
+import { HlmAvatarImports } from '@spartan-ng/helm/avatar';
+import { UserService } from '../../../services/user.service';
+import { toSignal } from '@angular/core/rxjs-interop';
+import { filter, startWith, map } from 'rxjs';
 
 @Component({
   selector: 'user-settings-layout',
@@ -29,6 +43,8 @@ import { HlmButtonImports } from '@spartan-ng/helm/button';
     HlmIcon,
     RouterLink,
     RouterLinkActive,
+    HlmSeparatorImports,
+    HlmAvatarImports,
   ],
   providers: [
     provideIcons({
@@ -41,20 +57,46 @@ import { HlmButtonImports } from '@spartan-ng/helm/button';
       lucideShield,
       lucideDatabase,
       lucideHelpCircle,
+      lucideArrowLeft,
+      lucideLogOut,
     }),
   ],
 })
-export class UserSettingsLayout {
+export class UserSettingsLayout implements OnInit {
   protected sidebarService = inject(HlmSidebarService);
-  protected readonly items = [
+  private router = inject(Router);
+  private activatedRoute = inject(ActivatedRoute);
+  private userService = inject(UserService);
+
+  user = this.userService.currentUser;
+
+  activePageTitle = signal<string>('');
+  protected readonly preferencesItems = [
     { title: 'Profile', url: 'profile', icon: 'lucideUser2' },
     { title: 'Account', url: 'account', icon: 'lucideSettings' },
     { title: 'Appearance', url: 'appearance', icon: 'lucidePalette' },
     { title: 'Notifications', url: 'notifications', icon: 'lucideBell' },
     { title: 'Privacy', url: 'privacy', icon: 'lucideEye' },
     { title: 'Security', url: 'security', icon: 'lucideShield' },
+  ];
+
+  protected readonly moreItems = [
     { title: 'Data & Storage', url: 'data-storage', icon: 'lucideDatabase' },
     { title: 'Help & Support', url: 'help-support', icon: 'lucideHelpCircle' },
   ];
-  isOpen = computed(this.sidebarService.open || this.sidebarService.openMobile);
+
+  ngOnInit(): void {
+    this.router.events
+      .pipe(
+        filter((e) => e instanceof NavigationEnd),
+        startWith(null),
+        map(() => {
+          let route = this.activatedRoute;
+          console.log(route.snapshot);
+          while (route.firstChild) route = route.firstChild;
+          return route?.snapshot?.title ?? '';
+        }),
+      )
+      .subscribe((title) => this.activePageTitle.set(title));
+  }
 }

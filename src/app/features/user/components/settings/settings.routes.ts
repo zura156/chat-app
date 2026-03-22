@@ -21,34 +21,42 @@ export const settingsRoutes: Routes = [
       },
       {
         path: 'profile',
+        title: 'Profile',
         component: ProfileSettings,
       },
       {
         path: 'account',
+        title: 'Account',
         component: AccountSettings,
       },
       {
         path: 'appearance',
+        title: 'Appearance',
         component: AppearanceSettings,
       },
       {
         path: 'notifications',
+        title: 'Notifications',
         component: Notificationssettings,
       },
       {
         path: 'privacy',
+        title: 'Privacy',
         component: PrivacySettings,
       },
       {
         path: 'security',
+        title: 'Security',
         component: SecuritySettings,
       },
       {
         path: 'data-storage',
+        title: 'Data & Storage',
         component: DataStorageSettings,
       },
       {
         path: 'help-support',
+        title: 'Help & Support',
         component: HelpSupportSettings,
       },
     ],

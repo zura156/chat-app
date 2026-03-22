@@ -7,6 +7,7 @@ import { conversationsResolver } from './services/conversations.resolver';
 export const messagesRoutes: Routes = [
   {
     path: '',
+    title: 'Chat App',
     component: MessagesLayoutComponent,
     providers: [LayoutService],
     resolve: [conversationsResolver],

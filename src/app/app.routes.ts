@@ -4,7 +4,6 @@ import { authGuard } from './features/auth/guards/auth.guard';
 import { unauthenticatedGuard } from './features/auth/guards/unauthenticated.guard';
 import { ConversationService } from './features/messages/services/conversation.service';
 import { NotificationService } from './features/messages/services/notification.service';
-import { NotFoundPage } from './shared/components/not-found/not-found.page';
 
 export const routes: Routes = [
   {

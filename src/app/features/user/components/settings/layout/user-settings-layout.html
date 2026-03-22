@@ -1,36 +1,167 @@
+@let user = this.user(); @if(user) {
+
 <div hlmSidebarWrapper>
   <hlm-sidebar>
-    <div hlmSidebarContent>
+    <div hlmSidebarHeader class="px-4 py-5 border-b border-border">
+      <div class="flex items-center gap-x-3">
+        <button
+          hlmBtn
+          variant="ghost"
+          class="rounded-full size-8 p-0 flex items-center justify-center cursor-pointer -ml-1"
+          [routerLink]="'/messages'"
+        >
+          <ng-icon hlm name="lucideArrowLeft" size="sm" />
+        </button>
+        <span class="font-semibold tracking-tight">Settings</span>
+      </div>
+    </div>
+
+    <div hlmSidebarContent class="px-2 py-3">
+      <!-- User pill at top of sidebar * -->
+      <div
+        class="flex items-center gap-x-3 px-3 py-2.5 mb-3 rounded-xl bg-muted/40"
+      >
+        <hlm-avatar class="size-8 shrink-0">
+          <img
+            hlmAvatarImage
+            [src]="user.profile_picture || '/icons/avatar.svg'"
+            alt="profile"
+          />
+          <span hlmAvatarFallback>
+            <img src="/icons/avatar.svg" />
+          </span>
+        </hlm-avatar>
+        <div class="flex-1 min-w-0">
+          <p class="text-sm font-medium truncate">
+            {{ user.first_name }} {{ user.last_name }}
+          </p>
+          <p class="text-xs text-muted-foreground truncate">
+            &#64;{{ user.username }}
+          </p>
+        </div>
+      </div>
+
       <div hlmSidebarGroup>
-        <div hlmSidebarGroupLabel>Settings</div>
+        <div
+          hlmSidebarGroupLabel
+          class="text-xs text-muted-foreground px-3 mb-1"
+        >
+          Preferences
+        </div>
         <div hlmSidebarGroupContent>
-          <ul hlmSidebarMenu>
-            @for (item of items; track item.title) {
-              <li hlmSidebarMenuItem>
-                <a hlmSidebarMenuButton
-                  [routerLink]="item.url"
-                  routerLinkActive="active"
-                  [routerLinkActiveOptions]="{ exact: true }">
-                  <ng-icon hlm [name]="item.icon" />
-                  <span>{{ item.title }}</span>
-                </a>
-              </li>
+          <ul hlmSidebarMenu class="space-y-0.5">
+            @for (item of preferencesItems; track item.title) {
+            <li hlmSidebarMenuItem>
+              <a
+                hlmSidebarMenuButton
+                class="flex items-center gap-x-3 px-3 py-2 rounded-xl text-sm hover:bg-muted transition-colors cursor-pointer [&.active]:bg-muted [&.active]:font-medium"
+                [routerLink]="item.url"
+                routerLinkActive="active"
+                [routerLinkActiveOptions]="{ exact: true }"
+              >
+                <div
+                  class="size-7 rounded-lg bg-muted flex items-center justify-center shrink-0 in-[.active]:bg-background"
+                >
+                  <!-- * icon container -->
+                  <ng-icon
+                    hlm
+                    [name]="item.icon"
+                    size="sm"
+                    class="text-muted-foreground"
+                  />
+                </div>
+                <span>{{ item.title }}</span>
+              </a>
+            </li>
+            }
+          </ul>
+        </div>
+      </div>
+
+      <hlm-separator decorative class="my-3" />
+
+      <div hlmSidebarGroup>
+        <div
+          hlmSidebarGroupLabel
+          class="text-xs text-muted-foreground px-3 mb-1"
+        >
+          More
+        </div>
+        <div hlmSidebarGroupContent>
+          <ul hlmSidebarMenu class="space-y-0.5">
+            @for (item of moreItems; track item.title) {
+            <li hlmSidebarMenuItem>
+              <a
+                hlmSidebarMenuButton
+                class="flex items-center gap-x-3 px-3 py-2 rounded-xl text-sm hover:bg-muted transition-colors cursor-pointer [&.active]:bg-muted [&.active]:font-medium"
+                [routerLink]="item.url"
+                routerLinkActive="active"
+                [routerLinkActiveOptions]="{ exact: true }"
+              >
+                <div
+                  class="size-7 rounded-lg bg-muted flex items-center justify-center shrink-0"
+                >
+                  <ng-icon
+                    hlm
+                    [name]="item.icon"
+                    size="sm"
+                    class="text-muted-foreground"
+                  />
+                </div>
+                <span>{{ item.title }}</span>
+              </a>
+            </li>
             }
           </ul>
         </div>
       </div>
     </div>
+
+    <!-- Sign out at bottom * -->
+    <div hlmSidebarFooter class="px-4 py-4 border-t border-border mt-auto">
+      <button
+        hlmBtn
+        variant="ghost"
+        class="w-full flex items-center gap-x-3 px-3 py-2 rounded-xl text-sm cursor-pointer hover:bg-destructive/10 hover:text-destructive transition-colors justify-start"
+      >
+        <!-- (click)="signOut()" -->
+        <div
+          class="size-7 rounded-lg bg-muted flex items-center justify-center shrink-0"
+        >
+          <ng-icon
+            hlm
+            name="lucideLogOut"
+            size="sm"
+            class="text-muted-foreground"
+          />
+        </div>
+        Sign out
+      </button>
+    </div>
   </hlm-sidebar>
 
   <div class="flex flex-col w-full h-full min-h-dvh">
-    <header class="flex items-center gap-x-2 px-4 py-3 border-b border-border shrink-0">
-      <button hlmSidebarTrigger>
+    <header
+      class="flex items-center gap-x-3 px-4 py-3 border-b border-border shrink-0"
+    >
+      <button hlmSidebarTrigger class="cursor-pointer">
         <span class="sr-only">Toggle sidebar</span>
       </button>
-      <span class="text-sm font-medium text-muted-foreground">Settings</span>
+      <!-- * breadcrumb style header -->
+      <div class="flex items-center gap-x-1.5 text-sm">
+        <span class="text-muted-foreground">Settings</span>
+        <ng-icon
+          hlm
+          name="lucideChevronRight"
+          size="xs"
+          class="text-muted-foreground"
+        />
+        <span class="font-medium">{{ activePageTitle() }}</span>
+      </div>
     </header>
     <main class="flex-1 overflow-y-auto">
       <router-outlet />
     </main>
   </div>
 </div>
+}
