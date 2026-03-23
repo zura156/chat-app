@@ -76,8 +76,9 @@
 
       <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <hlm-form-field>
-          <label hlmLabel>First name</label>
+          <label hlmLabel for="firstName">First name</label>
           <input
+            id="firstName"
             hlmInput
             type="text"
             formControlName="first_name"
@@ -88,8 +89,9 @@
         </hlm-form-field>
 
         <hlm-form-field>
-          <label hlmLabel>Last name</label>
+          <label hlmLabel for="lastName">Last name</label>
           <input
+            id="lastName"
             hlmInput
             type="text"
             formControlName="last_name"
@@ -101,13 +103,15 @@
       </div>
 
       <hlm-form-field>
-        <label hlmLabel>Username</label>
+        <label hlmLabel for="username">Username</label>
         <div class="relative">
           <span
             class="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm select-none"
             >&#64;</span
           >
           <input
+            id="username"
+            autocomplete="off"
             hlmInput
             type="text"
             formControlName="username"
@@ -132,6 +136,7 @@
 
       <hlm-form-field>
         <textarea
+          id="bio"
           hlmTextarea
           formControlName="bio"
           [placeholder]="user?.bio || 'Write something about yourself...'"

@@ -1,6 +1,5 @@
 <ngx-loading-bar [includeSpinner]="false" ref="router" />
 
-@let theme = this.theme$ | async;
-<app-header />
+@let theme = this.theme();
 <router-outlet />
 <hlm-toaster [theme]="theme ?? 'system'" />

@@ -22,6 +22,7 @@ import { catchError, Subject, takeUntil, tap, throwError } from 'rxjs';
 import { HlmAlertImports } from '@spartan-ng/helm/alert';
 import { passwordValidator } from '../../validators/password.validator';
 import { Router, RouterLink } from '@angular/router';
+import { ThemeService } from '../../../../shared/services/theme.service';
 
 @Component({
   selector: 'app-register',
@@ -41,8 +42,11 @@ import { Router, RouterLink } from '@angular/router';
   templateUrl: './register.component.html',
 })
 export class RegisterComponent implements OnDestroy {
-  authService = inject(AuthService);
-  router = inject(Router);
+  private authService = inject(AuthService);
+  private router = inject(Router);
+  private themeService = inject(ThemeService);
+
+  isDarkMode = this.themeService.isDarkMode;
 
   showPass = signal<boolean>(false);
   showRepeatPass = signal<boolean>(false);
@@ -72,7 +76,7 @@ export class RegisterComponent implements OnDestroy {
     },
     {
       validators: repeatPasswordValidator('password', 'repeat_password'),
-    }
+    },
   );
 
   private destroy$ = new Subject<void>();
@@ -123,7 +127,7 @@ export class RegisterComponent implements OnDestroy {
           this.error.set(errorMessage);
           this.isLoading.set(false);
           return throwError(() => errorMessage);
-        })
+        }),
       )
       .subscribe();
   }

@@ -22,6 +22,7 @@ import { passwordValidator } from '../../validators/password.validator';
 import { catchError, Subject, takeUntil, tap, throwError } from 'rxjs';
 import { HlmAlertImports } from '@spartan-ng/helm/alert';
 import { Router, RouterLink } from '@angular/router';
+import { ThemeService } from '../../../../shared/services/theme.service';
 
 @Component({
   selector: 'app-login',
@@ -43,6 +44,9 @@ import { Router, RouterLink } from '@angular/router';
 export class LoginComponent {
   private authService = inject(AuthService);
   private router = inject(Router);
+  private themeService = inject(ThemeService);
+
+  isDarkMode = this.themeService.isDarkMode;
 
   showPass = signal<boolean>(false);
   error = signal<string>('');

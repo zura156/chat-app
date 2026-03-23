@@ -20,6 +20,7 @@ import {
   lucideLoader,
   lucideTriangleAlert,
 } from '@ng-icons/lucide';
+import { ThemeService } from '../../../../shared/services/theme.service';
 
 @Component({
   selector: 'app-forgot-password',
@@ -40,6 +41,9 @@ import {
 })
 export class ForgotPasswordComponent {
   private authService = inject(AuthService);
+  private themeService = inject(ThemeService);
+
+  isDarkMode = this.themeService.isDarkMode;
 
   form: FormGroup = new FormGroup({
     email: new FormControl('', [Validators.required, Validators.email]),

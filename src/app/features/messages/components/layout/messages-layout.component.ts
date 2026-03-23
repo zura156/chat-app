@@ -20,7 +20,7 @@ import {
 import { ConversationListComponent } from '../list/conversation-list.component';
 import { LayoutService } from '../../services/layout.service';
 import { ActiveViewType } from '../../interfaces/active-view.types';
-import { MessagesStartComponent } from '../start/messages-start.compoent';
+import { MessagesStartComponent } from '../start/messages-start.component';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 
 @Component({
@@ -30,7 +30,6 @@ import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
     ReactiveFormsModule,
     NgTemplateOutlet,
     HlmSeparatorImports,
-
     ConversationListComponent,
     MessagesStartComponent,
   ],

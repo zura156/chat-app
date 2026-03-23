@@ -22,6 +22,7 @@ import {
   lucideTriangleAlert,
 } from '@ng-icons/lucide';
 import { ResetPasswordI } from '../../interfaces/reset-password.interface';
+import { ThemeService } from '../../../../shared/services/theme.service';
 
 @Component({
   selector: 'app-reset-password',
@@ -44,6 +45,9 @@ export class ResetPasswordComponent {
   private router = inject(Router);
   private route = inject(ActivatedRoute);
   private authService = inject(AuthService);
+  private themeService = inject(ThemeService);
+
+  isDarkMode = this.themeService.isDarkMode;
 
   form: FormGroup = new FormGroup({
     password: new FormControl('', [Validators.required, passwordValidator()]),

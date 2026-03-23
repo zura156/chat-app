@@ -2,12 +2,12 @@
   <!-- Logo + heading -->
   <div class="w-full max-w-sm text-center mb-8">
     <div
-      class="inline-flex items-center justify-center size-14 bg-black rounded-2xl mb-4"
+      class="inline-flex items-center justify-center bg-background rounded-xl mb-4 border"
     >
       <img
-        src="chat-favicon-light.png"
-        alt="Chat app"
-        class="size-8 object-contain"
+        [src]="isDarkMode() ? '/chat-favicon-light.png' : '/chat-favicon.png'"
+        alt="chat-favicon"
+        class="size-14"
       />
     </div>
     <h1 class="text-2xl font-semibold tracking-tight">Create an account</h1>

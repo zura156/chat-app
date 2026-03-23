@@ -34,6 +34,7 @@
             </button>
           </div>
         }
+
         <input
           #chatImageInput
           id="chat-image-input"
@@ -42,16 +43,23 @@
           accept="image/*"
           hidden
         />
-        <img
-          [src]="
-            conversation.is_group
-              ? (conversation.group_picture ?? '/icons/group.svg')
-              : (conversation.participants[0].profile_picture ??
-                '/icons/avatar.svg')
-          "
-          [alt]="conversation.group_name || 'picture'"
-          class="w-full h-full object-cover"
-        />
+        <hlm-avatar class="w-full h-full">
+          <img
+            hlmAvatarImage
+            [src]="
+              conversation.is_group
+                ? (conversation.group_picture ?? '/icons/group.svg')
+                : (conversation.participants[0].profile_picture ??
+                  '/icons/avatar.svg')
+            "
+            [alt]="conversation.group_name || 'picture'"
+            class="w-full h-full object-cover"
+          />
+          <span hlmAvatarFallback>
+            <img src="/icons/avatar.svg" />
+          </span>
+        </hlm-avatar>
+        <img />
       </div>
 
       <span class="font-semibold text-lg text-center leading-tight">
@@ -162,74 +170,79 @@
 
               <div class="space-y-0.5">
                 @for (participant of conversation.participants; track $index) {
-                  <div
-                    class="px-3 py-1.5 text-sm flex items-center justify-between hover:bg-muted rounded-xl transition-colors"
-                  >
-                    <div class="flex items-center gap-x-2.5">
-                      <hlm-avatar variant="small">
-                        <img
-                          [src]="
-                            participant.profile_picture ?? '/icons/avatar.svg'
-                          "
-                          [alt]="participant.username"
-                          hlmAvatarImage
-                        />
-                      </hlm-avatar>
-                      <span>{{
-                        participant.first_name + " " + participant.last_name
-                      }}</span>
-                    </div>
-                    <button
-                      [hlmDropdownMenuTrigger]="menu"
-                      class="size-6 flex items-center justify-center rounded-full hover:bg-accent transition-colors cursor-pointer"
+                  @if (participant._id !== currentUser()?._id) {
+                    <div
+                      class="px-3 py-1.5 text-sm flex items-center justify-between hover:bg-muted rounded-xl transition-colors"
                     >
-                      <ng-icon hlm size="sm" name="lucideEllipsis" />
-                    </button>
-                    <ng-template #menu>
-                      <hlm-dropdown-menu class="-translate-x-3">
-                        <hlm-dropdown-menu-group>
-                          <button
-                            (click)="onMessageMember(participant)"
-                            hlmDropdownMenuItem
-                            class="cursor-pointer"
-                          >
-                            <ng-icon
-                              hlm
-                              name="lucideMessageCircle"
-                              hlmMenuIcon
-                            />
-                            <span>Message</span>
-                          </button>
-                          <hlm-dropdown-menu-separator />
-                          <button
-                            [routerLink]="`/${participant._id}`"
-                            hlmDropdownMenuItem
-                            class="cursor-pointer"
-                          >
-                            <ng-icon
-                              hlm
-                              name="lucideCircleUserRound"
-                              hlmMenuIcon
-                            />
-                            View profile
-                          </button>
-                          <hlm-dropdown-menu-separator />
-                          <button
-                            (click)="onRemoveMember(participant)"
-                            hlmDropdownMenuItem
-                            class="cursor-pointer text-destructive"
-                          >
-                            <ng-icon
-                              hlm
-                              name="lucideUserRoundMinus"
-                              hlmMenuIcon
-                            />
-                            Remove
-                          </button>
-                        </hlm-dropdown-menu-group>
-                      </hlm-dropdown-menu>
-                    </ng-template>
-                  </div>
+                      <div class="flex items-center gap-x-2.5">
+                        <hlm-avatar variant="small">
+                          <img
+                            [src]="
+                              participant.profile_picture ?? '/icons/avatar.svg'
+                            "
+                            [alt]="participant.username"
+                            hlmAvatarImage
+                          />
+                          <span hlmAvatarFallback>
+                            <img src="/icons/avatar.svg" />
+                          </span>
+                        </hlm-avatar>
+                        <span>{{
+                          participant.first_name + " " + participant.last_name
+                        }}</span>
+                      </div>
+                      <button
+                        [hlmDropdownMenuTrigger]="menu"
+                        class="size-6 flex items-center justify-center rounded-full hover:bg-accent transition-colors cursor-pointer"
+                      >
+                        <ng-icon hlm size="sm" name="lucideEllipsis" />
+                      </button>
+                      <ng-template #menu>
+                        <hlm-dropdown-menu class="-translate-x-3">
+                          <hlm-dropdown-menu-group>
+                            <button
+                              (click)="onMessageMember(participant)"
+                              hlmDropdownMenuItem
+                              class="cursor-pointer"
+                            >
+                              <ng-icon
+                                hlm
+                                name="lucideMessageCircle"
+                                hlmMenuIcon
+                              />
+                              <span>Message</span>
+                            </button>
+                            <hlm-dropdown-menu-separator />
+                            <button
+                              [routerLink]="`/${participant._id}`"
+                              hlmDropdownMenuItem
+                              class="cursor-pointer"
+                            >
+                              <ng-icon
+                                hlm
+                                name="lucideCircleUserRound"
+                                hlmMenuIcon
+                              />
+                              View profile
+                            </button>
+                            <hlm-dropdown-menu-separator />
+                            <button
+                              (click)="onRemoveMember(participant)"
+                              hlmDropdownMenuItem
+                              class="cursor-pointer text-destructive"
+                            >
+                              <ng-icon
+                                hlm
+                                name="lucideUserRoundMinus"
+                                hlmMenuIcon
+                              />
+                              Remove
+                            </button>
+                          </hlm-dropdown-menu-group>
+                        </hlm-dropdown-menu>
+                      </ng-template>
+                    </div>
+                  }
                 }
               </div>
 

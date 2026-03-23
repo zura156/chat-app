@@ -28,8 +28,8 @@ import { HlmButtonImports } from '@spartan-ng/helm/button';
 import { HlmSeparatorImports } from '@spartan-ng/helm/separator';
 import { HlmAvatarImports } from '@spartan-ng/helm/avatar';
 import { UserService } from '../../../services/user.service';
-import { toSignal } from '@angular/core/rxjs-interop';
 import { filter, startWith, map } from 'rxjs';
+import { AuthService } from '../../../../auth/services/auth.service';
 
 @Component({
   selector: 'user-settings-layout',
@@ -67,6 +67,7 @@ export class UserSettingsLayout implements OnInit {
   private router = inject(Router);
   private activatedRoute = inject(ActivatedRoute);
   private userService = inject(UserService);
+  private authService = inject(AuthService);
 
   user = this.userService.currentUser;
 
@@ -92,11 +93,14 @@ export class UserSettingsLayout implements OnInit {
         startWith(null),
         map(() => {
           let route = this.activatedRoute;
-          console.log(route.snapshot);
           while (route.firstChild) route = route.firstChild;
           return route?.snapshot?.title ?? '';
         }),
       )
       .subscribe((title) => this.activePageTitle.set(title));
+  }
+
+  logOut(): void {
+    this.authService.logOut().subscribe();
   }
 }

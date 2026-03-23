@@ -5,14 +5,14 @@ import {
   output,
   ChangeDetectionStrategy,
 } from '@angular/core';
-import { NgFor, NgIf, NgClass, DecimalPipe } from '@angular/common';
-import { UploadService, UploadFile } from './upload.service';
+import { NgClass, DecimalPipe } from '@angular/common';
+import { UploadService } from './upload.service';
 
 @Component({
   selector: 'app-file-upload',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [NgFor, NgIf, NgClass, DecimalPipe],
+  imports: [NgClass, DecimalPipe],
   template: `
     <div class="upload-container">
       <!-- Drop zone -->
@@ -37,51 +37,57 @@ import { UploadService, UploadFile } from './upload.service';
       />
 
       <!-- Error -->
-      <p *ngIf="error()" class="error">{{ error() }}</p>
+      @if (error()) {
+        <p class="error">{{ error() }}</p>
+      }
 
       <!-- File list with progress -->
-      <ul *ngIf="uploadService.files().length" class="file-list">
-        <li *ngFor="let f of uploadService.files()" class="file-item">
-          <span class="file-name">{{ f.file.name }}</span>
-          <span class="file-size"
-            >{{ f.file.size / 1024 / 1024 | number: '1.1-1' }} MB</span
-          >
+      @if (uploadService.files().length) {
+        <ul class="file-list">
+          @for (f of uploadService.files(); track f.id) {
+            <li class="file-item">
+              <span class="file-name">{{ f.file.name }}</span>
+              <span class="file-size"
+                >{{ f.file.size / 1024 / 1024 | number: '1.1-1' }} MB</span
+              >
 
-          <div
-            class="progress-bar"
-            *ngIf="f.status === 'uploading' || f.status === 'done'"
-          >
-            <div class="progress-fill" [style.width.%]="f.progress"></div>
-          </div>
+              @if (f.status === 'uploading' || f.status === 'done') {
+                <div class="progress-bar">
+                  <div class="progress-fill" [style.width.%]="f.progress"></div>
+                </div>
+              }
 
-          <span class="status" [ngClass]="f.status">
-            @switch (f.status) {
-              @case ('pending') {
-                Waiting
-              }
-              @case ('uploading') {
-                {{ f.progress }}%
-              }
-              @case ('done') {
-                ✓
-              }
-              @case ('error') {
-                ✗ {{ f.error }}
-              }
-            }
-          </span>
-        </li>
-      </ul>
+              <span class="status" [ngClass]="f.status">
+                @switch (f.status) {
+                  @case ('pending') {
+                    Waiting
+                  }
+                  @case ('uploading') {
+                    {{ f.progress }}%
+                  }
+                  @case ('done') {
+                    ✓
+                  }
+                  @case ('error') {
+                    ✗ {{ f.error }}
+                  }
+                }
+              </span>
+            </li>
+          }
+        </ul>
+      }
 
       <!-- Send button -->
-      <button
-        *ngIf="uploadService.files().length && !uploadService.isUploading()"
-        (click)="send()"
-        [disabled]="uploadService.isUploading()"
-        class="send-btn"
-      >
-        Send
-      </button>
+      @if (uploadService.files().length && !uploadService.isUploading()) {
+        <button
+          (click)="send()"
+          [disabled]="uploadService.isUploading()"
+          class="send-btn"
+        >
+          Send
+        </button>
+      }
     </div>
   `,
   styles: [
