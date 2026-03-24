@@ -6,14 +6,13 @@ import { Types } from 'mongoose';
 export const createNotification = async (
   senderId: string,
   conversationId: string,
-  messageId: string
+  messageId: string,
 ): Promise<void> => {
   const conversationObjectId = new Types.ObjectId(conversationId);
 
   // Get all participants in the conversation
-  const conversation = await Conversation.findById(
-    conversationObjectId
-  ).populate('participants');
+  const conversation =
+    await Conversation.findById(conversationObjectId).populate('participants');
 
   if (!conversation) return;
 
@@ -29,9 +28,7 @@ export const createNotification = async (
       await Notification.create({
         user: participant._id,
         conversation: conversationObjectId,
-        message: messageId,
-        type: 'message',
-        seen: false,
+        unread_count: 0,
       });
     }
   }

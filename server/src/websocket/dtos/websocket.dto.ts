@@ -1,7 +1,7 @@
 import { MessageI } from '../../messenger/interfaces/message.interface';
 import { ConversationI } from '../../messenger/interfaces/conversation.interface';
 import { ReadReceiptI } from '../../messenger/interfaces/read-receipt.interface';
-import { UserInterface } from '../../user/dtos/user.dto';
+import { UserDTO } from '../../user/dtos/user.dto';
 
 export type MessageContentType = 'text' | 'audio' | 'image' | 'video' | 'file';
 
@@ -27,16 +27,16 @@ export interface AuthenticateMessage extends BaseWebSocketMessage {
 export interface TypingMessage extends BaseWebSocketMessage {
   type: 'typing';
   is_typing: boolean;
-  sender: Partial<UserInterface>;
-  participants: Partial<UserInterface>[];
+  sender: Partial<UserDTO>;
+  participants: Partial<UserDTO>[];
   conversation_id: string;
 }
 
 export interface ConversationJoinMessage extends BaseWebSocketMessage {
   type: 'conversation-join';
   conversation: Partial<ConversationI>;
-  added_by?: Partial<UserInterface> | string;
-  added_users?: (Partial<UserInterface> | string)[];
+  added_by?: Partial<UserDTO> | string;
+  added_users?: (Partial<UserDTO> | string)[];
 }
 
 export interface ConversationUpdateMessage extends BaseWebSocketMessage {
@@ -47,14 +47,14 @@ export interface ConversationUpdateMessage extends BaseWebSocketMessage {
 export interface ConversationLeaveMessage extends BaseWebSocketMessage {
   type: 'conversation-leave';
   conversation: Partial<ConversationI>;
-  removed_by?: Partial<UserInterface> | string;
-  removed_users?: (Partial<UserInterface> | string)[];
+  removed_by?: Partial<UserDTO> | string;
+  removed_users?: (Partial<UserDTO> | string)[];
 }
 
 export interface ChatMessage extends BaseWebSocketMessage {
   type: 'message';
   message: MessageI;
-  participants: Partial<UserInterface>[];
+  participants: Partial<UserDTO>[];
 }
 
 export interface MessageStatusMessage extends BaseWebSocketMessage {
