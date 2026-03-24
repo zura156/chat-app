@@ -48,23 +48,22 @@ const setAuthCookies = (
 
   res.cookie('accessToken', accessToken, {
     ...COOKIE_BASE,
-    maxAge: 15 * 60 * 1000,
+    maxAge: 15 * 60 * 1000, // 15 mins
   });
   res.cookie('refreshToken', refreshToken, {
     ...COOKIE_BASE,
     path: '/auth/refresh',
-    maxAge: 7 * 24 * 60 * 60 * 1000,
+    maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
   });
 
-  // NOT httpOnly — client JS must read and send as X-CSRF-TOKEN header
   res.cookie('csrfToken', csrfToken, {
     httpOnly: false,
     secure: config.nodeEnv === 'production',
     sameSite: (config.nodeEnv === 'production' ? 'none' : 'lax') as
       | 'none'
       | 'lax',
-    domain: config.nodeEnv === 'production' ? '.zura156.xyz' : undefined,
-    maxAge: 15 * 60 * 1000, // matches accessToken lifetime
+    domain: config.cookieDomain,
+    maxAge: 15 * 60 * 1000, // 15 mins
   });
 };
 
@@ -470,20 +469,4 @@ export const unlockAccount = async (
     if (error.message) return next(createCustomError(error.message, 400));
     return next(createCustomError('Server error during account unlock', 500));
   }
-};
-export const getCsrfToken = (
-  req: Request,
-  res: Response,
-  next: NextFunction,
-) => {
-  const csrfToken = crypto.randomBytes(32).toString('hex');
-
-  res.cookie('csrfToken', csrfToken, {
-    httpOnly: false,
-    secure: config.nodeEnv === 'production',
-    sameSite: config.nodeEnv === 'production' ? 'none' : 'lax',
-    maxAge: 15 * 60 * 1000,
-  });
-
-  res.status(200).json({ message: 'CSRF token set in cookie' });
 };

@@ -50,12 +50,6 @@ export class AuthService {
   );
 
   init(): void {
-    cookieStore
-      .get('csrfToken')
-      .then((res) =>
-        res ? null : this.csrfService.getCsrfToken().subscribe(),
-      );
-
     if (this.isAuthenticated()) {
       this.loadCurrentUser().subscribe();
       this.setupUnloadListener();

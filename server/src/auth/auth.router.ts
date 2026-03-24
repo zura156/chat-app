@@ -8,7 +8,6 @@ import {
   logOut,
   verifyEmail,
   unlockAccount,
-  getCsrfToken,
 } from './auth.controller';
 import { body } from 'express-validator';
 import { authenticateToken } from './middlewares/auth.middleware';
@@ -37,11 +36,9 @@ const validateLogin = [
   body('password').exists().withMessage('Password required'),
 ];
 
-router.get('/csrf-token', getCsrfToken);
 router.post(
   '/register',
   unauthenticatedGuard,
-  csrfProtection,
   validateRegistration,
   registerUser,
 );
@@ -49,18 +46,12 @@ router.post(
   '/login',
   loginRateLimiter,
   unauthenticatedGuard,
-  csrfProtection,
   validateLogin,
   loginUser,
 );
 router.post('/logout', authenticateToken, csrfProtection, logOut);
-router.post(
-  '/forgot-password',
-  forgotPasswordRateLimiter,
-  csrfProtection,
-  forgotPassword,
-);
-router.post('/reset-password', csrfProtection, resetPassword);
+router.post('/forgot-password', forgotPasswordRateLimiter, forgotPassword);
+router.post('/reset-password', resetPassword);
 router.post('/verify-email', verifyEmail);
 router.post('/unlock-account', unlockAccount);
 router.post('/refresh', refreshAccessToken);

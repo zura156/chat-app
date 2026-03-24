@@ -104,8 +104,8 @@ const generalLimiter = rateLimit({
   legacyHeaders: false,
 });
 
-// Public routes (some of em are protected)
-app.use('/auth', authRouter);
+// Public routes
+app.use('/auth', authRouter); // only logout is protected
 
 // Protected routes
 app.use(csrfProtection);
