@@ -65,7 +65,6 @@ import {
   lucideCirclePlus,
   lucideInfo,
   lucideMessageCircle,
-  lucidePaperclip,
   lucideSend,
 } from '@ng-icons/lucide';
 import { HlmIcon } from '@spartan-ng/helm/icon';
@@ -76,8 +75,9 @@ import { ChatboxSettingsComponent } from '../chatbox-settings/chatbox-settings.c
 import { PanGestureDirective } from '../../../../shared/directives/pan.directive';
 import { HlmSkeleton } from '@spartan-ng/helm/skeleton';
 import { environment } from '../../../../../environments/environment';
-import { BrnSonnerImports, toast } from '@spartan-ng/brain/sonner';
+import { toast } from '@spartan-ng/brain/sonner';
 import { UserStateService } from '../../../user/services/user-state.service';
+import { NotificationService } from '../../services/notification.service';
 
 @Component({
   selector: 'app-chatbox',
@@ -121,6 +121,8 @@ export class ChatboxComponent implements OnInit, OnDestroy {
   private readonly conversationService = inject(ConversationService);
   private readonly messageService = inject(MessageService);
   private readonly webSocketService = inject(WebSocketService);
+  private readonly notificationService = inject(NotificationService);
+
   readonly apiUrl = environment.apiUrl;
 
   messageControl = new FormControl<string>('');
@@ -749,6 +751,9 @@ export class ChatboxComponent implements OnInit, OnDestroy {
                 }.`,
               });
               break;
+            case 'notification':
+              this.notificationService.handleRealtimeNotification(res);
+              break;
           }
         }),
         catchError((err) => this.handleError(err)),
@@ -762,6 +767,10 @@ export class ChatboxComponent implements OnInit, OnDestroy {
     if (!user || !conversation) return;
 
     if (message._id && message.sender._id !== this.currentUser()?._id) {
+      this.notificationService.markAsSeen(
+        (message.conversation as ConversationI)?._id ||
+          message.conversation.toString(),
+      );
       this.messageService.markMessageAsRead(message._id);
       return;
     }

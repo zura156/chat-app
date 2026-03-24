@@ -16,7 +16,8 @@ type WebSocketMessageType =
   | 'message-status'
   | MessageContentType
   | 'user-status'
-  | 'file-upload';
+  | 'file-upload'
+  | 'notification';
 
 interface BaseWebSocketMessage {
   type: WebSocketMessageType;
@@ -83,6 +84,13 @@ export interface FileUploadMessage extends BaseWebSocketMessage {
   user_id: string;
 }
 
+export interface NotificationMessage extends BaseWebSocketMessage {
+  type: 'notification';
+  conversationId: string;
+  unread_count: number;
+  seen: boolean;
+}
+
 export type WebSocketMessageT =
   | ConversationUpdateMessage
   | AuthenticateMessage
@@ -93,4 +101,5 @@ export type WebSocketMessageT =
   | MessageStatusMessage
   | ConversationJoinMessage
   | ConversationLeaveMessage
-  | FileUploadMessage;
+  | FileUploadMessage
+  | NotificationMessage;

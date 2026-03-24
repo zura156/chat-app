@@ -28,7 +28,9 @@ export class WebSocketController {
   ): void {
     switch (data.type) {
       case 'authenticate':
-        this.websocketService.authenticate(data.user_id, ws);
+        this.websocketService
+          .authenticate(data.user_id, ws)
+          .catch((err) => logger.error('Auth error:', err));
         break;
       case 'message':
         this.handleChatMessage(data);
@@ -57,9 +59,12 @@ export class WebSocketController {
     }
   }
 
-  public handleDisconnect(ws: WebSocket): void {
-    const userId = this.websocketService.logout(ws);
-    if (userId) {
+  public async handleDisconnect(ws: WebSocket): Promise<void> {
+    const userId = await this.websocketService.logout(ws);
+    if (
+      userId &&
+      (await this.websocketService.isUserFullyDisconnected(userId))
+    ) {
       const data: DTO.UserStatusMessage = {
         type: 'user-status',
         status: 'offline',
@@ -284,10 +289,7 @@ export class WebSocketController {
         last_seen: lastSeen || new Date(),
       });
 
-      // This is inefficient. In a real app, you'd only send this to users
-      // who are "friends" or share a conversation with the updated user.
-      // For this example, we'll notify everyone connected.
-      const allUserIds = this.websocketService.getAllConnectedUserIds();
+      const allUserIds = await this.websocketService.getAllConnectedUserIds();
       const payload = {
         type: 'user-status',
         user_id: userId,
@@ -297,7 +299,6 @@ export class WebSocketController {
 
       for (const id of allUserIds) {
         if (id !== userId) {
-          // Don't notify the user about their own status change
           this.websocketService.sendToUser(id, payload);
         }
       }

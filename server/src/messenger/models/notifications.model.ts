@@ -4,6 +4,7 @@ export interface INotification extends Document {
   user: Types.ObjectId;
   conversation: Types.ObjectId;
   unread_count: number;
+  seen: boolean;
 }
 
 const NotificationSchema = new Schema<INotification>({
@@ -14,9 +15,10 @@ const NotificationSchema = new Schema<INotification>({
     required: true,
   },
   unread_count: { type: Number, default: 0 },
+  seen: { type: Boolean, default: false },
 });
 
 export const Notification = model<INotification>(
   'Notification',
-  NotificationSchema
+  NotificationSchema,
 );

@@ -20,3 +20,23 @@ export const markNotificationsAsSeen = async (
     next(error);
   }
 };
+
+export const getNotifications = async (
+  req: AuthRequest,
+  res: Response,
+  next: NextFunction,
+) => {
+  try {
+    const userId = new Types.ObjectId(req.user?._id.toString());
+    const notifications = await Notification.find({ user: userId })
+      .populate(
+        'conversation',
+        'group_name group_picture participants is_group',
+      )
+      .sort({ _id: -1 });
+
+    res.status(200).json({ notifications });
+  } catch (error) {
+    next(error);
+  }
+};

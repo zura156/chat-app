@@ -1,97 +1,97 @@
+import { Injectable, signal, computed } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
-import { inject, Injectable, signal } from '@angular/core';
-import { environment } from '../../../../environments/environment';
-import { catchError, Observable, tap, throwError } from 'rxjs';
 import { NotificationI } from '../interfaces/notification.interface';
+import { environment } from '../../../../environments/environment';
 
-@Injectable()
+@Injectable({ providedIn: 'root' })
 export class NotificationService {
-  private http = inject(HttpClient);
+  private _notifications = signal<NotificationI[]>([]);
+
   private readonly apiUrl = environment.apiUrl;
 
-  // API endpoints
-  private readonly GET_NOTIFICATIONS_URL = `${this.apiUrl}/notifications`;
-  private readonly MARK_AS_READ_URL = `${this.apiUrl}/notifications`;
+  private readonly LOAD_NOTIFICATIONS_URL = `${this.apiUrl}/notifications`;
 
-  // Signals
-  #notifications = signal<NotificationI[]>([]);
-  notifications = this.#notifications.asReadonly();
+  notifications = this._notifications.asReadonly();
 
-  #unreadCount = signal<number>(0);
-  unreadCount = this.#unreadCount.asReadonly();
+  // Total unseen count for global bell
+  totalUnread = computed(() =>
+    this._notifications().reduce(
+      (sum, n) => sum + (n.seen ? 0 : n.unread_count),
+      0,
+    ),
+  );
 
-  // Get user notifications
-  getNotifications(): Observable<NotificationI[]> {
-    return this.http.get<NotificationI[]>(this.GET_NOTIFICATIONS_URL).pipe(
-      tap((notifications) => {
-        this.#notifications.set(notifications);
-        this.#unreadCount.set(notifications.filter((n) => !n.isRead).length);
-      }),
-      catchError((error) => {
-        console.error('Error fetching notifications:', error);
-        return throwError(
-          () => new Error(error.message || 'Failed to fetch notifications')
-        );
-      })
+  // Per-conversation badge lookup
+  unreadForConversation = (conversationId: string) =>
+    computed(
+      () =>
+        this._notifications().find((n) => n.conversation._id === conversationId)
+          ?.unread_count ?? 0,
     );
+
+  constructor(private http: HttpClient) {}
+
+  loadNotifications(): void {
+    this.http
+      .get<{ notifications: NotificationI[] }>(this.LOAD_NOTIFICATIONS_URL)
+      .subscribe({
+        next: ({ notifications }) => this._notifications.set(notifications),
+        error: (err) => console.error('Failed to load notifications', err),
+      });
   }
 
-  // Mark notification as read
-  markAsRead(notificationId: string): Observable<NotificationI> {
-    const url = `${this.MARK_AS_READ_URL}/${notificationId}/read`;
+  // Called by WebSocket service on incoming 'notification' message
+  handleRealtimeNotification(data: {
+    conversationId: string;
+    unread_count: number;
+    seen: boolean;
+  }): void {
+    this._notifications.update((notifications) => {
+      const idx = notifications.findIndex(
+        (n) => n.conversation._id === data.conversationId,
+      );
+      if (idx === -1) {
+        // New notification not yet in list — reload from REST to get full shape
+        this.loadNotifications();
+        return notifications;
+      }
+      const updated = [...notifications];
+      updated[idx] = {
+        ...updated[idx],
+        unread_count: data.unread_count,
+        seen: data.seen,
+      };
+      return updated;
+    });
 
-    return this.http.patch<NotificationI>(url, {}).pipe(
-      tap(() => {
-        // Update local state
-        this.#notifications.update((notifications) =>
+    // Browser push notification
+    this.showBrowserNotification(data.conversationId);
+  }
+
+  markAsSeen(conversationId: string): void {
+    this.http.patch('/api/notifications/seen', { conversationId }).subscribe({
+      next: () => {
+        this._notifications.update((notifications) =>
           notifications.map((n) =>
-            n._id === notificationId ? { ...n, isRead: true } : n
-          )
+            n.conversation._id === conversationId
+              ? { ...n, seen: true, unread_count: 0 }
+              : n,
+          ),
         );
-        this.#unreadCount.update((count) => Math.max(0, count - 1));
-      }),
-      catchError((error) => {
-        console.error('Error marking notification as read:', error);
-        return throwError(
-          () =>
-            new Error(error.message || 'Failed to mark notification as read')
-        );
-      })
-    );
+      },
+    });
   }
 
-  // Mark all notifications as read
-  markAllAsRead(): Observable<any> {
-    const url = `${this.MARK_AS_READ_URL}/read-all`;
-
-    return this.http.patch(url, {}).pipe(
-      tap(() => {
-        // Update local state
-        this.#notifications.update((notifications) =>
-          notifications.map((n) => ({ ...n, isRead: true }))
-        );
-        this.#unreadCount.set(0);
-      }),
-      catchError((error) => {
-        console.error('Error marking all notifications as read:', error);
-        return throwError(
-          () =>
-            new Error(
-              error.message || 'Failed to mark all notifications as read'
-            )
-        );
-      })
+  private async showBrowserNotification(conversationId: string): Promise<void> {
+    if (Notification.permission !== 'granted') return;
+    const notif = this._notifications().find(
+      (n) => n.conversation._id === conversationId,
     );
-  }
-
-  // Add a single notification (useful for real-time updates)
-  addNotification(notification: NotificationI): void {
-    this.#notifications.update((notifications) => [
-      notification,
-      ...notifications,
-    ]);
-    if (!notification.isRead) {
-      this.#unreadCount.update((count) => count + 1);
-    }
+    if (!notif) return;
+    const title = notif.conversation.group_name ?? 'New message';
+    new Notification(title, {
+      body: `${notif.unread_count} unread message(s)`,
+      icon: '/favicon.ico',
+    });
   }
 }

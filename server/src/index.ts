@@ -26,12 +26,15 @@ import { authenticateToken } from './auth/middlewares/auth.middleware';
 
 import ffmpeg from 'fluent-ffmpeg';
 import ffmpegPath from 'ffmpeg-static';
-import { connectRedis } from './utils/redis';
+import { connectRedis, redisSubscriber } from './utils/redis';
 import uploadRouter from './upload/upload.router';
 import { csrfProtection } from './auth/middlewares/csrf.middleware';
+import { WebSocketService } from './websocket/services/websocket.service';
 
 const app: Application = express();
 const port: number | 3000 = parseInt(config.port.toString());
+
+const websocketService = new WebSocketService();
 
 app.set('trust proxy', config.trustedProxies);
 
@@ -124,7 +127,29 @@ app.use((err: Error, req: Request, res: Response, next: NextFunction) => {
 
 server.listen(port, async () => {
   await connectRedis();
-  logger.info(`Server is listening at port ${port}`);
+  await websocketService.registerInstance();
+
+  await redisSubscriber.subscribe('ws:broadcast', (rawMessage) => {
+    try {
+      const { participantIds, payload } = JSON.parse(rawMessage);
+      for (const userId of participantIds) {
+        websocketService.sendToUser(userId, payload);
+      }
+    } catch (err) {
+      logger.error('Redis sub parse error:', err);
+    }
+  });
+
+  await redisSubscriber.subscribe('ws:notification', (raw) => {
+    try {
+      const { userId, notification } = JSON.parse(raw);
+      websocketService.sendToUser(userId, notification);
+    } catch (err) {
+      logger.error('Notification sub error:', err);
+    }
+  });
+
+  logger.info(`Server listening on port ${port}`);
 });
 
 declare global {
