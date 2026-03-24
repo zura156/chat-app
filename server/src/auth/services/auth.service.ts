@@ -3,7 +3,7 @@ import {
   AccountTokenEnum,
   AccountTokensModel,
 } from '../models/account-tokens.model';
-import { v4 as uuidv4 } from 'uuid';
+import { randomUUID } from 'crypto';
 import crypto from 'crypto';
 
 export const generateLink = async (
@@ -11,7 +11,7 @@ export const generateLink = async (
   userId: string,
 ): Promise<string> => {
   try {
-    const rawToken: string = uuidv4();
+    const rawToken: string = randomUUID();
     const hashedToken = crypto
       .createHash('sha256')
       .update(rawToken)
