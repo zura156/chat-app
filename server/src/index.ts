@@ -23,11 +23,12 @@ import compression from 'compression';
 import mongoSanitize from '@exortek/express-mongo-sanitize';
 import hpp from 'hpp';
 import { authenticateToken } from './auth/middlewares/auth.middleware';
-import { validateCSRF } from './auth/middlewares/csrf.middleware';
+
 import ffmpeg from 'fluent-ffmpeg';
 import ffmpegPath from 'ffmpeg-static';
 import { connectRedis } from './utils/redis';
 import uploadRouter from './upload/upload.router';
+import { csrfProtection } from './auth/middlewares/csrf.middleware';
 
 const app: Application = express();
 const port: number | 3000 = parseInt(config.port.toString());
@@ -103,11 +104,11 @@ const generalLimiter = rateLimit({
   legacyHeaders: false,
 });
 
-// Public routes
+// Public routes (some of em are protected)
 app.use('/auth', authRouter);
 
 // Protected routes
-app.use(validateCSRF);
+app.use(csrfProtection);
 app.use('/user', generalLimiter, authenticateToken, userRouter);
 app.use(
   '/conversations',

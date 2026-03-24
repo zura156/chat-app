@@ -1,21 +1,21 @@
-import { Injectable, signal, computed } from '@angular/core';
+import { Injectable, signal, computed, inject } from '@angular/core';
 import {
   HttpClient,
   HttpEventType,
-  HttpRequest,
   HttpHeaders,
+  HttpRequest,
 } from '@angular/common/http';
 import { lastValueFrom } from 'rxjs';
 
-// --- Types ---
 export interface UploadFile {
   id: string;
   file: File;
-  progress: number; // 0-100
-  status: 'pending' | 'uploading' | 'done' | 'error';
+  progress: number;
+  status: 'compressing' | 'uploading' | 'ready' | 'error';
   error?: string;
   key?: string;
-  url?: string;
+  mimeType?: string;
+  originalName?: string;
 }
 
 interface InitResponse {
@@ -31,199 +31,222 @@ interface ConfirmResponse {
   files: { key: string; url: string; originalName: string; mimeType: string }[];
 }
 
-// --- Limits (mirror backend) ---
 const LIMITS: Record<string, number> = {
   image: 10 * 1024 * 1024,
   video: 50 * 1024 * 1024,
   default: 25 * 1024 * 1024,
 };
 const MAX_FILES = 5;
+const CONCURRENCY = 3;
 
 function getLimit(mimeType: string): number {
-  const prefix = mimeType.split('/')[0];
-  return LIMITS[prefix] ?? LIMITS['default'];
+  return LIMITS[mimeType.split('/')[0]] ?? LIMITS['default'];
 }
 
-function compressImage(file: File, quality = 0.8): Promise<File> {
-  return new Promise((resolve, reject) => {
-    createImageBitmap(file)
-      .then((bitmap) => {
-        let { width, height } = bitmap;
-        // Downscale if too large
-        const MAX_DIM = 4096;
-        if (width > MAX_DIM || height > MAX_DIM) {
-          const scale = Math.min(MAX_DIM / width, MAX_DIM / height);
-          width = Math.round(width * scale);
-          height = Math.round(height * scale);
-        }
-        const canvas = new OffscreenCanvas(width, height);
-        const ctx = canvas.getContext('2d')!;
-        ctx.drawImage(bitmap, 0, 0, width, height);
-        canvas
-          .convertToBlob({ type: 'image/webp', quality })
-          .then((blob) => {
-            const compressed = new File(
-              [blob],
-              file.name.replace(/\.[^.]+$/, '.webp'),
-              { type: 'image/webp' },
-            );
-            resolve(compressed);
-          })
-          .catch(reject);
-      })
-      .catch(reject);
+async function compressImage(file: File, quality = 0.8): Promise<File> {
+  const bitmap = await createImageBitmap(file);
+  let { width, height } = bitmap;
+  const MAX_DIM = 4096;
+  if (width > MAX_DIM || height > MAX_DIM) {
+    const scale = Math.min(MAX_DIM / width, MAX_DIM / height);
+    width = Math.round(width * scale);
+    height = Math.round(height * scale);
+  }
+  const canvas = new OffscreenCanvas(width, height);
+  canvas.getContext('2d')!.drawImage(bitmap, 0, 0, width, height);
+  const blob = await canvas.convertToBlob({ type: 'image/webp', quality });
+  return new File([blob], file.name.replace(/\.[^.]+$/, '.webp'), {
+    type: 'image/webp',
   });
 }
 
 @Injectable({ providedIn: 'root' })
 export class UploadService {
   private readonly API = '/api/upload';
+  private readonly http = inject(HttpClient);
 
-  // Reactive state using signals
+  // --- Public reactive state ---
   readonly files = signal<UploadFile[]>([]);
-  readonly isUploading = computed(() =>
-    this.files().some((f) => f.status === 'uploading'),
+  readonly isBusy = computed(() =>
+    this.files().some(
+      (f) => f.status === 'compressing' || f.status === 'uploading',
+    ),
   );
-  readonly allDone = computed(() =>
-    this.files().every((f) => f.status === 'done' || f.status === 'error'),
+  readonly hasFiles = computed(() => this.files().length > 0);
+  readonly readyFiles = computed(() =>
+    this.files().filter((f) => f.status === 'ready'),
   );
 
-  constructor(private http: HttpClient) {}
-
-  // --- Validate files client-side before anything ---
-  validate(files: File[]): string | null {
-    if (files.length > MAX_FILES) return `Max ${MAX_FILES} files per message`;
-    for (const file of files) {
-      const limit = getLimit(file.type);
-      if (file.size > limit) {
-        return `${file.name} exceeds ${Math.round(limit / 1024 / 1024)}MB limit`;
-      }
+  validate(incoming: File[]): string | null {
+    if (this.files().length + incoming.length > MAX_FILES)
+      return `Max ${MAX_FILES} files per message`;
+    for (const f of incoming) {
+      if (f.size > getLimit(f.type))
+        return `${f.name} exceeds ${Math.round(getLimit(f.type) / 1024 / 1024)}MB limit`;
     }
     return null;
   }
 
-  // --- Main upload flow ---
-  async upload(rawFiles: File[]): Promise<ConfirmResponse['files']> {
+  // Called on file pick — starts upload immediately in background
+  async startUpload(rawFiles: File[]): Promise<void> {
     const error = this.validate(rawFiles);
     if (error) throw new Error(error);
 
-    // 1. Compress images
-    const files = await Promise.all(
-      rawFiles.map((f) =>
-        f.type.startsWith('image/') ? compressImage(f) : Promise.resolve(f),
-      ),
-    );
-
-    // 2. Init signals state
-    const uploadFiles: UploadFile[] = files.map((f) => ({
+    const uploadFiles: UploadFile[] = rawFiles.map((f) => ({
       id: crypto.randomUUID(),
       file: f,
       progress: 0,
-      status: 'pending',
+      status: 'compressing',
     }));
-    this.files.set(uploadFiles);
+    this.files.update((fs) => [...fs, ...uploadFiles]);
 
-    // 3. Get presigned URLs from server (max 3 concurrent)
-    const initRes = await lastValueFrom(
-      this.http.post<InitResponse>(`${this.API}/init`, {
-        files: files.map((f) => ({
-          name: f.name,
-          mimeType: f.type,
-          size: f.size,
-        })),
+    // Compress images, skip compression for other types
+    const compressed = await Promise.all(
+      rawFiles.map((f, i) => {
+        if (!f.type.startsWith('image/')) {
+          this.patchFile(uploadFiles[i].id, { status: 'uploading' });
+          return Promise.resolve(f);
+        }
+        return compressImage(f).then((result) => {
+          this.patchFile(uploadFiles[i].id, { status: 'uploading' });
+          return result;
+        });
       }),
     );
 
-    // 4. Upload directly to MinIO (max 3 concurrent)
-    const CONCURRENCY = 3;
-    const results: {
-      key: string;
-      originalName: string;
-      mimeType: string;
-      size: number;
-    }[] = [];
-
-    for (let i = 0; i < files.length; i += CONCURRENCY) {
-      const batch = files.slice(i, i + CONCURRENCY);
-      const batchMeta = initRes.files.slice(i, i + CONCURRENCY);
-
-      await Promise.all(
-        batch.map((file, idx) =>
-          this.uploadToStorage(uploadFiles[i + idx], file, batchMeta[idx]),
-        ),
+    // Get presigned URLs from server
+    let initRes: InitResponse;
+    try {
+      initRes = await lastValueFrom(
+        this.http.post<InitResponse>(`${this.API}/init`, {
+          files: compressed.map((f) => ({
+            name: f.name,
+            mimeType: f.type,
+            size: f.size,
+          })),
+        }),
       );
-
-      results.push(
-        ...batchMeta.map((meta, idx) => ({
-          key: meta.key,
-          originalName: meta.originalName,
-          mimeType: meta.mimeType,
-          size: batch[idx].size,
-        })),
+    } catch {
+      uploadFiles.forEach((uf) =>
+        this.patchFile(uf.id, {
+          status: 'error',
+          error: 'Server error. Try again.',
+        }),
       );
+      return;
     }
 
-    // 5. Confirm with server
+    // Upload to MinIO (max CONCURRENCY at a time)
+    for (let i = 0; i < compressed.length; i += CONCURRENCY) {
+      await Promise.all(
+        compressed
+          .slice(i, i + CONCURRENCY)
+          .map((file, idx) =>
+            this.uploadToStorage(
+              uploadFiles[i + idx],
+              file,
+              initRes.files[i + idx],
+            ),
+          ),
+      );
+    }
+  }
+
+  // Called on send — waits for uploads then confirms with server
+  async confirmAndSend(): Promise<ConfirmResponse['files']> {
+    // Zoneless-safe: await a Promise that resolves when isBusy flips to false
+    // using a microtask loop instead of setInterval (which doesn't trigger CD in zoneless)
+    await this.waitForUploads();
+
+    const ready = this.readyFiles();
+    if (!ready.length) throw new Error('No files ready to send');
+
     const confirmRes = await lastValueFrom(
       this.http.post<ConfirmResponse>(`${this.API}/confirm`, {
-        files: results,
+        files: ready.map((f) => ({
+          key: f.key,
+          originalName: f.originalName,
+          mimeType: f.mimeType,
+          size: f.file.size,
+        })),
       }),
     );
 
-    return confirmRes.files;
+    return (confirmRes as any).files;
+  }
+
+  remove(id: string): void {
+    this.files.update((fs) => fs.filter((f) => f.id !== id));
+  }
+
+  reset(): void {
+    this.files.set([]);
+  }
+
+  // --- Private ---
+
+  // Zoneless-safe busy wait: uses Promise chaining off the actual upload Promises
+  // This is a simple polling fallback — in a real app you'd track the upload
+  // Promises directly and await Promise.all() on them instead.
+  private waitForUploads(): Promise<void> {
+    const poll = (resolve: () => void) => {
+      if (!this.isBusy()) {
+        resolve();
+        return;
+      }
+      // Use Promise.resolve() microtask loop — doesn't need zone.js
+      Promise.resolve().then(() => setTimeout(() => poll(resolve), 100));
+    };
+    return new Promise(poll);
+  }
+
+  private patchFile(id: string, patch: Partial<UploadFile>): void {
+    this.files.update((fs) =>
+      fs.map((f) => (f.id === id ? { ...f, ...patch } : f)),
+    );
   }
 
   private uploadToStorage(
     uploadFile: UploadFile,
     file: File,
-    meta: { key: string; uploadUrl: string },
+    meta: {
+      key: string;
+      uploadUrl: string;
+      originalName: string;
+      mimeType: string;
+    },
   ): Promise<void> {
-    return new Promise((resolve, reject) => {
-      // Update status
-      this.files.update((fs) =>
-        fs.map((f) =>
-          f.id === uploadFile.id ? { ...f, status: 'uploading' } : f,
-        ),
-      );
-
+    return new Promise((resolve) => {
       const req = new HttpRequest('PUT', meta.uploadUrl, file, {
         headers: new HttpHeaders({ 'Content-Type': file.type }),
         reportProgress: true,
       });
 
       this.http.request(req).subscribe({
-        next: (event) => {
+        next: (event: any) => {
           if (event.type === HttpEventType.UploadProgress && event.total) {
-            const progress = Math.round((100 * event.loaded) / event.total);
-            this.files.update((fs) =>
-              fs.map((f) => (f.id === uploadFile.id ? { ...f, progress } : f)),
-            );
+            this.patchFile(uploadFile.id, {
+              progress: Math.round((100 * event.loaded) / event.total),
+            });
           } else if (event.type === HttpEventType.Response) {
-            this.files.update((fs) =>
-              fs.map((f) =>
-                f.id === uploadFile.id
-                  ? { ...f, status: 'done', progress: 100, key: meta.key }
-                  : f,
-              ),
-            );
+            this.patchFile(uploadFile.id, {
+              status: 'ready',
+              progress: 100,
+              key: meta.key,
+              mimeType: meta.mimeType,
+              originalName: meta.originalName,
+            });
             resolve();
           }
         },
-        error: (err) => {
-          this.files.update((fs) =>
-            fs.map((f) =>
-              f.id === uploadFile.id
-                ? { ...f, status: 'error', error: err.message }
-                : f,
-            ),
-          );
-          reject(err);
+        error: (err: any) => {
+          this.patchFile(uploadFile.id, {
+            status: 'error',
+            error: err.message,
+          });
+          resolve(); // don't block other uploads
         },
       });
     });
-  }
-
-  reset(): void {
-    this.files.set([]);
   }
 }

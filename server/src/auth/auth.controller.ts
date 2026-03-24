@@ -5,7 +5,6 @@ import { createCustomError } from '../error-handling/models/custom-api-error.mod
 import config from '../config/config';
 import { LoginDto } from './dtos/login.dto';
 import { RegisterDto } from './dtos/register.dto';
-import { TokenModel } from './models/token.model';
 import {
   AccountTokenEnum,
   AccountTokensModel,
@@ -13,52 +12,69 @@ import {
 import sendEmail from '../utils/mailer';
 import jwt from 'jsonwebtoken';
 import { AuthRequest } from './middlewares/auth.middleware';
-import { csrfTokens, generateCSRFToken } from './services/csrf.service';
 import { generateLink } from './services/auth.service';
 import crypto from 'crypto';
 import {
   clearRateLimit,
+  clearRateLimitMiddleware,
+  forgotPasswordRateLimitIncrement,
   loginRateLimitIncrement,
 } from './middlewares/rate-limiter';
+import {
+  storeRefreshToken,
+  validateRefreshToken,
+  rotateRefreshToken,
+  deleteRefreshToken,
+  deleteAllUserRefreshTokens,
+  blacklistAccessToken,
+} from './services/token.service';
 
-const parseExpiry = (time: string) => {
-  const duration = parseInt(time, 10);
-  if (time.endsWith('s')) {
-    return duration * 1000; // Convert seconds to milliseconds
-  } else if (time.endsWith('m')) {
-    return duration * 60 * 1000; // Convert minutes to milliseconds
-  } else if (time.endsWith('h')) {
-    return duration * 60 * 60 * 1000; // Convert hours to milliseconds
-  } else if (time.endsWith('d')) {
-    return duration * 24 * 60 * 60 * 1000; // Convert days to milliseconds
-  }
-  return duration; // Default case, assuming milliseconds
+// ─── Cookie helpers ────────────────────────────────────────────────────────────
+
+const COOKIE_BASE = {
+  httpOnly: true,
+  secure: config.nodeEnv === 'production',
+  sameSite: (config.nodeEnv === 'production' ? 'none' : 'lax') as
+    | 'none'
+    | 'lax',
 };
 
-export const getCSRFToken = async (
-  req: Request,
+const setAuthCookies = (
   res: Response,
-  next: NextFunction,
-): Promise<void> => {
-  const sessionIdCookie = req.cookies.sessionId;
-  if (sessionIdCookie) {
-    csrfTokens.delete(sessionIdCookie);
-  }
+  accessToken: string,
+  refreshToken: string,
+) => {
+  const csrfToken = crypto.randomBytes(32).toString('hex');
 
-  const sessionId = crypto.randomBytes(32).toString('hex');
-  const csrfToken = generateCSRFToken();
-
-  csrfTokens.set(sessionId, csrfToken);
-
-  res.cookie('sessionId', sessionId, {
-    httpOnly: true,
-    secure: config.nodeEnv === 'production',
-    sameSite: config.nodeEnv === 'production' ? 'none' : 'lax',
-    maxAge: 24 * 60 * 60 * 1000,
+  res.cookie('accessToken', accessToken, {
+    ...COOKIE_BASE,
+    maxAge: 15 * 60 * 1000,
+  });
+  res.cookie('refreshToken', refreshToken, {
+    ...COOKIE_BASE,
+    path: '/auth/refresh',
+    maxAge: 7 * 24 * 60 * 60 * 1000,
   });
 
-  res.json({ csrfToken });
+  // NOT httpOnly — client JS must read and send as X-CSRF-TOKEN header
+  res.cookie('csrfToken', csrfToken, {
+    httpOnly: false,
+    secure: config.nodeEnv === 'production',
+    sameSite: (config.nodeEnv === 'production' ? 'none' : 'lax') as
+      | 'none'
+      | 'lax',
+    domain: config.nodeEnv === 'production' ? '.zura156.xyz' : undefined,
+    maxAge: 15 * 60 * 1000, // matches accessToken lifetime
+  });
 };
+
+const clearAuthCookies = (res: Response) => {
+  res.clearCookie('accessToken');
+  res.clearCookie('refreshToken', { path: '/auth/refresh' });
+  res.clearCookie('csrfToken');
+};
+
+// ─── Controllers ───────────────────────────────────────────────────────────────
 
 export const registerUser = async (
   req: Request,
@@ -69,40 +85,27 @@ export const registerUser = async (
     const { first_name, last_name, username, email, password }: RegisterDto =
       req.body;
 
-    // Check if user already exists
-    const existingUser = await User.findOne({
-      $or: [{ email }, { username }],
-    });
-
+    const existingUser = await User.findOne({ $or: [{ email }, { username }] });
     if (existingUser) {
       res.status(409).json({ message: 'User already exists' });
       return;
     }
 
-    // Create new user
-    const user = new User({
-      first_name,
-      last_name,
-      username,
-      email,
-      password,
-    });
-
+    const user = new User({ first_name, last_name, username, email, password });
     await user.save();
 
     const verifyLink = await generateLink(
       AccountTokenEnum.EMAIL_VERIFICATION,
       user.id,
     );
-
-    const emailHtml = `
-        <h2>Verify Email</h2>
-        <p>Please verify your email to unlock all the features on our platform. Click the link below to verify email:</p>
-        <a href="${verifyLink}">Verify</a>
-        <p>This link will expire in 1 hour.</p>
-      `;
-
-    await sendEmail(user.email, 'Please Verify Your Email', emailHtml);
+    await sendEmail(
+      user.email,
+      'Please Verify Your Email',
+      `<h2>Verify Email</h2>
+       <p>Click the link below to verify your email:</p>
+       <a href="${verifyLink}">Verify</a>
+       <p>This link will expire in 1 hour.</p>`,
+    );
 
     res.status(201).json({
       message: 'User registered successfully',
@@ -115,10 +118,8 @@ export const registerUser = async (
       },
     });
   } catch (error: any) {
-    if (error.message) {
-      next(createCustomError(error.message, 400));
-    }
-    next(createCustomError('Server error during registration!', 500));
+    if (error.message) return next(createCustomError(error.message, 400));
+    return next(createCustomError('Server error during registration!', 500));
   }
 };
 
@@ -136,7 +137,6 @@ export const loginUser = async (
     }
 
     const sanitizedEmail = email.trim().toLowerCase();
-    // Find a user
     const user = await User.findOne({ email: sanitizedEmail });
 
     if (!user) {
@@ -145,127 +145,73 @@ export const loginUser = async (
       });
     }
 
-    // Check password
     const isValidPassword = await user.comparePassword(password);
     if (!isValidPassword) {
       return loginRateLimitIncrement(req, res, () => {
-        res.status(401).json({
-          message: 'Invalid credentials',
-        });
+        res.status(401).json({ message: 'Invalid credentials' });
       });
     }
 
-    await clearRateLimit()(req, res, () => {});
-
-    // generate JWT token
+    await clearRateLimitMiddleware(req, res, () => {});
 
     const { accessToken, refreshToken } = generateTokens(user.id);
+    await storeRefreshToken(user.id, refreshToken);
+    await user.updateOne({ $set: { last_login: new Date() } });
 
-    await TokenModel.findOneAndUpdate(
-      {
-        user_id: user.id,
-      },
-      {
-        $push: {
-          refresh_tokens: {
-            token: refreshToken,
-            expires_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
-          },
-        },
-      },
-      { new: true, upsert: true },
-    );
-
-    // update last login time
-    await user.updateOne({
-      $set: { last_login: new Date() },
-    });
-
-    // set cookies
-
-    res.cookie('accessToken', accessToken, {
-      httpOnly: true,
-      secure: config.nodeEnv === 'production',
-      sameSite: config.nodeEnv === 'production' ? 'none' : 'lax',
-      maxAge: 15 * 60 * 1000,
-    });
-
-    res.cookie('refreshToken', refreshToken, {
-      httpOnly: true,
-      secure: config.nodeEnv === 'production',
-      sameSite: config.nodeEnv === 'production' ? 'none' : 'lax',
-      maxAge: 7 * 24 * 60 * 60 * 1000,
-    });
-
-    res.status(200).json({
-      message: 'Login successful',
-    });
+    setAuthCookies(res, accessToken, refreshToken);
+    res.status(200).json({ message: 'Login successful' });
   } catch (error: any) {
-    if (error.message) {
-      next(createCustomError(error.message, 400));
-    }
-    next(createCustomError('Server error during login', 500));
+    if (error.message) return next(createCustomError(error.message, 400));
+    return next(createCustomError('Server error during login', 500));
   }
 };
 
-export const refreshToken = async (
+export const refreshAccessToken = async (
   req: Request,
   res: Response,
   next: NextFunction,
 ): Promise<void> => {
   try {
-    const refreshToken = req.cookies.refreshToken;
+    const token = req.cookies.refreshToken as string | undefined;
 
-    if (!refreshToken) {
+    if (!token) {
       res.status(401).json({ message: 'Refresh token required' });
       return;
     }
 
-    const decoded = jwt.verify(refreshToken, config.jwtRefreshSecret) as {
+    const decoded = jwt.verify(token, config.jwtRefreshSecret) as {
       userId: string;
     };
 
-    const refreshTokens = await TokenModel.findOne({ user_id: decoded.userId });
-
-    if (!refreshTokens) {
-      res.status(401).json({ message: 'Refresh token invalid' });
+    const isValid = await validateRefreshToken(decoded.userId, token);
+    if (!isValid) {
+      res.status(401).json({ message: 'Refresh token invalid or expired' });
       return;
     }
 
     const { accessToken, refreshToken: newRefreshToken } = generateTokens(
       decoded.userId,
     );
+    const rotated = await rotateRefreshToken(
+      decoded.userId,
+      token,
+      newRefreshToken,
+    );
 
-    await refreshTokens.updateOne({
-      $pull: { refreshTokens: { token: refreshToken } },
-      $push: {
-        refreshTokens: {
-          token: newRefreshToken,
-          expires_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
-        },
-      },
-    });
+    if (!rotated) {
+      // Reuse detected — all sessions already wiped inside rotateRefreshToken
+      clearAuthCookies(res);
+      res
+        .status(401)
+        .json({ message: 'Token reuse detected. All sessions revoked.' });
+      return;
+    }
 
-    res.cookie('accessToken', accessToken, {
-      httpOnly: true,
-      secure: config.nodeEnv === 'production',
-      sameSite: config.nodeEnv === 'production' ? 'none' : 'lax',
-      maxAge: 15 * 60 * 1000,
-    });
-
-    res.cookie('refreshToken', newRefreshToken, {
-      httpOnly: true,
-      secure: config.nodeEnv === 'production',
-      sameSite: config.nodeEnv === 'production' ? 'none' : 'lax',
-      maxAge: 7 * 24 * 60 * 60 * 1000,
-    });
-
+    setAuthCookies(res, accessToken, newRefreshToken);
     res.json({ message: 'Token refreshed successfully' });
   } catch (error: any) {
-    if (error.message) {
-      next(createCustomError(error.message, 400));
-    }
-    next(createCustomError('Server error during refreshing token', 500));
+    if (error.message) return next(createCustomError(error.message, 400));
+    return next(createCustomError('Server error during token refresh', 500));
   }
 };
 
@@ -275,39 +221,34 @@ export const logOut = async (
   next: NextFunction,
 ): Promise<void> => {
   try {
-    const refreshToken = req.cookies.refreshToken;
     const user = req.user;
-
     if (!user) {
-      res.status(401).json({ message: 'User already unauthorized' });
+      res.status(401).json({ message: 'Unauthorized' });
       return;
     }
 
+    const refreshToken = req.cookies.refreshToken as string | undefined;
+    const accessToken = req.cookies.accessToken as string | undefined;
+
+    // Blacklist the access token for remainder of its TTL
+    if (accessToken) {
+      try {
+        const decoded = jwt.decode(accessToken) as { exp?: number };
+        if (decoded?.exp) await blacklistAccessToken(accessToken, decoded.exp);
+      } catch {
+        // non-critical, continue logout
+      }
+    }
+
     if (refreshToken) {
-      await TokenModel.findOneAndUpdate(
-        { user_id: user._id },
-        {
-          $pull: { refreshTokens: { token: refreshToken } },
-        },
-      );
+      await deleteRefreshToken(user._id.toString(), refreshToken);
     }
 
-    res.clearCookie('accessToken');
-    res.clearCookie('refreshToken');
-    res.clearCookie('sessionId');
-
-    // Clear CSRF token
-    const sessionId = req.cookies.sessionId;
-    if (sessionId) {
-      csrfTokens.delete(sessionId);
-    }
-
+    clearAuthCookies(res);
     res.json({ message: 'Logout successful' });
   } catch (error: any) {
-    if (error.message) {
-      next(createCustomError(error.message, 400));
-    }
-    next(createCustomError('Server error during logout', 500));
+    if (error.message) return next(createCustomError(error.message, 400));
+    return next(createCustomError('Server error during logout', 500));
   }
 };
 
@@ -325,39 +266,38 @@ export const forgotPassword = async (
 
   try {
     const sanitizedEmail = email.trim().toLowerCase();
-    // Find a user
     const user = await User.findOne({ email: sanitizedEmail });
 
     if (!user) {
-      res.status(404).json({ message: 'User with provided email not found.' });
-      return;
+      return forgotPasswordRateLimitIncrement(req, res, () => {
+        res
+          .status(200)
+          .json({ message: 'Password reset link sent if email exists.' });
+      });
     }
 
     const resetLink = await generateLink(
       AccountTokenEnum.PASSWORD_RESET,
       user.id,
     );
+    await sendEmail(
+      user.email,
+      'Reset your password',
+      `<h2>Password Reset</h2>
+       <p>Click the link below to set a new password:</p>
+       <a href="${resetLink}">Reset Password</a>
+       <p>This link will expire in 1 hour.</p>`,
+    );
 
-    const emailHtml = `
-        <h2>Password Reset</h2>
-        <p>You requested a password reset. Click the link below to set a new password:</p>
-        <a href="${resetLink}">Reset Password</a>
-        <p>This link will expire in 1 hour.</p>
-      `;
-
-    await sendEmail(user.email, 'Reset your password', emailHtml);
-
-    await TokenModel.deleteMany({ user_id: user._id });
-
+    // Do NOT wipe sessions here — user is still legitimately logged in on their devices
     res
       .status(200)
-      .json({ message: 'Password reset code sent to email successfully.' });
+      .json({ message: 'Password reset link sent if email exists.' });
   } catch (error: any) {
-    if (error.message) {
-      next(createCustomError(error.message, 400));
-      return;
-    }
-    next(createCustomError('Server error during forgot password request', 500));
+    if (error.message) return next(createCustomError(error.message, 400));
+    return next(
+      createCustomError('Server error during forgot password request', 500),
+    );
   }
 };
 
@@ -368,8 +308,8 @@ export const resetPassword = async (
 ): Promise<void> => {
   const { token, new_password, userId } = req.body;
 
-  if (!token || !new_password) {
-    res.status(400).json('Not all details were provided!');
+  if (!token || !new_password || !userId) {
+    res.status(400).json({ message: 'Not all details were provided!' });
     return;
   }
 
@@ -380,7 +320,7 @@ export const resetPassword = async (
       user_id: userId,
       token: hashedToken,
       type: 'password_reset',
-      expires_at: { $gt: new Date() }, // not expired
+      expires_at: { $gt: new Date() },
     });
 
     if (!resetToken) {
@@ -397,7 +337,7 @@ export const resetPassword = async (
     if (await user.comparePassword(new_password)) {
       res
         .status(400)
-        .json({ message: 'New password can not be the same as the old one!' });
+        .json({ message: 'New password cannot be the same as the old one!' });
       return;
     }
 
@@ -411,17 +351,14 @@ export const resetPassword = async (
       type: 'password_reset',
     });
 
-    res.status(200).json({
-      message: 'Password reset successful.',
-    });
+    // Force logout from all devices after password reset
+    await deleteAllUserRefreshTokens(user._id.toString());
 
-    return;
+    clearAuthCookies(res);
+    res.status(200).json({ message: 'Password reset successful.' });
   } catch (error: any) {
-    if (error.message) {
-      next(createCustomError(error.message, 400));
-      return;
-    }
-    next(createCustomError('Server error during forgot password request', 500));
+    if (error.message) return next(createCustomError(error.message, 400));
+    return next(createCustomError('Server error during password reset', 500));
   }
 };
 
@@ -432,57 +369,52 @@ export const verifyEmail = async (
 ): Promise<void> => {
   const { token, id } = req.body;
 
-  if (!token) {
-    res.status(400).json('Token was not provided!');
+  if (!token || !id) {
+    res.status(400).json({ message: 'Token and id are required!' });
     return;
   }
 
   const hashedToken = crypto.createHash('sha256').update(token).digest('hex');
 
   try {
-    const resetToken = await AccountTokensModel.findOne({
+    const verifyToken = await AccountTokensModel.findOne({
       user_id: id,
       token: hashedToken,
       type: 'email_verification',
-      expires_at: { $gt: new Date() }, // not expired
+      expires_at: { $gt: new Date() },
     });
 
-    if (!resetToken) {
-      res.status(400).json({ message: 'Invalid or expired reset token.' });
+    if (!verifyToken) {
+      res
+        .status(400)
+        .json({ message: 'Invalid or expired verification token.' });
       return;
     }
 
-    const user = await User.findById(resetToken.user_id);
-
+    const user = await User.findById(verifyToken.user_id);
     if (!user) {
       res.status(404).json({ message: 'User not found.' });
       return;
     }
 
     if (user.is_email_verified) {
-      res.status(409).json({ message: 'User email already verified.' });
+      res.status(409).json({ message: 'Email already verified.' });
       return;
     }
 
     user.is_email_verified = true;
-
     await user.save();
     await AccountTokensModel.deleteMany({
       user_id: user._id,
       type: 'email_verification',
     });
 
-    res.status(200).json({
-      message: 'Email verification successful.',
-    });
-
-    return;
+    res.status(200).json({ message: 'Email verification successful.' });
   } catch (error: any) {
-    if (error.message) {
-      next(createCustomError(error.message, 400));
-      return;
-    }
-    next(createCustomError('Server error during forgot password request', 500));
+    if (error.message) return next(createCustomError(error.message, 400));
+    return next(
+      createCustomError('Server error during email verification', 500),
+    );
   }
 };
 
@@ -494,36 +426,33 @@ export const unlockAccount = async (
   const { token, userId } = req.body;
 
   if (!token || !userId) {
-    res.status(400).json('Not all details were provided!');
+    res.status(400).json({ message: 'Not all details were provided!' });
     return;
   }
 
   const hashedToken = crypto.createHash('sha256').update(token).digest('hex');
 
   try {
-    const unlockAccountToken = await AccountTokensModel.findOne({
+    const unlockToken = await AccountTokensModel.findOne({
       user_id: userId,
       token: hashedToken,
       type: 'unlock_account',
-      expires_at: { $gt: new Date() }, // not expired
+      expires_at: { $gt: new Date() },
     });
 
-    if (!unlockAccountToken) {
-      res
-        .status(400)
-        .json({ message: 'Invalid or expired unlock account token.' });
+    if (!unlockToken) {
+      res.status(400).json({ message: 'Invalid or expired unlock token.' });
       return;
     }
 
-    const user = await User.findById(unlockAccountToken.user_id);
-
+    const user = await User.findById(unlockToken.user_id);
     if (!user) {
       res.status(404).json({ message: 'User not found.' });
       return;
     }
 
     if (!user.lock_until) {
-      res.status(409).json({ message: 'User account already unlocked.' });
+      res.status(409).json({ message: 'Account is not locked.' });
       return;
     }
 
@@ -533,19 +462,28 @@ export const unlockAccount = async (
     await user.save();
     await AccountTokensModel.deleteMany({
       user_id: user._id,
-      type: 'email_verification',
+      type: 'unlock_account',
     });
 
-    res.status(200).json({
-      message: 'Email verification successful.',
-    });
-
-    return;
+    res.status(200).json({ message: 'Account unlocked successfully.' });
   } catch (error: any) {
-    if (error.message) {
-      next(createCustomError(error.message, 400));
-      return;
-    }
-    next(createCustomError('Server error during forgot password request', 500));
+    if (error.message) return next(createCustomError(error.message, 400));
+    return next(createCustomError('Server error during account unlock', 500));
   }
+};
+export const getCsrfToken = (
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) => {
+  const csrfToken = crypto.randomBytes(32).toString('hex');
+
+  res.cookie('csrfToken', csrfToken, {
+    httpOnly: false,
+    secure: config.nodeEnv === 'production',
+    sameSite: config.nodeEnv === 'production' ? 'none' : 'lax',
+    maxAge: 15 * 60 * 1000,
+  });
+
+  res.status(200).json({ message: 'CSRF token set in cookie' });
 };

@@ -14,6 +14,7 @@ import {
   provideHttpClient,
   withFetch,
   withInterceptors,
+  withXsrfConfiguration,
 } from '@angular/common/http';
 import { authInterceptor } from './features/auth/interceptors/auth.interceptor';
 import { httpOptionsInterceptor } from './features/auth/interceptors/http-options.interceptor';
@@ -27,6 +28,10 @@ export const appConfig: ApplicationConfig = {
     provideHttpClient(
       withFetch(),
       withInterceptors([httpOptionsInterceptor, authInterceptor]),
+      withXsrfConfiguration({
+        cookieName: 'csrfToken',
+        headerName: 'X-CSRF-TOKEN',
+      }),
     ),
     provideAppInitializer(() => {
       const auth = inject(AuthService);

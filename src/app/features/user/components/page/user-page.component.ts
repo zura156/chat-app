@@ -98,9 +98,10 @@ export class UserPageComponent implements OnInit {
       .pipe(
         switchMap((params) => {
           const userId = params['id'];
-          return this.userService
-            .getUserById(userId)
-            .pipe(tap((user) => this.user.set(user)), catchError(() => this.router.navigateByUrl('')));
+          return this.userService.getUserById(userId).pipe(
+            tap((user) => this.user.set(user)),
+            catchError(() => this.router.navigateByUrl('')),
+          );
         }),
       )
       .subscribe();

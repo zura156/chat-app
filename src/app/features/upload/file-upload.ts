@@ -5,28 +5,103 @@ import {
   output,
   ChangeDetectionStrategy,
 } from '@angular/core';
-import { NgClass, DecimalPipe } from '@angular/common';
 import { UploadService } from './upload.service';
 
 @Component({
   selector: 'app-file-upload',
-  standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [NgClass, DecimalPipe],
   template: `
-    <div class="upload-container">
-      <!-- Drop zone -->
-      <div
-        class="drop-zone"
-        [ngClass]="{ 'drag-over': isDragging() }"
+    <!-- File preview list -->
+    @if (uploadService.hasFiles()) {
+      <ul class="flex flex-col gap-1 mb-2">
+        @for (f of uploadService.files(); track f.id) {
+          <li
+            class="flex flex-col gap-1 bg-gray-100 dark:bg-gray-800 rounded-lg px-3 py-2 text-sm"
+          >
+            <div class="flex items-center justify-between gap-2">
+              <span
+                class="truncate font-medium text-gray-800 dark:text-gray-100 max-w-50"
+              >
+                {{ f.originalName ?? f.file.name }}
+              </span>
+              <span class="text-xs text-gray-400 shrink-0">
+                {{ (f.file.size / 1024 / 1024).toFixed(1) }} MB
+              </span>
+
+              <!-- Status badge -->
+              <span
+                class="text-xs px-2 py-0.5 rounded-full shrink-0 font-medium"
+                [class]="badgeClass(f.status)"
+              >
+                @switch (f.status) {
+                  @case ('compressing') {
+                    Compressing
+                  }
+                  @case ('uploading') {
+                    {{ f.progress }}%
+                  }
+                  @case ('ready') {
+                    ✓ Ready
+                  }
+                  @case ('error') {
+                    ✗ {{ f.error }}
+                  }
+                }
+              </span>
+
+              <!-- Remove button (disabled while active) -->
+              @if (f.status !== 'uploading' && f.status !== 'compressing') {
+                <button
+                  (click)="uploadService.remove(f.id)"
+                  class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 text-xs ml-1 shrink-0"
+                  aria-label="Remove file"
+                >
+                  ✕
+                </button>
+              }
+            </div>
+
+            <!-- Progress bar -->
+            @if (f.status === 'uploading') {
+              <div
+                class="w-full h-0.5 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden"
+              >
+                <div
+                  class="h-full bg-blue-500 transition-all duration-150 rounded-full"
+                  [style.width.%]="f.progress"
+                ></div>
+              </div>
+            }
+          </li>
+        }
+      </ul>
+    }
+
+    <!-- Toolbar -->
+    <div class="flex items-center gap-2">
+      <!-- Attach button -->
+      <button
         (click)="fileInput.click()"
-        (dragover)="onDragOver($event)"
-        (dragleave)="isDragging.set(false)"
-        (drop)="onDrop($event)"
+        [disabled]="uploadService.isBusy()"
+        class="flex items-center gap-1.5 px-3 py-1.5 text-sm border border-gray-300 dark:border-gray-600
+               rounded-lg text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800
+               transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
       >
-        <span>Click or drag files here</span>
-        <small>Images ≤10MB · Videos ≤50MB · Docs ≤25MB · Max 5 files</small>
-      </div>
+        <svg
+          class="w-4 h-4"
+          fill="none"
+          stroke="currentColor"
+          viewBox="0 0 24 24"
+        >
+          <path
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            stroke-width="2"
+            d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13"
+          />
+        </svg>
+        Attach
+      </button>
 
       <input
         #fileInput
@@ -36,221 +111,72 @@ import { UploadService } from './upload.service';
         (change)="onFileSelect($event)"
       />
 
-      <!-- Error -->
+      <!-- Inline error -->
       @if (error()) {
-        <p class="error">{{ error() }}</p>
-      }
-
-      <!-- File list with progress -->
-      @if (uploadService.files().length) {
-        <ul class="file-list">
-          @for (f of uploadService.files(); track f.id) {
-            <li class="file-item">
-              <span class="file-name">{{ f.file.name }}</span>
-              <span class="file-size"
-                >{{ f.file.size / 1024 / 1024 | number: '1.1-1' }} MB</span
-              >
-
-              @if (f.status === 'uploading' || f.status === 'done') {
-                <div class="progress-bar">
-                  <div class="progress-fill" [style.width.%]="f.progress"></div>
-                </div>
-              }
-
-              <span class="status" [ngClass]="f.status">
-                @switch (f.status) {
-                  @case ('pending') {
-                    Waiting
-                  }
-                  @case ('uploading') {
-                    {{ f.progress }}%
-                  }
-                  @case ('done') {
-                    ✓
-                  }
-                  @case ('error') {
-                    ✗ {{ f.error }}
-                  }
-                }
-              </span>
-            </li>
-          }
-        </ul>
+        <span class="text-xs text-red-500 flex-1">{{ error() }}</span>
       }
 
       <!-- Send button -->
-      @if (uploadService.files().length && !uploadService.isUploading()) {
-        <button
-          (click)="send()"
-          [disabled]="uploadService.isUploading()"
-          class="send-btn"
-        >
-          Send
-        </button>
-      }
+      <button
+        (click)="send()"
+        [disabled]="uploadService.isBusy()"
+        class="ml-auto px-4 py-1.5 bg-blue-500 hover:bg-blue-600 text-white text-sm font-medium
+               rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+      >
+        {{ uploadService.isBusy() ? 'Uploading…' : 'Send' }}
+      </button>
     </div>
   `,
-  styles: [
-    `
-      .upload-container {
-        display: flex;
-        flex-direction: column;
-        gap: 8px;
-      }
-
-      .drop-zone {
-        border: 2px dashed #ccc;
-        border-radius: 8px;
-        padding: 16px;
-        text-align: center;
-        cursor: pointer;
-        display: flex;
-        flex-direction: column;
-        gap: 4px;
-        transition: border-color 0.2s;
-      }
-      .drop-zone.drag-over {
-        border-color: #4a90e2;
-        background: #f0f6ff;
-      }
-      .drop-zone small {
-        color: #888;
-        font-size: 12px;
-      }
-
-      .error {
-        color: red;
-        font-size: 13px;
-        margin: 0;
-      }
-
-      .file-list {
-        list-style: none;
-        margin: 0;
-        padding: 0;
-        display: flex;
-        flex-direction: column;
-        gap: 6px;
-      }
-
-      .file-item {
-        display: grid;
-        grid-template-columns: 1fr auto auto;
-        align-items: center;
-        gap: 8px;
-        font-size: 13px;
-      }
-      .file-name {
-        overflow: hidden;
-        text-overflow: ellipsis;
-        white-space: nowrap;
-      }
-      .file-size {
-        color: #888;
-        white-space: nowrap;
-      }
-
-      .progress-bar {
-        grid-column: 1 / -1;
-        height: 3px;
-        background: #eee;
-        border-radius: 2px;
-        overflow: hidden;
-      }
-      .progress-fill {
-        height: 100%;
-        background: #4a90e2;
-        transition: width 0.2s;
-      }
-
-      .status {
-        font-size: 12px;
-        white-space: nowrap;
-      }
-      .status.done {
-        color: green;
-      }
-      .status.error {
-        color: red;
-      }
-      .status.uploading {
-        color: #4a90e2;
-      }
-
-      .send-btn {
-        align-self: flex-end;
-        padding: 6px 16px;
-        background: #4a90e2;
-        color: white;
-        border: none;
-        border-radius: 6px;
-        cursor: pointer;
-        font-size: 14px;
-      }
-      .send-btn:disabled {
-        opacity: 0.5;
-        cursor: not-allowed;
-      }
-    `,
-  ],
 })
-export class FileUploadComponent {
+export class FileUpload {
   readonly uploadService = inject(UploadService);
 
-  // Emits confirmed file URLs back to parent (chat component)
+  // Emits confirmed files to parent (chat component) on send
   readonly uploaded =
     output<
       { key: string; url: string; originalName: string; mimeType: string }[]
     >();
 
-  readonly isDragging = signal(false);
   readonly error = signal<string | null>(null);
-
-  onDragOver(e: DragEvent): void {
-    e.preventDefault();
-    this.isDragging.set(true);
-  }
-
-  onDrop(e: DragEvent): void {
-    e.preventDefault();
-    this.isDragging.set(false);
-    const files = Array.from(e.dataTransfer?.files ?? []);
-    this.startUpload(files);
-  }
 
   onFileSelect(e: Event): void {
     const input = e.target as HTMLInputElement;
     const files = Array.from(input.files ?? []);
-    this.startUpload(files);
-    input.value = ''; // reset so same file can be re-selected
-  }
-
-  private startUpload(files: File[]): void {
+    input.value = ''; // allow re-selecting same file
+    if (!files.length) return;
     this.error.set(null);
-    const validationError = this.uploadService.validate(files);
-    if (validationError) {
-      this.error.set(validationError);
-      return;
-    }
-    // Fire and forget — signals handle progress state
     this.uploadService
-      .upload(files)
+      .startUpload(files)
       .catch((err) => this.error.set(err.message));
   }
 
-  send(): void {
-    const done = this.uploadService.files().filter((f) => f.status === 'done');
-    if (!done.length) return;
-    // Emit to parent — parent attaches these to the message
-    // (you'd combine file URLs from confirmRes in a real app)
-    this.uploaded.emit(
-      done.map((f) => ({
-        key: f.key!,
-        url: '', // populated from confirmRes in real app
-        originalName: f.file.name,
-        mimeType: f.file.type,
-      })),
+  async send(): Promise<void> {
+    this.error.set(null);
+    if (!this.uploadService.hasFiles()) {
+      // No files — parent handles text-only message
+      this.uploaded.emit([]);
+      return;
+    }
+    try {
+      const files = await this.uploadService.confirmAndSend();
+      this.uploaded.emit(files);
+      this.uploadService.reset();
+    } catch (err: any) {
+      this.error.set(err.message);
+    }
+  }
+
+  badgeClass(status: string): string {
+    return (
+      {
+        compressing:
+          'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200',
+        uploading:
+          'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200',
+        ready:
+          'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200',
+        error: 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200',
+      }[status] ?? ''
     );
-    this.uploadService.reset();
   }
 }

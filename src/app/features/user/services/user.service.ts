@@ -49,12 +49,12 @@ export class UserService {
           last_name: body.last_name ?? currentUser?.last_name,
           bio: body.bio ?? currentUser?.bio,
         });
-      })
+      }),
     );
   }
 
   updateProfilePicture(
-    body: UpdateProfilePictureI
+    body: UpdateProfilePictureI,
   ): Observable<UpdateProfilePictureResponseI> {
     const formData = new FormData();
     formData.append('userId', body.userId);
@@ -63,7 +63,7 @@ export class UserService {
     return this.http
       .patch<UpdateProfilePictureResponseI>(
         this._UPDATE_PROFILE_PICTURE_URL,
-        formData
+        formData,
       )
       .pipe(
         tap(({ message, profilePictureUrl }) => {
@@ -78,7 +78,7 @@ export class UserService {
             ...currentUser,
             profile_picture: profilePictureUrl,
           });
-        })
+        }),
       );
   }
 
@@ -95,7 +95,7 @@ export class UserService {
     const url = `${this._GET_USER_BY_ID.split(':id')[0]}${userId}`;
     return this.http
       .get<UserI>(url)
-      .pipe(tap((res) => this.userStateService.setSelectedUser(res)));
+      .pipe(tap((res) => this.#selectedUser.set(res)));
   }
 
   fetchUsers(offset = 0, limit = 20): Observable<UserListI> {

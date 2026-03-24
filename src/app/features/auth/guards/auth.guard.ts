@@ -10,7 +10,7 @@ export const authGuard: CanActivateFn = (route, state) => {
   // const requiredRole = route.data?.['role'];
 
   if (!isAuthenticated) {
-    router.createUrlTree(['/auth/register'], {
+    router.navigate(['/auth/register'], {
       queryParams: { returnUrl: state.url },
     });
     return false;

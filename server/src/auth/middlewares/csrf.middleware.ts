@@ -1,11 +1,13 @@
 import { Request, Response, NextFunction } from 'express';
-import { csrfTokens } from '../services/csrf.service';
 
-export const validateCSRF = async (
+// Double Submit Cookie pattern — no server-side storage needed.
+// Client reads csrfToken cookie (non-httpOnly) and sends it as X-CSRF-TOKEN header.
+// Server just compares cookie value vs header value.
+export const csrfProtection = (
   req: Request,
   res: Response,
-  next: NextFunction
-): Promise<void> => {
+  next: NextFunction,
+): void => {
   const methodsToProtect = ['POST', 'PUT', 'PATCH', 'DELETE'];
 
   if (!methodsToProtect.includes(req.method)) {
@@ -13,11 +15,11 @@ export const validateCSRF = async (
     return;
   }
 
-  const token = req.headers['x-csrf-token'] as string;
-  const sessionId = req.cookies.sessionId;
+  const cookieToken = req.cookies.csrfToken as string | undefined;
+  const headerToken = req.headers['x-csrf-token'] as string | undefined;
 
-  if (!token || !sessionId || csrfTokens.get(sessionId) !== token) {
-    res.status(403).json({ error: 'Invalid CSRF token' });
+  if (!cookieToken || !headerToken || cookieToken !== headerToken) {
+    res.status(403).json({ message: 'Invalid CSRF token' });
     return;
   }
 

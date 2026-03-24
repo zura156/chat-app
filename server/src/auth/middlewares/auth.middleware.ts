@@ -12,7 +12,7 @@ export interface AuthRequest extends Request {
 export const authenticateToken = async (
   req: AuthRequest,
   res: Response,
-  next: NextFunction
+  next: NextFunction,
 ): Promise<void> => {
   const token = req.cookies.accessToken;
 
@@ -24,7 +24,7 @@ export const authenticateToken = async (
   try {
     const decoded = jwt.verify(token, config.jwtSecret) as { userId: string };
     const user = await User.findById(decoded.userId).select(
-      '-password -refreshTokens -is_email_verified -login_attempts -lock_until -last_login'
+      '-password -refreshTokens -is_email_verified -login_attempts -lock_until -last_login',
     );
 
     if (!user) {
