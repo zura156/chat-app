@@ -1,6 +1,14 @@
 import { computed, inject, Injectable, signal } from '@angular/core';
 import { environment } from '../../../../environments/environment';
-import { catchError, Observable, tap, throwError, switchMap } from 'rxjs';
+import {
+  catchError,
+  Observable,
+  tap,
+  throwError,
+  switchMap,
+  of,
+  EMPTY,
+} from 'rxjs';
 import { HttpClient, HttpErrorResponse } from '@angular/common/http';
 import { RegisterCredentialsI } from '../interfaces/register-credentials.interface';
 import { LoginCredentialsI } from '../interfaces/login-credentials.interface';
@@ -50,8 +58,19 @@ export class AuthService {
   );
 
   init(): void {
+    this.loadCurrentUser()
+      .pipe(
+        tap(() => {
+          localStorage.setItem(this.IS_AUTHENTICATED_KEY, 'true');
+          this.isAuthenticated.set(true);
+        }),
+        catchError(() => {
+          this.isAuthenticated.set(false);
+          return this.logOut();
+        }),
+      )
+      .subscribe();
     if (this.isAuthenticated()) {
-      this.loadCurrentUser().subscribe();
       this.setupUnloadListener();
     }
   }

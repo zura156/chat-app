@@ -28,11 +28,12 @@ import { toast } from '@spartan-ng/brain/sonner';
 import { ImageCropperComponent } from 'ngx-smart-cropper';
 import { base64ToFile } from '../../../../../shared/functions/base64-to-file';
 import { FileMetadata } from '../../../../../shared/interfaces/file-metadata.interface';
-import { catchError, EMPTY, switchMap, tap } from 'rxjs';
+import { catchError, EMPTY, tap } from 'rxjs';
 import { UserService } from '../../../services/user.service';
 import { UpdateProfilePictureI } from '../../../interfaces/update-profile-picture.interface';
 import { UpdateProfileDataI } from '../../../interfaces/update-profile-data.interface';
 import { RouterLink } from '@angular/router';
+import { AuthService } from '../../../../auth/services/auth.service';
 
 @Component({
   selector: 'user-profile-settings',
@@ -67,6 +68,8 @@ import { RouterLink } from '@angular/router';
 export class ProfileSettings implements OnInit {
   private userService = inject(UserService);
   private userStateService = inject(UserStateService);
+  private authService = inject(AuthService);
+
   currentUser = computed(this.userStateService.currentUser);
 
   form = new FormGroup({
@@ -89,6 +92,10 @@ export class ProfileSettings implements OnInit {
   selectedFileMetadata = signal<FileMetadata | null>(null);
 
   ngOnInit(): void {}
+
+  logOut(): void {
+    this.authService.logOut().subscribe();
+  }
 
   onImageSelected(event: Event): void {
     const input = event.target as HTMLInputElement;
