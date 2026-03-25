@@ -104,7 +104,6 @@ export class AuthService {
     this.#loading.set(true);
     this.#error.set(null);
     return this.http.post<AuthResponseI>(this._LOGIN_URL, credentials).pipe(
-      catchError(this.handleError),
       switchMap(() => {
         this.#loading.set(false);
         localStorage.setItem(this.IS_AUTHENTICATED_KEY, 'true');
@@ -113,6 +112,7 @@ export class AuthService {
           tap(() => this.router.navigateByUrl('/messages')),
         );
       }),
+      catchError(this.handleError),
     );
   }
 
@@ -151,7 +151,10 @@ export class AuthService {
   logOut(): Observable<AuthResponseI> {
     this.#loading.set(true);
     return this.http.post<AuthResponseI>(this._LOGOUT_URL, {}).pipe(
-      tap(() => this.clearLocalState()),
+      tap(() => {
+        this.router.navigateByUrl('');
+        this.clearLocalState();
+      }),
       catchError(this.handleError.bind(this)),
     );
   }

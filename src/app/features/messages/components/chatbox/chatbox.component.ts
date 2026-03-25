@@ -441,11 +441,13 @@ export class ChatboxComponent implements OnInit, OnDestroy {
           catchError((err) => this.handleError(err)),
           switchMap((conversation) => {
             this.canMessage.set(false);
+            const tempId = crypto.randomUUID();
 
             this.conversation = this.conversationService.activeConversation;
             const message: MessageI = {
               sender: sender,
               conversation: conversation._id,
+              tempId,
               content,
               type: MessageType.TEXT,
               status: MessageStatus.SENDING,
@@ -475,6 +477,7 @@ export class ChatboxComponent implements OnInit, OnDestroy {
         )
         .subscribe();
     } else {
+      const tempId = crypto.randomUUID();
       this.isLoading.set(true);
       this.canMessage.set(false);
 
@@ -482,6 +485,7 @@ export class ChatboxComponent implements OnInit, OnDestroy {
         sender: sender,
         conversation: convo._id,
         content,
+        tempId,
         type: MessageType.TEXT,
         status: MessageStatus.SENDING,
         timestamp: new Date().toISOString(),
@@ -634,9 +638,17 @@ export class ChatboxComponent implements OnInit, OnDestroy {
               const isInfoMessage = message.type === 'info';
               const isCurrentConversation =
                 conversation._id === message.conversation;
+              const isSameDevice = !!message.tempId; // only the sending device has tempId
 
               if (!isInfoMessage && isCurrentUser) {
-                this.messageService.fillInMessageDetails(message);
+                if (isSameDevice) {
+                  this.messageService.fillInMessageDetails(message);
+                } else {
+                  // Other device of same user — treat like incoming
+                  if (isCurrentConversation) {
+                    this.messageService.addMessage(message);
+                  }
+                }
                 this.markMessageAsRead(message);
                 return;
               }

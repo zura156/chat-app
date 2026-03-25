@@ -18,6 +18,8 @@ export enum MessageStatusEnum {
 }
 
 export interface MessageI {
+  _id?: string;
+  tempId?: string;
   sender: Partial<UserDTO> | string;
   conversation: string;
   content: string;

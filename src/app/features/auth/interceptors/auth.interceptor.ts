@@ -4,6 +4,8 @@ import { catchError, switchMap, throwError } from 'rxjs';
 import { Router } from '@angular/router';
 import { AuthService } from '../services/auth.service';
 
+const PUBLIC_AUTH_URLS = ['/auth/login', '/auth/refresh', '/auth/logout'];
+
 export const authInterceptor: HttpInterceptorFn = (req, next) => {
   const authService = inject(AuthService);
   const router = inject(Router);
@@ -11,6 +13,10 @@ export const authInterceptor: HttpInterceptorFn = (req, next) => {
   return next(req).pipe(
     catchError((error: HttpErrorResponse) => {
       if (error.status !== 401) return throwError(() => error);
+
+      if (PUBLIC_AUTH_URLS.some((url) => req.url.includes(url)))
+        return throwError(() => error);
+
       if (req.url.includes('/auth/refresh')) {
         localStorage.removeItem('isAuthenticated');
         router.navigate(['/auth/login']);

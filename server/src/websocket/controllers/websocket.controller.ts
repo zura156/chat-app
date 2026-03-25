@@ -117,13 +117,13 @@ export class WebSocketController {
 
   private async handleChatMessage(data: DTO.ChatMessage): Promise<void> {
     try {
-      const { sender, conversation, content } = data.message;
-      // The controller delegates the core task of creating a message to the MessageService.
-      // The MessageService will save it and then call the broadcast function itself.
+      const { sender, conversation, content, tempId } = data.message;
       await this.messageService.createTextMessage(
         (sender as Partial<UserDTO>)?._id!.toString() ?? sender.toString(),
         conversation.toString(),
         content as string,
+        undefined,
+        tempId,
       );
     } catch (error) {
       logger.error('Failed to handle incoming chat message:', error);

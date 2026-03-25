@@ -410,9 +410,20 @@ export class MessageService {
   }
 
   fillInMessageDetails(message: MessageI): void {
-    this.#activeMessages.update((val) => {
-      val.shift();
-      return [message, ...val];
+    this.#activeMessages.update((messages) => {
+      const idx = message.tempId
+        ? messages.findIndex((m) => m.tempId === message.tempId)
+        : -1;
+
+      if (idx !== -1) {
+        // Same device — swap optimistic with real
+        const updated = [...messages];
+        updated[idx] = { ...message, status: MessageStatus.SENT };
+        return updated;
+      }
+
+      // Other device of same user — just prepend
+      return [message, ...messages];
     });
   }
 

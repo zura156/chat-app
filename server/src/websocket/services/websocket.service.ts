@@ -113,10 +113,13 @@ export class WebSocketService {
 
       const participantIds = conversation.participants.map((p) => p.toString());
 
+      for (const userId of participantIds) {
+        this.sendToUser(userId, payload);
+      }
       // Publish to Redis — all instances (including this one) receive it
       await redisClient.publish(
         'ws:broadcast',
-        JSON.stringify({ participantIds, payload }),
+        JSON.stringify({ participantIds, payload, fromPid: process.pid }),
       );
     } catch (error) {
       logger.error('Broadcast error:', error);

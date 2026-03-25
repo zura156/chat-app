@@ -28,6 +28,7 @@ import ffmpeg from 'fluent-ffmpeg';
 import ffmpegPath from 'ffmpeg-static';
 import { connectRedis, redisSubscriber } from './utils/redis';
 import uploadRouter from './upload/upload.router';
+import notificationsRouter from './messenger/routers/notifications.router';
 import { csrfProtection } from './auth/middlewares/csrf.middleware';
 import { WebSocketService } from './websocket/services/websocket.service';
 
@@ -120,6 +121,12 @@ app.use(
   conversationRouter,
 );
 app.use('/messages', generalLimiter, authenticateToken, messageRouter);
+app.use(
+  '/notifications',
+  generalLimiter,
+  authenticateToken,
+  notificationsRouter,
+);
 
 app.use((err: Error, req: Request, res: Response, next: NextFunction) => {
   errorMiddleware(err, req, res, next);
@@ -131,7 +138,8 @@ server.listen(port, async () => {
 
   await redisSubscriber.subscribe('ws:broadcast', (rawMessage) => {
     try {
-      const { participantIds, payload } = JSON.parse(rawMessage);
+      const { participantIds, payload, fromPid } = JSON.parse(rawMessage);
+      if (fromPid === process.pid) return;
       for (const userId of participantIds) {
         websocketService.sendToUser(userId, payload);
       }

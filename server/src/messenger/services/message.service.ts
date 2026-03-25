@@ -29,7 +29,7 @@ export class MessageService {
   public async getMessagesForConversation(
     conversationId: string,
     limit: number,
-    offset: number
+    offset: number,
   ) {
     const [messages, totalCount] = await Promise.all([
       Message.find({ conversation: conversationId })
@@ -45,7 +45,7 @@ export class MessageService {
   public async getMediaMessages(
     conversationId: string,
     limit: number,
-    offset: number
+    offset: number,
   ) {
     const query = {
       conversation: conversationId,
@@ -69,7 +69,7 @@ export class MessageService {
   public async getFileMessages(
     conversationId: string,
     limit: number,
-    offset: number
+    offset: number,
   ) {
     const query = {
       conversation: conversationId,
@@ -102,7 +102,8 @@ export class MessageService {
     senderId: string,
     conversationId: string,
     content: string,
-    type?: MessageTypeEnum
+    type?: MessageTypeEnum,
+    tempId?: string,
   ): Promise<IMessage> {
     const conversationObjectId = new Types.ObjectId(conversationId);
 
@@ -112,7 +113,7 @@ export class MessageService {
 
     if (content.length > 2000) {
       throw new Error(
-        'Message content exceeds the maximum length of 2000 characters.'
+        'Message content exceeds the maximum length of 2000 characters.',
       );
     }
 
@@ -132,15 +133,19 @@ export class MessageService {
 
     const populatedMessage = await Message.findById(message._id).populate(
       'sender',
-      'username profile_picture'
+      'username profile_picture',
     );
 
     if (!populatedMessage) {
       throw new Error('Failed to create and populate message.');
     }
 
+    const broadcastPayload = tempId
+      ? { ...populatedMessage.toObject(), tempId }
+      : populatedMessage;
+
     // Broadcast the new message to relevant clients
-    this.broadcast(populatedMessage);
+    this.broadcast(broadcastPayload);
 
     return populatedMessage;
   }
@@ -157,7 +162,7 @@ export class MessageService {
     file: Express.Multer.File,
     senderId: string,
     conversationId: string,
-    durationFromClient?: string
+    durationFromClient?: string,
   ): Promise<IMessage> {
     const conversationObjectId = new Types.ObjectId(conversationId);
     const messageType = getMessageTypeFromMime(file.mimetype);
@@ -172,7 +177,7 @@ export class MessageService {
         const placeholderFilename = `${fileInfo.name}-placeholder`;
         const placeholderPath = path.resolve(
           file.destination,
-          placeholderFilename
+          placeholderFilename,
         );
 
         await sharp(file.path)
@@ -247,7 +252,7 @@ export class MessageService {
 
     const populatedMessage = await Message.findById(message._id).populate(
       'sender',
-      'username profile_picture'
+      'username profile_picture',
     );
 
     if (!populatedMessage) {

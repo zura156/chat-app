@@ -29,6 +29,7 @@ export interface FileI {
 
 export interface MessageI {
   _id?: string;
+  tempId?: string;
   sender: Partial<ParticipantI>;
   conversation: ConversationI | string;
   file?: FileI;

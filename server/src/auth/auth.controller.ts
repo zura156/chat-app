@@ -15,7 +15,6 @@ import { AuthRequest } from './middlewares/auth.middleware';
 import { generateLink } from './services/auth.service';
 import crypto from 'crypto';
 import {
-  clearRateLimit,
   clearRateLimitMiddleware,
   forgotPasswordRateLimitIncrement,
   loginRateLimitIncrement,
@@ -52,7 +51,7 @@ const setAuthCookies = (
   });
   res.cookie('refreshToken', refreshToken, {
     ...COOKIE_BASE,
-    // path: '/auth/refresh',
+    path: '/auth/refresh',
     maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
   });
 
@@ -69,9 +68,7 @@ const setAuthCookies = (
 
 const clearAuthCookies = (res: Response) => {
   res.clearCookie('accessToken');
-  res.clearCookie('refreshToken',
-    // { path: '/auth/refresh' }
-    );
+  res.clearCookie('refreshToken', { path: '/auth/refresh' });
   res.clearCookie('csrfToken');
 };
 
