@@ -58,21 +58,10 @@ export class AuthService {
   );
 
   init(): void {
-    this.loadCurrentUser()
-      .pipe(
-        tap(() => {
-          localStorage.setItem(this.IS_AUTHENTICATED_KEY, 'true');
-          this.isAuthenticated.set(true);
-        }),
-        catchError(() => {
-          this.isAuthenticated.set(false);
-          return this.logOut();
-        }),
-      )
-      .subscribe();
     if (this.isAuthenticated()) {
-      this.setupUnloadListener();
+      this.loadCurrentUser().subscribe();
     }
+    this.setupUnloadListener();
   }
 
   private loadCurrentUser() {
@@ -99,6 +88,10 @@ export class AuthService {
   }
 
   handleBeforeUnload(): void {
+    localStorage.setItem(
+      this.IS_AUTHENTICATED_KEY,
+      String(this.isAuthenticated()),
+    );
     const user = this.user();
     if (user) {
       this.webSocketService.sendMessage({
@@ -188,6 +181,7 @@ export class AuthService {
     this.userStateService.setCurrentUser(null);
     this.webSocketService.close();
     localStorage.clear();
+    localStorage.setItem(this.IS_AUTHENTICATED_KEY, 'false');
     this.isAuthenticated.set(false);
     this.#loading.set(false);
   }
