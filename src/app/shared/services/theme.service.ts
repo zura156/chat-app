@@ -8,7 +8,6 @@ import {
 } from '@angular/core';
 
 export type Theme = 'light' | 'dark' | 'system';
-
 @Injectable({ providedIn: 'root' })
 export class ThemeService {
   private renderer: Renderer2;

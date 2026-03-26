@@ -1,4 +1,4 @@
-import { Component, computed, effect, inject, signal } from '@angular/core';
+import { Component, computed, inject } from '@angular/core';
 import { NgIcon, provideIcons } from '@ng-icons/core';
 import { lucideCheck } from '@ng-icons/lucide';
 import { HlmButtonImports } from '@spartan-ng/helm/button';
@@ -8,8 +8,6 @@ import {
   ThemeService,
   Theme,
 } from '../../../../../shared/services/theme.service';
-
-type Density = 'comfortable' | 'compact';
 
 @Component({
   templateUrl: './appearance-settings.html',
@@ -21,11 +19,6 @@ export class AppearanceSettings {
 
   selectedTheme = this.themeService.theme;
   selectedColorTheme = this.themeService.colorTheme;
-
-  fontSize = signal<number>(Number(localStorage.getItem('fontSize')) || 16);
-  selectedDensity = signal<Density>(
-    (localStorage.getItem('density') as Density) ?? 'comfortable',
-  );
 
   readonly modes = [
     { value: 'light' as Theme, label: 'Light' },
@@ -68,37 +61,6 @@ export class AppearanceSettings {
     return activeTheme?.isDarkOnly ?? false;
   });
 
-  readonly densities = [
-    {
-      value: 'comfortable' as Density,
-      label: 'Comfortable',
-      description: 'More spacing, easier to read',
-    },
-    {
-      value: 'compact' as Density,
-      label: 'Compact',
-      description: 'Tighter spacing, more content',
-    },
-  ];
-
-  constructor() {
-    effect(() => {
-      document.documentElement.style.setProperty(
-        '--font-size-base',
-        `${this.fontSize()}px`,
-      );
-      localStorage.setItem('fontSize', String(this.fontSize()));
-    });
-
-    effect(() => {
-      document.documentElement.setAttribute(
-        'data-density',
-        this.selectedDensity(),
-      );
-      localStorage.setItem('density', this.selectedDensity());
-    });
-  }
-
   setTheme(theme: Theme, colorTheme?: string) {
     this.themeService.setTheme(theme, colorTheme);
   }
@@ -112,13 +74,5 @@ export class AppearanceSettings {
     }
 
     this.themeService.setColorTheme(colorTheme);
-  }
-
-  setFontSize(event: Event) {
-    this.fontSize.set(Number((event.target as HTMLInputElement).value));
-  }
-
-  setDensity(density: string) {
-    this.selectedDensity.set(density as Density);
   }
 }
