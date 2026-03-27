@@ -35,6 +35,11 @@ import { csrfProtection } from './auth/middlewares/csrf.middleware';
 const app: Application = express();
 const port: number | 3000 = parseInt(config.port.toString());
 
+app.get('/health-check', (req: Request, res: Response) => {
+  res.status(200).send('OK');
+  logger.info('Health check');
+});
+
 app.set('trust proxy', config.trustedProxies);
 
 const server = http.createServer(app);
@@ -104,11 +109,6 @@ const generalLimiter = rateLimit({
   max: 100,
   standardHeaders: true,
   legacyHeaders: false,
-});
-
-app.get('/health-check', (req: Request, res: Response) => {
-  res.status(200).send('OK');
-  logger.info('Health check');
 });
 
 // Public routes
