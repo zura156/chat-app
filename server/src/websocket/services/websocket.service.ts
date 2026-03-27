@@ -15,8 +15,9 @@ const MESSAGE_TYPES = new Set([
   MessageTypeEnum.FILE,
 ]);
 
+const INSTANCE_KEY = `online_users:${process.pid}`;
+
 export class WebSocketService {
-  // Local only — WS objects can't go in Redis
   private clients = new Map<string, Set<WebSocket>>();
 
   public async authenticate(userId: string, ws: WebSocket): Promise<void> {
@@ -25,8 +26,12 @@ export class WebSocketService {
     }
     this.clients.get(userId)!.add(ws);
 
-    // Track in Redis: which users are online (across all instances)
-    await redisClient.sAdd('online_users', userId);
+    // Track in BOTH: global set (for getAllConnectedUserIds) and per-instance set (for isUserFullyDisconnected)
+    await Promise.all([
+      redisClient.sAdd('online_users', userId),
+      redisClient.sAdd(INSTANCE_KEY, userId),
+    ]);
+
     logger.info(
       `User ${userId} authenticated (${this.clients.get(userId)!.size} local sessions)`,
     );
@@ -39,10 +44,11 @@ export class WebSocketService {
 
         if (sockets.size === 0) {
           this.clients.delete(userId);
-          // Only remove from Redis if no local sessions remain
-          // Other instances may still have this user connected,
-          // so use a per-instance key instead of a global flag
-          await redisClient.sRem(`online_users:${process.pid}`, userId);
+          // Remove from both keys — global membership reflects actual state
+          await Promise.all([
+            redisClient.sRem('online_users', userId),
+            redisClient.sRem(INSTANCE_KEY, userId),
+          ]);
         }
 
         return userId;
@@ -52,16 +58,26 @@ export class WebSocketService {
   }
 
   public async isUserFullyDisconnected(userId: string): Promise<boolean> {
-    // No local sessions
     const localSessions = this.clients.get(userId);
     if (localSessions && localSessions.size > 0) return false;
 
-    // Check if any OTHER instance still has the user connected
-    const instanceKeys = await redisClient.keys('online_users:*');
-    for (const key of instanceKeys) {
-      const isMember = await redisClient.sIsMember(key, userId);
-      if (isMember) return false;
-    }
+    // Use SCAN instead of KEYS to avoid blocking Redis
+    let cursor = '0';
+    do {
+      const [nextCursor, keys] = (await redisClient.sendCommand([
+        'SCAN',
+        cursor,
+        'MATCH',
+        'online_users:*',
+        'COUNT',
+        '100',
+      ])) as [string, string[]];
+      cursor = nextCursor;
+
+      for (const key of keys) {
+        if (await redisClient.sIsMember(key, userId)) return false;
+      }
+    } while (cursor !== '0');
 
     return true;
   }
@@ -70,11 +86,13 @@ export class WebSocketService {
     const sockets = this.clients.get(userId);
     if (!sockets || sockets.size === 0) return false;
 
+    const serialized = JSON.stringify(payload);
     let sent = false;
+
     for (const ws of sockets) {
       if (ws.readyState === WebSocket.OPEN) {
         try {
-          ws.send(JSON.stringify(payload));
+          ws.send(serialized); // reuse serialized string
           sent = true;
         } catch (error) {
           logger.error(`Failed to send to user ${userId}:`, error);
@@ -113,10 +131,12 @@ export class WebSocketService {
 
       const participantIds = conversation.participants.map((p) => p.toString());
 
+      // Send locally first
       for (const userId of participantIds) {
         this.sendToUser(userId, payload);
       }
-      // Publish to Redis — all instances (including this one) receive it
+
+      // Publish for other instances — fromPid prevents double-delivery
       await redisClient.publish(
         'ws:broadcast',
         JSON.stringify({ participantIds, payload, fromPid: process.pid }),
@@ -127,7 +147,7 @@ export class WebSocketService {
   };
 
   public async registerInstance(): Promise<void> {
-    // Register this instance's online_users set, cleared on startup
-    await redisClient.del(`online_users:${process.pid}`);
+    await redisClient.del(INSTANCE_KEY);
+    logger.info(`WebSocket instance registered (pid: ${process.pid})`);
   }
 }

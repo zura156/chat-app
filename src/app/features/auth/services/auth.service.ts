@@ -68,13 +68,7 @@ export class AuthService {
     return this.userService.getCurrentUser().pipe(
       tap((user) => {
         this.userStateService.setCurrentUser(user);
-        this.webSocketService.connect(user._id);
-        this.webSocketService.sendMessage({
-          type: 'user-status',
-          user_id: user._id,
-          status: 'online',
-          last_seen: new Date().toISOString(),
-        } as UserStatusMessage);
+        this.connectWS(user._id);
       }),
       catchError((err) => {
         this.handleAuthFailure();
@@ -121,7 +115,10 @@ export class AuthService {
         localStorage.setItem(this.IS_AUTHENTICATED_KEY, 'true');
         this.isAuthenticated.set(true);
         return this.loadCurrentUser().pipe(
-          tap(() => this.router.navigateByUrl('/messages')),
+          tap((user) => {
+            this.connectWS(user._id);
+            this.router.navigateByUrl('/messages');
+          }),
         );
       }),
       catchError(this.handleError),
@@ -175,6 +172,16 @@ export class AuthService {
   handleAuthFailure(): void {
     this.clearLocalState();
     this.router.navigateByUrl('/auth/login');
+  }
+
+  private connectWS(userId: string): void {
+    this.webSocketService.connect();
+    this.webSocketService.sendMessage({
+      type: 'user-status',
+      user_id: userId,
+      status: 'online',
+      last_seen: new Date().toISOString(),
+    } as UserStatusMessage);
   }
 
   private clearLocalState(): void {

@@ -9,28 +9,26 @@ import { Message } from '../../messenger/models/message.model';
 import { MessageStatusEnum } from '../../messenger/interfaces/message.interface';
 import { UserDTO } from '../../user/dtos/user.dto';
 import { ObjectId } from 'mongodb';
+import { redisClient } from '../../utils/redis';
+
+const OFFLINE_DELAY_MS = 30_000;
 
 export class WebSocketController {
-  private delayedOfflineUpdates = new Map<string, NodeJS.Timeout>();
-
   constructor(
     private websocketService: WebSocketService,
     private messageService: MessageService,
   ) {}
 
-  /**
-   * Main entry point for all incoming WebSocket messages.
-   * It acts as a router, directing the message to the correct handler.
-   */
   public handleIncomingMessage(
     ws: WebSocket,
     data: DTO.WebSocketMessage,
   ): void {
     switch (data.type) {
       case 'authenticate':
-        this.websocketService
-          .authenticate(data.user_id, ws)
-          .catch((err) => logger.error('Auth error:', err));
+        // Auth is handled at WS upgrade — ignore post-connect authenticate messages
+        logger.debug(
+          'Ignoring post-connect authenticate message (handled at upgrade).',
+        );
         break;
       case 'message':
         this.handleChatMessage(data);
@@ -51,11 +49,7 @@ export class WebSocketController {
         this.handleUserStatus(data);
         break;
       default:
-        logger.warn(
-          'Unknown WebSocket message type received:',
-          (data as any).type,
-        );
-        break;
+        logger.warn('Unknown WebSocket message type:', (data as any).type);
     }
   }
 
@@ -77,8 +71,6 @@ export class WebSocketController {
 
   private async handleTyping(data: DTO.TypingMessage): Promise<void> {
     try {
-      logger.debug('Typing data received:', data);
-
       const conversation = await Conversation.findById(
         new ObjectId(data.conversation_id),
       )
@@ -90,24 +82,16 @@ export class WebSocketController {
         return;
       }
 
+      const senderId = String(data.sender._id);
       for (const participantId of conversation.participants) {
         const participantStr = String(participantId);
-        if (participantStr !== String(data.sender._id)) {
-          logger.debug(`Sending typing event to user ${participantStr}`);
-
-          try {
-            this.websocketService.sendToUser(participantStr, {
-              type: 'typing',
-              is_typing: data.is_typing,
-              sender: data.sender,
-              conversation_id: data.conversation_id,
-            });
-          } catch (socketErr) {
-            logger.error(
-              `Failed to send typing to ${participantStr}:`,
-              socketErr,
-            );
-          }
+        if (participantStr !== senderId) {
+          this.websocketService.sendToUser(participantStr, {
+            type: 'typing',
+            is_typing: data.is_typing,
+            sender: data.sender,
+            conversation_id: data.conversation_id,
+          });
         }
       }
     } catch (error) {
@@ -133,17 +117,16 @@ export class WebSocketController {
   private async handleConversationJoin(
     data: DTO.ConversationJoinMessage,
   ): Promise<void> {
-    const { conversation, added_by } = data;
     try {
       const fullConversation = await Conversation.findById(
-        conversation._id,
+        data.conversation._id,
       ).populate('participants');
       if (!fullConversation) return;
 
       const payload = {
         type: 'conversation-join',
         conversation: fullConversation,
-        added_by,
+        added_by: data.added_by,
       };
 
       for (const participant of fullConversation.participants as any[]) {
@@ -157,13 +140,11 @@ export class WebSocketController {
   private async handleConversationLeave(
     data: DTO.ConversationLeaveMessage,
   ): Promise<void> {
-    const { conversation, removed_by, removed_users } = data;
     try {
-      // We also need to notify the user who was removed.
       const allRecipientIds = [
-        ...(conversation.participants as any[]).map((p) => p._id),
-        ...(removed_users
-          ? removed_users.map((u) => (typeof u === 'string' ? u : u._id))
+        ...(data.conversation.participants as any[]).map((p) => p._id),
+        ...(data.removed_users
+          ? data.removed_users.map((u) => (typeof u === 'string' ? u : u._id))
           : []),
       ];
 
@@ -180,13 +161,13 @@ export class WebSocketController {
   ): Promise<void> {
     const { read_receipt, conversation_id } = data;
     try {
-      // Update message status
-      await Message.findByIdAndUpdate(read_receipt.last_message_read_id, {
+      // Fire-and-forget message status update — doesn't need to block broadcast
+      Message.findByIdAndUpdate(read_receipt.last_message_read_id, {
         status: MessageStatusEnum.READ,
-      });
+      }).catch((err) => logger.error('Failed to update message status:', err));
 
-      // Single atomic operation: update existing or add new read receipt
-      const conversation = await Conversation.findOneAndUpdate(
+      // Upsert read receipt atomically
+      let conversation = await Conversation.findOneAndUpdate(
         {
           _id: conversation_id,
           'read_receipts.user_id': new ObjectId(read_receipt.user_id),
@@ -198,16 +179,11 @@ export class WebSocketController {
             'read_receipts.$.read_at': read_receipt.read_at,
           },
         },
-        {
-          new: true,
-          select: 'participants',
-        },
+        { new: true, select: 'participants' },
       );
 
-      // If no document was found/updated, it means no existing receipt exists
       if (!conversation) {
-        // Add new read receipt
-        const updatedConversation = await Conversation.findByIdAndUpdate(
+        conversation = await Conversation.findByIdAndUpdate(
           conversation_id,
           {
             $push: {
@@ -217,37 +193,21 @@ export class WebSocketController {
               },
             },
           },
-          {
-            new: true,
-            select: 'participants',
-          },
+          { new: true, select: 'participants' },
         );
+      }
 
-        if (!updatedConversation) return;
+      if (!conversation) return;
 
-        // Broadcast to participants
-        const payload = {
-          type: 'message-status',
-          status: MessageStatusEnum.READ,
-          read_receipt,
-          conversation_id,
-        };
+      const payload = {
+        type: 'message-status',
+        status: MessageStatusEnum.READ,
+        read_receipt,
+        conversation_id,
+      };
 
-        for (const participantId of updatedConversation.participants) {
-          this.websocketService.sendToUser(participantId.toString(), payload);
-        }
-      } else {
-        // Broadcast to participants (conversation was updated)
-        const payload = {
-          type: 'message-status',
-          status: MessageStatusEnum.READ,
-          read_receipt,
-          conversation_id,
-        };
-
-        for (const participantId of conversation.participants) {
-          this.websocketService.sendToUser(participantId.toString(), payload);
-        }
+      for (const participantId of conversation.participants) {
+        this.websocketService.sendToUser(participantId.toString(), payload);
       }
     } catch (error) {
       logger.error('Failed to handle message status update:', error);
@@ -256,26 +216,37 @@ export class WebSocketController {
 
   private async handleUserStatus(data: DTO.UserStatusMessage): Promise<void> {
     const { user_id, status, last_seen } = data;
-    const existingTimeout = this.delayedOfflineUpdates.get(user_id);
 
-    // Cancel any pending 'offline' update if an 'online' message arrives
-    if (status === 'online' && existingTimeout) {
-      clearTimeout(existingTimeout);
-      this.delayedOfflineUpdates.delete(user_id);
-    }
-
-    // Delay offline updates to handle brief disconnects/reconnects
-    if (status === 'offline') {
-      const timeout = setTimeout(() => {
-        this.finalizeUserStatusUpdate(user_id, status, last_seen);
-        this.delayedOfflineUpdates.delete(user_id);
-      }, 30 * 1000); // 30-second delay
-      this.delayedOfflineUpdates.set(user_id, timeout);
+    if (status === 'online') {
+      // Cancel any pending offline — del is a no-op if key doesn't exist
+      await redisClient.del(`offline_pending:${user_id}`);
+      await this.finalizeUserStatusUpdate(user_id, 'online', last_seen);
       return;
     }
 
-    // Update 'online' status immediately
-    this.finalizeUserStatusUpdate(user_id, status, last_seen);
+    // Offline: use Redis TTL instead of in-memory setTimeout
+    // Safe across instances and server restarts
+    const alreadyPending = await redisClient.exists(
+      `offline_pending:${user_id}`,
+    );
+    if (alreadyPending) return;
+
+    await redisClient.setEx(
+      `offline_pending:${user_id}`,
+      OFFLINE_DELAY_MS / 1000,
+      '1',
+    );
+
+    setTimeout(async () => {
+      // Only finalize if key still exists (wasn't cancelled by reconnect)
+      const stillPending = await redisClient.exists(
+        `offline_pending:${user_id}`,
+      );
+      if (stillPending) {
+        await redisClient.del(`offline_pending:${user_id}`);
+        await this.finalizeUserStatusUpdate(user_id, 'offline', last_seen);
+      }
+    }, OFFLINE_DELAY_MS);
   }
 
   private async finalizeUserStatusUpdate(
@@ -289,7 +260,21 @@ export class WebSocketController {
         last_seen: lastSeen || new Date(),
       });
 
-      const allUserIds = await this.websocketService.getAllConnectedUserIds();
+      // Only notify users who share a conversation — not ALL connected users
+      const sharedConversations = await Conversation.find({
+        participants: userId,
+      })
+        .select('participants')
+        .lean();
+
+      const notifyIds = [
+        ...new Set(
+          sharedConversations
+            .flatMap((c) => c.participants.map(String))
+            .filter((id) => id !== userId),
+        ),
+      ];
+
       const payload = {
         type: 'user-status',
         user_id: userId,
@@ -297,10 +282,8 @@ export class WebSocketController {
         last_seen: lastSeen,
       };
 
-      for (const id of allUserIds) {
-        if (id !== userId) {
-          this.websocketService.sendToUser(id, payload);
-        }
+      for (const id of notifyIds) {
+        this.websocketService.sendToUser(id, payload);
       }
     } catch (error) {
       logger.error(`Failed to finalize user status for ${userId}:`, error);
