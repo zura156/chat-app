@@ -106,6 +106,11 @@ const generalLimiter = rateLimit({
   legacyHeaders: false,
 });
 
+app.get('/health-check', (req: Request, res: Response) => {
+  res.status(200).send('OK');
+  logger.info('Health check');
+});
+
 // Public routes
 app.use('/auth', authRouter); // only logout is protected
 
