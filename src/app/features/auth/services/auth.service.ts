@@ -8,6 +8,8 @@ import {
   switchMap,
   of,
   EMPTY,
+  shareReplay,
+  finalize,
 } from 'rxjs';
 import { HttpClient, HttpErrorResponse } from '@angular/common/http';
 import { RegisterCredentialsI } from '../interfaces/register-credentials.interface';
@@ -56,6 +58,9 @@ export class AuthService {
   public readonly isEmailVerified = computed(
     () => this.user()?.is_email_verified ?? false,
   );
+
+  private refreshInFlight$: Observable<any> | null = null;
+  private isRefreshing = false;
 
   init(): void {
     if (this.isAuthenticated()) {
@@ -149,12 +154,26 @@ export class AuthService {
 
   // Called by authInterceptor on 401 — no retry logic here
   refreshToken(): Observable<MessageResponseI> {
-    return this.http.post<MessageResponseI>(this._REFRESH_TOKEN_URL, {}).pipe(
-      catchError((error) => {
-        this.handleAuthFailure();
-        return throwError(() => error);
-      }),
-    );
+    if (this.isRefreshing && this.refreshInFlight$)
+      return this.refreshInFlight$;
+
+    this.isRefreshing = true;
+
+    this.refreshInFlight$ = this.http
+      .post<MessageResponseI>(this._REFRESH_TOKEN_URL, {})
+      .pipe(
+        catchError((error) => {
+          this.handleAuthFailure();
+          return throwError(() => error);
+        }),
+        finalize(() => {
+          this.isRefreshing = false;
+          this.refreshInFlight$ = null;
+        }),
+        shareReplay(1),
+      );
+
+    return this.refreshInFlight$;
   }
 
   logOut(): Observable<AuthResponseI> {

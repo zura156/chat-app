@@ -13,10 +13,10 @@ export interface TokenPayload {
 
 export const generateTokens = (userId: string) => {
   const accessToken = jwt.sign({ userId }, config.jwtSecret, {
-    expiresIn: '15m',
+    expiresIn: config.jwtExpiresIn as any,
   });
   const refreshToken = jwt.sign({ userId }, config.jwtRefreshSecret, {
-    expiresIn: '7d',
+    expiresIn: config.jwtRefreshTokenExpiresIn as any,
   });
   return { accessToken, refreshToken };
 };
