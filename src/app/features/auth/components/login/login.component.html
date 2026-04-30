@@ -39,7 +39,7 @@
   <!-- Form -->
   <div class="w-full max-w-sm">
     <form [formGroup]="form" (ngSubmit)="onSubmit()" class="space-y-3">
-      <hlm-form-field>
+      <hlm-field>
         <input
           hlmInput
           type="email"
@@ -52,14 +52,14 @@
           class="w-full"
         />
         @if (form.controls["email"].hasError("required")) {
-          <hlm-error>Email is required</hlm-error>
+          <hlm-field-error>Email is required</hlm-field-error>
         }
         @if (form.controls["email"].hasError("email")) {
-          <hlm-error>Invalid email address</hlm-error>
+          <hlm-field-error>Invalid email address</hlm-field-error>
         }
-      </hlm-form-field>
+      </hlm-field>
 
-      <hlm-form-field>
+      <hlm-field>
         <div class="relative">
           <input
             hlmInput
@@ -84,9 +84,9 @@
           </button>
         </div>
         @if (form.controls["password"].hasError("required")) {
-          <hlm-error>Password is required</hlm-error>
+          <hlm-field-error>Password is required</hlm-field-error>
         }
-      </hlm-form-field>
+      </hlm-field>
 
       <div class="text-end">
         <a

@@ -9,7 +9,7 @@ import {
 } from '@angular/core';
 import { environment } from '../../../../environments/environment';
 import { HttpClient, httpResource } from '@angular/common/http';
-import { debounceTime, Observable, of } from 'rxjs';
+import { delay, Observable, of } from 'rxjs';
 import { MessageI, MessageStatus } from '../interfaces/message.interface';
 import { MessageListI } from '../interfaces/message-list.interface';
 import { ParticipantI } from '../interfaces/participant.interface';
@@ -401,7 +401,7 @@ export class MessageService {
   uploadFileMessage(formData: FormData): Observable<any> {
     return this.http
       .post(this.UPLOAD_FILE_MESSAGE_URL, formData)
-      .pipe(debounceTime(500));
+      .pipe(delay(500));
   }
 
   // Clear active messages (useful when changing conversations)

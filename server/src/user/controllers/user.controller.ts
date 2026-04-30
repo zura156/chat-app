@@ -282,7 +282,7 @@ export const updateProfilePicture = async (
     // Upload directly to R2
     await s3.send(
       new PutObjectCommand({
-        Bucket: config.s3SharedBucket,
+        Bucket: config.s3PermanentBucket,
         Key: fileKey,
         Body: compressedBuffer,
         ContentType: 'image/webp',

@@ -41,9 +41,9 @@ import {
 } from '@ng-icons/lucide';
 import { HlmIcon } from '@spartan-ng/helm/icon';
 import { HlmButton } from '@spartan-ng/helm/button';
-import { HlmError } from '@spartan-ng/helm/form-field';
+import { HlmFieldImports } from '@spartan-ng/helm/field';
 import { ParticipantI } from '../../interfaces/participant.interface';
-import { HlmAvatar, HlmAvatarImports } from '@spartan-ng/helm/avatar';
+import { HlmAvatarImports } from '@spartan-ng/helm/avatar';
 import { environment } from '../../../../../environments/environment';
 
 @Component({
@@ -52,10 +52,9 @@ import { environment } from '../../../../../environments/environment';
     ReactiveFormsModule,
     HlmAvatarImports,
     HlmSeparator,
-    HlmAvatar,
     RouterLink,
     HlmInput,
-    HlmError,
+    HlmFieldImports,
     ClickOutsideDirective,
     HlmIcon,
     NgIcon,

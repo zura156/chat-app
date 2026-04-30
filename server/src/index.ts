@@ -85,21 +85,9 @@ app.use(mongoSanitize());
 app.use(hpp());
 
 // Middlewares
-app.use(
-  '/upload',
-  uploadRouter,
-  // (req, res, next) => {
-  //   res.setHeader('Access-Control-Allow-Credentials', 'true');
-  //   res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
-  //   // Optionally for COEP/COOP requirements:
-  //   // res.setHeader('Cross-Origin-Embedder-Policy', 'require-corp');
-  //   // res.setHeader('Cross-Origin-Opener-Policy', 'same-origin');
-  //   next();
-  // },
-  // express.static(path.resolve('uploads')),
-);
-app.use(express.json({ limit: '30mb' }));
-app.use(express.urlencoded({ limit: '30mb', extended: true }));
+
+app.use(express.json({ limit: '100mb' }));
+app.use(express.urlencoded({ limit: '100mb', extended: true }));
 app.use(cookieParser());
 ffmpeg.setFfmpegPath(ffmpegPath || '');
 // app.use(morgan('combined'));
@@ -129,6 +117,21 @@ app.use(
   generalLimiter,
   authenticateToken,
   notificationsRouter,
+);
+app.use(
+  '/upload',
+  generalLimiter,
+  authenticateToken,
+  uploadRouter,
+  // (req, res, next) => {
+  //   res.setHeader('Access-Control-Allow-Credentials', 'true');
+  //   res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
+  //   // Optionally for COEP/COOP requirements:
+  //   // res.setHeader('Cross-Origin-Embedder-Policy', 'require-corp');
+  //   // res.setHeader('Cross-Origin-Opener-Policy', 'same-origin');
+  //   next();
+  // },
+  // express.static(path.resolve('uploads')),
 );
 
 app.use((err: Error, req: Request, res: Response, next: NextFunction) => {

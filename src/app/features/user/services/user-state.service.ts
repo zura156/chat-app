@@ -9,8 +9,8 @@ export class UserStateService {
   private _currentUser = signal<UserI | null>(null);
   private _selectedUser = signal<ParticipantI | null>(null);
 
-  readonly currentUser = computed(() => this._currentUser());
-  readonly selectedUser = computed(() => this._selectedUser());
+  readonly currentUser = this._currentUser.asReadonly();
+  readonly selectedUser = this._selectedUser.asReadonly();
 
   constructor() {
     const selectedUser = sessionStorage.getItem('selectedUser');

@@ -1,30 +1,15 @@
 @font-face {
-  font-family: "SF Pro";
-  src: url("/fonts/SF-Pro/SFPRODISPLAYREGULAR.OTF") format("opentype");
-  font-weight: 400;
+  font-family: "Inter";
   font-style: normal;
+  font-weight: 100 900;
+  font-display: swap;
+  src: url("/fonts/Inter-VariableFont_opsz,wght.woff2") format("woff2");
 }
+
 @font-face {
-  font-family: "SF Pro";
-  src: url("/fonts/SF-Pro/SFPRODISPLAYMEDIUM.OTF") format("opentype");
-  font-weight: 500;
-  font-style: normal;
-}
-@font-face {
-  font-family: "SF Pro";
-  src: url("/fonts/SF-Pro/SFPRODISPLAYBOLD.OTF") format("opentype");
-  font-weight: 700;
-  font-style: normal;
-}
-@font-face {
-  font-family: "SF Georgian";
-  src: url("/fonts/SF-Georgia/SF-Georgian.ttf") format("truetype");
-  font-weight: 400;
-  font-style: normal;
-}
-@font-face {
-  font-family: "SF Georgian";
-  src: url("/fonts/SF-Georgia/SF-Georgian-Rounded.ttf") format("truetype");
-  font-weight: 500;
-  font-style: normal;
+  font-family: "Inter";
+  font-style: italic;
+  font-weight: 100 900;
+  font-display: swap;
+  src: url("/fonts/Inter-Italic-VariableFont_opsz,wght.woff2") format("woff2");
 }

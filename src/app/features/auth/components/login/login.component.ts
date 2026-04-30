@@ -7,7 +7,7 @@ import {
 } from '@angular/forms';
 import { AuthService } from '../../services/auth.service';
 import { LoginCredentialsI } from '../../interfaces/login-credentials.interface';
-import { HlmFormFieldImports } from '@spartan-ng/helm/form-field';
+import { HlmFieldImports } from '@spartan-ng/helm/field';
 import { HlmInput } from '@spartan-ng/helm/input';
 import { HlmButton } from '@spartan-ng/helm/button';
 import { HlmIcon } from '@spartan-ng/helm/icon';
@@ -29,7 +29,7 @@ import { ThemeService } from '../../../../shared/services/theme.service';
   imports: [
     RouterLink,
     ReactiveFormsModule,
-    HlmFormFieldImports,
+    HlmFieldImports,
     HlmInput,
     HlmButton,
     HlmIcon,

@@ -15,7 +15,7 @@ import {
 } from '@ng-icons/lucide';
 import { HlmAlertImports } from '@spartan-ng/helm/alert';
 import { HlmButtonImports } from '@spartan-ng/helm/button';
-import { HlmError, HlmFormFieldImports } from '@spartan-ng/helm/form-field';
+import { HlmFieldImports } from '@spartan-ng/helm/field';
 import { AuthService } from '../../services/auth.service';
 import { HlmInputImports } from '@spartan-ng/helm/input';
 import { HlmIconImports } from '@spartan-ng/helm/icon';
@@ -28,8 +28,7 @@ import { HlmIconImports } from '@spartan-ng/helm/icon';
     ReactiveFormsModule,
     HlmButtonImports,
     HlmAlertImports,
-    HlmError,
-    HlmFormFieldImports,
+    HlmFieldImports,
     HlmInputImports,
     NgIconComponent,
     HlmIconImports,

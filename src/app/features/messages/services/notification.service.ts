@@ -1,10 +1,20 @@
-import { Injectable, signal, computed } from '@angular/core';
+import {
+  Injectable,
+  signal,
+  computed,
+  inject,
+  DestroyRef,
+} from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { NotificationI } from '../interfaces/notification.interface';
 import { environment } from '../../../../environments/environment';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 
 @Injectable({ providedIn: 'root' })
 export class NotificationService {
+  private readonly http = inject(HttpClient);
+  private readonly destroyRef = inject(DestroyRef);
+
   private _notifications = signal<NotificationI[]>([]);
 
   private readonly apiUrl = environment.apiUrl;
@@ -29,11 +39,10 @@ export class NotificationService {
           ?.unread_count ?? 0,
     );
 
-  constructor(private http: HttpClient) {}
-
   loadNotifications(): void {
     this.http
       .get<{ notifications: NotificationI[] }>(this.LOAD_NOTIFICATIONS_URL)
+      .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe({
         next: ({ notifications }) => this._notifications.set(notifications),
         error: (err) => console.error('Failed to load notifications', err),
@@ -69,17 +78,20 @@ export class NotificationService {
   }
 
   markAsSeen(conversationId: string): void {
-    this.http.patch('/api/notifications/seen', { conversationId }).subscribe({
-      next: () => {
-        this._notifications.update((notifications) =>
-          notifications.map((n) =>
-            n.conversation._id === conversationId
-              ? { ...n, seen: true, unread_count: 0 }
-              : n,
-          ),
-        );
-      },
-    });
+    this.http
+      .patch('/api/notifications/seen', { conversationId })
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe({
+        next: () => {
+          this._notifications.update((notifications) =>
+            notifications.map((n) =>
+              n.conversation._id === conversationId
+                ? { ...n, seen: true, unread_count: 0 }
+                : n,
+            ),
+          );
+        },
+      });
   }
 
   private async showBrowserNotification(conversationId: string): Promise<void> {

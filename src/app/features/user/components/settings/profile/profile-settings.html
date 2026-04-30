@@ -75,7 +75,7 @@
       </div>
 
       <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        <hlm-form-field>
+        <hlm-field>
           <label hlmLabel for="firstName">First name</label>
           <input
             id="firstName"
@@ -85,10 +85,10 @@
             [placeholder]="user?.first_name ?? ''"
             class="w-full"
           />
-          <hlm-error class="text-xs">3–20 characters</hlm-error>
-        </hlm-form-field>
+          <hlm-field-error class="text-xs">3–20 characters</hlm-field-error>
+        </hlm-field>
 
-        <hlm-form-field>
+        <hlm-field>
           <label hlmLabel for="lastName">Last name</label>
           <input
             id="lastName"
@@ -98,11 +98,11 @@
             [placeholder]="user?.last_name ?? ''"
             class="w-full"
           />
-          <hlm-error class="text-xs">3–20 characters</hlm-error>
-        </hlm-form-field>
+          <hlm-field-error class="text-xs">3–20 characters</hlm-field-error>
+        </hlm-field>
       </div>
 
-      <hlm-form-field>
+      <hlm-field>
         <label hlmLabel for="username">Username</label>
         <div class="relative">
           <span
@@ -119,8 +119,8 @@
             class="w-full pl-7"
           />
         </div>
-        <hlm-error class="text-xs">3–20 characters</hlm-error>
-      </hlm-form-field>
+        <hlm-field-error class="text-xs">3–20 characters</hlm-field-error>
+      </hlm-field>
     </section>
 
     <hlm-separator decorative />
@@ -134,7 +134,7 @@
         </p>
       </div>
 
-      <hlm-form-field>
+      <hlm-field>
         <textarea
           id="bio"
           hlmTextarea
@@ -144,15 +144,19 @@
         >
         </textarea>
         @let bioLength = form.controls['bio'].value?.length || 0;
-        <hlm-hint class="text-xs" [class.text-destructive]="bioLength > 500">
+        <p
+          hlmFieldDescription
+          class="text-xs"
+          [class.text-destructive]="bioLength > 500"
+        >
           {{ bioLength }}/500
-        </hlm-hint>
+        </p>
         @if (bioLength > 500) {
-        <hlm-error class="text-xs">
+        <hlm-field-error class="text-xs">
           {{ bioLength - 500 }} characters over the limit
-        </hlm-error>
+        </hlm-field-error>
         }
-      </hlm-form-field>
+      </hlm-field>
     </section>
 
     <hlm-separator decorative />

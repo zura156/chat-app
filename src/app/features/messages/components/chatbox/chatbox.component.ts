@@ -8,15 +8,14 @@ import {
   inject,
   linkedSignal,
   OnInit,
-  Signal,
   signal,
   viewChild,
+  HostListener,
 } from '@angular/core';
 import {
   catchError,
   debounceTime,
   distinctUntilChanged,
-  EMPTY,
   map,
   Observable,
   of,
@@ -24,14 +23,11 @@ import {
   tap,
   throwError,
 } from 'rxjs';
-import { takeUntilDestroyed, toSignal } from '@angular/core/rxjs-interop';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, Router } from '@angular/router';
 import { ConversationService } from '../../services/conversation.service';
 import { MessageService } from '../../services/message.service';
-import {
-  ConversationI,
-  ReadReceiptI,
-} from '../../interfaces/conversation.interface';
+import { ConversationI } from '../../interfaces/conversation.interface';
 import {
   HlmAvatarImage,
   HlmAvatar,
@@ -57,10 +53,11 @@ import { TimeAgoPipe } from '../../../../shared/pipes/time-ago.pipe';
 import { MessageCardComponent } from '../message/message-card.component';
 import { NgIcon, provideIcons } from '@ng-icons/core';
 import {
-  lucideAudioLines,
   lucideCirclePlus,
   lucideInfo,
   lucideMessageCircle,
+  lucideMic,
+  lucidePaperclip,
   lucideSend,
 } from '@ng-icons/lucide';
 import { HlmIcon } from '@spartan-ng/helm/icon';
@@ -101,8 +98,9 @@ import { NotificationService } from '../../services/notification.service';
       lucideInfo,
       lucideMessageCircle,
       lucideCirclePlus,
-      lucideAudioLines,
+      lucideMic,
       lucideSend,
+      lucidePaperclip,
     }),
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -138,9 +136,7 @@ export class ChatboxComponent implements OnInit {
 
   // ── Signals ────────────────────────────────────────────────────────────────
 
-  conversation: Signal<ConversationI | null> = signal<ConversationI | null>(
-    null,
-  );
+  conversation = this.conversationService.activeConversation;
   currentUser = this.userStateService.currentUser;
   selectedUser = this.conversationService.selectedUser;
   activeView = this.layoutService.activeView;
@@ -164,10 +160,7 @@ export class ChatboxComponent implements OnInit {
 
   // ── WS messages as Signals (toSignal auto-unsubscribes on destroy) ──────────
 
-  private readonly typingMsg = toSignal(
-    this.webSocketService.onMessageOfType<TypingMessage>('typing'),
-    { initialValue: null },
-  );
+  private readonly typingMessage = this.webSocketService.typingMessage;
 
   // Typing state derived directly from signal — no effect needed
   isTyping = computed<{
@@ -175,7 +168,7 @@ export class ChatboxComponent implements OnInit {
     is_typing: boolean;
     conversationId: string;
   } | null>(() => {
-    const msg = this.typingMsg();
+    const msg = this.typingMessage();
     if (!msg) return null;
     return {
       typer: msg.sender ?? {},
@@ -314,8 +307,6 @@ export class ChatboxComponent implements OnInit {
         map((params) => params['id']),
         catchError((err) => this.handleError(err)),
         switchMap((id) => {
-          this.conversation = this.conversationService.activeConversation;
-
           if (this.conversation()?._id !== id) {
             this.messageService.clearActiveMessages();
             this.messageOffset.set(0);
@@ -383,35 +374,33 @@ export class ChatboxComponent implements OnInit {
 
   // ── File / message sending ──────────────────────────────────────────────────
 
-  onFileSelected(event: Event): void {
-    const input = event.target as HTMLInputElement;
-    const sender = this.currentUser();
-    const conversation = this.conversation();
-    if (!input.files?.[0] || !sender || !conversation) return;
+  @HostListener('paste', ['$event'])
+  onPaste(event: ClipboardEvent) {
+    const files = Array.from(event.clipboardData?.items || [])
+      .filter((item) => item.kind === 'file')
+      .map((item) => item.getAsFile())
+      .filter((f): f is File => f !== null);
 
-    const formData = new FormData();
-    formData.append('file', input.files[0], input.files[0].name);
-    formData.append('conversationId', conversation._id);
+    if (!files.length) return;
 
-    this.messageService
-      .uploadFileMessage(formData)
-      .pipe(
-        takeUntilDestroyed(this.destroyRef),
-        tap((res) => this.messageService.addMessage(res)),
-      )
-      .subscribe();
+    event.preventDefault();
+
+    // TODO: handle clipboard files
+    // ...
   }
 
   sendMessage(): void {
-    const sender = this.currentUser();
-    const convo = this.conversation();
     const content = this.messageControl.value;
-    const now = Date.now();
 
     if (content && content.length > 2000) {
       toast.error('Message is too long. Maximum length is 2000 characters.');
       return;
     }
+
+    const sender = this.currentUser();
+    const convo = this.conversation();
+    const now = Date.now();
+
     if (
       !convo ||
       !sender ||
@@ -457,7 +446,6 @@ export class ChatboxComponent implements OnInit {
           switchMap((conversation) => {
             this.canMessage.set(false);
             const tempId = crypto.randomUUID();
-            this.conversation = this.conversationService.activeConversation;
             const message: MessageI = {
               sender,
               conversation: conversation._id,
@@ -510,7 +498,6 @@ export class ChatboxComponent implements OnInit {
           debounceTime(500),
           catchError((err) => this.handleError(err)),
           tap(() => {
-            this.conversation = this.conversationService.activeConversation;
             this.isLoading.set(false);
             this.canMessage.set(true);
             this.lastMessageSentAt = Date.now();

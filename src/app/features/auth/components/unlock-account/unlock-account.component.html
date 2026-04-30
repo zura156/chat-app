@@ -1,15 +1,21 @@
 <main class="flex min-h-full flex-col justify-center items-center px-6 py-12">
-
   <div class="w-full max-w-sm space-y-6 text-center">
-
     <!-- Icon -->
     <div class="flex flex-col items-center gap-y-3">
-      <div class="size-14 rounded-2xl bg-muted flex items-center justify-center">
-        <ng-icon hlm name="lucideLockOpen" size="xl" class="text-muted-foreground" />
+      <div
+        class="size-14 rounded-2xl bg-muted flex items-center justify-center"
+      >
+        <ng-icon
+          hlm
+          name="lucideLockOpen"
+          size="xl"
+          class="text-muted-foreground"
+        />
       </div>
       <h1 class="text-xl font-semibold tracking-tight">Unlock your account</h1>
       <p class="text-sm text-muted-foreground">
-        Your account has been locked. Enter your email to receive an unlock link.
+        Your account has been locked. Enter your email to receive an unlock
+        link.
       </p>
     </div>
 
@@ -21,7 +27,12 @@
         <p hlmAlertDesc>Please wait...</p>
       </div>
     } @else if (error()) {
-      <div hlmAlert variant="destructive" class="cursor-pointer text-start" (click)="clearError()">
+      <div
+        hlmAlert
+        variant="destructive"
+        class="cursor-pointer text-start"
+        (click)="clearError()"
+      >
         <ng-icon hlm hlmAlertIcon name="lucideTriangleAlert" />
         <h4 hlmAlertTitle>Error</h4>
         <p hlmAlertDesc>{{ error() }}</p>
@@ -35,8 +46,12 @@
     }
 
     <!-- Form -->
-    <form [formGroup]="form" (ngSubmit)="onSubmit()" class="space-y-4 text-start">
-      <hlm-form-field>
+    <form
+      [formGroup]="form"
+      (ngSubmit)="onSubmit()"
+      class="space-y-4 text-start"
+    >
+      <hlm-field>
         <input
           type="email"
           name="email"
@@ -48,13 +63,15 @@
           placeholder="Email address"
           class="w-full"
         />
-        @if (form.controls['email'].hasError('required')) {
-          <hlm-error class="text-xs">Email required</hlm-error>
+        @if (form.controls["email"].hasError("required")) {
+          <hlm-field-error class="text-xs">Email required</hlm-field-error>
         }
-        @if (form.controls['email'].hasError('email')) {
-          <hlm-error class="text-xs">Invalid email address</hlm-error>
+        @if (form.controls["email"].hasError("email")) {
+          <hlm-field-error class="text-xs"
+            >Invalid email address</hlm-field-error
+          >
         }
-      </hlm-form-field>
+      </hlm-field>
 
       <button type="submit" hlmBtn class="w-full cursor-pointer rounded-full">
         Send unlock link
@@ -62,8 +79,12 @@
     </form>
 
     <p class="text-xs text-muted-foreground">
-      Back to <a [routerLink]="'/auth/login'" class="text-foreground underline-offset-4 hover:underline cursor-pointer">Login</a>
+      Back to
+      <a
+        [routerLink]="'/auth/login'"
+        class="text-foreground underline-offset-4 hover:underline cursor-pointer"
+        >Login</a
+      >
     </p>
-
   </div>
 </main>

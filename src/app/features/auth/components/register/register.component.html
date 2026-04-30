@@ -75,7 +75,7 @@
     <form [formGroup]="form" (ngSubmit)="onSubmit()" class="space-y-3">
       <!-- First + last name row * -->
       <div class="grid grid-cols-2 gap-x-2">
-        <hlm-form-field>
+        <hlm-field>
           <input
             hlmInput
             type="text"
@@ -88,14 +88,14 @@
             class="w-full"
           />
           @if (form.controls["first_name"].hasError("required")) {
-            <hlm-error>Required</hlm-error>
+            <hlm-field-error>Required</hlm-field-error>
           }
           @if (form.controls["first_name"].hasError("minLength")) {
-            <hlm-error>Min 3 characters</hlm-error>
+            <hlm-field-error>Min 3 characters</hlm-field-error>
           }
-        </hlm-form-field>
+        </hlm-field>
 
-        <hlm-form-field>
+        <hlm-field>
           <input
             hlmInput
             type="text"
@@ -108,15 +108,15 @@
             class="w-full"
           />
           @if (form.controls["last_name"].hasError("required")) {
-            <hlm-error>Required</hlm-error>
+            <hlm-field-error>Required</hlm-field-error>
           }
           @if (form.controls["last_name"].hasError("minLength")) {
-            <hlm-error>Min 3 characters</hlm-error>
+            <hlm-field-error>Min 3 characters</hlm-field-error>
           }
-        </hlm-form-field>
+        </hlm-field>
       </div>
 
-      <hlm-form-field>
+      <hlm-field>
         <input
           hlmInput
           type="text"
@@ -129,17 +129,17 @@
           class="w-full"
         />
         @if (form.controls["username"].hasError("required")) {
-          <hlm-error>Username is required</hlm-error>
+          <hlm-field-error>Username is required</hlm-field-error>
         }
         @if (form.controls["username"].hasError("minLength")) {
-          <hlm-error>Min 3 characters</hlm-error>
+          <hlm-field-error>Min 3 characters</hlm-field-error>
         }
         @if (form.controls["username"].hasError("maxLength")) {
-          <hlm-error>Max 32 characters</hlm-error>
+          <hlm-field-error>Max 32 characters</hlm-field-error>
         }
-      </hlm-form-field>
+      </hlm-field>
 
-      <hlm-form-field>
+      <hlm-field>
         <input
           hlmInput
           type="email"
@@ -152,14 +152,14 @@
           class="w-full"
         />
         @if (form.controls["email"].hasError("required")) {
-          <hlm-error>Email is required</hlm-error>
+          <hlm-field-error>Email is required</hlm-field-error>
         }
         @if (form.controls["email"].hasError("email")) {
-          <hlm-error>Invalid email address</hlm-error>
+          <hlm-field-error>Invalid email address</hlm-field-error>
         }
-      </hlm-form-field>
+      </hlm-field>
 
-      <hlm-form-field>
+      <hlm-field>
         <div class="relative">
           <input
             hlmInput
@@ -184,11 +184,11 @@
           </button>
         </div>
         @if (form.controls["password"].hasError("required")) {
-          <hlm-error>Password is required</hlm-error>
+          <hlm-field-error>Password is required</hlm-field-error>
         }
-      </hlm-form-field>
+      </hlm-field>
 
-      <hlm-form-field>
+      <hlm-field>
         <div class="relative">
           <input
             hlmInput
@@ -213,12 +213,12 @@
           </button>
         </div>
         @if (form.controls["repeat_password"].hasError("required")) {
-          <hlm-error>Please confirm your password</hlm-error>
+          <hlm-field-error>Please confirm your password</hlm-field-error>
         }
         @if (form.controls["repeat_password"].hasError("mustMatch")) {
-          <hlm-error>Passwords don't match</hlm-error>
+          <hlm-field-error>Passwords don't match</hlm-field-error>
         }
-      </hlm-form-field>
+      </hlm-field>
 
       <button
         type="submit"

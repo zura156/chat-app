@@ -4,7 +4,8 @@ import { randomUUID } from 'crypto';
 import path from 'path';
 import { s3 } from '../utils/s3';
 import {
-  BUCKET,
+  TEMPORARY_BUCKET,
+  PERMANENT_BUCKET,
   PRESIGNED_GET_EXPIRY,
   PRESIGNED_PUT_EXPIRY,
 } from '../config/upload.config';
@@ -32,7 +33,7 @@ export async function generatePresignedPuts(
       const ext = path.extname(file.name);
       const key = `uploads/${randomUUID()}${ext}`;
       const command = new PutObjectCommand({
-        Bucket: BUCKET,
+        Bucket: TEMPORARY_BUCKET,
         Key: key,
         ContentType: file.mimeType,
         ContentLength: file.size,
@@ -60,7 +61,10 @@ export async function generatePresignedGets(
 ): Promise<ConfirmedFile[]> {
   return Promise.all(
     files.map(async (file) => {
-      const command = new GetObjectCommand({ Bucket: BUCKET, Key: file.key });
+      const command = new GetObjectCommand({
+        Bucket: PERMANENT_BUCKET,
+        Key: file.key,
+      });
       const url = await getSignedUrl(s3, command, {
         expiresIn: PRESIGNED_GET_EXPIRY,
       });

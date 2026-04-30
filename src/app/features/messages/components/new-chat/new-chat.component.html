@@ -34,16 +34,16 @@
         />
         <div class="mt-1.5 px-1">
           @if (groupNameControl.hasError("minlength")) {
-            <hlm-error class="flex items-center gap-x-1.5 text-xs">
+            <hlm-field-error class="flex items-center gap-x-1.5 text-xs">
               <ng-icon hlm size="sm" name="lucideCircleAlert" />
               At least 3 characters
-            </hlm-error>
+            </hlm-field-error>
           }
           @if (groupNameControl.hasError("maxlength")) {
-            <hlm-error class="flex items-center gap-x-1.5 text-xs">
+            <hlm-field-error class="flex items-center gap-x-1.5 text-xs">
               <ng-icon hlm size="sm" name="lucideCircleAlert" />
               At most 32 characters
-            </hlm-error>
+            </hlm-field-error>
           }
         </div>
       </div>

@@ -1,6 +1,6 @@
-import { Component, computed, inject, OnInit, signal } from '@angular/core';
+import { Component, computed, inject, signal } from '@angular/core';
 import { UserStateService } from '../../../services/user-state.service';
-import { HlmFormFieldImports } from '@spartan-ng/helm/form-field';
+import { HlmFieldImports } from '@spartan-ng/helm/field';
 import { HlmButton } from '@spartan-ng/helm/button';
 import { HlmInput } from '@spartan-ng/helm/input';
 import { HlmTextarea } from '@spartan-ng/helm/textarea';
@@ -41,7 +41,7 @@ import { AuthService } from '../../../../auth/services/auth.service';
   imports: [
     RouterLink,
     HlmCardImports,
-    HlmFormFieldImports,
+    HlmFieldImports,
     HlmAvatarImports,
     HlmSeparatorImports,
     HlmItemImports,
@@ -65,7 +65,7 @@ import { AuthService } from '../../../../auth/services/auth.service';
     }),
   ],
 })
-export class ProfileSettings implements OnInit {
+export class ProfileSettings {
   private userService = inject(UserService);
   private userStateService = inject(UserStateService);
   private authService = inject(AuthService);
@@ -90,8 +90,6 @@ export class ProfileSettings implements OnInit {
 
   selectedImageSrc = signal<string | null>(null);
   selectedFileMetadata = signal<FileMetadata | null>(null);
-
-  ngOnInit(): void {}
 
   logOut(): void {
     this.authService.logOut().subscribe();

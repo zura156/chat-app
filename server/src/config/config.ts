@@ -17,6 +17,7 @@ export default {
   s3Url: process.env.MINIO_URL || '',
   s3AccessKey: process.env.MINIO_ACCESS_KEY || '',
   s3SecretKey: process.env.MINIO_SECRET_KEY || '',
-  s3SharedBucket: process.env.MINIO_SHARED_BUCKET || '',
-  s3TempBucket: process.env.MINIO_TEMPORARY_BUCKET || '',
+  s3PermanentBucket: process.env.MINIO_PERMANENT_BUCKET || '',
+  s3QuarantineBucket: process.env.MINIO_QUARANTINE_BUCKET || '',
+  s3StagingBucket: process.env.MINIO_STAGING_BUCKET || '',
 };

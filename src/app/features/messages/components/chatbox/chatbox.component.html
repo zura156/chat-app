@@ -259,40 +259,42 @@
     <hlm-separator decorative />
 
     <footer class="px-2 py-2 bg-background/80 backdrop-blur-sm">
-      <div class="flex items-center gap-x-1">
-        <div class="flex items-center gap-x-0.5 shrink-0">
-          <input
-            #fileInput
-            type="file"
-            (change)="onFileSelected($event)"
-            class="hidden"
-          />
-          <button
-            hlmBtn
-            variant="ghost"
-            class="rounded-full size-9 p-0 flex items-center justify-center cursor-pointer hover:bg-muted transition-colors"
-            (click)="fileInput.click()"
-          >
-            <ng-icon hlm size="base" name="lucideCirclePlus"></ng-icon>
-          </button>
-          <button
-            hlmBtn
-            variant="ghost"
-            class="rounded-full size-9 p-0 flex items-center justify-center cursor-pointer hover:bg-muted transition-colors"
-            (click)="startRecording()"
-          >
-            <ng-icon hlm size="base" name="lucideAudioLines"></ng-icon>
-          </button>
-        </div>
+      <!-- <app-file-upload #uploadComponentRef /> -->
 
-        @if (isRecording()) {
-          <div class="flex-1">
-            <app-audio-recorder
-              (recordingDone)="onStopRecording($event)"
-              (recordingDeleted)="deleteRecording()"
-            ></app-audio-recorder>
+      @if (isRecording()) {
+        <div class="flex-1">
+          <app-audio-recorder
+            (recordingDone)="onStopRecording($event)"
+            (recordingDeleted)="deleteRecording()"
+          ></app-audio-recorder>
+        </div>
+      } @else {
+        <div class="flex items-center gap-x-1">
+          <div class="flex items-center gap-x-0.5 shrink-0">
+            <!-- <input
+              #fileInput
+              type="file"
+              (change)="onFileSelected($event)"
+              class="hidden"
+            /> -->
+            <button
+              hlmBtn
+              variant="ghost"
+              class="rounded-full size-9 p-0 flex items-center justify-center cursor-pointer hover:bg-muted transition-colors"
+            >
+              <!-- (click)="initUpload()" -->
+              <ng-icon hlm size="base" name="lucidePaperclip"></ng-icon>
+            </button>
+            <button
+              hlmBtn
+              variant="ghost"
+              class="text-info rounded-full size-9 p-0 flex items-center justify-center cursor-pointer hover:bg-muted transition-colors"
+              (click)="startRecording()"
+            >
+              <ng-icon hlm size="base" name="lucideMic"></ng-icon>
+            </button>
           </div>
-        } @else {
+
           <input
             [id]="`send_input/${conversation?._id}`"
             autocomplete="off"
@@ -303,23 +305,18 @@
             [formControl]="messageControl"
             (keydown.enter)="$event.preventDefault(); sendMessage()"
           />
-        }
 
-        <button
-          hlmBtn
-          variant="ghost"
-          [disabled]="!canMessage()"
-          (click)="sendMessage()"
-          class="rounded-full size-9 p-0 shrink-0 flex items-center justify-center cursor-pointer disabled:opacity-40 transition-colors"
-        >
-          <ng-icon
-            hlm
-            size="base"
-            name="lucideSend"
-            class="-translate-x-0.5 translate-y-0.5"
-          ></ng-icon>
-        </button>
-      </div>
+          <button
+            hlmBtn
+            variant="outline"
+            [disabled]="!canMessage()"
+            (click)="sendMessage()"
+            class="rounded-full px-4 shrink-0 flex items-center justify-center cursor-pointer disabled:opacity-40 transition-colors"
+          >
+            <ng-icon hlm size="base" name="lucideSend"></ng-icon>
+          </button>
+        </div>
+      }
     </footer>
   </section>
 

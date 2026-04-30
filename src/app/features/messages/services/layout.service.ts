@@ -1,31 +1,27 @@
-import { Injectable, OnDestroy, signal } from '@angular/core';
+import { DestroyRef, inject, Injectable, signal } from '@angular/core';
 import {
   ActiveListViewType,
   ActiveViewType,
 } from '../interfaces/active-view.types';
 import { BreakpointObserver } from '@angular/cdk/layout';
-import { Subject, takeUntil } from 'rxjs';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 
 @Injectable()
-export class LayoutService implements OnDestroy {
+export class LayoutService {
   isMobile = signal<boolean>(false);
   activeView = signal<ActiveViewType>('chatbox');
   activeListView = signal<ActiveListViewType>('conversations');
 
-  private destroy$ = new Subject<void>();
+  private breakpointObserver = inject(BreakpointObserver);
+  private destroyRef = inject(DestroyRef);
 
-  constructor(private breakpointObserver: BreakpointObserver) {
+  constructor() {
     this.breakpointObserver
       .observe(['(max-width: 640px)'])
-      .pipe(takeUntil(this.destroy$))
+      .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe((result) => {
         this.isMobile.set(result.matches);
       });
-  }
-
-  ngOnDestroy(): void {
-    this.destroy$.next();
-    this.destroy$.complete();
   }
 
   setActiveListView(view: ActiveListViewType): void {

@@ -12,8 +12,8 @@
 
 @theme {
   --breakpoint-xs: 30rem;
-  --font-sans: "SF Pro", ui-sans-serif, system-ui, sans-serif;
-  --font-georgian: "SF Georgian", ui-sans-serif, system-ui, sans-serif;
+  --font-sans:
+    system-ui, -apple-system, BlinkMacSystemFont, "Inter", sans-serif;
   --default-font-family: var(--font-sans); /* * applies globally */
 }
 
@@ -382,14 +382,13 @@
 html,
 body {
   height: 100%;
+  width: 100%;
+  overflow: hidden;
+  position: fixed;
+  overscroll-behavior: none;
 }
 body {
   margin: 0;
-}
-
-/* * Georgian characters automatically fall through to SF Georgian */
-:lang(ka) {
-  font-family: var(--font-georgian);
 }
 
 .image-pixelated {

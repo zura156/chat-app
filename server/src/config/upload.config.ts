@@ -1,12 +1,16 @@
-export const BUCKET = process.env.MINIO_BUCKET ?? 'messenger';
+import config from './config';
+
+export const TEMPORARY_BUCKET = config.s3StagingBucket;
+export const PERMANENT_BUCKET = config.s3PermanentBucket;
+export const QUARANTINE_BUCKET = config.s3QuarantineBucket;
 
 export const MAX_FILES_PER_MESSAGE = 5;
 
 export const SIZE_LIMITS: Record<string, number> = {
-  image: 10 * 1024 * 1024, // 10MB
-  video: 50 * 1024 * 1024, // 50MB
-  application: 25 * 1024 * 1024, // 25MB
-  default: 25 * 1024 * 1024, // 25MB
+  image: 100 * 1024 * 1024, // 100MB
+  video: 100 * 1024 * 1024, // 100MB
+  application: 100 * 1024 * 1024, // 100MB
+  default: 100 * 1024 * 1024, // 100MB
 };
 
 export const ALLOWED_MIME_PREFIXES = [
