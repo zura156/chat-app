@@ -171,57 +171,64 @@
 </div>
 
 @if (readReceipts() && readReceipts().length > 0 && isGroup()) {
-  <div class="w-full flex items-center gap-x-1 justify-end pt-1">
-    @if (readReceipts().length > 4) {
-      @for (
-        readReceipt of readReceipts().slice(0, 4);
-        track readReceipt.user_id
-      ) {
-        @let userCredentials = this.getUserCredentials(readReceipt.user_id);
-        @if (readReceipt.last_message_read_id === message._id) {
-          <hlm-avatar class="size-4">
-            <img
-              [src]="userCredentials.profile_picture || '/icons/avatar.svg'"
-              [alt]="userCredentials.username"
-              hlmAvatarImage
-            />
-          </hlm-avatar>
-        }
-      }
-      <span class="text-xs text-muted-foreground"
-        >+{{ readReceipts().length - 4 }}</span
-      >
-    } @else {
-      @for (readReceipt of readReceipts(); track readReceipt.user_id) {
-        @if (
-          currentUser()._id !== readReceipt.user_id &&
-          readReceipt.last_message_read_id === message._id
+  @let matchingReceipts =
+    readReceipts().filter(r =>
+  r.last_message_read_id === message._id && r.user_id !== currentUser()._id
+);
+
+  @if (matchingReceipts.length > 0) {
+    <div class="w-full flex items-center gap-x-1 justify-end pt-1">
+      @if (matchingReceipts.length > 4) {
+        @for (
+          readReceipt of matchingReceipts.slice(0, 4);
+          track readReceipt.user_id
         ) {
           @let userCredentials = this.getUserCredentials(readReceipt.user_id);
-          <button
-            type="button"
-            matTooltipClass="text-xs rounded-md"
-            matTooltipPosition="above"
-            matTooltip="Seen by {{ userCredentials.username }} at {{
-              readReceipt.read_at | date: 'short'
-            }}"
-            class="w-fit"
-          >
+          @if (readReceipt.last_message_read_id === message._id) {
             <hlm-avatar class="size-4">
               <img
                 [src]="userCredentials.profile_picture || '/icons/avatar.svg'"
                 [alt]="userCredentials.username"
                 hlmAvatarImage
               />
-              <span hlmAvatarFallback
-                ><img src="/icons/avatar.svg" alt="avatar fallback"
-              /></span>
             </hlm-avatar>
-          </button>
+          }
+        }
+        <span class="text-xs text-muted-foreground"
+          >+{{ matchingReceipts.length - 4 }}</span
+        >
+      } @else {
+        @for (readReceipt of matchingReceipts; track readReceipt.user_id) {
+          @if (
+            currentUser()._id !== readReceipt.user_id &&
+            readReceipt.last_message_read_id === message._id
+          ) {
+            @let userCredentials = this.getUserCredentials(readReceipt.user_id);
+            <button
+              type="button"
+              matTooltipClass="text-xs rounded-md"
+              matTooltipPosition="above"
+              matTooltip="Seen by {{ userCredentials.username }} at {{
+                readReceipt.read_at | date: 'short'
+              }}"
+              class="w-fit"
+            >
+              <hlm-avatar class="size-4">
+                <img
+                  [src]="userCredentials.profile_picture || '/icons/avatar.svg'"
+                  [alt]="userCredentials.username"
+                  hlmAvatarImage
+                />
+                <span hlmAvatarFallback
+                  ><img src="/icons/avatar.svg" alt="avatar fallback"
+                /></span>
+              </hlm-avatar>
+            </button>
+          }
         }
       }
-    }
-  </div>
+    </div>
+  }
 } @else if (isCurrentUserMessage && isLastMessage() && !isGroup()) {
   <div class="text-xs text-end mt-0.5 opacity-60 pr-1">
     {{ message.status | titlecase }}
