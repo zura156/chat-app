@@ -1,6 +1,13 @@
 import { Injectable, inject } from '@angular/core';
 import { HttpClient, HttpEventType } from '@angular/common/http';
-import { Observable, switchMap, map, catchError, throwError, filter } from 'rxjs';
+import {
+  Observable,
+  switchMap,
+  map,
+  catchError,
+  throwError,
+  filter,
+} from 'rxjs';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -29,24 +36,13 @@ interface PresignedUrlResponse {
   fileKey: string;
 }
 
-export interface ConfirmPayload {
-  fileKey: string;
-  messageText: string;
-  conversationId: string;
-}
-
-export interface ConfirmResponse {
-  messageId: string;
-  fileKey: string;
-}
-
 // ─── Validation ───────────────────────────────────────────────────────────────
 
 const MAGIC_BYTES: Record<string, number[][]> = {
-  'image/jpeg':      [[0xff, 0xd8, 0xff]],
-  'image/png':       [[0x89, 0x50, 0x4e, 0x47]],
-  'image/gif':       [[0x47, 0x49, 0x46]],
-  'image/webp':      [[0x52, 0x49, 0x46, 0x46]],
+  'image/jpeg': [[0xff, 0xd8, 0xff]],
+  'image/png': [[0x89, 0x50, 0x4e, 0x47]],
+  'image/gif': [[0x47, 0x49, 0x46]],
+  'image/webp': [[0x52, 0x49, 0x46, 0x46]],
   'application/pdf': [[0x25, 0x50, 0x44, 0x46]],
 };
 
@@ -57,7 +53,7 @@ async function validateMagicBytes(file: File): Promise<boolean> {
   const buffer = await file.slice(0, 8).arrayBuffer();
   const bytes = new Uint8Array(buffer);
 
-  return signatures.some(sig => sig.every((b, i) => bytes[i] === b));
+  return signatures.some((sig) => sig.every((b, i) => bytes[i] === b));
 }
 
 // ─── Service ──────────────────────────────────────────────────────────────────
@@ -72,13 +68,13 @@ export class FileUploadService {
    */
   async validate(
     file: File,
-    allowedMimeTypes: string[],
+    allowedMimeTypes: string[] | null,
     maxSizeBytes: number,
   ): Promise<string | null> {
     if (file.size > maxSizeBytes) {
       return `Too large — max ${Math.round(maxSizeBytes / 1024 / 1024)} MB`;
     }
-    if (!allowedMimeTypes.includes(file.type)) {
+    if (allowedMimeTypes && !allowedMimeTypes.includes(file.type)) {
       return `Type not allowed`;
     }
     const magicOk = await validateMagicBytes(file);
@@ -129,18 +125,15 @@ export class FileUploadService {
               filter(Boolean),
             ),
         ),
-        catchError(err =>
-          throwError((): UploadState => ({
-            status: 'error',
-            progress: 0,
-            error: err?.error?.message ?? err?.message ?? 'Upload failed',
-          })),
+        catchError((err) =>
+          throwError(
+            (): UploadState => ({
+              status: 'error',
+              progress: 0,
+              error: err?.error?.message ?? err?.message ?? 'Upload failed',
+            }),
+          ),
         ),
       );
-  }
-
-  /** Called on Send — creates DB row, queues scan job, delivers message. */
-  confirm(payload: ConfirmPayload): Observable<ConfirmResponse> {
-    return this.http.post<ConfirmResponse>('/api/upload/confirm', payload);
   }
 }

@@ -3,22 +3,22 @@ import {
   MessageStatusEnum,
   MessageTypeEnum,
 } from '../interfaces/message.interface';
+import { ScanStatus } from '../../config/upload.config';
 
-export interface IFile {
-  url: string;
-  placeholder_url?: string;
-  thumbnail_url?: string;
-  duration?: number;
-  name: string;
-  mime_type: string;
-  size_in_bytes: number;
+export interface IAttachment {
+  fileKey: string; // staging key until clean, then permanent key
+  originalName: string;
+  mimeType: string;
+  sizeBytes: number;
+  scanStatus: ScanStatus;
+  permanentUrl?: string; // populated after clean
 }
 
 export interface IMessage extends Document {
   sender: Types.ObjectId;
   conversation: Types.ObjectId;
   content?: string;
-  file?: IFile;
+  attachments?: IAttachment[];
   type: MessageTypeEnum;
   status: MessageStatusEnum;
   timestamp: Date;
@@ -33,15 +33,19 @@ const MessageSchema = new Schema<IMessage>({
     required: true,
   },
   content: { type: String },
-  file: {
-    url: { type: String },
-    placeholder_url: { type: String },
-    thumbnail_url: { type: String },
-    duration: { type: Number },
-    name: { type: String },
-    mime_type: { type: String },
-    size_in_bytes: { type: Number },
-  },
+  attachments: [
+    {
+      fileKey: String,
+      originalName: String,
+      mimeType: String,
+      sizeBytes: Number,
+      scanStatus: {
+        type: String,
+        enum: ['scanning', 'clean', 'infected', 'error'],
+      },
+      permanentUrl: String,
+    },
+  ],
   type: {
     type: String,
     enum: Object.values(MessageTypeEnum),
@@ -57,7 +61,7 @@ const MessageSchema = new Schema<IMessage>({
 });
 
 MessageSchema.pre('validate', function validateContentOrFile() {
-  if (!this.content?.trim() && !this.file) {
+  if (!this.content?.trim() && !this.attachments?.length) {
     throw new Error(
       'Message must have either text content or a file attachment.',
     );

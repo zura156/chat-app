@@ -59,7 +59,7 @@ export class ConversationService {
       if (!prev) return null;
 
       const existingConversationIndex = prev.conversations.findIndex(
-        (c) => c._id === conversation._id
+        (c) => c._id === conversation._id,
       );
 
       if (existingConversationIndex > -1) {
@@ -91,7 +91,7 @@ export class ConversationService {
       catchError((error) => {
         this.#activeConversation.set(null);
         return throwError(() => error);
-      })
+      }),
     );
   }
 
@@ -104,14 +104,14 @@ export class ConversationService {
       catchError((error) => {
         this.#conversationList.set(null);
         throw error;
-      })
+      }),
     );
   }
 
   // Search conversations
   searchConversations(query: string): Observable<ConversationListI> {
     const url = `${this.SEARCH_CONVERSATIONS_URL}?q=${encodeURIComponent(
-      query
+      query,
     )}`;
 
     return this.http.get<ConversationListI>(url).pipe(
@@ -121,12 +121,12 @@ export class ConversationService {
       catchError((error) => {
         this.#conversationList.set(null);
         return throwError(() => error);
-      })
+      }),
     );
   }
 
   findConversationIdByUserId(
-    participant_id: string
+    participant_id: string,
   ): Observable<ConversationIdResponseI> {
     const url = `${
       this.FIND_CONVERSATION_ID_BY_USER_ID_URL.split(':participantId')[0]
@@ -154,7 +154,7 @@ export class ConversationService {
   createConversation(
     participants: string[],
     isGroup: boolean = false,
-    groupName?: string
+    groupName?: string,
   ): Observable<ConversationI> {
     const payload = {
       participants,
@@ -178,13 +178,13 @@ export class ConversationService {
               return val;
             });
           }
-        })
+        }),
       );
   }
 
   updateConversation(
     conversationId: string,
-    updatedConversation: UpdateConversationI
+    updatedConversation: UpdateConversationI,
   ): Observable<ConversationI> {
     const activeConversation = this.activeConversation();
     const { group_name: newGroupName, group_picture: newGroupPicture } =
@@ -223,10 +223,10 @@ export class ConversationService {
           totalCount: prev?.totalCount || 0,
           conversations:
             prev?.conversations.map((conv) =>
-              conv._id === response._id ? response : conv
+              conv._id === response._id ? response : conv,
             ) ?? [],
         }));
-      })
+      }),
     );
   }
 
@@ -248,7 +248,7 @@ export class ConversationService {
 
   setLastMessageInConversation(
     conversationId: string,
-    message: MessageI
+    message: MessageI,
   ): void {
     this.#conversationList.update((val) => {
       if (!val) return null;
@@ -258,7 +258,7 @@ export class ConversationService {
         conversations: val.conversations.map((c) =>
           c._id === conversationId && message
             ? { ...c, last_message: message }
-            : c
+            : c,
         ),
       };
     });
@@ -270,7 +270,7 @@ export class ConversationService {
 
       const newList = {
         conversations: val.conversations.filter(
-          (c) => c._id !== conversation._id
+          (c) => c._id !== conversation._id,
         ),
         totalCount: val.totalCount - 1,
       };
@@ -281,7 +281,7 @@ export class ConversationService {
   updateParticipantStatus(
     userId: string,
     status: 'offline' | 'online',
-    last_seen: string
+    last_seen: string,
   ): void {
     this.#activeConversation.update((convo) => {
       if (convo?.participants) {
@@ -290,7 +290,7 @@ export class ConversationService {
           participants: convo.participants.map((participant) =>
             participant._id === userId
               ? { ...participant, status, last_seen }
-              : participant
+              : participant,
           ),
         };
       }
@@ -303,7 +303,7 @@ export class ConversationService {
       if (!convo) return null;
 
       const existingReceiptIndex = convo.read_receipts.findIndex(
-        (r) => r.user_id === readReceipt.user_id
+        (r) => r.user_id === readReceipt.user_id,
       );
       const newReceipts = [...convo.read_receipts];
 
@@ -319,13 +319,25 @@ export class ConversationService {
 
   manageConversationMembers(
     memberChanges: MemberChangesI,
-    conversationId: string
+    conversationId: string,
   ): Observable<ConversationI> {
     const splitUrl =
       this.MANAGE_CONVERSATION_MEMBERS_URL.split(':conversationId');
     const url = `${splitUrl[0]}${conversationId}${splitUrl[1]}`;
-    return this.http
-      .patch<ConversationI>(url, memberChanges)
-      .pipe(tap((res) => this.#activeConversation.set(res)));
+    return this.http.patch<ConversationI>(url, memberChanges).pipe(
+      tap((res) => {
+        this.#conversationList.update((prev) => {
+          if (!prev) return null;
+
+          return {
+            ...prev,
+            conversations: prev.conversations.map((conv) =>
+              conv._id === res._id ? res : conv,
+            ),
+          };
+        });
+        this.#activeConversation.set(res);
+      }),
+    );
   }
 }

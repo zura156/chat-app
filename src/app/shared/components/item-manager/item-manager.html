@@ -1,32 +1,58 @@
 <!-- Backdrop -->
 <div
   [attr.data-state]="state()"
-  class="fixed inset-0 z-40 bg-black/30 dark:bg-black/60 flex justify-center items-center p-4"
+  class="fixed inset-0 z-40 bg-black/40 dark:bg-black/70 flex justify-center items-center p-4 animate-duration-200 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0"
 >
   <!-- Panel -->
   <main
     [attr.data-state]="state()"
-    class="relative w-full max-w-md rounded-2xl bg-background border border-border shadow-xl max-h-[90vh] flex flex-col overflow-hidden animate-duration-200 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[state=closed]:slide-out-to-top-[2%] data-[state=open]:slide-in-from-top-[2%]"
+    class="relative w-full max-w-md rounded-2xl bg-background border border-border shadow-2xl max-h-[85vh] flex flex-col overflow-hidden animate-duration-200 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[state=closed]:slide-out-to-top-[2%] data-[state=open]:slide-in-from-top-[2%]"
     (animationend)="animationEnd.emit()"
   >
     <!-- Header -->
     <header
       class="px-6 pt-6 pb-4 shrink-0"
-      [class]="variant() !== 'confirmation' ? 'border-b border-border': ''"
+      [class]="variant() !== 'confirmation' ? 'border-b border-border' : ''"
     >
-      <h1 class="font-semibold text-lg tracking-tight">{{ headerText() }}</h1>
-      @if (description()) {
-      <p class="text-sm text-muted-foreground mt-0.5">{{ description() }}</p>
-      }
+      <div class="flex items-start justify-between gap-x-4">
+        <div class="min-w-0">
+          <h1 class="font-semibold text-base tracking-tight truncate">
+            {{ headerText() }}
+          </h1>
+          @if (description()) {
+          <p class="text-sm text-muted-foreground mt-0.5 leading-relaxed">
+            {{ description() }}
+          </p>
+          }
+        </div>
+        <button
+          type="button"
+          (click)="closed.emit()"
+          [disabled]="isSubmitting()"
+          class="shrink-0 size-7 rounded-full flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+        >
+          <ng-icon hlm name="lucideX" size="sm" />
+        </button>
+      </div>
     </header>
 
     <!-- Body -->
-    @if(variant() !== 'confirmation') {
-
+    @if (variant() !== 'confirmation') {
     <div class="flex-1 overflow-y-auto px-6 py-4">
       @if (isLoading()) {
-      <div class="flex justify-center items-center py-12">
-        <hlm-spinner />
+      <!-- Skeleton loader -->
+      <div class="space-y-2.5">
+        @for (i of [1,2,3,4,5]; track i) {
+        <div class="flex items-center gap-x-3 px-3 py-2.5">
+          <div
+            class="size-9 rounded-full bg-muted animate-pulse shrink-0"
+          ></div>
+          <div class="flex-1 space-y-1.5">
+            <div class="h-3 bg-muted animate-pulse rounded-full w-1/3"></div>
+            <div class="h-2.5 bg-muted animate-pulse rounded-full w-1/4"></div>
+          </div>
+        </div>
+        }
       </div>
 
       } @else { @switch (variant()) { @case ('user-list') {
@@ -40,7 +66,6 @@
         />
         <input
           type="text"
-          id="search"
           placeholder="Search people..."
           class="flex h-9 w-full rounded-full border border-input bg-muted/50 pl-9 pr-4 py-2 text-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring focus:bg-background focus:border-border transition-all"
         />
@@ -49,11 +74,12 @@
       <!-- List -->
       <div class="space-y-0.5">
         @let items = this.items(); @if (items && items.length > 0) { @for (item
-        of items; let i = $index; track i) {
+        of items; let i = $index; track item._id) {
         <button
           type="button"
           (click)="toggleCheckbox(i)"
           class="w-full flex items-center gap-x-3 px-3 py-2.5 rounded-xl hover:bg-muted transition-colors cursor-pointer text-start group"
+          [class.bg-muted]="isChecked(i)"
         >
           <hlm-avatar variant="medium" class="shrink-0">
             <img
@@ -75,36 +101,43 @@
             </p>
           </div>
 
+          <!-- Checkbox -->
           <div
-            class="size-5 rounded-full border-2 border-border shrink-0 relative transition-all duration-150"
-            [class]="isChecked(i) ? 'bg-secondary border-primary dark:bg-secondary dark:border-primary': ''"
+            class="size-5 rounded-full border-2 shrink-0 relative transition-all duration-150 flex items-center justify-center"
+            [class]="isChecked(i) ? 'bg-primary border-primary' : 'border-border'"
           >
-            <svg
-              viewBox="0 0 12 10"
-              class="absolute inset-0 m-auto size-3 stroke-primary-foreground fill-none transition-all duration-200"
-              [class]="isChecked(i) ? 'opacity-100 scale-100' : 'opacity-0 scale-0'"
-            >
-              <polyline
-                points="1.5 6 4.5 9 10.5 1"
-                stroke="currentColor"
-                stroke-width="2"
-                stroke-linecap="round"
-                stroke-linejoin="round"
-                [attr.style]="isChecked(i) ? 'stroke-dashoffset: 0' : 'stroke-dashoffset: 16px'"
-                style="
-                  stroke-dasharray: 16px;
-                  transition: stroke-dashoffset 0.3s ease 100ms;
-                "
-              />
-            </svg>
+            @if (isChecked(i)) {
+            <ng-icon
+              hlm
+              name="lucideCheck"
+              size="xs"
+              class="text-primary-foreground"
+            />
+            }
           </div>
         </button>
+        }
+
+        <!-- Selected count badge -->
+        @if (checkedBoxIds.size > 0) {
+        <div class="pt-2 flex items-center justify-center">
+          <span
+            class="text-xs text-muted-foreground bg-muted px-3 py-1 rounded-full"
+          >
+            {{ checkedBoxIds.size }} selected
+          </span>
+        </div>
         } } @else {
         <div
-          class="flex flex-col items-center justify-center py-10 gap-y-2 text-muted-foreground"
+          class="flex flex-col items-center justify-center py-12 gap-y-2 text-muted-foreground"
         >
-          <ng-icon hlm name="lucideUsers" class="opacity-30 mb-1" size="xl" />
-          <p class="text-sm">User list is empty</p>
+          <div
+            class="size-12 rounded-full bg-muted flex items-center justify-center mb-1"
+          >
+            <ng-icon hlm name="lucideUsers" size="lg" class="opacity-50" />
+          </div>
+          <p class="text-sm font-medium">No users found</p>
+          <p class="text-xs opacity-60">There's no one left to add</p>
         </div>
         }
       </div>
@@ -112,9 +145,9 @@
       <form [formGroup]="form" (ngSubmit)="onSubmit()" class="space-y-4">
         @if (form.get('groupName')) {
         <div class="space-y-1.5">
-          <label for="groupName" class="text-sm font-medium">
-            Conversation name
-          </label>
+          <label for="groupName" class="text-sm font-medium"
+            >Conversation name</label
+          >
           <input
             type="text"
             id="groupName"
@@ -122,30 +155,40 @@
             placeholder="Enter a name..."
             class="flex h-9 w-full rounded-full border border-input bg-muted/50 px-4 py-2 text-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring focus:bg-background focus:border-border transition-all"
             [class.border-destructive]="form.get('groupName')?.invalid && form.get('groupName')?.touched"
+            [class.focus-visible:ring-destructive]="form.get('groupName')?.invalid && form.get('groupName')?.touched"
           />
-          <!-- char count -->
-          <div class="text-xs text-muted-foreground text-right">
-            {{ form.get('groupName')?.value?.length || 0 }}/50
+          <div class="flex items-center justify-between px-1">
+            <div class="text-xs text-destructive space-y-0.5">
+              @if (form.get('groupName')?.invalid &&
+              form.get('groupName')?.touched) { @if
+              (form.get('groupName')?.errors?.['minlength']) {
+              <p>At least 1 character.</p>
+              } @if (form.get('groupName')?.errors?.['maxlength']) {
+              <p>50 characters max.</p>
+              } @if (form.get('groupName')?.errors?.['whitespace']) {
+              <p>Cannot be only whitespace.</p>
+              } }
+            </div>
+            <span
+              class="text-xs ml-auto"
+              [class]="(form.get('groupName')?.value?.length || 0) >= 45
+                            ? 'text-destructive'
+                            : 'text-muted-foreground'"
+            >
+              {{ form.get('groupName')?.value?.length || 0 }}/50
+            </span>
           </div>
-          <!-- errors -->
-          @if (form.get('groupName')?.invalid && form.get('groupName')?.touched)
-          {
-          <div class="text-xs text-destructive space-y-0.5 px-1">
-            @if (form.get('groupName')?.errors?.['required']) {
-            <p>Name is required.</p>
-            } @if (form.get('groupName')?.errors?.['minlength']) {
-            <p>At least 1 character.</p>
-            } @if (form.get('groupName')?.errors?.['maxlength']) {
-            <p>50 characters max.</p>
-            } @if (form.get('groupName')?.errors?.['whitespace']) {
-            <p>Cannot be only whitespace.</p>
-            }
-          </div>
-          }
         </div>
         }
       </form>
       } } } }
+    </div>
+    }
+
+    <!-- Confirmation body -->
+    @if (variant() === 'confirmation') {
+    <div class="px-6 py-2 pb-4">
+      <!-- intentionally empty; description is in header -->
     </div>
     }
 
@@ -158,6 +201,7 @@
         hlmBtn
         variant="ghost"
         class="cursor-pointer rounded-full"
+        [disabled]="isSubmitting()"
         (click)="closed.emit()"
       >
         Cancel
@@ -165,10 +209,26 @@
       <button
         hlmBtn
         [variant]="submitVariant()"
-        class="cursor-pointer rounded-full capitalize"
+        class="cursor-pointer rounded-full capitalize min-w-20 relative"
+        [disabled]="isSubmitting()"
         (click)="onSubmit()"
       >
-        {{ actionName() }}
+        @if (isSubmitting()) {
+        <span class="opacity-0">{{ actionName() }}</span>
+        <span
+          class="absolute inset-0 flex items-center justify-center gap-x-1.5"
+        >
+          <span
+            class="size-1.5 rounded-full bg-current animate-bounce [animation-delay:0ms]"
+          ></span>
+          <span
+            class="size-1.5 rounded-full bg-current animate-bounce [animation-delay:150ms]"
+          ></span>
+          <span
+            class="size-1.5 rounded-full bg-current animate-bounce [animation-delay:300ms]"
+          ></span>
+        </span>
+        } @else { {{ actionName() }} }
       </button>
     </footer>
   </main>

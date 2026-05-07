@@ -6,7 +6,6 @@ import {
   getUsers,
   searchUsers,
   updateUserDetails,
-  updateProfilePicture,
 } from '../controllers/user.controller';
 import { upload } from '../../utils/multer';
 
@@ -17,9 +16,6 @@ router
   .get(getCurrentUser)
   .patch(updateUserDetails)
   .delete(deleteUser);
-router
-  .route('/profile-picture')
-  .patch(upload.single('profilePicture'), updateProfilePicture);
 
 router.get('/', getUsers);
 router.get('/search', searchUsers);

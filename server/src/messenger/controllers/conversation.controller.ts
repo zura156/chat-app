@@ -129,14 +129,13 @@ export class ConversationController {
     next: NextFunction,
   ) => {
     try {
-      const { conversation } = req; // Using 'id' to match your router
+      const { conversation } = req; // Using 'id' to match router
 
       if (!conversation) {
         next(createCustomError('Conversation validation failed!', 500));
         return;
       }
 
-      const group_picture = req.file;
       const { group_name } = req.body;
       const user = req.user;
 
@@ -150,7 +149,6 @@ export class ConversationController {
           conversation,
           user,
           group_name,
-          group_picture,
         );
       res.status(200).json(updatedConversation);
     } catch (error) {

@@ -317,7 +317,7 @@ export const resetPassword = async (
     const resetToken = await AccountTokensModel.findOne({
       user_id: userId,
       token: hashedToken,
-      type: 'password_reset',
+      type: AccountTokenEnum.PASSWORD_RESET,
       expires_at: { $gt: new Date() },
     });
 
@@ -346,7 +346,7 @@ export const resetPassword = async (
     await user.save();
     await AccountTokensModel.deleteMany({
       user_id: user._id,
-      type: 'password_reset',
+      type: AccountTokenEnum.PASSWORD_RESET,
     });
 
     // Force logout from all devices after password reset
@@ -378,7 +378,7 @@ export const verifyEmail = async (
     const verifyToken = await AccountTokensModel.findOne({
       user_id: id,
       token: hashedToken,
-      type: 'email_verification',
+      type: AccountTokenEnum.EMAIL_VERIFICATION,
       expires_at: { $gt: new Date() },
     });
 
@@ -404,7 +404,7 @@ export const verifyEmail = async (
     await user.save();
     await AccountTokensModel.deleteMany({
       user_id: user._id,
-      type: 'email_verification',
+      type: AccountTokenEnum.EMAIL_VERIFICATION,
     });
 
     res.status(200).json({ message: 'Email verification successful.' });
@@ -434,7 +434,7 @@ export const unlockAccount = async (
     const unlockToken = await AccountTokensModel.findOne({
       user_id: userId,
       token: hashedToken,
-      type: 'unlock_account',
+      type: AccountTokenEnum.UNLOCK_ACCOUNT,
       expires_at: { $gt: new Date() },
     });
 
@@ -460,7 +460,7 @@ export const unlockAccount = async (
     await user.save();
     await AccountTokensModel.deleteMany({
       user_id: user._id,
-      type: 'unlock_account',
+      type: AccountTokenEnum.UNLOCK_ACCOUNT,
     });
 
     res.status(200).json({ message: 'Account unlocked successfully.' });

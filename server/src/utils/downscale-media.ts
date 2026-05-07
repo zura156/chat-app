@@ -3,7 +3,6 @@ import ffmpeg from 'fluent-ffmpeg';
 import { exec } from 'child_process';
 import { promisify } from 'util';
 import fs from 'fs/promises';
-import path from 'path';
 
 const execAsync = promisify(exec);
 
@@ -16,7 +15,7 @@ interface CompressOptions {
 export async function compressMedia(
   inputBuffer: Buffer,
   mimeType: string,
-  options: CompressOptions = {}
+  options: CompressOptions = {},
 ): Promise<Buffer> {
   const { maxDimension = 1920, quality = 80, outputFormat = 'auto' } = options;
 
@@ -62,7 +61,7 @@ export async function compressMedia(
 async function compressVideo(
   buffer: Buffer,
   maxDimension: number,
-  quality: number
+  quality: number,
 ): Promise<Buffer> {
   const tempInput = `/tmp/input-${Date.now()}.mp4`;
   const tempOutput = `/tmp/output-${Date.now()}.mp4`;

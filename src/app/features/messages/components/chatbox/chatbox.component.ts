@@ -70,7 +70,6 @@ import { HlmSkeleton } from '@spartan-ng/helm/skeleton';
 import { environment } from '../../../../../environments/environment';
 import { toast } from '@spartan-ng/brain/sonner';
 import { UserStateService } from '../../../user/services/user-state.service';
-import { NotificationService } from '../../services/notification.service';
 
 @Component({
   selector: 'app-chatbox',
@@ -115,7 +114,7 @@ export class ChatboxComponent implements OnInit {
   private readonly conversationService = inject(ConversationService);
   private readonly messageService = inject(MessageService);
   private readonly webSocketService = inject(WebSocketService);
-  private readonly notificationService = inject(NotificationService);
+  // private readonly notificationService = inject(NotificationService);
   private readonly destroyRef = inject(DestroyRef);
 
   readonly apiUrl = environment.apiUrl;
@@ -277,6 +276,14 @@ export class ChatboxComponent implements OnInit {
       if (!msg) return;
       if (this.conversation()?._id !== msg.conversation_id) return;
 
+      const existing = this.conversation()?.read_receipts.find(
+        (r) => r.user_id === msg.read_receipt.user_id,
+      );
+      if (
+        existing?.last_message_read_id === msg.read_receipt.last_message_read_id
+      )
+        return;
+
       const { last_message_read_id, user_id, read_at } = msg.read_receipt;
       this.conversationService.updateReadReceipts({
         user_id,
@@ -404,7 +411,6 @@ export class ChatboxComponent implements OnInit {
     if (
       !convo ||
       !sender ||
-      (content && this.isMash(content)) ||
       !this.canMessage() ||
       now - this.lastMessageSentAt < this.MIN_MESSAGE_INTERVAL
     )
@@ -633,39 +639,23 @@ export class ChatboxComponent implements OnInit {
             );
             break;
           case 'conversation-join': {
-            const { conversation: joined, added_users, added_by } = res;
+            const { conversation: joined } = res;
             this.conversationService.addConversationToList(
               joined as ConversationI,
             );
-            const names = joined.participants
-              ?.filter((p) => added_users?.includes(p._id))
-              .map((p) => p.username);
-            toast.info(
-              `Users added to ${joined.group_name ?? 'conversation'}`,
-              {
-                description: `${names?.join(', ')} ${names && names.length > 1 ? 'were' : 'was'} added by ${added_by.username}.`,
-              },
-            );
+
             break;
           }
           case 'conversation-leave': {
-            const { removed_by, removed_users, conversation: left } = res;
+            const { conversation: left } = res;
             this.conversationService.removeConversationFromList(
               left as ConversationI,
             );
-            const names =
-              left.participants
-                ?.filter((p) => removed_users.includes(p._id))
-                .map((p) => p.username) ?? [];
-            if (user && removed_users.includes(user._id)) names.push('You');
-            toast.info('Users removed from conversation', {
-              description: `${names.join(', ')} were removed by ${removed_by.username}.`,
-            });
             break;
           }
-          case 'notification':
-            this.notificationService.handleRealtimeNotification(res);
-            break;
+          // case 'notification':
+          //   this.notificationService.handleRealtimeNotification(res);
+          //   break;
         }
       }),
       catchError((err) => this.handleError(err)),
@@ -673,11 +663,12 @@ export class ChatboxComponent implements OnInit {
   }
 
   private markMessageAsRead(message: MessageI): void {
-    if (!message._id || message.sender._id === this.currentUser()?._id) return;
-    const convId =
-      (message.conversation as ConversationI)?._id ||
-      message.conversation.toString();
-    this.notificationService.markAsSeen(convId);
+    if (
+      !message._id
+      // || message.sender._id === this.currentUser()?._id // * Responsible for not marking mark own messages as read
+    )
+      return;
+
     this.messageService.markMessageAsRead(message._id);
   }
 
@@ -706,9 +697,5 @@ export class ChatboxComponent implements OnInit {
     this.isLoading.set(false);
     if (navigation) this.router.navigate(['/messages']);
     return throwError(() => err);
-  }
-
-  private isMash(text: string): boolean {
-    return /(.)\1{5,}/.test(text) || (text.length > 20 && !text.includes(' '));
   }
 }

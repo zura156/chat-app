@@ -34,6 +34,10 @@ import { UpdateProfilePictureI } from '../../../interfaces/update-profile-pictur
 import { UpdateProfileDataI } from '../../../interfaces/update-profile-data.interface';
 import { RouterLink } from '@angular/router';
 import { AuthService } from '../../../../auth/services/auth.service';
+import {
+  FilePicker,
+  FilePickerConfig,
+} from '../../../../../shared/components/file-picker/file-picker';
 
 @Component({
   selector: 'user-profile-settings',
@@ -54,6 +58,7 @@ import { AuthService } from '../../../../auth/services/auth.service';
     ReactiveFormsModule,
     TimeAgoPipe,
     HlmLabelImports,
+    FilePicker,
   ],
   styleUrl: './profile-settings.css',
   providers: [
@@ -69,6 +74,11 @@ export class ProfileSettings {
   private userService = inject(UserService);
   private userStateService = inject(UserStateService);
   private authService = inject(AuthService);
+
+  readonly AVATAR_CONFIG: FilePickerConfig = {
+    context: { mode: 'avatar' },
+    maxSizeMb: 10,
+  };
 
   currentUser = computed(this.userStateService.currentUser);
 
@@ -130,9 +140,6 @@ export class ProfileSettings {
   uploadProfilePicture(imgSrc: string): void {
     if (!imgSrc) {
       this.selectedImageSrc.set(null);
-      toast.info('Image selection was cancelled', {
-        description: 'No image was selected for the conversation.',
-      });
       return;
     }
 

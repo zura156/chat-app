@@ -1,20 +1,21 @@
 import { createClient, RedisClientType } from 'redis';
 import { logger } from './logger';
+import config from '../config/config';
 
 const redisClient: RedisClientType = createClient({
   socket: {
-    host: process.env.REDIS_HOST || 'localhost',
-    port: parseInt(process.env.REDIS_PORT || '6379'),
+    host: config.redisHost || 'localhost',
+    port: config.redisPort,
   },
-  password: process.env.REDIS_PASSWORD,
+  password: config.redisPassword,
 });
 
 const redisSubscriber: RedisClientType = createClient({
   socket: {
-    host: process.env.REDIS_HOST || 'localhost',
-    port: parseInt(process.env.REDIS_PORT || '6379'),
+    host: config.redisHost || 'localhost',
+    port: config.redisPort,
   },
-  password: process.env.REDIS_PASSWORD,
+  password: config.redisPassword,
 });
 
 redisClient.on('error', (err: any) => logger.error('Redis error:', err));

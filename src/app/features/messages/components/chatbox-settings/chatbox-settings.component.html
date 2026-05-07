@@ -13,36 +13,16 @@
   </button>
 
   @if (conversation) {
-    <!-- Avatar + name -->
+    <!-- Avatar + identity -->
     <section
-      class="flex flex-col items-center gap-y-3 pb-6 border-b border-border"
+      class="flex flex-col items-center gap-y-2 px-6 pt-6 pb-6 border-b border-border"
     >
+      <!-- Tappable avatar -->
       <div
-        class="group relative rounded-full overflow-hidden size-20 sm:size-24 border-2 border-border shrink-0"
+        class="group relative rounded-full overflow-hidden size-20 shrink-0 cursor-pointer"
+        [class.cursor-default]="!conversation.is_group"
+        (click)="conversation.is_group && chatImageInput.click()"
       >
-        @if (conversation.is_group) {
-          <div
-            class="hidden md:opacity-0 md:pointer-events-none md:group-hover:pointer-events-auto md:group-hover:opacity-100 absolute inset-0 bg-black/30 md:flex items-center justify-center transition-opacity duration-200"
-          >
-            <button
-              hlmBtn
-              size="sm"
-              class="cursor-pointer text-xs"
-              (click)="chatImageInput.click()"
-            >
-              Edit picture
-            </button>
-          </div>
-        }
-
-        <input
-          #chatImageInput
-          id="chat-image-input"
-          type="file"
-          (change)="onFileChange($event); chatImageInput.value = ''"
-          accept="image/*"
-          hidden
-        />
         <hlm-avatar class="w-full h-full">
           <img
             hlmAvatarImage
@@ -56,55 +36,67 @@
             class="w-full h-full object-cover"
           />
           <span hlmAvatarFallback>
-            <img src="/icons/avatar.svg" />
+            <img
+              [src]="
+                conversation.is_group ? '/icons/group.svg' : '/icons/avatar.svg'
+              "
+            />
           </span>
         </hlm-avatar>
-        <img />
+
+        @if (conversation.is_group) {
+          <div
+            class="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity duration-150 flex items-center justify-center"
+          >
+            <ng-icon hlm name="lucidePencil" size="sm" class="text-white" />
+          </div>
+        }
       </div>
 
-      <span class="font-semibold text-lg text-center leading-tight">
-        @if (conversation.group_name) {
-          {{ conversation.group_name }}
-        } @else {
-          @for (
-            participant of conversation?.participants;
-            let i = $index;
-            track participant._id
-          ) {
-            @let currentUser = this.currentUser();
+      <input
+        #chatImageInput
+        type="file"
+        (change)="onFileChange($event); chatImageInput.value = ''"
+        accept="image/*"
+        hidden
+      />
 
-            @if (participant?._id !== currentUser?._id) {
-              <span>{{
-                participant.first_name +
-                  " " +
-                  participant.last_name +
-                  (i + 1 !== conversation.participants.length ? ", " : "")
-              }}</span>
+      <!-- Name -->
+      <div class="text-center">
+        <p class="font-semibold text-base leading-tight">
+          @if (conversation.group_name) {
+            {{ conversation.group_name }}
+          } @else {
+            @for (
+              participant of conversation.participants;
+              track participant._id
+            ) {
+              @if (participant._id !== currentUser()?._id) {
+                {{ participant.first_name + " " + participant.last_name }}
+              }
             }
           }
-        }
-      </span>
+        </p>
+        <p class="text-xs text-muted-foreground mt-0.5">
+          @if (conversation.is_group) {
+            {{ conversation.participants.length }} members
+          } @else {
+            @let p = conversation.participants[0];
+            &#64;{{ p.username }}
+          }
+        </p>
+      </div>
 
-      @if (conversation.is_group) {
+      <!-- CTA -->
+      @if (!conversation.is_group) {
         <button
           hlmBtn
           variant="outline"
           size="sm"
-          class="cursor-pointer md:hidden rounded-full"
-          (click)="chatImageInput.click()"
+          class="rounded-full mt-1 text-xs"
+          [routerLink]="'/' + conversation.participants[0]._id"
         >
-          <ng-icon hlm name="lucideUsersRound" />
-          Edit group picture
-        </button>
-      } @else {
-        <button
-          hlmBtn
-          variant="outline"
-          size="sm"
-          class="cursor-pointer rounded-full"
-          [routerLink]="`/${conversation.participants[0]._id}`"
-        >
-          <ng-icon hlm name="lucideCircleUserRound" />
+          <ng-icon hlm name="lucideCircleUserRound" size="sm" />
           View profile
         </button>
       }

@@ -2,10 +2,6 @@ import { AuthRequest } from '../../auth/middlewares/auth.middleware';
 import { NextFunction, Response } from 'express';
 import { User } from '../../user/models/user.model';
 import { createCustomError } from '../../error-handling/models/custom-api-error.model';
-import { compressMedia } from '../../utils/downscale-media';
-import { PutObjectCommand } from '@aws-sdk/client-s3';
-import { s3 } from '../../utils/s3';
-import config from '../../config/config';
 import { UserDTO } from '../dtos/user.dto';
 
 export const getUserById = async (
@@ -228,82 +224,5 @@ export const searchUsers = async (
   } catch (err) {
     console.error('Error getting users:', err);
     res.status(500).json({ message: 'Server error getting users' });
-  }
-};
-
-export const updateProfilePicture = async (
-  req: AuthRequest,
-  res: Response,
-  next: NextFunction,
-): Promise<void> => {
-  try {
-    if (!req.user) {
-      next(createCustomError('Not authenticated', 401));
-      return;
-    }
-    const user = await User.findById(req.user._id.toString());
-    if (!user) {
-      next(createCustomError('User not found', 404));
-      return;
-    }
-
-    const profilePicture = req.file;
-    if (!profilePicture) {
-      next(createCustomError('Profile picture data is required', 400));
-      return;
-    }
-
-    if (
-      profilePicture.mimetype !== 'image/jpeg' &&
-      profilePicture.mimetype !== 'image/png' &&
-      profilePicture.mimetype !== 'image/webp'
-    ) {
-      next(
-        createCustomError(
-          'Unsupported file format. Only JPEG, PNG, and WEBP are allowed.',
-          400,
-        ),
-      );
-      return;
-    }
-
-    const compressedBuffer = await compressMedia(
-      profilePicture.buffer,
-      profilePicture.mimetype,
-      {
-        maxDimension: 500,
-        quality: 80,
-        outputFormat: 'webp',
-      },
-    );
-
-    const fileKey = `${Date.now()}-${req.user._id.toString()}.webp`;
-
-    // Upload directly to R2
-    await s3.send(
-      new PutObjectCommand({
-        Bucket: config.s3PermanentBucket,
-        Key: fileKey,
-        Body: compressedBuffer,
-        ContentType: 'image/webp',
-      }),
-    );
-
-    // Generate public URL (configure R2 custom domain or public bucket)
-    const publicUrl = `${config.s3Url}/${fileKey}`;
-
-    await User.findByIdAndUpdate(
-      req.user._id.toString(),
-      { profile_picture: publicUrl },
-      { new: true },
-    );
-
-    res.status(200).json({
-      message: 'Profile picture updated',
-      profilePictureUrl: publicUrl,
-    });
-  } catch (error) {
-    console.error('Update profile picture error:', error);
-    res.status(500).json({ message: 'Server error' });
   }
 };

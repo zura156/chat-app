@@ -22,7 +22,12 @@ import { FormGroup, ReactiveFormsModule } from '@angular/forms';
 import { HlmSeparatorImports } from '@spartan-ng/helm/separator';
 import { NgIcon, provideIcons } from '@ng-icons/core';
 import { HlmIcon } from '@spartan-ng/helm/icon';
-import { lucideSearch, lucideUsers } from '@ng-icons/lucide';
+import {
+  lucideCheck,
+  lucideSearch,
+  lucideUsers,
+  lucideX,
+} from '@ng-icons/lucide';
 
 @Component({
   selector: 'app-item-manager',
@@ -34,11 +39,12 @@ import { lucideSearch, lucideUsers } from '@ng-icons/lucide';
     HlmAvatar,
     HlmAvatarFallback,
     HlmSeparatorImports,
-    HlmSpinner,
     NgIcon,
     HlmIcon,
   ],
-  providers: [provideIcons({ lucideSearch, lucideUsers })],
+  providers: [
+    provideIcons({ lucideSearch, lucideUsers, lucideX, lucideCheck }),
+  ],
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class ItemManagerComponent {
@@ -47,6 +53,7 @@ export class ItemManagerComponent {
   variant = input<ModalVariantsT>('user-list');
   error = input<HttpErrorResponse>();
   isLoading = input<boolean>();
+  isSubmitting = input<boolean>();
   submitVariant = input<'default' | 'destructive'>('default');
   actionName = input<string>('submit');
   items = input<(UserI | ParticipantI)[]>();

@@ -3,7 +3,7 @@ import { MessageService } from './features/messages/services/message.service';
 import { authGuard } from './features/auth/guards/auth.guard';
 import { unauthenticatedGuard } from './features/auth/guards/unauthenticated.guard';
 import { ConversationService } from './features/messages/services/conversation.service';
-import { NotificationService } from './features/messages/services/notification.service';
+// import { NotificationService } from './features/messages/services/notification.service';
 
 export const routes: Routes = [
   {
@@ -31,7 +31,11 @@ export const routes: Routes = [
       import('./features/messages/messages.routes').then(
         (m) => m.messagesRoutes,
       ),
-    providers: [MessageService, ConversationService, NotificationService],
+    providers: [
+      MessageService,
+      ConversationService,
+      // NotificationService
+    ],
     canActivate: [authGuard],
   },
   {

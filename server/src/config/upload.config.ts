@@ -1,8 +1,32 @@
 import config from './config';
 
-export const TEMPORARY_BUCKET = config.s3StagingBucket;
-export const PERMANENT_BUCKET = config.s3PermanentBucket;
+export const PUBLIC_BUCKET = config.s3PublicBucket;
+export const PRIVATE_BUCKET = config.s3PrivateBucket;
+export const HLS_BUCKET = config.s3HlsBucket;
+export const TEMP_BUCKET = config.s3TempBucket;
 export const QUARANTINE_BUCKET = config.s3QuarantineBucket;
+
+export type ScanStatus = 'scanning' | 'clean' | 'infected' | 'error';
+export type UploadContext =
+  | 'avatar'
+  | 'group-avatar'
+  | 'cover-photo'
+  | 'dm-image'
+  | 'dm-video'
+  | 'dm-file'
+  | 'post-image'
+  | 'post-video'
+  | 'story';
+
+export interface UploadJobData {
+  fileId: string;
+  key: string; // quarantine key: uploads/{userId}/{fileId}/{filename}
+  userId: string;
+  context: UploadContext;
+  mimeType: string;
+  originalName: string;
+  size: number;
+}
 
 export const MAX_FILES_PER_MESSAGE = 5;
 

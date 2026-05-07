@@ -1,5 +1,5 @@
 import { UserDTO } from '../../user/dtos/user.dto';
-import { IFile } from '../models/message.model';
+import { IAttachment } from '../models/message.model';
 
 export enum MessageTypeEnum {
   INFO = 'info',
@@ -23,7 +23,7 @@ export interface MessageI {
   sender: Partial<UserDTO> | string;
   conversation: string;
   content: string;
-  file?: IFile;
+  attachments?: IAttachment[];
   type: MessageTypeEnum;
   status?: MessageStatusEnum;
   readBy?: string[];

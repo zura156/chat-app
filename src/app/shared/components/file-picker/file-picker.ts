@@ -1,6 +1,7 @@
 import {
   ChangeDetectionStrategy,
   Component,
+  DestroyRef,
   OnDestroy,
   computed,
   inject,
@@ -14,6 +15,7 @@ import {
   UploadContext,
   UploadState,
 } from '../../services/file-upload.service';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 
 // ─── Config ───────────────────────────────────────────────────────────────────
 
@@ -36,201 +38,10 @@ export interface FileReadyEvent {
 
 @Component({
   selector: 'app-file-picker',
-  standalone: true,
+  template: ``,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  template: `
-    <div
-      class="file-picker"
-      [class.drag-over]="isDragOver()"
-      [attr.data-status]="uploadState()?.status ?? 'idle'"
-      (dragover)="onDragOver($event)"
-      (dragleave)="isDragOver.set(false)"
-      (drop)="onDrop($event)"
-    >
-      <!-- Hidden native file input -->
-      <input
-        #fileInput
-        type="file"
-        [accept]="resolvedAccept()"
-        (change)="onInputChange($event)"
-        style="display:none"
-        aria-hidden="true"
-      />
-
-      <!-- Trigger slot — host provides the button/icon -->
-      @if (isIdle()) {
-        <button
-          type="button"
-          class="trigger-slot"
-          (click)="fileInput.click()"
-          [attr.aria-label]="triggerLabel()"
-        >
-          <ng-content select="[fileTrigger]"> 📎 </ng-content>
-        </button>
-      }
-
-      <!-- Validation error -->
-      @if (validationError()) {
-        <span class="fp-error" role="alert">{{ validationError() }}</span>
-      }
-
-      <!-- Upload in progress -->
-      @if (isUploading()) {
-        <div
-          class="fp-progress"
-          role="progressbar"
-          [attr.aria-valuenow]="progress()"
-        >
-          <div class="fp-progress__fill" [style.width.%]="progress()"></div>
-          <span class="fp-progress__label">{{ progress() }}%</span>
-        </div>
-      }
-
-      <!-- Scanning badge -->
-      @if (isScanning()) {
-        <span class="fp-badge fp-badge--scanning" aria-live="polite">
-          Scanning…
-        </span>
-      }
-
-      <!-- Image preview (chat / avatar) -->
-      @if (previewUrl() && !isError() && !isInfected()) {
-        <img
-          class="fp-preview"
-          [src]="previewUrl()"
-          alt="File preview"
-          loading="lazy"
-        />
-      }
-
-      <!-- Done -->
-      @if (isDone()) {
-        <span class="fp-badge fp-badge--done" aria-live="polite">✓</span>
-      }
-
-      <!-- Infected -->
-      @if (isInfected()) {
-        <span class="fp-badge fp-badge--infected" role="alert">
-          Removed — failed security scan
-        </span>
-      }
-
-      <!-- Error -->
-      @if (isError()) {
-        <span class="fp-badge fp-badge--error" role="alert">
-          {{ uploadState()?.error ?? 'Upload failed' }}
-        </span>
-        <button type="button" class="fp-retry" (click)="retry()">Retry</button>
-      }
-
-      <!-- Clear (after terminal state) -->
-      @if (canClear()) {
-        <button
-          type="button"
-          class="fp-clear"
-          aria-label="Remove file"
-          (click)="clear()"
-        >
-          ×
-        </button>
-      }
-    </div>
-  `,
-  styles: [
-    `
-      :host {
-        display: contents;
-      }
-
-      .file-picker {
-        display: inline-flex;
-        align-items: center;
-        gap: 8px;
-        position: relative;
-      }
-
-      .file-picker.drag-over {
-        outline: 2px dashed currentColor;
-        border-radius: 4px;
-      }
-
-      .trigger-slot {
-        background: none;
-        border: none;
-        cursor: pointer;
-        padding: 0;
-      }
-
-      .fp-progress {
-        width: 120px;
-        height: 4px;
-        background: #e0e0e0;
-        border-radius: 2px;
-        overflow: hidden;
-        position: relative;
-      }
-      .fp-progress__fill {
-        height: 100%;
-        background: #1976d2;
-        transition: width 0.1s linear;
-      }
-      .fp-progress__label {
-        position: absolute;
-        top: 6px;
-        left: 0;
-        font-size: 11px;
-        color: #666;
-      }
-
-      .fp-badge {
-        font-size: 12px;
-        padding: 2px 6px;
-        border-radius: 4px;
-      }
-      .fp-badge--scanning {
-        background: #fff3cd;
-        color: #856404;
-      }
-      .fp-badge--done {
-        background: #d4edda;
-        color: #155724;
-      }
-      .fp-badge--infected {
-        background: #f8d7da;
-        color: #721c24;
-      }
-      .fp-badge--error {
-        background: #f8d7da;
-        color: #721c24;
-      }
-
-      .fp-preview {
-        width: 40px;
-        height: 40px;
-        object-fit: cover;
-        border-radius: 4px;
-        border: 1px solid #ddd;
-      }
-
-      .fp-retry,
-      .fp-clear {
-        background: none;
-        border: 1px solid currentColor;
-        border-radius: 4px;
-        cursor: pointer;
-        padding: 2px 8px;
-        font-size: 12px;
-      }
-      .fp-clear {
-        border: none;
-        font-size: 16px;
-        line-height: 1;
-        color: #666;
-      }
-    `,
-  ],
 })
-export class FilePickerComponent implements OnDestroy {
+export class FilePicker implements OnDestroy {
   // ── Inputs ────────────────────────────────────────────────────────────────
 
   config = input.required<FilePickerConfig>();
@@ -279,11 +90,12 @@ export class FilePickerComponent implements OnDestroy {
     return s === 'clean' || s === 'infected' || s === 'error';
   });
 
+  // resolvedAccept
   readonly resolvedAccept = computed(() => {
     if (this.config().acceptAttr) return this.config().acceptAttr!;
-    return (
-      this.config().allowedMimeTypes ?? defaultAllowed(this.config().context)
-    ).join(',');
+    const types =
+      this.config().allowedMimeTypes ?? defaultAllowed(this.config().context);
+    return types ? types.join(',') : '*/*';
   });
 
   readonly triggerLabel = computed(() => {
@@ -296,6 +108,7 @@ export class FilePickerComponent implements OnDestroy {
   // ── DI ────────────────────────────────────────────────────────────────────
 
   private readonly uploadService = inject(FileUploadService);
+  private readonly destroyRef = inject(DestroyRef);
 
   // ── Handlers ─────────────────────────────────────────────────────────────
 
@@ -349,7 +162,6 @@ export class FilePickerComponent implements OnDestroy {
   // ── Lifecycle ─────────────────────────────────────────────────────────────
 
   ngOnDestroy(): void {
-    this.uploadSub?.unsubscribe();
     const url = this.previewUrl();
     if (url) URL.revokeObjectURL(url);
   }
@@ -359,9 +171,12 @@ export class FilePickerComponent implements OnDestroy {
   private async processFile(file: File): Promise<void> {
     const cfg = this.config();
     const maxBytes = (cfg.maxSizeMb ?? 10) * 1024 * 1024;
-    const allowed = cfg.allowedMimeTypes ?? defaultAllowed(cfg.context);
+    // processFile — skip type check when null
+    const allowed =
+      this.config().allowedMimeTypes ?? defaultAllowed(this.config().context);
 
     const error = await this.uploadService.validate(file, allowed, maxBytes);
+
     if (error) {
       this.validationError.set(error);
       return;
@@ -370,7 +185,7 @@ export class FilePickerComponent implements OnDestroy {
     this.validationError.set(null);
     this.selectedFile.set(file);
 
-    if (file.type.startsWith('image/')) {
+    if (file.type.startsWith('image/') && file.type !== 'image/svg+xml') {
       this.previewUrl.set(URL.createObjectURL(file));
     }
 
@@ -383,6 +198,7 @@ export class FilePickerComponent implements OnDestroy {
 
     this.uploadSub = this.uploadService
       .upload(file, this.config().context)
+      .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe({
         next: (state) => {
           this.uploadState.set(state);
@@ -403,22 +219,15 @@ export class FilePickerComponent implements OnDestroy {
   }
 }
 
-// ── Helpers ───────────────────────────────────────────────────────────────────
-
-function defaultAllowed(ctx: UploadContext): string[] {
+// Replace defaultAllowed entirely
+function defaultAllowed(ctx: UploadContext): string[] | null {
   switch (ctx.mode) {
     case 'avatar':
       return ['image/jpeg', 'image/png', 'image/webp'];
     case 'document':
-      return ['application/pdf', 'image/jpeg', 'image/png'];
+      return ['application/pdf'];
     case 'chat':
     default:
-      return [
-        'image/jpeg',
-        'image/png',
-        'image/gif',
-        'image/webp',
-        'application/pdf',
-      ];
+      return null; // null = accept anything
   }
 }

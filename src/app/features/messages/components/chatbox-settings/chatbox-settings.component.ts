@@ -2,19 +2,19 @@ import {
   ChangeDetectionStrategy,
   Component,
   ComponentRef,
+  DestroyRef,
   inject,
   input,
-  OnDestroy,
   output,
   OutputRefSubscription,
   signal,
   viewChild,
   ViewContainerRef,
 } from '@angular/core';
-import { ConversationI } from '../../interfaces/conversation.interface';
-import { environment } from '../../../../../environments/environment';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
+import { Router, RouterLink } from '@angular/router';
+import { catchError, tap, throwError } from 'rxjs';
 import { NgIcon, provideIcons } from '@ng-icons/core';
-import { HlmIcon } from '@spartan-ng/helm/icon';
 import {
   lucideArrowLeft,
   lucideChevronDown,
@@ -29,33 +29,25 @@ import {
   lucideUserRoundPlus,
   lucideUsersRound,
 } from '@ng-icons/lucide';
+import { HlmIcon } from '@spartan-ng/helm/icon';
 import { HlmAvatarImports } from '@spartan-ng/helm/avatar';
 import { HlmDropdownMenuImports } from '@spartan-ng/helm/dropdown-menu';
-import { ConversationService } from '../../services/conversation.service';
-import { ParticipantI } from '../../interfaces/participant.interface';
 import { HlmButton } from '@spartan-ng/helm/button';
-import { ItemManagerComponent } from '../../../../shared/components/item-manager/item-manager';
-import { catchError, Subscription, tap, throwError } from 'rxjs';
-import { UserService } from '../../../user/services/user.service';
-import { toast } from '@spartan-ng/brain/sonner';
-import { MemberChangesI } from '../../interfaces/member-changes.interface';
-import { UserI } from '../../../user/interfaces/user.interface';
-import {
-  AbstractControl,
-  FormBuilder,
-  FormControl,
-  FormGroup,
-  ReactiveFormsModule,
-  ValidationErrors,
-  ValidatorFn,
-  Validators,
-} from '@angular/forms';
-import { ImageCropperComponent } from 'ngx-smart-cropper';
-import { base64ToFile } from '../../../../shared/functions/base64-to-file';
 import { HlmSpinner } from '@spartan-ng/helm/spinner';
 import { HlmTabsImports } from '@spartan-ng/helm/tabs';
+import { ReactiveFormsModule } from '@angular/forms';
+import { ImageCropperComponent } from 'ngx-smart-cropper';
+import { toast } from '@spartan-ng/brain/sonner';
+import { ConversationI } from '../../interfaces/conversation.interface';
+import { ParticipantI } from '../../interfaces/participant.interface';
+import { ConversationService } from '../../services/conversation.service';
+import { UserService } from '../../../user/services/user.service';
+import { ChatboxSettingsService } from '../../services/chatbox-settings.service';
+import { ItemManagerComponent } from '../../../../shared/components/item-manager/item-manager';
 import { MediaFilesListComponent } from '../media-files-list/media-files-list.component';
-import { Router, RouterLink } from '@angular/router';
+import { base64ToFile } from '../../../../shared/functions/base64-to-file';
+import { markFormGroupTouched } from '../../../../shared/functions/form.utils';
+import { environment } from '../../../../../environments/environment';
 
 @Component({
   selector: 'app-chatbox-settings',
@@ -73,6 +65,7 @@ import { Router, RouterLink } from '@angular/router';
     MediaFilesListComponent,
   ],
   providers: [
+    ChatboxSettingsService,
     provideIcons({
       lucideArrowLeft,
       lucideUsersRound,
@@ -92,47 +85,32 @@ import { Router, RouterLink } from '@angular/router';
   styleUrl: './chatbox-settings.component.css',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
-export class ChatboxSettingsComponent implements OnDestroy {
+export class ChatboxSettingsComponent {
   conversation = input<ConversationI>();
-  private conversationService = inject(ConversationService);
-  private userService = inject(UserService);
-  private router = inject(Router);
-  private fb = inject(FormBuilder);
-
-  currentUser = this.userService.currentUser;
-
   closeSettings = output<void>();
 
+  private conversationService = inject(ConversationService);
+  private userService = inject(UserService);
+  private settingsService = inject(ChatboxSettingsService);
+  private router = inject(Router);
+  private destroyRef = inject(DestroyRef);
+
+  currentUser = this.userService.currentUser;
   readonly apiUrl = environment.apiUrl;
 
-  dropdownMenuStates: { [key: string]: boolean } = {
+  dropdownMenuStates: Record<string, boolean> = {
     chatInfo: false,
     members: false,
   };
-  openUserMenuIndex: number | null = null;
 
   modalVcr = viewChild('modalContainer', { read: ViewContainerRef });
-  #modalComponentRef?: ComponentRef<ItemManagerComponent>;
-
-  private subscriptions: (Subscription | OutputRefSubscription)[] = [];
+  #modalRef?: ComponentRef<ItemManagerComponent>;
+  #submitSub?: OutputRefSubscription;
 
   initialChatImageSrc = signal<string | null>(null);
 
-  ngOnDestroy(): void {
-    this.subscriptions.forEach((sub) => sub.unsubscribe());
-    this.subscriptions = [];
-  }
-
   toggleDropdown(menu: string): void {
     this.dropdownMenuStates[menu] = !this.dropdownMenuStates[menu];
-  }
-
-  toggleUserMenu(index: number): void {
-    if (this.openUserMenuIndex === index) {
-      this.openUserMenuIndex = null;
-    } else {
-      this.openUserMenuIndex = index;
-    }
   }
 
   isOpen(menu: string): boolean {
@@ -140,375 +118,264 @@ export class ChatboxSettingsComponent implements OnDestroy {
   }
 
   onMessageMember(participant: ParticipantI): void {
-    const conversationId =
-      this.conversationService
-        .conversationList()
-        ?.conversations?.filter((c) => !c.is_group)
-        ?.find((conversation) =>
-          conversation.participants.some((p) => p._id === participant._id),
-        )?._id || null;
-
-    if (conversationId) {
-      this.subscriptions.push(
-        this.conversationService
-          .findConversationIdByUserId(participant._id)
-          .pipe(
-            tap((res) =>
-              this.router.navigate(['/messages', res.conversationId]),
-            ),
-          )
-          .subscribe(),
+    const existingConversation = this.conversationService
+      .conversationList()
+      ?.conversations.find(
+        (c) =>
+          !c.is_group && c.participants.some((p) => p._id === participant._id),
       );
-    } else {
-      this.conversationService.selectUserForConversation(participant);
-      this.conversationService.createMockConversation();
+
+    if (existingConversation) {
+      this.router.navigate(['/messages', existingConversation._id]);
+      return;
     }
+
+    this.conversationService.selectUserForConversation(participant);
+    this.conversationService.createMockConversation();
   }
 
   onFileChange(event: Event): void {
     const input = event.target as HTMLInputElement;
-    if (!input.files || input.files.length === 0) return;
+    const file = input.files?.[0];
+    if (!file) return;
 
-    const file = input.files[0];
-    if (file) {
-      if (file.size > 5 * 1024 * 1024) {
-        toast.error('File size exceeds the 5MB limit.');
-        return;
-      }
-      if (!file.type.startsWith('image/')) {
-        toast.error('Please select a valid image file.');
-        return;
-      }
-
-      const reader = new FileReader();
-      reader.onload = (e: any) => {
-        this.initialChatImageSrc.set(e.target.result);
-      };
-      reader.readAsDataURL(file);
+    if (file.size > 100 * 1024 * 1024) {
+      toast.error('File size exceeds the 100MB limit.');
+      return;
     }
+    if (!file.type.startsWith('image/')) {
+      toast.error('Please select a valid image file.');
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = (e: ProgressEvent<FileReader>) =>
+      this.initialChatImageSrc.set(e.target?.result as string);
+    reader.readAsDataURL(file);
   }
 
   onChatImageChange(imageSrc: string): void {
     this.initialChatImageSrc.set(null);
+
     if (!imageSrc) {
-      toast.info('Image selection was cancelled', {
-        description: 'No image was selected for the conversation.',
-      });
+      toast.info('Image selection was cancelled');
       return;
     }
 
-    const file = base64ToFile(imageSrc, 'chat-image.png');
-
     const conversationId = this.conversation()?._id;
-    const updateGroupPictureBody = { group_picture: file };
-    this.conversationService
-      .updateConversation(String(conversationId), updateGroupPictureBody)
-      .pipe(
-        tap(() => {
-          toast.success('Conversation updated successfully!', {
-            description: 'Conversation picture changed.',
-          });
+    if (!conversationId) return;
+
+    this.settingsService
+      .updateChatPicture(
+        conversationId,
+        base64ToFile(imageSrc, 'chat-image.png'),
+      )
+      ?.pipe(
+        tap(() => toast.success('Conversation picture changed.')),
+        catchError((err) => {
+          toast.error('Failed to update picture', { description: err.message });
+          return throwError(() => err);
         }),
-        catchError((error) => {
-          toast.error('Failed to update conversation picture', {
-            description: error.message || 'Please try again later.',
-          });
-          return throwError(() => error);
-        }),
+        takeUntilDestroyed(this.destroyRef),
       )
       .subscribe();
   }
 
   onChatNameChange(): void {
-    this.createComponent();
+    const conversation = this.conversation();
+    if (!conversation) return;
 
-    // Set modal configuration
-    this.#modalComponentRef?.setInput('headerText', 'Modify conversation name');
-    this.#modalComponentRef?.setInput(
-      'description',
-      'Change the name of conversation to keep it organized and easily identifiable.',
+    const form = this.settingsService.buildChatNameForm(
+      conversation.group_name ?? '',
     );
-    this.#modalComponentRef?.setInput('variant', 'form');
-    this.#modalComponentRef?.setInput('actionName', 'update');
 
-    // Create form with validation
-    const chatNameForm = this.fb.group({
-      groupName: new FormControl(this.conversation()?.group_name || '', [
-        Validators.minLength(1),
-        Validators.maxLength(50),
-        this.noOnlyWhitespaceValidator(),
-      ]),
+    this.createModal({
+      headerText: 'Modify conversation name',
+      description: 'Change the name to keep it organized.',
+      variant: 'form',
+      actionName: 'update',
+      form,
     });
 
-    this.#modalComponentRef?.setInput('form', chatNameForm);
-
-    // Handle form submission
-    const submitSubscription =
-      this.#modalComponentRef?.instance.submit.subscribe((formData: any) => {
-        if (chatNameForm.valid) {
-          const newGroupName = formData.groupName?.trim();
-
-          if (newGroupName === this.conversation()?.group_name) {
-            toast.info('No changes made', {
-              description: 'The conversation name remains the same.',
-            });
-            this.#modalComponentRef?.instance.closed.emit();
-            return;
-          }
-
-          this.#modalComponentRef?.setInput('isLoading', true);
-
-          // Call your service method to update conversation name
-          this.subscriptions.push(
-            this.conversationService
-              .updateConversation(String(this.conversation()?._id), {
-                group_name: newGroupName,
-              })
-              .pipe(
-                tap((response) => {
-                  this.#modalComponentRef?.setInput('isLoading', false);
-                  toast.success('Conversation name updated!', {
-                    description: `Name changed to "${response.group_name}"`,
-                  });
-                  this.#modalComponentRef?.instance.closed.emit();
-                }),
-                catchError((error) => {
-                  this.#modalComponentRef?.setInput('isLoading', false);
-                  toast.error('Failed to update conversation name', {
-                    description: error.message || 'Please try again later.',
-                  });
-                  return throwError(() => error);
-                }),
-              )
-              .subscribe(),
-          );
-        } else {
-          // Handle form validation errors
-          this.markFormGroupTouched(chatNameForm);
-          toast.error('Please correct the form errors', {
-            description: 'Check the conversation name and try again.',
-          });
-        }
-      });
-
-    if (submitSubscription) {
-      this.subscriptions.push(submitSubscription);
-    }
-  }
-
-  // Custom validator for whitespace-only input
-  private noOnlyWhitespaceValidator(): ValidatorFn {
-    return (control: AbstractControl): ValidationErrors | null => {
-      if (control.value && control.value.trim().length === 0) {
-        return { whitespace: true };
+    this.#submitSub = this.#modalRef?.instance.submit.subscribe((formData) => {
+      if (!form.valid) {
+        markFormGroupTouched(form);
+        toast.error('Please correct the form errors.');
+        return;
       }
-      return null;
-    };
-  }
 
-  // Utility method to mark all form controls as touched
-  private markFormGroupTouched(formGroup: FormGroup) {
-    Object.keys(formGroup.controls).forEach((key) => {
-      const control = formGroup.get(key);
-      control?.markAsTouched();
+      const newName = formData.groupName?.trim();
+      const obs = this.settingsService.updateChatName(
+        String(conversation._id),
+        newName,
+        conversation.group_name ?? '',
+      );
 
-      if (control instanceof FormGroup) {
-        this.markFormGroupTouched(control);
-      }
+      if (!obs) return; // toast already shown for no-change case
+
+      this.#modalRef?.setInput('isSubmitting', true);
+      obs
+        .pipe(
+          tap((res) => {
+            this.#modalRef?.setInput('isSubmitting', false);
+            toast.success(`Name changed to "${res.group_name}"`);
+            this.#modalRef?.instance.closed.emit();
+          }),
+          catchError((err) => {
+            this.#modalRef?.setInput('isSubmitting', false);
+            toast.error('Failed to update name', { description: err.message });
+            return throwError(() => err);
+          }),
+          takeUntilDestroyed(this.destroyRef),
+        )
+        .subscribe();
     });
   }
 
   onAddMembers(): void {
-    this.createComponent();
+    const conversation = this.conversation();
+    if (!conversation) return;
 
-    this.#modalComponentRef?.setInput('headerText', 'Add members');
-    this.#modalComponentRef?.setInput(
-      'description',
-      'Search and select the users you want to add to your conversation.',
-    );
-    this.#modalComponentRef?.setInput('variant', 'user-list');
+    this.createModal({
+      headerText: 'Add members',
+      description: 'Search and select users to add.',
+      variant: 'user-list',
+    });
 
     const users = this.userService.users()?.users;
-    const participants = this.conversation()?.participants;
-
-    this.#modalComponentRef?.setInput('isLoading', true);
-
-    let filteredUsers: UserI[];
+    let filteredUsers = this.settingsService.getFilteredUsers(conversation);
 
     if (!users?.length) {
-      this.subscriptions.push(
-        this.userService
-          .fetchUsers()
-          .pipe(
-            catchError((err) => {
-              this.#modalComponentRef?.setInput('isLoading', false);
-              this.#modalComponentRef?.setInput('error', err);
-              return throwError(() => err);
-            }),
-            tap((res) => {
-              filteredUsers = res.users.filter(
-                (user) => !participants?.map((p) => p._id).includes(user._id),
-              );
-              this.#modalComponentRef?.setInput('isLoading', false);
-              this.#modalComponentRef?.setInput('items', filteredUsers);
-            }),
-          )
-          .subscribe(),
-      );
+      this.#modalRef?.setInput('isLoading', true);
+      this.userService
+        .fetchUsers()
+        .pipe(
+          tap((res) => {
+            filteredUsers = res.users.filter(
+              (u) => !conversation.participants.some((p) => p._id === u._id),
+            );
+            this.#modalRef?.setInput('isLoading', false);
+            this.#modalRef?.setInput('items', filteredUsers);
+          }),
+          catchError((err) => {
+            this.#modalRef?.setInput('isLoading', false);
+            toast.error('Failed to load users');
+            return throwError(() => err);
+          }),
+          takeUntilDestroyed(this.destroyRef),
+        )
+        .subscribe();
     } else {
-      filteredUsers = users.filter(
-        (user) => !participants?.map((p) => p._id).includes(user._id),
-      );
-      this.#modalComponentRef?.setInput('isLoading', false);
-      this.#modalComponentRef?.setInput('items', filteredUsers);
+      this.#modalRef?.setInput('items', filteredUsers);
     }
 
-    const submitSubscription =
-      this.#modalComponentRef?.instance.submit.subscribe((res: string[]) => {
-        const memberChanges: MemberChangesI = { add: res, remove: [] };
-
-        this.subscriptions.push(
-          this.conversationService
-            .manageConversationMembers(
-              memberChanges,
-              String(this.conversation()?._id),
-            )
-            .pipe(
-              tap((response) => {
-                toast.info('Members were added successfully!', {
-                  description: `${this.formatUsernames(
-                    response.participants?.filter((user) =>
-                      res.includes(user._id),
-                    ) || [],
-                  )} joined the ${
-                    this.conversation()?.group_name || 'conversation'
-                  }.`,
-                });
-                this.#modalComponentRef?.setInput(
-                  'items',
-                  filteredUsers.filter((u) => !res.includes(u._id)),
-                );
-              }),
-            )
-            .subscribe(),
-        );
-
-        submitSubscription && this.subscriptions.push(submitSubscription);
-      });
+    this.#submitSub = this.#modalRef?.instance.submit.subscribe(
+      (ids: string[]) => {
+        this.#modalRef?.setInput('isSubmitting', true);
+        this.settingsService
+          .addMembers(ids, String(conversation._id))
+          .pipe(
+            tap(() => {
+              this.#modalRef?.setInput('isSubmitting', false);
+              filteredUsers = filteredUsers.filter((u) => !ids.includes(u._id));
+              this.#modalRef?.setInput('items', filteredUsers);
+            }),
+            takeUntilDestroyed(this.destroyRef),
+          )
+          .subscribe();
+      },
+    );
   }
 
   onRemoveMember(user: ParticipantI): void {
-    this.createComponent();
+    const conversationId = String(this.conversation()?._id);
 
-    this.#modalComponentRef?.setInput('headerText', 'Are you sure?');
-    this.#modalComponentRef?.setInput(
-      'description',
-      `Do you want to remove ${user.username} from conversation?`,
-    );
-    this.#modalComponentRef?.setInput('variant', 'confirmation');
-    this.#modalComponentRef?.setInput('submitVariant', 'destructive');
-    this.#modalComponentRef?.setInput('actionName', 'remove');
+    this.createModal({
+      headerText: 'Are you sure?',
+      description: `Remove ${user.username} from conversation?`,
+      variant: 'confirmation',
+      submitVariant: 'destructive',
+      actionName: 'remove',
+    });
 
-    const submitSubscription =
-      this.#modalComponentRef?.instance.submit.subscribe(() => {
-        const memberChanges: MemberChangesI = {
-          add: [],
-          remove: [user._id],
-        };
+    this.#submitSub = this.#modalRef?.instance.submit.subscribe(() => {
+      this.#modalRef?.setInput('isSubmitting', true);
 
-        this.subscriptions.push(
-          this.conversationService
-            .manageConversationMembers(
-              memberChanges,
-              String(this.conversation()?._id),
-            )
-            .pipe(
-              tap(() => {
-                toast.info(`Submission was successfull!`, {
-                  description: `${user.username} was removed successfully!`,
-                });
-                this.#modalComponentRef?.instance.closed.emit();
-              }),
-            )
-            .subscribe(),
-        );
-
-        submitSubscription && this.subscriptions.push(submitSubscription);
-      });
+      this.settingsService
+        .removeMember(user._id, conversationId)
+        .pipe(
+          tap(() => {
+            this.#modalRef?.setInput('isSubmitting', false);
+            this.#modalRef?.instance.closed.emit();
+          }),
+          takeUntilDestroyed(this.destroyRef),
+        )
+        .subscribe();
+    });
   }
 
   onLeaveGroup(): void {
-    this.createComponent();
+    const currentUser = this.currentUser();
+    const conversationId = String(this.conversation()?._id);
+    if (!currentUser) return;
 
-    this.#modalComponentRef?.setInput('headerText', 'Are you sure?');
-    this.#modalComponentRef?.setInput(
-      'description',
-      `Do you want to leave the conversation?`,
-    );
-    this.#modalComponentRef?.setInput('variant', 'confirmation');
-    this.#modalComponentRef?.setInput('submitVariant', 'destructive');
-    this.#modalComponentRef?.setInput('actionName', 'leave');
+    this.createModal({
+      headerText: 'Are you sure?',
+      description: 'Do you want to leave the conversation?',
+      variant: 'confirmation',
+      submitVariant: 'destructive',
+      actionName: 'leave',
+    });
 
-    const submitSubscription =
-      this.#modalComponentRef?.instance.submit.subscribe(() => {
-        const currentUser = this.currentUser();
-
-        if (!currentUser) return;
-
-        const memberChanges: MemberChangesI = {
-          add: [],
-          remove: [currentUser._id],
-        };
-
-        this.subscriptions.push(
-          this.conversationService
-            .manageConversationMembers(
-              memberChanges,
-              String(this.conversation()?._id),
-            )
-            .pipe(
-              tap(() => {
-                toast.info(`Submission was successfull!`, {
-                  description: `${currentUser.username} was removed successfully!`,
-                });
-                this.#modalComponentRef?.instance.closed.emit();
-              }),
-            )
-            .subscribe(),
-        );
-
-        submitSubscription && this.subscriptions.push(submitSubscription);
-      });
+    this.#submitSub = this.#modalRef?.instance.submit.subscribe(() => {
+      this.#modalRef?.setInput('isSubmitting', true);
+      this.settingsService
+        .leaveGroup(currentUser._id, conversationId)
+        .pipe(
+          tap(() => {
+            this.#modalRef?.setInput('isSubmitting', false);
+            toast.info(`You left the conversation.`);
+            this.#modalRef?.instance.closed.emit();
+          }),
+          takeUntilDestroyed(this.destroyRef),
+        )
+        .subscribe();
+    });
   }
 
-  private createComponent() {
+  private createModal(config: {
+    headerText: string;
+    description?: string;
+    variant: string;
+    submitVariant?: 'default' | 'destructive';
+    actionName?: string;
+    form?: any;
+  }): void {
+    // Unsub previous modal's submit before creating new one
+    this.#submitSub?.unsubscribe();
     this.modalVcr()?.clear();
 
-    this.#modalComponentRef =
-      this.modalVcr()?.createComponent(ItemManagerComponent);
+    this.#modalRef = this.modalVcr()?.createComponent(ItemManagerComponent);
+    this.#modalRef?.setInput('state', 'open');
+    this.#modalRef?.setInput('headerText', config.headerText);
+    this.#modalRef?.setInput('variant', config.variant);
 
-    this.#modalComponentRef?.setInput('state', 'open');
+    if (config.description)
+      this.#modalRef?.setInput('description', config.description);
+    if (config.submitVariant)
+      this.#modalRef?.setInput('submitVariant', config.submitVariant);
+    if (config.actionName)
+      this.#modalRef?.setInput('actionName', config.actionName);
+    if (config.form) this.#modalRef?.setInput('form', config.form);
 
-    const closedSubscription =
-      this.#modalComponentRef?.instance.closed.subscribe(() => {
-        this.#modalComponentRef?.setInput('state', 'closed');
-        const animationEndSubscription =
-          this.#modalComponentRef?.instance.animationEnd.subscribe(() => {
-            this.#modalComponentRef?.destroy();
+    const closedSub = this.#modalRef?.instance.closed.subscribe(() => {
+      this.#modalRef?.setInput('state', 'closed');
 
-            animationEndSubscription &&
-              this.subscriptions.push(animationEndSubscription);
-            closedSubscription && this.subscriptions.push(closedSubscription);
-          });
+      const animEndSub = this.#modalRef?.instance.animationEnd.subscribe(() => {
+        this.#modalRef?.destroy();
+        animEndSub?.unsubscribe();
+        closedSub?.unsubscribe();
       });
-  }
-
-  private formatUsernames(users: { username: string }[]): string {
-    if (!users || users.length === 0) return '';
-    const names = users.map((u) => u.username);
-
-    if (names.length === 1) return names[0];
-    if (names.length === 2) return `${names[0]} and ${names[1]}`;
-    return `${names.slice(0, -1).join(', ')}, and ${names[names.length - 1]}`;
+    });
   }
 }

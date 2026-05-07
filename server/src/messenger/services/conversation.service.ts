@@ -18,11 +18,7 @@ import { UserDTO } from '../../user/dtos/user.dto';
 import { ConversationI } from '../interfaces/conversation.interface';
 import { MessageTypeEnum } from '../interfaces/message.interface';
 import { MessageService } from './message.service';
-import { error } from 'console';
-import { compressMedia } from '../../utils/downscale-media';
-import { PutObjectCommand } from '@aws-sdk/client-s3';
-import { s3 } from '../../utils/s3';
-import config from '../../config/config';
+
 export class ConversationService {
   private broadcast: BroadcastFunction;
   private messageService: MessageService;
@@ -197,49 +193,7 @@ export class ConversationService {
     conversation: IConversation,
     currentUser: IUser,
     group_name?: string,
-    group_picture?: Express.Multer.File,
   ): Promise<IConversation> {
-    let group_picture_url: string | undefined;
-
-    if (
-      group_picture &&
-      group_picture.mimetype !== 'image/jpeg' &&
-      group_picture.mimetype !== 'image/png' &&
-      group_picture.mimetype !== 'image/webp'
-    ) {
-      throw error(
-        'Unsupported file format. Only JPEG, PNG, and WEBP are allowed.',
-        400,
-      );
-    }
-
-    if (group_picture) {
-      const compressedBuffer = await compressMedia(
-        group_picture.buffer,
-        group_picture.mimetype,
-        {
-          maxDimension: 500,
-          quality: 80,
-          outputFormat: 'webp',
-        },
-      );
-
-      const fileKey = `${Date.now()}-${currentUser._id.toString()}.webp`;
-
-      // Upload directly to R2
-      await s3.send(
-        new PutObjectCommand({
-          Bucket: config.s3PermanentBucket,
-          Key: fileKey,
-          Body: compressedBuffer,
-          ContentType: 'image/webp',
-        }),
-      );
-
-      // Generate public URL (configure R2 custom domain or public bucket)
-      group_picture_url = `${config.s3Url}/${fileKey}`;
-    }
-
     const updateData: Partial<IConversation> = {};
 
     if (
@@ -247,10 +201,6 @@ export class ConversationService {
       (typeof group_name === 'string' || group_name === null)
     ) {
       updateData.group_name = group_name;
-    }
-
-    if (group_picture_url) {
-      updateData.group_picture = group_picture_url;
     }
 
     Object.assign(conversation, updateData);
@@ -267,15 +217,17 @@ export class ConversationService {
       type: MessageTypeEnum.INFO,
     };
 
-    if (group_picture_url) {
-      infoMessage.content = `${currentUser.username} updated group picture.`;
-      await this.messageService.createTextMessage(
-        infoMessage.sender,
-        infoMessage.conversation,
-        infoMessage.content,
-        infoMessage.type,
-      );
-    }
+    // useful in new upload flow
+    // if (group_picture_url) {
+    //   infoMessage.content = `${currentUser.username} updated group picture.`;
+    //   await this.messageService.createTextMessage(
+    //     infoMessage.sender,
+    //     infoMessage.conversation,
+    //     infoMessage.content,
+    //     infoMessage.type,
+    //   );
+    // }
+
     if (group_name) {
       infoMessage.content = `${currentUser.username} ${
         populatedConversation.group_name
@@ -290,7 +242,7 @@ export class ConversationService {
       );
     }
 
-    if (!group_name && !group_picture_url)
+    if (!group_name)
       await this.messageService.createTextMessage(
         infoMessage.sender,
         infoMessage.conversation,
