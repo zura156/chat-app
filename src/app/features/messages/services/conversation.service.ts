@@ -1,5 +1,5 @@
 import { HttpClient } from '@angular/common/http';
-import { computed, inject, Injectable, signal } from '@angular/core';
+import { computed, effect, inject, Injectable, signal } from '@angular/core';
 import { Observable, of, tap, catchError, throwError } from 'rxjs';
 import { environment } from '../../../../environments/environment';
 import {
@@ -14,11 +14,13 @@ import { toast } from '@spartan-ng/brain/sonner';
 import { UpdateConversationI } from '../interfaces/update-conversation.interface';
 import { MessageI } from '../interfaces/message.interface';
 import { UserStateService } from '../../user/services/user-state.service';
+import { AuthService } from '../../auth/services/auth.service';
 
 @Injectable()
 export class ConversationService {
   private http = inject(HttpClient);
   private userStateService = inject(UserStateService);
+  private authService = inject(AuthService);
 
   private readonly apiUrl = environment.apiUrl;
 
@@ -40,6 +42,12 @@ export class ConversationService {
 
   #conversationList = signal<ConversationListI | null>(null);
   conversationList = computed<ConversationListI | null>(this.#conversationList);
+
+  constructor() {
+    effect(() => {
+      !this.authService.isAuthenticated() && this.reset();
+    });
+  }
 
   selectUserForConversation(user: ParticipantI): void {
     sessionStorage.setItem('selectedUser', JSON.stringify(user));
@@ -222,8 +230,8 @@ export class ConversationService {
         this.#conversationList.update((prev) => ({
           totalCount: prev?.totalCount || 0,
           conversations:
-            prev?.conversations.map((conv) =>
-              conv._id === response._id ? response : conv,
+            prev?.conversations.map((c) =>
+              c._id === response._id ? response : c,
             ) ?? [],
         }));
       }),
@@ -283,29 +291,29 @@ export class ConversationService {
     status: 'offline' | 'online',
     last_seen: string,
   ): void {
-    this.#activeConversation.update((convo) => {
-      if (convo?.participants) {
+    this.#activeConversation.update((c) => {
+      if (c?.participants) {
         return {
-          ...convo,
-          participants: convo.participants.map((participant) =>
+          ...c,
+          participants: c.participants.map((participant) =>
             participant._id === userId
               ? { ...participant, status, last_seen }
               : participant,
           ),
         };
       }
-      return convo;
+      return c;
     });
   }
 
   updateReadReceipts(readReceipt: ReadReceiptI): void {
-    this.#activeConversation.update((convo) => {
-      if (!convo) return null;
+    this.#activeConversation.update((c) => {
+      if (!c) return null;
 
-      const existingReceiptIndex = convo.read_receipts.findIndex(
+      const existingReceiptIndex = c.read_receipts.findIndex(
         (r) => r.user_id === readReceipt.user_id,
       );
-      const newReceipts = [...convo.read_receipts];
+      const newReceipts = [...c.read_receipts];
 
       if (existingReceiptIndex > -1) {
         newReceipts[existingReceiptIndex] = readReceipt;
@@ -313,7 +321,7 @@ export class ConversationService {
         newReceipts.push(readReceipt);
       }
 
-      return { ...convo, read_receipts: newReceipts };
+      return { ...c, read_receipts: newReceipts };
     });
   }
 
@@ -331,13 +339,19 @@ export class ConversationService {
 
           return {
             ...prev,
-            conversations: prev.conversations.map((conv) =>
-              conv._id === res._id ? res : conv,
+            conversations: prev.conversations.map((c) =>
+              c._id === res._id ? res : c,
             ),
           };
         });
         this.#activeConversation.set(res);
       }),
     );
+  }
+
+  reset(): void {
+    this.selectedConversationId.set(null);
+    this.#activeConversation.set(null);
+    this.#conversationList.set(null);
   }
 }

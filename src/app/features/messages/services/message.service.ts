@@ -1,5 +1,6 @@
 import {
   computed,
+  effect,
   inject,
   Injectable,
   linkedSignal,
@@ -20,6 +21,7 @@ import {
   MessageStatusMessage,
 } from '../interfaces/web-socket-message.interface';
 import { UserStateService } from '../../user/services/user-state.service';
+import { AuthService } from '../../auth/services/auth.service';
 
 @Injectable()
 export class MessageService {
@@ -27,6 +29,7 @@ export class MessageService {
   private conversationService = inject(ConversationService);
   private userStateService = inject(UserStateService);
   private webSocketService = inject(WebSocketService);
+  private authService = inject(AuthService);
 
   private apiUrl = `${environment.apiUrl}/messages`;
 
@@ -222,6 +225,12 @@ export class MessageService {
   // Control signals for on-demand fetching
   private shouldFetchMediaMessages = signal<boolean>(false);
   private shouldFetchFileMessages = signal<boolean>(false);
+
+  constructor() {
+    effect(() => {
+      !this.authService.isAuthenticated() && this.reset();
+    });
+  }
 
   sendMessage(
     message: MessageI,
@@ -434,5 +443,20 @@ export class MessageService {
     }
 
     return undefined;
+  }
+
+  reset(): void {
+    this.#activeMessages.set([]);
+    this.#activeMediaMessages.set([]);
+    this.#activeFileMessages.set([]);
+    this.#totalMessagesCount.set(0);
+    this.#totalMediaMessagesCount.set(0);
+    this.#totalFileMessagesCount.set(0);
+    this.messageOffset.set(0);
+    this.mediaMessageOffset.set(0);
+    this.fileMessageOffset.set(0);
+    this.shouldFetchMediaMessages.set(false);
+    this.shouldFetchFileMessages.set(false);
+    this.previousConversationId.set(null);
   }
 }

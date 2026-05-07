@@ -24,7 +24,6 @@ import { UserI } from '../../user/interfaces/user.interface';
 import { UserService } from '../../user/services/user.service';
 import { Router } from '@angular/router';
 import { UnlockAccountI } from '../interfaces/unlock-account.interface';
-import { CSRFService } from './csrf.service';
 
 @Injectable({ providedIn: 'root' })
 export class AuthService {
@@ -33,7 +32,6 @@ export class AuthService {
   private userStateService = inject(UserStateService);
   private userService = inject(UserService);
   private webSocketService = inject(WebSocketService);
-  private csrfService = inject(CSRFService);
 
   private readonly _LOGIN_URL = `${environment.apiUrl}/auth/login`;
   private readonly _REGISTER_URL = `${environment.apiUrl}/auth/register`;
@@ -181,7 +179,7 @@ export class AuthService {
     return this.http.post<AuthResponseI>(this._LOGOUT_URL, {}).pipe(
       tap(() => {
         this.router.navigateByUrl('');
-        this.clearLocalState();
+        this.clearAppState();
       }),
       catchError(this.handleError.bind(this)),
     );
@@ -189,7 +187,7 @@ export class AuthService {
 
   // Public so authInterceptor can call it on reuse detection
   handleAuthFailure(): void {
-    this.clearLocalState();
+    this.clearAppState();
     this.router.navigateByUrl('/auth/login');
   }
 
@@ -203,7 +201,7 @@ export class AuthService {
     } as UserStatusMessage);
   }
 
-  private clearLocalState(): void {
+  private clearAppState(): void {
     this.userStateService.setCurrentUser(null);
     this.webSocketService.close();
     localStorage.clear();

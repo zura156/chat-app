@@ -179,7 +179,7 @@ export class WebSocketController {
             'read_receipts.$.read_at': read_receipt.read_at,
           },
         },
-        { new: true, select: 'participants' },
+        { returnDocument: 'after', select: 'participants' },
       );
 
       if (!conversation) {

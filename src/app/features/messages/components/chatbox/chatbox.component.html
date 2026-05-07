@@ -127,7 +127,7 @@
         id="chat-messages"
         class="h-full flex flex-col-reverse p-2 sm:px-0 sm:py-2 space-y-4 space-y-reverse"
       >
-        @let sender = this.isTyping()?.typer;
+        @let sender = this.isTyping()?.sender;
         @let isTyping = this.isTyping()?.is_typing;
         @let isTypingConversationId = this.isTyping()?.conversationId;
 

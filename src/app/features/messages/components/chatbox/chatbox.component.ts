@@ -163,14 +163,14 @@ export class ChatboxComponent implements OnInit {
 
   // Typing state derived directly from signal — no effect needed
   isTyping = computed<{
-    typer: Partial<ParticipantI>;
+    sender: Partial<ParticipantI>;
     is_typing: boolean;
     conversationId: string;
   } | null>(() => {
     const msg = this.typingMessage();
     if (!msg) return null;
     return {
-      typer: msg.sender ?? {},
+      sender: msg.sender ?? {},
       is_typing: !!msg.is_typing,
       conversationId: msg.conversation_id,
     };
@@ -179,12 +179,14 @@ export class ChatboxComponent implements OnInit {
   // ── Derived signals ─────────────────────────────────────────────────────────
 
   groupImageUrl = linkedSignal<string | null>(() => {
-    const convo = this.conversation();
-    if (!convo) return null;
-    if (convo.is_group) return convo.group_picture ?? null;
+    const activeConversation = this.conversation();
+    if (!activeConversation) return null;
+    if (activeConversation.is_group)
+      return activeConversation.group_picture ?? null;
     return (
-      convo.participants.find((p) => p._id !== this.currentUser()?._id)
-        ?.profile_picture ?? null
+      activeConversation.participants.find(
+        (p) => p._id !== this.currentUser()?._id,
+      )?.profile_picture ?? null
     );
   });
 
@@ -405,11 +407,11 @@ export class ChatboxComponent implements OnInit {
     }
 
     const sender = this.currentUser();
-    const convo = this.conversation();
+    const activeConversation = this.conversation();
     const now = Date.now();
 
     if (
-      !convo ||
+      !activeConversation ||
       !sender ||
       !this.canMessage() ||
       now - this.lastMessageSentAt < this.MIN_MESSAGE_INTERVAL
@@ -421,7 +423,7 @@ export class ChatboxComponent implements OnInit {
       formData.append('file', this.recordingResult.blob, 'recording.webm');
       formData.append('duration', this.recordingResult.duration.toString());
       formData.append('senderId', sender._id);
-      formData.append('conversationId', convo._id);
+      formData.append('conversationId', activeConversation._id);
       this.canMessage.set(false);
 
       this.messageService
@@ -443,7 +445,7 @@ export class ChatboxComponent implements OnInit {
 
     if (!content?.trim()) return;
 
-    if (!convo.createdAt) {
+    if (!activeConversation.createdAt) {
       this.isLoading.set(true);
       this.conversationService
         .createConversation([sender._id, this.selectedUser()!._id])
@@ -487,7 +489,7 @@ export class ChatboxComponent implements OnInit {
       this.canMessage.set(false);
       const message: MessageI = {
         sender,
-        conversation: convo._id,
+        conversation: activeConversation._id,
         content,
         tempId: crypto.randomUUID(),
         type: MessageType.TEXT,
@@ -497,7 +499,7 @@ export class ChatboxComponent implements OnInit {
       this.messageService
         .sendMessage(
           message,
-          convo.participants.filter((u) => u._id !== sender._id),
+          activeConversation.participants.filter((u) => u._id !== sender._id),
         )
         .pipe(
           takeUntilDestroyed(this.destroyRef),
@@ -679,14 +681,14 @@ export class ChatboxComponent implements OnInit {
         takeUntilDestroyed(this.destroyRef),
         tap((query) => {
           const sender = this.currentUser();
-          const convo = this.conversation();
-          if (!sender || !convo) return;
+          const activeConversation = this.conversation();
+          if (!sender || !activeConversation) return;
           this.webSocketService.sendMessage({
             type: 'typing',
             sender,
-            participants: convo.participants,
+            participants: activeConversation.participants,
             is_typing: Boolean(query),
-            conversation_id: convo._id,
+            conversation_id: activeConversation._id,
           } satisfies TypingMessage);
         }),
       )

@@ -44,7 +44,7 @@ export const generateLink = async (
     await AccountTokensModel.findOneAndUpdate(
       { user_id: userId, type },
       { token: hashedToken, expires_at },
-      { upsert: true, new: true },
+      { upsert: true, returnDocument: 'after' },
     );
 
     return link;

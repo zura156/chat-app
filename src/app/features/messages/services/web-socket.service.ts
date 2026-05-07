@@ -119,4 +119,9 @@ export class WebSocketService {
     this.socket$ = undefined;
     this.connected.set(false);
   }
+
+  reset(): void {
+    this.close();
+    this.messages$ = new Subject<WebSocketMessageT>();
+  }
 }
