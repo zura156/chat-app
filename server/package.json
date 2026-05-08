@@ -79,10 +79,12 @@
     "music-metadata": "^11.12.3",
     "nodemailer": "^8.0.5",
     "redis": "^5.12.1",
-    "sharp": "^0.34.5",
     "validator": "^13.15.35",
     "winston": "^3.19.0",
     "ws": "^8.20.0",
     "zod": "^4.4.2"
+  },
+  "optionalDependencies": {
+    "sharp": "^0.33.0"
   }
 }
