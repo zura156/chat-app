@@ -85,6 +85,6 @@
     "zod": "^4.4.2"
   },
   "optionalDependencies": {
-    "sharp": "^0.33.0"
+    "sharp": "^0.33.5"
   }
 }
