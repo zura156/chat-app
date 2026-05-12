@@ -32,6 +32,7 @@ export async function connectRedis(): Promise<void> {
 }
 
 let _limiter: ReturnType<typeof rateLimit> | null = null;
+let _presignLimiter: ReturnType<typeof rateLimit> | null = null;
 
 export function initLimiters(): void {
   _limiter = rateLimit({
@@ -39,6 +40,17 @@ export function initLimiters(): void {
     max: 100,
     standardHeaders: true,
     legacyHeaders: false,
+    store: new RedisStore({
+      sendCommand: (...args: string[]) => redisClient.sendCommand(args),
+    }),
+  });
+
+  _presignLimiter = rateLimit({
+    windowMs: 60_000,
+    max: 30,
+    standardHeaders: true,
+    legacyHeaders: false,
+    message: { error: 'Too many upload requests' },
     store: new RedisStore({
       sendCommand: (...args: string[]) => redisClient.sendCommand(args),
     }),
@@ -52,6 +64,14 @@ export const generalLimiter = (
 ): void => {
   if (!_limiter) return next(); // fallback: skip limiting if not yet initialized (shouldn't happen)
   _limiter(req, res, next);
+};
+export const presignLimiter = (
+  req: Request,
+  res: Response,
+  next: NextFunction,
+): void => {
+  if (!_presignLimiter) return next();
+  _presignLimiter(req, res, next);
 };
 
 export { redisClient, redisSubscriber };
