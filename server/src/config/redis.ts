@@ -41,6 +41,7 @@ export function initLimiters(): void {
     standardHeaders: true,
     legacyHeaders: false,
     store: new RedisStore({
+      prefix: 'rl_general:',
       sendCommand: (...args: string[]) => redisClient.sendCommand(args),
     }),
   });
@@ -52,6 +53,7 @@ export function initLimiters(): void {
     legacyHeaders: false,
     message: { error: 'Too many upload requests' },
     store: new RedisStore({
+      prefix: 'rl_presign:',
       sendCommand: (...args: string[]) => redisClient.sendCommand(args),
     }),
   });

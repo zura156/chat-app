@@ -20,7 +20,7 @@ export const CONTEXT_CONFIG: Record<UploadContext, ContextConfig> = {
       'image/heif',
     ],
     maxBytes: 20 * MB,
-    bucket: config.s3PublicBucket,
+    bucket: config.s3TempBucket,
     expiresIn: 300,
   },
   'group-avatar': {
@@ -32,7 +32,7 @@ export const CONTEXT_CONFIG: Record<UploadContext, ContextConfig> = {
       'image/heif',
     ],
     maxBytes: 20 * MB,
-    bucket: config.s3PublicBucket!,
+    bucket: config.s3TempBucket!,
     expiresIn: 300,
   },
   'cover-photo': {
@@ -44,7 +44,7 @@ export const CONTEXT_CONFIG: Record<UploadContext, ContextConfig> = {
       'image/heif',
     ],
     maxBytes: 20 * MB,
-    bucket: config.s3PublicBucket!,
+    bucket: config.s3TempBucket!,
     expiresIn: 300,
   },
   'dm-image': {

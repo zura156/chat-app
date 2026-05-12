@@ -93,10 +93,19 @@ export const confirm = async (req: AuthRequest, res: Response) => {
         Key: upload.fileKey,
       }),
     );
-  } catch {
-    return res
-      .status(400)
-      .json({ error: 'File not found in storage. Upload it first.' });
+  } catch (e: any) {
+    // 403 = file exists but metadata access denied (SeaweedFS IAM quirk) — allow
+    // 404 = file genuinely doesn't exist — reject
+    if (e?.$metadata?.httpStatusCode === 404) {
+      return res
+        .status(400)
+        .json({ error: 'File not found in storage. Upload it first.' });
+    }
+    if (e?.$metadata?.httpStatusCode !== 403) {
+      // unexpected error
+      return res.status(500).json({ error: 'Storage check failed.' });
+    }
+    // 403 → file exists, continue
   }
 
   // Mark as processing

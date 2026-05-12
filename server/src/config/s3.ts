@@ -9,6 +9,8 @@ export const s3App = new S3Client({
     secretAccessKey: config.s3SecretKey,
   },
   forcePathStyle: true, // required for Seaweed
+  requestChecksumCalculation: 'WHEN_REQUIRED', // for Seaweed
+  responseChecksumValidation: 'WHEN_REQUIRED', // for Seaweed
 });
 
 export const s3Quarantine = new S3Client({
@@ -19,4 +21,6 @@ export const s3Quarantine = new S3Client({
     secretAccessKey: config.s3QuarantineSecretKey,
   },
   forcePathStyle: true, // required for Seaweed
+  requestChecksumCalculation: 'WHEN_REQUIRED', // for Seaweed
+  responseChecksumValidation: 'WHEN_REQUIRED', // for Seaweed
 });

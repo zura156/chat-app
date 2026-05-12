@@ -9,6 +9,7 @@ export type UploadStatus =
 
 const uploadSchema = new Schema(
   {
+    _id: { type: String, required: true },
     userId: { type: Schema.Types.ObjectId, ref: 'User', required: true },
     context: { type: String, required: true },
     resourceId: { type: String, default: null }, // groupId, postId, etc.
@@ -23,7 +24,7 @@ const uploadSchema = new Schema(
     variants: { type: Schema.Types.Mixed, default: null }, // CDN URLs after processing
     expiresAt: { type: Date, default: null }, // for stories
   },
-  { timestamps: true },
+  { _id: false, timestamps: true },
 );
 
 export const Upload = mongoose.model('Upload', uploadSchema);
