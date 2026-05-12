@@ -28,4 +28,6 @@ export default {
   s3SecretKey: process.env.S3_APP_SECRET || '',
   s3QuarantineAccessKey: process.env.S3_QUARANTINE_ACCESS || '',
   s3QuarantineSecretKey: process.env.S3_QUARANTINE_SECRET || '',
+  clamavHost: process.env.CLAMAV_HOST || 'localhost',
+  clamavPort: parseInt(process.env.CLAMAV_PORT || '3310', 10),
 };

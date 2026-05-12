@@ -4,7 +4,7 @@ import {
   CopyObjectCommand,
   DeleteObjectCommand,
 } from '@aws-sdk/client-s3';
-import { s3App, s3Quarantine } from '../utils/s3';
+import { s3App, s3Quarantine } from '../config/s3';
 import { createWriteStream, createReadStream } from 'fs';
 import { pipeline } from 'stream/promises';
 import { Readable } from 'stream';

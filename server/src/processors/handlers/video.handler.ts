@@ -1,128 +1,192 @@
 import ffmpeg from 'fluent-ffmpeg';
-import { createReadStream, promises as fs } from 'fs';
-import path from 'path';
-import { PutObjectCommand } from '@aws-sdk/client-s3';
-import { s3App } from '../../utils/s3';
-import { HLS_BUCKET } from '../../config/upload.config';
+import { s3App } from '../../config/s3';
+import {
+  PutObjectCommand,
+  GetObjectCommand,
+  DeleteObjectCommand,
+} from '@aws-sdk/client-s3';
+import config from '../../config/config';
+import { JobPayload, ProcessResult } from './types';
+import { tmpdir } from 'os';
+import { join } from 'path';
+import { writeFile, rm, readdir, readFile, mkdir } from 'fs/promises';
+import { lookup } from 'mime-types';
 
-const RENDITIONS = [
-  {
-    name: '360p',
-    width: 640,
-    height: 360,
-    bitrate: '800k',
-    audioBitrate: '96k',
-  },
-  {
-    name: '720p',
-    width: 1280,
-    height: 720,
-    bitrate: '2800k',
-    audioBitrate: '128k',
-  },
-  {
-    name: '1080p',
-    width: 1920,
-    height: 1080,
-    bitrate: '5000k',
-    audioBitrate: '192k',
-  },
-];
-
-export async function processVideo(
-  localPath: string,
-  hlsPrefix: string, // e.g. hls/{userId}/{fileId}
-): Promise<string> {
-  // returns master playlist key
-  const tmpDir = `${localPath}_hls`;
-  await fs.mkdir(tmpDir, { recursive: true });
-
-  // Transcode all renditions
-  await Promise.all(
-    RENDITIONS.map((r) => transcodeRendition(localPath, tmpDir, r)),
-  );
-
-  // Build master playlist
-  const masterContent = buildMasterPlaylist();
-  const masterPath = path.join(tmpDir, 'master.m3u8');
-  await fs.writeFile(masterPath, masterContent);
-
-  // Upload all HLS files to S3
-  await uploadHLSDirectory(tmpDir, hlsPrefix);
-
-  // Cleanup
-  await fs.rm(tmpDir, { recursive: true, force: true });
-
-  return `${hlsPrefix}/master.m3u8`;
-}
-
-function transcodeRendition(
-  inputPath: string,
-  outDir: string,
-  rendition: (typeof RENDITIONS)[0],
-): Promise<void> {
-  return new Promise((resolve, reject) => {
-    ffmpeg(inputPath)
-      .outputOptions([
-        `-vf scale=${rendition.width}:${rendition.height}:force_original_aspect_ratio=decrease,pad=${rendition.width}:${rendition.height}:(ow-iw)/2:(oh-ih)/2`,
-        `-c:v libx264`,
-        `-b:v ${rendition.bitrate}`,
-        `-c:a aac`,
-        `-b:a ${rendition.audioBitrate}`,
-        `-f hls`,
-        `-hls_time 6`,
-        `-hls_list_size 0`,
-        `-hls_playlist_type vod`,
-        `-hls_segment_filename ${outDir}/${rendition.name}_%03d.ts`,
-      ])
-      .output(`${outDir}/${rendition.name}.m3u8`)
-      .on('end', () => resolve())
-      .on('error', reject)
-      .run();
-  });
-}
-
-function buildMasterPlaylist(): string {
-  const lines = ['#EXTM3U', '#EXT-X-VERSION:3'];
-  const bandwidths: Record<string, number> = {
-    '360p': 800000,
-    '720p': 2800000,
-    '1080p': 5000000,
-  };
-  const resolutions: Record<string, string> = {
-    '360p': '640x360',
-    '720p': '1280x720',
-    '1080p': '1920x1080',
-  };
-
-  for (const r of RENDITIONS) {
-    lines.push(
-      `#EXT-X-STREAM-INF:BANDWIDTH=${bandwidths[r.name]},RESOLUTION=${resolutions[r.name]}`,
-    );
-    lines.push(`${r.name}.m3u8`);
-  }
-  return lines.join('\n');
-}
-
-async function uploadHLSDirectory(
+const uploadHlsDir = async (
   localDir: string,
+  bucket: string,
   s3Prefix: string,
-): Promise<void> {
-  const files = await fs.readdir(localDir);
+) => {
+  const walk = async (dir: string): Promise<string[]> => {
+    const entries = await readdir(dir, { withFileTypes: true });
+    const files: string[] = [];
+    for (const entry of entries) {
+      const fullPath = join(dir, entry.name);
+      if (entry.isDirectory()) {
+        files.push(...(await walk(fullPath)));
+      } else {
+        files.push(fullPath);
+      }
+    }
+    return files;
+  };
+
+  const files = await walk(localDir);
+
   await Promise.all(
-    files.map(async (file) => {
-      const contentType = file.endsWith('.m3u8')
-        ? 'application/vnd.apple.mpegurl'
-        : 'video/MP2T';
+    files.map(async (filePath) => {
+      const relative = filePath.replace(localDir + '/', '');
+      const s3Key = `${s3Prefix}/${relative}`;
+      const body = await readFile(filePath);
+      const contentType = lookup(filePath) || 'application/octet-stream';
 
       await s3App.send(
         new PutObjectCommand({
-          Bucket: HLS_BUCKET,
-          Key: `${s3Prefix}/${file}`,
-          Body: createReadStream(path.join(localDir, file)),
+          Bucket: bucket,
+          Key: s3Key,
+          Body: body,
           ContentType: contentType,
         }),
       );
     }),
   );
-}
+};
+
+const extractThumbnail = (
+  inputPath: string,
+  outputPath: string,
+): Promise<void> => {
+  return new Promise((resolve, reject) => {
+    ffmpeg(inputPath)
+      .screenshots({
+        timestamps: ['00:00:01'],
+        filename: 'thumb.webp',
+        folder: outputPath,
+        size: '640x?',
+      })
+      .on('end', () => resolve)
+      .on('error', reject);
+  });
+};
+
+const transcodeToHls = (
+  inputPath: string,
+  outputDir: string,
+): Promise<void> => {
+  return new Promise((resolve, reject) => {
+    ffmpeg(inputPath)
+      .inputOptions(['-hide_banner'])
+      .complexFilter([
+        '[0:v]split=2[v480][v720]',
+        '[v480]scale=-2:480[out480]',
+        '[v720]scale=-2:720[out720]',
+      ])
+      .outputOptions([
+        // 480p stream
+        '-map [out480]',
+        '-map 0:a?',
+        '-c:v:0 libx264',
+        '-preset veryfast',
+        '-crf 28',
+        '-c:a:0 aac',
+        '-b:a:0 128k',
+
+        // 720p stream
+        '-map [out720]',
+        '-map 0:a?',
+        '-c:v:1 libx264',
+        '-preset veryfast',
+        '-crf 26',
+        '-c:a:1 aac',
+        '-b:a:1 192k',
+
+        '-hls_time 6',
+        '-hls_playlist_type vod',
+        `-hls_segment_filename ${outputDir}/%v/seg_%03d.ts`,
+        '-var_stream_map',
+        'v:0,a:0 v:1,a:1',
+        '-master_pl_name index.m3u8',
+      ])
+      .output(`${outputDir}/%v/index.m3u8`)
+      .on('end', () => resolve)
+      .on('error', reject)
+      .run();
+  });
+};
+
+export const videoHandler = async (
+  payload: JobPayload,
+  isPublic: boolean,
+): Promise<ProcessResult> => {
+  const tmpBase = join(tmpdir(), payload.uploadId);
+  const tmpInput = join(tmpBase, 'input');
+  const tmpHls = join(tmpBase, 'hls');
+  const tmpThumb = join(tmpBase, 'thumb');
+
+  await mkdir(tmpBase, { recursive: true });
+  await mkdir(tmpHls, { recursive: true });
+  await mkdir(tmpThumb, { recursive: true });
+
+  try {
+    // 1. fetch raw file from uploads-temp
+    const raw = await s3App.send(
+      new GetObjectCommand({
+        Bucket: config.s3TempBucket,
+        Key: payload.fileKey,
+      }),
+    );
+    await writeFile(
+      tmpInput,
+      Buffer.from(await raw.Body!.transformToByteArray()),
+    );
+
+    // 2. transcode → HLS
+    await transcodeToHls(tmpInput, tmpHls);
+
+    // 3. extract thumbnail
+    await extractThumbnail(tmpInput, tmpThumb);
+
+    // 4. determine target buckets
+    const hlsBucket = isPublic ? config.s3HlsBucket : config.s3PrivateBucket;
+    const thumbBucket = isPublic
+      ? config.s3PublicBucket
+      : config.s3PrivateBucket;
+    const baseKey = `${payload.context}/${payload.userId}/${payload.uploadId}`;
+
+    // 5. upload all HLS segments + playlists
+    await uploadHlsDir(tmpHls, hlsBucket, baseKey);
+
+    // 6. upload thumbnail
+    const thumbPath = join(tmpThumb, 'thumb.webp');
+    const thumbBody = await readFile(thumbPath);
+    const thumbKey = `${baseKey}/thumb.webp`;
+
+    await s3App.send(
+      new PutObjectCommand({
+        Bucket: thumbBucket,
+        Key: thumbKey,
+        Body: thumbBody,
+        ContentType: 'image/webp',
+      }),
+    );
+
+    // 7. build CDN URLs
+    const variants = {
+      hls: `${config.s3Url}/${hlsBucket}/${baseKey}/index.m3u8`,
+      thumbnail: `${config.s3Url}/${thumbBucket}/${thumbKey}`,
+    };
+
+    // 8. delete raw from uploads-temp
+    await s3App.send(
+      new DeleteObjectCommand({
+        Bucket: config.s3TempBucket,
+        Key: payload.fileKey,
+      }),
+    );
+
+    return { variants, finalBucket: hlsBucket, finalKey: baseKey };
+  } finally {
+    // always clean up tmp regardless of success/failure
+    await rm(tmpBase, { recursive: true, force: true });
+  }
+};

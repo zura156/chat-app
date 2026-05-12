@@ -1,35 +1,64 @@
+// src/processors/handlers/image.handler.ts
 import sharp from 'sharp';
-import { UploadContext } from '../../config/upload.config';
-import { uploadBufferToApp } from '../../upload/s3-transfer.service';
+import { s3App } from '../../config/s3';
+import {
+  GetObjectCommand,
+  PutObjectCommand,
+  DeleteObjectCommand,
+} from '@aws-sdk/client-s3';
+import config from '../../config/config';
+import { JobPayload, ProcessResult } from './types';
 
-// Resize config per context
-const IMAGE_PROFILES: Record<
-  string,
-  { width: number; height: number; fit: keyof sharp.FitEnum }
-> = {
-  avatar: { width: 256, height: 256, fit: 'cover' },
-  'group-avatar': { width: 256, height: 256, fit: 'cover' },
-  'cover-photo': { width: 1500, height: 500, fit: 'cover' },
-  'dm-image': { width: 1920, height: 1920, fit: 'inside' },
-  'post-image': { width: 1920, height: 1920, fit: 'inside' },
-  story: { width: 1080, height: 1920, fit: 'inside' },
+const IMAGE_VARIANTS = {
+  thumb: 64,
+  medium: 400,
+  large: 1200,
 };
 
-export async function processImage(
-  localPath: string,
-  destKey: string,
-  context: UploadContext,
-): Promise<void> {
-  const profile = IMAGE_PROFILES[context] ?? IMAGE_PROFILES['dm-image'];
+export const imageHandler = async (
+  payload: JobPayload,
+): Promise<ProcessResult> => {
+  // 1. fetch raw file from uploads-temp
+  const raw = await s3App.send(
+    new GetObjectCommand({
+      Bucket: config.s3TempBucket,
+      Key: payload.fileKey,
+    }),
+  );
 
-  const buffer = await sharp(localPath)
-    .resize(profile.width, profile.height, {
-      fit: profile.fit,
-      withoutEnlargement: true,
-    })
-    .webp({ quality: 82 }) // convert everything to webp for consistent delivery
-    .toBuffer();
+  const buffer = Buffer.from(await raw.Body!.transformToByteArray());
 
-  const webpKey = destKey.replace(/\.[^/.]+$/, '.webp');
-  await uploadBufferToApp(buffer, webpKey, 'image/webp');
-}
+  // 2. generate variants
+  const variants: Record<string, string> = {};
+  const baseKey = `${payload.context}/${payload.userId}/${payload.uploadId}`;
+
+  for (const [name, width] of Object.entries(IMAGE_VARIANTS)) {
+    const processed = await sharp(buffer)
+      .rotate()
+      .resize(width, null, { withoutEnlargement: true })
+      .webp({ quality: 80, effort: 4 })
+      .toBuffer();
+
+    const key = `${baseKey}/${name}.webp`;
+    await s3App.send(
+      new PutObjectCommand({
+        Bucket: config.s3PublicBucket,
+        Key: key,
+        Body: processed,
+        ContentType: 'image/webp',
+      }),
+    );
+
+    variants[name] = `${config.s3Url}/${config.s3PublicBucket}/${key}`;
+  }
+
+  // 3. delete from temp
+  await s3App.send(
+    new DeleteObjectCommand({
+      Bucket: config.s3TempBucket,
+      Key: payload.fileKey,
+    }),
+  );
+
+  return { variants, finalBucket: config.s3PublicBucket, finalKey: baseKey };
+};

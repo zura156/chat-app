@@ -2,7 +2,7 @@ import { WebSocket } from 'ws';
 import { logger } from '../../utils/logger';
 import { Conversation } from '../../messenger/models/conversation.model';
 import { MessageTypeEnum } from '../../messenger/interfaces/message.interface';
-import { redisClient } from '../../utils/redis';
+import { redisClient } from '../../config/redis';
 
 export type BroadcastFunction = (message: any) => Promise<void>;
 

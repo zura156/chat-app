@@ -1,5 +1,5 @@
 import { Request, Response, NextFunction } from 'express';
-import { redisClient } from '../../utils/redis';
+import { redisClient } from '../../config/redis';
 
 interface RateLimitConfig {
   keyPrefix: string;

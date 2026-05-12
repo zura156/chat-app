@@ -2,7 +2,7 @@ import { Notification } from '../models/notifications.model';
 import { MutedConversation } from '../models/muted-conversation.model';
 import { Conversation } from '../models/conversation.model';
 import { Types } from 'mongoose';
-import { redisClient } from '../../utils/redis';
+import { redisClient } from '../../config/redis';
 
 export const createNotification = async (
   senderId: string,

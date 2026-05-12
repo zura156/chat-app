@@ -20,20 +20,14 @@ router.use((req, res, next) => {
 // --- Routes ---
 
 router.get('/:id/messages', validateConversation, (req, res, next) =>
-  req.messageController.getMessagesByConversationId(req, res, next)
+  req.messageController.getMessagesByConversationId(req, res, next),
 );
 router.get('/:id/media', validateConversation, (req, res, next) =>
-  req.messageController.getMediaMessages(req, res, next)
+  req.messageController.getMediaMessages(req, res, next),
 );
 
 router.get('/:id/files', validateConversation, (req, res, next) =>
-  req.messageController.getFileMessages(req, res, next)
-);
-
-router.post('/upload', 
-  // uploadMiddleware.single('file'),
- (req, res, next) =>
-  req.messageController.uploadFileMessage(req, res, next)
+  req.messageController.getFileMessages(req, res, next),
 );
 
 export default router;

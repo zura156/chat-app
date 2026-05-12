@@ -1,4 +1,4 @@
-import { redisClient } from '../../utils/redis';
+import { redisClient } from '../../config/redis';
 import crypto from 'crypto';
 
 const REFRESH_TTL = 7 * 24 * 60 * 60;

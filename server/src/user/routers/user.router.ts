@@ -7,7 +7,6 @@ import {
   searchUsers,
   updateUserDetails,
 } from '../controllers/user.controller';
-import { upload } from '../../utils/multer';
 
 const router = Router();
 

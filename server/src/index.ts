@@ -17,9 +17,7 @@ import cors from 'cors';
 import http from 'http';
 import cookieParser from 'cookie-parser';
 import helmet from 'helmet';
-import rateLimit from 'express-rate-limit';
 import compression from 'compression';
-// import path from 'path';
 // import morgan from 'morgan';
 import mongoSanitize from '@exortek/express-mongo-sanitize';
 import hpp from 'hpp';
@@ -27,7 +25,12 @@ import { authenticateToken } from './auth/middlewares/auth.middleware';
 
 import ffmpeg from 'fluent-ffmpeg';
 import ffmpegPath from 'ffmpeg-static';
-import { connectRedis, redisSubscriber } from './utils/redis';
+import {
+  connectRedis,
+  redisSubscriber,
+  generalLimiter,
+  initLimiters,
+} from './config/redis';
 import uploadRouter from './upload/upload.router';
 import notificationsRouter from './messenger/routers/notifications.router';
 import { csrfProtection } from './auth/middlewares/csrf.middleware';
@@ -92,13 +95,6 @@ app.use(cookieParser());
 ffmpeg.setFfmpegPath(ffmpegPath || '');
 // app.use(morgan('combined'));
 
-const generalLimiter = rateLimit({
-  windowMs: 5 * 60 * 1000,
-  max: 100,
-  standardHeaders: true,
-  legacyHeaders: false,
-});
-
 // Public routes
 app.use('/auth', authRouter); // only logout is protected
 
@@ -118,21 +114,7 @@ app.use(
   authenticateToken,
   notificationsRouter,
 );
-app.use(
-  '/upload',
-  generalLimiter,
-  authenticateToken,
-  uploadRouter,
-  // (req, res, next) => {
-  //   res.setHeader('Access-Control-Allow-Credentials', 'true');
-  //   res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
-  //   // Optionally for COEP/COOP requirements:
-  //   // res.setHeader('Cross-Origin-Embedder-Policy', 'require-corp');
-  //   // res.setHeader('Cross-Origin-Opener-Policy', 'same-origin');
-  //   next();
-  // },
-  // express.static(path.resolve('uploads')),
-);
+app.use('/upload', generalLimiter, authenticateToken, uploadRouter);
 
 app.use((err: Error, req: Request, res: Response, next: NextFunction) => {
   errorMiddleware(err, req, res, next);
@@ -140,6 +122,7 @@ app.use((err: Error, req: Request, res: Response, next: NextFunction) => {
 
 server.listen(port, async () => {
   await connectRedis();
+  initLimiters();
   await webSocketServiceInstance.registerInstance();
 
   await redisSubscriber.subscribe('ws:broadcast', (rawMessage) => {
@@ -160,6 +143,15 @@ server.listen(port, async () => {
       webSocketServiceInstance.sendToUser(userId, notification);
     } catch (err) {
       logger.error('Notification sub error:', err);
+    }
+  });
+
+  await redisSubscriber.subscribe('ws:upload', (raw) => {
+    try {
+      const { userId, payload } = JSON.parse(raw);
+      webSocketServiceInstance.sendToUser(userId, payload);
+    } catch (err) {
+      logger.error('Upload WS sub error:', err);
     }
   });
 

@@ -187,47 +187,4 @@ export class MessageController {
       });
     }
   };
-
-  /**
-   * Handles the HTTP request to upload a file message.
-   * This is the new functionality.
-   */
-  public uploadFileMessage = async (
-    req: AuthRequest,
-    res: Response,
-    next: NextFunction,
-  ): Promise<void> => {
-    try {
-      const { conversationId, duration } = req.body; // Assuming conversationId is sent in the form data
-      const senderId = req.user?._id.toString();
-
-      if (!req.file) {
-        return next(createCustomError('No file was uploaded.', 400));
-      }
-      if (!senderId || !conversationId) {
-        return next(
-          createCustomError('Sender ID and Conversation ID are required.', 400),
-        );
-      }
-
-      if (req.file.mimetype.startsWith('audio/') && !duration) {
-        console.warn(
-          'Warning: Audio file received without a duration from the client.',
-        );
-      }
-
-      // Delegate the core logic to the service
-      const savedMessage = await this.messageService.createFileMessage(
-        req.file,
-        senderId,
-        conversationId,
-        duration, // Pass the duration to the service
-      );
-
-      res.status(201).json(savedMessage);
-    } catch (error) {
-      console.error('Upload controller error:', error);
-      next(createCustomError('Failed to process file upload.', 500));
-    }
-  };
 }

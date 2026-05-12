@@ -3,27 +3,54 @@ import {
   MessageStatusEnum,
   MessageTypeEnum,
 } from '../interfaces/message.interface';
-import { ScanStatus } from '../../config/upload.config';
 
 export interface IAttachment {
-  fileKey: string; // staging key until clean, then permanent key
-  originalName: string;
+  uploadId: string;
+  context: 'dm-image' | 'dm-video' | 'dm-file';
   mimeType: string;
-  sizeBytes: number;
-  scanStatus: ScanStatus;
-  permanentUrl?: string; // populated after clean
+  fileSize: number;
+  status: 'processing' | 'ready' | 'failed' | 'infected';
+  variants: {
+    original?: string;
+    thumb?: string;
+    medium?: string;
+    hls?: string;
+    thumbnail?: string;
+  } | null;
+  originalName?: string;
 }
 
 export interface IMessage extends Document {
   sender: Types.ObjectId;
   conversation: Types.ObjectId;
   content?: string;
-  attachments?: IAttachment[];
   type: MessageTypeEnum;
   status: MessageStatusEnum;
+  attachments: IAttachment[];
   timestamp: Date;
   edited_at?: Date;
 }
+
+const AttachmentSchema = new Schema<IAttachment>(
+  {
+    uploadId: { type: String, required: true },
+    context: {
+      type: String,
+      enum: ['dm-image', 'dm-video', 'dm-file'],
+      required: true,
+    },
+    mimeType: { type: String, required: true },
+    fileSize: { type: Number, required: true },
+    status: {
+      type: String,
+      enum: ['processing', 'ready', 'failed', 'infected'],
+      default: 'processing',
+    },
+    variants: { type: Schema.Types.Mixed, default: null },
+    originalName: { type: String },
+  },
+  { _id: false },
+);
 
 const MessageSchema = new Schema<IMessage>({
   sender: { type: Schema.Types.ObjectId, ref: 'User', required: true },
@@ -33,19 +60,6 @@ const MessageSchema = new Schema<IMessage>({
     required: true,
   },
   content: { type: String },
-  attachments: [
-    {
-      fileKey: String,
-      originalName: String,
-      mimeType: String,
-      sizeBytes: Number,
-      scanStatus: {
-        type: String,
-        enum: ['scanning', 'clean', 'infected', 'error'],
-      },
-      permanentUrl: String,
-    },
-  ],
   type: {
     type: String,
     enum: Object.values(MessageTypeEnum),
@@ -56,15 +70,21 @@ const MessageSchema = new Schema<IMessage>({
     enum: Object.values(MessageStatusEnum),
     default: MessageStatusEnum.SENT,
   },
+  attachments: { type: [AttachmentSchema], default: [] },
   timestamp: { type: Date, default: Date.now },
   edited_at: { type: Date },
 });
 
-MessageSchema.pre('validate', function validateContentOrFile() {
+MessageSchema.pre('validate', function () {
   if (!this.content?.trim() && !this.attachments?.length) {
-    throw new Error(
-      'Message must have either text content or a file attachment.',
-    );
+    throw new Error('Message must have either text content or attachments.');
+  }
+});
+
+// cap at 10 attachments per message
+MessageSchema.pre('save', function () {
+  if (this.attachments?.length > 10) {
+    throw new Error('Maximum 10 attachments per message.');
   }
 });
 

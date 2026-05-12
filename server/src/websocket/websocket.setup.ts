@@ -10,7 +10,7 @@ import {
 } from './services/websocket.service';
 import { WebSocketController } from './controllers/websocket.controller';
 import { MessageService } from '../messenger/services/message.service';
-import { redisClient } from '../utils/redis';
+import { redisClient } from '../config/redis';
 import config from '../config/config';
 
 interface AuthenticatedWebSocket extends WebSocket {
@@ -101,6 +101,24 @@ export const setupWebSocket = (server: Server): void => {
   );
   broadcastFunction = webSocketService.broadcast;
 
+  // subscribe to upload events published by worker process
+  const uploadSubscriber = redisClient.duplicate();
+  uploadSubscriber
+    .connect()
+    .then(() => {
+      uploadSubscriber.subscribe('ws:upload', (message) => {
+        try {
+          const { userId, payload } = JSON.parse(message);
+          webSocketService.sendToUser(userId, payload);
+        } catch (err) {
+          logger.error('Failed to handle ws:upload event:', err);
+        }
+      });
+    })
+    .catch((err) => {
+      logger.error('Failed to connect upload subscriber:', err);
+    });
+
   server.on(
     'upgrade',
     (request: IncomingMessage, socket: Socket, head: Buffer) => {
@@ -139,9 +157,8 @@ export const setupWebSocket = (server: Server): void => {
 
         const messageData = JSON.parse(rawMessage.toString());
 
-        if (messageData.type === 'authenticate') return; // no-op
+        if (messageData.type === 'authenticate') return;
 
-        // Overwrite any client-provided identity with verified userId
         if (messageData.message?.sender)
           messageData.message.sender._id = ws.userId;
         if (messageData.user_id) messageData.user_id = ws.userId;
@@ -160,7 +177,12 @@ export const setupWebSocket = (server: Server): void => {
     });
   });
 
-  wss.on('close', () => clearInterval(heartbeatTimer));
+  wss.on('close', () => {
+    clearInterval(heartbeatTimer);
+    uploadSubscriber.unsubscribe('ws:upload').catch(() => {});
+    uploadSubscriber.destroy();
+  });
+
   logger.info('WebSocket server initialized.');
 };
 

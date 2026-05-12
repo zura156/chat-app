@@ -1,33 +1,34 @@
-import { Router, Request, Response } from 'express';
-import { validateFiles } from './upload.validation';
-// import { generatePresignedGets, generatePresignedPuts } from './upload.service';
+import { Request, Response, NextFunction, Router } from 'express';
+import rateLimit from 'express-rate-limit';
+import RedisStore from 'rate-limit-redis';
+import { redisClient } from '../config/redis';
+import { presign, confirm } from './upload.controller';
 
 const router = Router();
 
-// POST /api/upload/init
-router.post('/init', async (req: Request, res: Response) => {
-  const { files } = req.body;
+let _presignLimiter: ReturnType<typeof rateLimit> | null = null;
 
-  const error = validateFiles(files);
-  if (error) return res.status(400).json({ error });
-
-  // const result = await generatePresignedPuts(files);
-  // return res.json({ files: result });
-});
-
-// POST /api/upload/confirm
-router.post('/confirm', async (req: Request, res: Response) => {
-  const { files } = req.body;
-
-  if (!Array.isArray(files) || files.length === 0) {
-    return res.status(400).json({ error: 'No files provided' });
+function getPresignLimiter() {
+  if (!_presignLimiter) {
+    _presignLimiter = rateLimit({
+      windowMs: 60 * 1000,
+      max: 30,
+      standardHeaders: true,
+      legacyHeaders: false,
+      message: { error: 'Too many upload requests' },
+      store: new RedisStore({
+        sendCommand: (...args: string[]) => redisClient.sendCommand(args),
+      }),
+    });
   }
+  return _presignLimiter;
+}
 
-  // TODO: save metadata to DB here
-  // await db.insert(files.map(f => ({ ...f, uploadedBy: req.user.id })));
+const presignLimiter = (req: Request, res: Response, next: NextFunction) =>
+  getPresignLimiter()(req, res, next);
 
-  // const result = await generatePresignedGets(files);
-  // return res.json({ files: result });
-});
+//* /upload
+router.post('/presign', presignLimiter, presign);
+router.post('/confirm', confirm);
 
 export default router;

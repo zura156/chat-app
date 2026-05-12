@@ -13,10 +13,34 @@ export type WebSocketMessageType =
   | 'conversation-update'
   | 'conversation-leave'
   | 'message-status'
-  | 'user-status';
+  | 'user-status'
+  | 'upload-ready'
+  | 'upload-infected';
 
 export interface BaseWebSocketMessage {
   type: WebSocketMessageType;
+}
+
+/*
+ ? Upload flow interfaces
+ * these are sent from the file processing workers to the
+ * WebSocketController to notify clients about upload status
+ * changes. They are not sent by clients, so they don't need
+ * to extend BaseWebSocketMessage, but we do include the
+ * 'type' field for easy identification.
+ */
+export interface UploadReadyMessage extends BaseWebSocketMessage {
+  type: 'upload-ready';
+  uploadId: string;
+  context: string;
+  variants: Record<string, string>;
+}
+
+export interface UploadInfectedMessage extends BaseWebSocketMessage {
+  type: 'upload-infected';
+  uploadId: string;
+  context: string;
+  viruses: string[];
 }
 
 export interface AuthenticateMessage extends BaseWebSocketMessage {
@@ -77,4 +101,6 @@ export type WebSocketMessage =
   | ConversationLeaveMessage
   | ChatMessage
   | MessageStatusMessage
-  | UserStatusMessage;
+  | UserStatusMessage
+  | UploadReadyMessage
+  | UploadInfectedMessage;

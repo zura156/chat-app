@@ -1,49 +1,135 @@
+import { UploadContext } from '../upload/upload.types';
 import config from './config';
 
-export const PUBLIC_BUCKET = config.s3PublicBucket;
-export const PRIVATE_BUCKET = config.s3PrivateBucket;
-export const HLS_BUCKET = config.s3HlsBucket;
-export const TEMP_BUCKET = config.s3TempBucket;
-export const QUARANTINE_BUCKET = config.s3QuarantineBucket;
+const MB = 1024 * 1024;
 
-export type ScanStatus = 'scanning' | 'clean' | 'infected' | 'error';
-export type UploadContext =
-  | 'avatar'
-  | 'group-avatar'
-  | 'cover-photo'
-  | 'dm-image'
-  | 'dm-video'
-  | 'dm-file'
-  | 'post-image'
-  | 'post-video'
-  | 'story';
-
-export interface UploadJobData {
-  fileId: string;
-  key: string; // quarantine key: uploads/{userId}/{fileId}/{filename}
-  userId: string;
-  context: UploadContext;
-  mimeType: string;
-  originalName: string;
-  size: number;
+interface ContextConfig {
+  allowedMimes: string[];
+  maxBytes: number;
+  bucket: string;
+  expiresIn: number; // seconds
 }
 
-export const MAX_FILES_PER_MESSAGE = 5;
-
-export const SIZE_LIMITS: Record<string, number> = {
-  image: 100 * 1024 * 1024, // 100MB
-  video: 100 * 1024 * 1024, // 100MB
-  application: 100 * 1024 * 1024, // 100MB
-  default: 100 * 1024 * 1024, // 100MB
+export const CONTEXT_CONFIG: Record<UploadContext, ContextConfig> = {
+  avatar: {
+    allowedMimes: [
+      'image/jpeg',
+      'image/png',
+      'image/webp',
+      'image/heic',
+      'image/heif',
+    ],
+    maxBytes: 20 * MB,
+    bucket: config.s3PublicBucket,
+    expiresIn: 300,
+  },
+  'group-avatar': {
+    allowedMimes: [
+      'image/jpeg',
+      'image/png',
+      'image/webp',
+      'image/heic',
+      'image/heif',
+    ],
+    maxBytes: 20 * MB,
+    bucket: config.s3PublicBucket!,
+    expiresIn: 300,
+  },
+  'cover-photo': {
+    allowedMimes: [
+      'image/jpeg',
+      'image/png',
+      'image/webp',
+      'image/heic',
+      'image/heif',
+    ],
+    maxBytes: 20 * MB,
+    bucket: config.s3PublicBucket!,
+    expiresIn: 300,
+  },
+  'dm-image': {
+    allowedMimes: [
+      'image/jpeg',
+      'image/png',
+      'image/webp',
+      'image/gif',
+      'image/heic',
+      'image/heif',
+    ],
+    maxBytes: 50 * MB,
+    bucket: config.s3TempBucket!,
+    expiresIn: 600,
+  },
+  'dm-video': {
+    allowedMimes: [
+      'video/mp4',
+      'video/quicktime',
+      'video/webm',
+      'video/x-msvideo',
+      'video/x-matroska',
+    ],
+    maxBytes: 500 * MB,
+    bucket: config.s3TempBucket!,
+    expiresIn: 1800,
+  },
+  'dm-file': {
+    allowedMimes: [
+      'application/pdf',
+      'application/msword',
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      'application/vnd.ms-excel',
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      'application/vnd.ms-powerpoint',
+      'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+      'text/plain',
+      'text/csv',
+      'application/zip',
+      'application/x-7z-compressed',
+      'application/x-rar-compressed',
+    ],
+    maxBytes: 100 * MB,
+    bucket: config.s3TempBucket,
+    expiresIn: 600,
+  },
+  'post-image': {
+    allowedMimes: [
+      'image/jpeg',
+      'image/png',
+      'image/webp',
+      'image/heic',
+      'image/heif',
+    ],
+    maxBytes: 50 * MB,
+    bucket: config.s3TempBucket,
+    expiresIn: 600,
+  },
+  'post-video': {
+    allowedMimes: [
+      'video/mp4',
+      'video/quicktime',
+      'video/webm',
+      'video/x-msvideo',
+    ],
+    maxBytes: 1024 * MB,
+    bucket: config.s3TempBucket,
+    expiresIn: 3600,
+  },
+  'story-image': {
+    allowedMimes: [
+      'image/jpeg',
+      'image/png',
+      'image/webp',
+      'image/heic',
+      'image/heif',
+    ],
+    maxBytes: 50 * MB,
+    bucket: config.s3TempBucket!,
+    expiresIn: 600,
+  },
+  'story-video': {
+    allowedMimes: ['video/mp4', 'video/quicktime', 'video/webm'],
+    maxBytes: 200 * MB,
+    bucket: config.s3TempBucket!,
+    expiresIn: 1800,
+  },
 };
-
-export const ALLOWED_MIME_PREFIXES = [
-  'image/',
-  'video/',
-  'audio/',
-  'application/',
-  'text/',
-];
-
-export const PRESIGNED_PUT_EXPIRY = 60; // seconds
-export const PRESIGNED_GET_EXPIRY = 7 * 24 * 60 * 60; // 7 days

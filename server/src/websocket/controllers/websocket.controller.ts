@@ -9,7 +9,7 @@ import { Message } from '../../messenger/models/message.model';
 import { MessageStatusEnum } from '../../messenger/interfaces/message.interface';
 import { UserDTO } from '../../user/dtos/user.dto';
 import { ObjectId } from 'mongodb';
-import { redisClient } from '../../utils/redis';
+import { redisClient } from '../../config/redis';
 
 const OFFLINE_DELAY_MS = 30_000;
 
