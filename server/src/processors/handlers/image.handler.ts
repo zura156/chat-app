@@ -1,4 +1,3 @@
-// src/processors/handlers/image.handler.ts
 import sharp from 'sharp';
 import { s3App } from '../../config/s3';
 import {
