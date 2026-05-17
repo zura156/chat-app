@@ -28,7 +28,7 @@ import {
   lucideVolume2,
   lucideVolumeX,
 } from '@ng-icons/lucide';
-import { FileI } from '../../../features/messages/interfaces/message.interface';
+
 import { HlmIcon } from '@spartan-ng/helm/icon';
 import { HlmButton } from '@spartan-ng/helm/button';
 import { MediaPlayerSizesT } from '../../types/media-player-sizes.type';
@@ -36,6 +36,7 @@ import { NgTemplateOutlet } from '@angular/common';
 import { environment } from '../../../../environments/environment';
 import { FormatTimePipe } from '../../pipes/format-time.pipe';
 import { VideoActionsT } from '../../interfaces/video-actions.interface';
+import { AttachmentI } from '../../../features/messages/interfaces/message.interface';
 
 @Component({
   selector: 'app-video-player',
@@ -58,7 +59,7 @@ import { VideoActionsT } from '../../interfaces/video-actions.interface';
   templateUrl: './video-player.html',
 })
 export class VideoPlayer implements AfterViewInit, OnDestroy {
-  video = input.required<Partial<FileI>>();
+  video = input.required<Partial<AttachmentI>>();
   size = input<MediaPlayerSizesT>('sm');
   disableContainerClickToggle = input<boolean>(false);
   loaded = output<void>();

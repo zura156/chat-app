@@ -39,7 +39,7 @@
             <img
               class="w-full h-full object-cover image-pixelated"
               loading="lazy"
-              [src]="apiUrl + message.file?.url"
+              [src]="message.attachments?.[0]?.variants?.thumb"
               [alt]="message.content"
             />
           }
@@ -47,7 +47,7 @@
             <div class="relative w-full h-full">
               <img
                 class="w-full h-full object-cover pointer-events-none"
-                [src]="apiUrl + message.file?.thumbnail_url"
+                [src]="message.attachments?.[0]?.variants?.thumbnail"
               />
               <div
                 class="absolute inset-0 flex items-center justify-center bg-black/20"
@@ -81,14 +81,15 @@
       >
         @switch (message.type) {
           @case ("audio") {
-            @if (message.file) {
+            @let audioAttachment = message.attachments?.[0];
+            @if (audioAttachment) {
               <div class="p-1">
-                <app-audio-player [audio]="message.file" />
+                <app-audio-player [audio]="audioAttachment" />
               </div>
             }
           }
           @default {
-            <app-file-viewer [file]="message.file" />
+            <app-file-viewer [file]="message.attachments?.[0]" />
           }
         }
       </button>

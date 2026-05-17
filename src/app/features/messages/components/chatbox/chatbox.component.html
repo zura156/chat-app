@@ -22,7 +22,7 @@
     <header
       class="flex w-full items-center py-2 px-3 justify-between bg-background/80 backdrop-blur-sm"
     >
-      @if (isLoading()) {
+      @if (isConversationLoading()) {
         <div class="flex items-center justify-start gap-x-3">
           <hlm-skeleton class="size-10 rounded-full" />
           <div class="flex flex-col gap-y-1.5">
@@ -146,7 +146,7 @@
             <div class="flex items-center justify-start">
               <hlm-avatar variant="small" class="min-w-fit mr-1.5">
                 <img
-                  [src]="sender?.profile_picture ?? '/icons/avatar.svg'"
+                  [src]="sender?.pfp_variants?.thumb ?? '/icons/avatar.svg'"
                   [alt]="sender?.username"
                   hlmAvatarImage
                 />
@@ -211,7 +211,7 @@
                         [isLastMessage]="
                           message?._id === this.messages()[0]._id
                         "
-                        [imageUrl]="message.sender.profile_picture ?? ''"
+                        [imageUrl]="message.sender.pfp_variants?.thumb ?? ''"
                       ></message-card>
                     }
                   }
@@ -263,7 +263,18 @@
     <hlm-separator decorative />
 
     <footer class="px-2 py-2 bg-background/80 backdrop-blur-sm">
-      <!-- <app-file-upload #uploadComponentRef /> -->
+      <input
+        #fileInput
+        type="file"
+        class="hidden"
+        [accept]="filePickerConfig.acceptAttr ?? '*/*'"
+        (change)="filePicker.onInputChange($event)"
+      />
+      <app-file-picker
+        #filePicker
+        [config]="filePickerConfig"
+        (fileReady)="onFileReady($event)"
+      />
 
       @if (isRecording()) {
         <div class="flex-1">
@@ -275,18 +286,12 @@
       } @else {
         <div class="flex items-center gap-x-1">
           <div class="flex items-center gap-x-0.5 shrink-0">
-            <!-- <input
-              #fileInput
-              type="file"
-              (change)="onFileSelected($event)"
-              class="hidden"
-            /> -->
             <button
               hlmBtn
               variant="ghost"
               class="rounded-full size-9 p-0 flex items-center justify-center cursor-pointer hover:bg-muted transition-colors"
+              (click)="fileInput.click()"
             >
-              <!-- (click)="initUpload()" -->
               <ng-icon hlm size="base" name="lucidePaperclip"></ng-icon>
             </button>
             <button
@@ -299,16 +304,19 @@
             </button>
           </div>
 
-          <input
+          <textarea
             [id]="`send_input/${conversation?._id}`"
             autocomplete="off"
             hlmInput
-            size="sm"
-            class="flex-1 rounded-full bg-muted/50 border-transparent focus:bg-background focus:border-border transition-all"
+            rows="1"
+            class="flex-1 rounded-2xl bg-muted/50 border-transparent focus:bg-background focus:border-border transition-all resize-none overflow-hidden min-h-9 pt-1.5"
             placeholder="Type a message..."
             [formControl]="messageControl"
-            (keydown.enter)="$event.preventDefault(); sendMessage()"
-          />
+            (keydown.enter)="onEnterKey($event)"
+            (input)="autoResize($event)"
+          ></textarea>
+
+          {{ isUploading() + " " + overallProgress() }}
 
           <button
             hlmBtn

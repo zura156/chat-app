@@ -50,31 +50,28 @@ export class MediaFilesListComponent implements OnInit {
   fetchFiles(): void {
     this.messageService.fetchFileMessages();
   }
-
   openMedia(message: MessageI, index: number) {
-    // You can decide based on user preferences or context
-    const enableGallery = this.shouldEnableGallery();
+    const attachment = message.attachments?.[0];
+    if (!attachment) return;
 
     const media: MediaItem = {
       _id: String(message._id),
       type: message.type as 'image' | 'video',
-      url: String(message.file?.url),
-      placeholder_url: message.file?.placeholder_url,
-      thumbnail_url: message.file?.thumbnail_url,
-      size: message.file?.size_in_bytes,
+      url: String(attachment.variants?.original),
+      thumbnail: attachment.variants?.thumbnail,
+      thumb: attachment.variants?.thumb,
+      size: attachment.fileSize,
     };
 
     this.mediaViewerService.openMedia(media, index, {
-      enableGallery,
-      showThumbnails: enableGallery,
+      enableGallery: this.shouldEnableGallery(),
+      showThumbnails: this.shouldEnableGallery(),
       allowDownload: true,
       autoPlay: false,
     });
   }
 
   private shouldEnableGallery(): boolean {
-    return (
-      this.mediaViewerService['messageService'].activeMediaMessages().length > 3
-    );
+    return this.mediaMessages().length > 3;
   }
 }

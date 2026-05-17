@@ -1,9 +1,9 @@
 @let file = this.file();
 <div class="bg-accent rounded-lg flex items-center p-2 sm:p-0 md:p-2">
   <a
-    [href]="apiUrl + file?.url"
+    [href]="apiUrl + file?.variants?.original"
     target="_blank"
-    [download]="file?.name"
+    [download]="file?.originalName"
     class="flex items-center justify-start"
   >
     <span
@@ -15,10 +15,10 @@
       <h1
         class="font-medium text-ellipsis whitespace-normal wrap-anywhere [word-break:break-word]"
       >
-        {{ file?.name }}
+        {{ file?.originalName }}
       </h1>
       <span class="text-blue-500 hover:underline">
-        {{ file?.size_in_bytes || 0 | fileSize }}
+        {{ (file?.fileSize || 0) | fileSize }}
       </span>
     </div>
   </a>

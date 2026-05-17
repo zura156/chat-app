@@ -10,6 +10,7 @@ import {
   onDmAttachmentComplete,
   onPostMediaComplete,
 } from './side-effects';
+import { audioHandler } from './audio.handler';
 
 export const contextHandlers: Record<string, ContextHandlerConfig> = {
   avatar: { handler: imageHandler, onComplete: onAvatarComplete },
@@ -20,6 +21,7 @@ export const contextHandlers: Record<string, ContextHandlerConfig> = {
     handler: (p) => videoHandler(p, false),
     onComplete: onDmAttachmentComplete,
   },
+  'dm-audio': { handler: audioHandler, onComplete: onDmAttachmentComplete },
   'dm-file': { handler: fileHandler, onComplete: onDmAttachmentComplete },
   'post-image': { handler: imageHandler, onComplete: onPostMediaComplete },
   'post-video': {

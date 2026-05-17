@@ -58,7 +58,7 @@ router
   .get(async (req: AuthRequest, res) => {
     const conversation = await req.conversation?.populate(
       'participants',
-      'first_name last_name username profile_picture status last_seen',
+      'first_name last_name username pfp_url pfp_variants status last_seen',
     );
 
     const otherParticipants = conversation?.participants.filter(

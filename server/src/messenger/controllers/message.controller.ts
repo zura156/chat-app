@@ -14,6 +14,47 @@ export class MessageController {
   }
 
   /**
+   * REST API endpoint for sending a message
+   */
+  public sendMessage = async (
+    req: AuthRequest,
+    res: Response,
+    next: NextFunction,
+  ): Promise<void> => {
+    try {
+      const senderId = req.user?._id?.toString();
+      const conversationId = req.conversation?._id.toString();
+      const { content, attachments, tempId } = req.body;
+
+      if (!conversationId) {
+        res
+          .status(403)
+          .json({ error: 'Conversation not found or access denied.' });
+        return;
+      }
+
+      if (!content?.trim() && !attachments?.length) {
+        res
+          .status(400)
+          .json({ error: 'Message must have content or attachments.' });
+        return;
+      }
+
+      const message = await this.messageService.createMessageWithAttachments(
+        senderId!,
+        conversationId,
+        content,
+        attachments ?? [],
+        tempId,
+      );
+
+      res.status(201).json(message);
+    } catch (error: any) {
+      next(createCustomError(error.message || 'Failed to send message', 500));
+    }
+  };
+
+  /**
    * Handles the HTTP request to get messages for a conversation.
    * This is the refactored version of your `getMessagesByConversationId`.
    */

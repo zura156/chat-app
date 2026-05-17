@@ -63,48 +63,44 @@
               }
               @case ("text") {
                 <p
-                  class="whitespace-normal text-sm [overflow-wrap:anywhere] [word-break:break-word]"
+                  class="whitespace-pre-wrap text-sm wrap-anywhere [word-break:break-word]"
                 >
                   {{ message.content }}
                 </p>
               }
               @case ("image") {
-                <div
-                  class="py-1 w-fit h-fit cursor-pointer"
-                  (click)="openMedia(message, 0)"
-                >
-                  <img
-                    class="object-contain max-h-72 max-w-full rounded-xl image-pixelated"
-                    [class]="isImageLoaded() ? 'h-fit' : 'h-72'"
-                    [src]="
-                      isImageLoaded()
-                        ? apiUrl + message.file?.url
-                        : apiUrl +
-                          (message.file?.mime_type === 'image/gif'
-                            ? message.file?.url
-                            : message.file?.placeholder_url)
-                    "
-                    (load)="onFullImageLoad()"
-                    [alt]="message.content"
-                  />
-                </div>
+                @let attachment = getPrimaryAttachment(message);
+                @if (attachment) {
+                  <div
+                    class="py-1 w-fit h-fit cursor-pointer"
+                    (click)="openMedia(message, 0)"
+                  >
+                    <img
+                      class="object-contain max-h-72 max-w-full rounded-xl"
+                      [class]="isImageLoaded() ? 'h-fit' : 'h-72'"
+                      [src]="
+                        isImageLoaded()
+                          ? attachment.variants?.original
+                          : attachment.variants?.thumb
+                      "
+                      (load)="onFullImageLoad()"
+                      [alt]="message.content"
+                    />
+                  </div>
+                } @else {
+                  <hlm-skeleton class="w-64 h-48 rounded-xl" />
+                }
               }
+
               @case ("video") {
-                @if (message.file) {
+                @let attachment = getPrimaryAttachment(message);
+                @if (attachment) {
                   <div class="max-w-3xs sm:max-w-xs relative">
                     @if (loadedVideoMessageId() === message._id) {
-                      <div
-                        (click)="
-                          $event.stopPropagation(); openMedia(message, 0)
-                        "
-                        class="w-full h-full"
-                      >
-                        <app-video-player
-                          #videoPlayerComponent
-                          [video]="message.file"
-                          [disableContainerClickToggle]="true"
-                        ></app-video-player>
-                      </div>
+                      <app-video-player
+                        [video]="attachment"
+                        [disableContainerClickToggle]="true"
+                      />
                     } @else {
                       <div
                         class="relative cursor-pointer rounded-xl overflow-hidden"
@@ -112,12 +108,8 @@
                       >
                         <img
                           class="w-full h-full object-cover"
-                          [src]="
-                            apiUrl +
-                            (message.file.thumbnail_url ||
-                              message.file.placeholder_url)
-                          "
-                          [alt]="message.file.name"
+                          [src]="attachment.variants?.thumbnail"
+                          [alt]="attachment.originalName"
                         />
                         <div
                           class="absolute inset-0 flex items-center justify-center bg-black/20"
@@ -131,36 +123,45 @@
                       </div>
                     }
                   </div>
-                } @else {
+                } @else if (isProcessing(message)) {
                   <div class="w-full h-full py-2 relative">
                     <hlm-skeleton class="w-64 h-48 rounded-xl" />
                     <div
                       class="absolute inset-0 flex flex-col gap-y-1 items-center justify-center"
                     >
                       <ng-icon hlm name="lucideCirclePlay" size="xl" />
-                      <span class="text-xs text-muted-foreground">Loading</span>
+                      <span class="text-xs text-muted-foreground"
+                        >Processing...</span
+                      >
                     </div>
                   </div>
                 }
               }
+
               @case ("audio") {
-                @if (message.file) {
-                  <div class="w-3xs sm:w-40 md:w-52 sm:max-w-3xs">
-                    <app-audio-player [audio]="message.file"></app-audio-player>
+                @let attachment = getPrimaryAttachment(message);
+                @if (attachment) {
+                  <div class="w-3xs sm:w-40 md:w-52">
+                    <app-audio-player [audio]="attachment" />
                   </div>
-                } @else {
-                  <div class="relative py-2">
-                    <hlm-skeleton class="w-48 h-10 rounded-full" />
-                    <span
-                      class="absolute inset-0 flex items-center justify-center text-xs text-muted-foreground select-none"
-                    >
-                      Loading audio...
-                    </span>
-                  </div>
+                } @else if (isProcessing(message)) {
+                  <hlm-skeleton class="w-48 h-10 rounded-full" />
+                }
+              }
+
+              @case ("file") {
+                @let attachment = getPrimaryAttachment(message);
+                @if (attachment) {
+                  <app-file-viewer [file]="attachment" />
                 }
               }
               @case ("file") {
-                <app-file-viewer [file]="message.file" />
+                @for (
+                  attachment of message.attachments;
+                  track attachment.uploadId
+                ) {
+                  <app-file-viewer [file]="attachment" />
+                }
               }
             }
           </div>
@@ -187,7 +188,7 @@
           @if (readReceipt.last_message_read_id === message._id) {
             <hlm-avatar class="size-4">
               <img
-                [src]="userCredentials.profile_picture || '/icons/avatar.svg'"
+                [src]="userCredentials.pfp_url || '/icons/avatar.svg'"
                 [alt]="userCredentials.username"
                 hlmAvatarImage
               />
@@ -215,7 +216,7 @@
             >
               <hlm-avatar class="size-4">
                 <img
-                  [src]="userCredentials.profile_picture || '/icons/avatar.svg'"
+                  [src]="userCredentials.pfp_url || '/icons/avatar.svg'"
                   [alt]="userCredentials.username"
                   hlmAvatarImage
                 />

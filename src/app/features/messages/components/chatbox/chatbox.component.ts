@@ -14,7 +14,6 @@ import {
 } from '@angular/core';
 import {
   catchError,
-  debounceTime,
   distinctUntilChanged,
   map,
   Observable,
@@ -70,6 +69,12 @@ import { HlmSkeleton } from '@spartan-ng/helm/skeleton';
 import { environment } from '../../../../../environments/environment';
 import { toast } from '@spartan-ng/brain/sonner';
 import { UserStateService } from '../../../user/services/user-state.service';
+import { UploadService } from '../../../upload/services/upload.service';
+import {
+  FilePicker,
+  FilePickerConfig,
+  FileReadyEvent,
+} from '../../../../shared/components/file-picker/file-picker';
 
 @Component({
   selector: 'app-chatbox',
@@ -89,6 +94,7 @@ import { UserStateService } from '../../../user/services/user-state.service';
     ReactiveFormsModule,
     AudioRecorder,
     ChatboxSettingsComponent,
+    FilePicker,
     HlmSkeleton,
     HlmAvatarFallback,
   ],
@@ -110,6 +116,7 @@ export class ChatboxComponent implements OnInit {
   private readonly router = inject(Router);
   private readonly route = inject(ActivatedRoute);
   private readonly layoutService = inject(LayoutService);
+  private readonly uploadService = inject(UploadService);
   private readonly userStateService = inject(UserStateService);
   private readonly conversationService = inject(ConversationService);
   private readonly messageService = inject(MessageService);
@@ -133,6 +140,12 @@ export class ChatboxComponent implements OnInit {
   private divTopIntersectionObserver?: IntersectionObserver;
   private messageIntersectionObserver?: IntersectionObserver;
 
+  readonly filePickerConfig: FilePickerConfig = {
+    context: 'dm-image', // by default (most common)
+    allowedMimeTypes: [], // skips validation
+    acceptAttr: '*/*',
+  };
+
   // ── Signals ────────────────────────────────────────────────────────────────
 
   conversation = this.conversationService.activeConversation;
@@ -148,7 +161,8 @@ export class ChatboxComponent implements OnInit {
     this.messageService.totalMessagesCount(),
   );
 
-  isLoading = signal(false);
+  isConversationLoading = signal(false);
+  isMessageLoading = signal(false);
   isVisible = signal(false);
   isVisibilityObserving = signal(false);
   isRecording = signal(false);
@@ -156,6 +170,8 @@ export class ChatboxComponent implements OnInit {
   isSettingsOpen = signal(
     localStorage.getItem(this.CHAT_PREFERENCE_STORAGE_KEY) === 'true',
   );
+  isUploading = this.uploadService.isUploading;
+  overallProgress = this.uploadService.overallProgress;
 
   // ── WS messages as Signals (toSignal auto-unsubscribes on destroy) ──────────
 
@@ -186,7 +202,7 @@ export class ChatboxComponent implements OnInit {
     return (
       activeConversation.participants.find(
         (p) => p._id !== this.currentUser()?._id,
-      )?.profile_picture ?? null
+      )?.pfp_url ?? null
     );
   });
 
@@ -311,7 +327,7 @@ export class ChatboxComponent implements OnInit {
     // Route-driven WS message stream — Observable because it needs switchMap + side effects
     this.route.params
       .pipe(
-        tap(() => this.isLoading.set(true)),
+        tap(() => this.isConversationLoading.set(true)),
         takeUntilDestroyed(this.destroyRef),
         map((params) => params['id']),
         catchError((err) => this.handleError(err)),
@@ -332,7 +348,7 @@ export class ChatboxComponent implements OnInit {
               this.conversationService.createMockConversation();
               return of(this.conversation()).pipe(
                 tap(() => {
-                  this.isLoading.set(false);
+                  this.isConversationLoading.set(false);
                   this.canMessage.set(true);
                 }),
                 switchMap(() => this.handleEventMessages()),
@@ -342,7 +358,7 @@ export class ChatboxComponent implements OnInit {
 
           return this.conversationService.getConversationById(id).pipe(
             tap(() => {
-              this.isLoading.set(false);
+              this.isConversationLoading.set(false);
               this.canMessage.set(true);
             }),
             switchMap(() => this.handleEventMessages()),
@@ -383,6 +399,14 @@ export class ChatboxComponent implements OnInit {
 
   // ── File / message sending ──────────────────────────────────────────────────
 
+  onEnterKey(event: Event) {
+    const ke = event as KeyboardEvent;
+    if (ke.shiftKey) return;
+
+    event.preventDefault();
+    this.sendMessage();
+  }
+
   @HostListener('paste', ['$event'])
   onPaste(event: ClipboardEvent) {
     const files = Array.from(event.clipboardData?.items || [])
@@ -395,6 +419,20 @@ export class ChatboxComponent implements OnInit {
     event.preventDefault();
 
     // TODO: handle clipboard files
+    // ...
+  }
+
+  onFileReady(event: FileReadyEvent): void {
+    const { file, fileKey } = event;
+    const context = file.type.startsWith('image/')
+      ? 'dm-image'
+      : file.type.startsWith('video/')
+        ? 'dm-video'
+        : file.type.startsWith('audio/')
+          ? 'dm-audio'
+          : 'dm-file';
+
+    // TODO: prepare attachments for send
     // ...
   }
 
@@ -419,101 +457,141 @@ export class ChatboxComponent implements OnInit {
       return;
 
     if (this.recordingResult) {
-      const formData = new FormData();
-      formData.append('file', this.recordingResult.blob, 'recording.webm');
-      formData.append('duration', this.recordingResult.duration.toString());
-      formData.append('senderId', sender._id);
-      formData.append('conversationId', activeConversation._id);
+      const tempId = crypto.randomUUID();
+      const blob = this.recordingResult.blob;
+      const file = new File([blob], 'recording.webm', { type: 'audio/webm' });
+
+      // optimistic
+      const optimisticMessage: MessageI = {
+        sender,
+        conversation: activeConversation._id,
+        tempId,
+        type: MessageType.AUDIO,
+        status: MessageStatus.SENDING,
+        timestamp: new Date().toISOString(),
+        attachments: [],
+      };
+
+      this.messageService.addMessage(optimisticMessage);
+
       this.canMessage.set(false);
 
-      this.messageService
-        .uploadFileMessage(formData)
+      this.uploadService
+        .uploadFile('dm-audio', file)
         .pipe(
           takeUntilDestroyed(this.destroyRef),
-          debounceTime(500),
-          tap((res) => {
-            this.messageService.addMessage(res);
+          switchMap((uploadId) =>
+            this.messageService.sendMessageWithAttachments(
+              activeConversation._id,
+              null,
+              [
+                {
+                  uploadId,
+                  context: 'dm-audio',
+                  mimeType: file.type,
+                  fileSize: file.size,
+                },
+              ],
+              tempId,
+            ),
+          ),
+          tap(() => {
             this.isRecording.set(false);
             this.recordingResult = undefined;
             this.canMessage.set(true);
             this.lastMessageSentAt = Date.now();
           }),
+          catchError((err) => this.handleError(err)),
         )
         .subscribe();
+
       return;
     }
 
     if (!content?.trim()) return;
 
+    const tempId = crypto.randomUUID();
+    const conversationId = activeConversation._id;
+
+    // optimistic: add pending message immediately
+    const optimisticMessage: MessageI = {
+      sender,
+      conversation: conversationId,
+      content,
+      tempId,
+      type: MessageType.TEXT,
+      status: MessageStatus.SENDING,
+      timestamp: new Date().toISOString(),
+      attachments: [],
+    };
+
+    this.isMessageLoading.set(true);
+
     if (!activeConversation.createdAt) {
-      this.isLoading.set(true);
       this.conversationService
         .createConversation([sender._id, this.selectedUser()!._id])
         .pipe(
           catchError((err) => this.handleError(err)),
           switchMap((conversation) => {
             this.canMessage.set(false);
-            const tempId = crypto.randomUUID();
-            const message: MessageI = {
-              sender,
+            this.messageControl.reset();
+            const textarea = document.getElementById(
+              `send_input/${conversationId}`,
+            ) as HTMLTextAreaElement;
+            if (textarea) {
+              textarea.style.height = 'auto';
+            }
+            this.messageService.addMessage({
+              ...optimisticMessage,
               conversation: conversation._id,
-              tempId,
-              content,
-              type: MessageType.TEXT,
-              status: MessageStatus.SENDING,
-              timestamp: new Date().toISOString(),
-            };
+            });
             this.router.navigateByUrl(`/messages/${conversation._id}`);
+
             return this.messageService
-              .sendMessage(
-                message,
-                conversation.participants.filter((u) => u._id !== sender._id),
-                true,
-              )
+              .sendMessage(conversation._id, content, tempId)
               .pipe(
                 takeUntilDestroyed(this.destroyRef),
-                debounceTime(500),
                 catchError((err) => this.handleError(err)),
                 tap(() => {
-                  this.isLoading.set(false);
+                  this.isMessageLoading.set(false);
                   this.canMessage.set(true);
                   this.lastMessageSentAt = Date.now();
-                  this.messageControl.reset();
                 }),
               );
           }),
         )
         .subscribe();
-    } else {
-      this.isLoading.set(true);
-      this.canMessage.set(false);
-      const message: MessageI = {
-        sender,
-        conversation: activeConversation._id,
-        content,
-        tempId: crypto.randomUUID(),
-        type: MessageType.TEXT,
-        status: MessageStatus.SENDING,
-        timestamp: new Date().toISOString(),
-      };
-      this.messageService
-        .sendMessage(
-          message,
-          activeConversation.participants.filter((u) => u._id !== sender._id),
-        )
-        .pipe(
-          takeUntilDestroyed(this.destroyRef),
-          debounceTime(500),
-          catchError((err) => this.handleError(err)),
-          tap(() => {
-            this.isLoading.set(false);
-            this.canMessage.set(true);
-            this.lastMessageSentAt = Date.now();
-            this.messageControl.reset();
-          }),
-        )
-        .subscribe();
+      return;
     }
+
+    this.canMessage.set(false);
+    this.messageControl.reset();
+    const textarea = document.getElementById(
+      `send_input/${conversationId}`,
+    ) as HTMLTextAreaElement;
+    if (textarea) {
+      textarea.style.height = 'auto';
+    }
+    this.messageService.addMessage(optimisticMessage);
+
+    this.messageService
+      .sendMessage(conversationId, content, tempId)
+      .pipe(
+        takeUntilDestroyed(this.destroyRef),
+        catchError((err) => this.handleError(err)),
+        tap(() => {
+          this.isMessageLoading.set(false);
+          this.canMessage.set(true);
+          this.lastMessageSentAt = Date.now();
+        }),
+      )
+      .subscribe();
+  }
+
+  autoResize(event: Event): void {
+    const el = event.target as HTMLTextAreaElement;
+    el.style.height = 'auto';
+    el.style.height = el.scrollHeight + 'px';
   }
 
   // ── Pagination ──────────────────────────────────────────────────────────────
@@ -524,7 +602,7 @@ export class ChatboxComponent implements OnInit {
     this.messageService.messageOffset.update(
       (val) => val + this.messageLimit(),
     );
-    this.isLoading.set(false);
+    this.isMessageLoading.set(false);
     return this.messageService.activeMessages();
   }
 
@@ -655,6 +733,17 @@ export class ChatboxComponent implements OnInit {
             );
             break;
           }
+          case 'upload-ready': {
+            this.messageService.updateAttachmentVariants(
+              res.uploadId,
+              res.variants,
+            );
+            break;
+          }
+          case 'upload-infected': {
+            this.messageService.markAttachmentInfected(res.uploadId);
+            break;
+          }
           // case 'notification':
           //   this.notificationService.handleRealtimeNotification(res);
           //   break;
@@ -696,7 +785,8 @@ export class ChatboxComponent implements OnInit {
   }
 
   private handleError(err: any, navigation = false): Observable<never> {
-    this.isLoading.set(false);
+    this.isMessageLoading.set(false);
+    this.isConversationLoading.set(false);
     if (navigation) this.router.navigate(['/messages']);
     return throwError(() => err);
   }

@@ -3,6 +3,7 @@ import {
   S3Client,
   PutObjectCommand,
   HeadObjectCommand,
+  GetObjectCommand,
 } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { randomUUID } from 'crypto';
@@ -13,6 +14,7 @@ import { PresignRequest } from './upload.types';
 import { AuthRequest } from '../auth/middlewares/auth.middleware';
 import { s3App as s3, s3App } from '../config/s3';
 import appConfig from '../config/config';
+import { Message } from '../messenger/models/message.model';
 
 export const presign = async (req: AuthRequest, res: Response) => {
   const { context, mimeType, fileSize, resourceId } =
@@ -132,4 +134,67 @@ export const confirm = async (req: AuthRequest, res: Response) => {
   );
 
   return res.json({ ok: true });
+};
+
+// GET /upload/signed-url/:uploadId
+export const getSignedDownloadUrl = async (req: AuthRequest, res: Response) => {
+  const { uploadId } = req.params;
+  const userId = req.user?._id;
+
+  if (!userId) return res.status(401).json({ error: 'Unauthorized' });
+
+  if (!uploadId) return res.status(400).json({ error: 'Upload ID required' });
+
+  // find the upload record
+  const upload = await Upload.findById(uploadId);
+  if (!upload) return res.status(404).json({ error: 'Upload not found' });
+  if (upload.status !== 'ready')
+    return res.status(400).json({ error: 'Upload not ready' });
+
+  // only private bucket needs signed URLs
+  // public bucket files are served directly via CDN
+  const PRIVATE_CONTEXTS = ['dm-image', 'dm-video', 'dm-file'];
+
+  if (!PRIVATE_CONTEXTS.includes(upload.context)) {
+    return res.json({ variants: upload.variants });
+  }
+
+  // security: verify requesting user is participant in the conversation
+  const message = await Message.findOne(
+    { 'attachments.uploadId': uploadId },
+    { conversation: 1 },
+  ).populate('conversation', 'participants');
+
+  if (!message) return res.status(404).json({ error: 'Message not found' });
+
+  const conversation = message.conversation as any;
+  const isParticipant = conversation.participants
+    .map((p: any) => p.toString())
+    .includes(userId.toString());
+
+  if (!isParticipant) return res.status(403).json({ error: 'Access denied' });
+
+  // generate signed URLs for all variants
+  const signedVariants: Record<string, string> = {};
+
+  for (const [name, url] of Object.entries(
+    upload.variants as Record<string, string>,
+  )) {
+    // extract the key from the stored URL
+    const key = url.replace(
+      `${appConfig.s3Url}/${appConfig.s3PrivateBucket}/`,
+      '',
+    );
+
+    const command = new GetObjectCommand({
+      Bucket: appConfig.s3PrivateBucket,
+      Key: key,
+    });
+
+    signedVariants[name] = await getSignedUrl(s3App, command, {
+      expiresIn: 900,
+    }); // 15min
+  }
+
+  return res.json({ variants: signedVariants });
 };

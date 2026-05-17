@@ -30,9 +30,6 @@ export class WebSocketController {
           'Ignoring post-connect authenticate message (handled at upgrade).',
         );
         break;
-      case 'message':
-        this.handleChatMessage(data);
-        break;
       case 'typing':
         this.handleTyping(data);
         break;

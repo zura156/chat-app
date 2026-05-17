@@ -29,8 +29,7 @@
             [src]="
               conversation.is_group
                 ? (conversation.group_picture ?? '/icons/group.svg')
-                : (conversation.participants[0].profile_picture ??
-                  '/icons/avatar.svg')
+                : (conversation.participants[0].pfp_url ?? '/icons/avatar.svg')
             "
             [alt]="conversation.group_name || 'picture'"
             class="w-full h-full object-cover"
@@ -169,9 +168,7 @@
                       <div class="flex items-center gap-x-2.5">
                         <hlm-avatar variant="small">
                           <img
-                            [src]="
-                              participant.profile_picture ?? '/icons/avatar.svg'
-                            "
+                            [src]="participant.pfp_url ?? '/icons/avatar.svg'"
                             [alt]="participant.username"
                             hlmAvatarImage
                           />

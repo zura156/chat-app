@@ -19,6 +19,10 @@ router.use((req, res, next) => {
 
 // --- Routes ---
 
+router.post('/:id/send', validateConversation, (req, res, next) =>
+  req.messageController.sendMessage(req, res, next),
+);
+
 router.get('/:id/messages', validateConversation, (req, res, next) =>
   req.messageController.getMessagesByConversationId(req, res, next),
 );

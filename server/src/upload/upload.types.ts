@@ -5,6 +5,7 @@ export type UploadContext =
   | 'dm-image'
   | 'dm-video'
   | 'dm-file'
+  | 'dm-audio'
   | 'post-image'
   | 'post-video'
   | 'story-image'

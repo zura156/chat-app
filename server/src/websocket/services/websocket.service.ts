@@ -114,22 +114,46 @@ export class WebSocketService {
 
     try {
       const conversationId = message.conversation._id || message.conversation;
-      const conversation = await Conversation.findById(conversationId)
-        .select('participants')
-        .lean();
 
-      if (!conversation) {
-        logger.warn(
-          `Broadcast ignored: conversation ${conversationId} not found.`,
+      let participantIds: string[] | null = null;
+      const cached = await redisClient.get(
+        `conv:participants:${conversationId}`,
+      );
+
+      if (cached) {
+        participantIds = JSON.parse(cached);
+      } else {
+        const conversation = await Conversation.findById(conversationId)
+          .select('participants')
+          .lean();
+
+        if (!conversation) {
+          logger.warn(
+            `Broadcast ignored: conversation ${conversationId} not found.`,
+          );
+          return;
+        }
+
+        participantIds = conversation.participants.map((p) => p.toString());
+
+        // cache for 1 hour — invalidate when participants change
+        await redisClient.setEx(
+          `conv:participants:${conversationId}`,
+          3600,
+          JSON.stringify(participantIds),
         );
-        return;
       }
 
       const payload = MESSAGE_TYPES.has(message.type)
         ? { type: 'message', message }
         : message;
 
-      const participantIds = conversation.participants.map((p) => p.toString());
+      if (!participantIds || participantIds.length === 0) {
+        logger.warn(
+          `Broadcast warning: conversation ${conversationId} has no participants.`,
+        );
+        return;
+      }
 
       // Send locally first
       for (const userId of participantIds) {

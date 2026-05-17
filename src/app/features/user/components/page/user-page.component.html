@@ -44,7 +44,7 @@
               class="w-28 h-28 rounded-full border-4 border-background bg-muted overflow-hidden shadow-lg"
             >
               <img
-                [src]="user.profile_picture"
+                [src]="user.pfp_url"
                 [alt]="user.first_name + user.last_name"
                 class="w-full h-full object-cover"
                 onerror="this.src = '/icons/avatar.svg'"
@@ -267,7 +267,7 @@
                 >
                   <div class="flex items-start gap-3">
                     <img
-                      [src]="user.profile_picture"
+                      [src]="user.pfp_url"
                       [alt]="`${user.first_name} ${user.last_name}`"
                       class="w-9 h-9 rounded-full object-cover shrink-0 mt-0.5"
                       onerror="this.src = '/icons/avatar.svg'"

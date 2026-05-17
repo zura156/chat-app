@@ -7,7 +7,7 @@ import {
   viewChild,
 } from '@angular/core';
 import { UserI } from '../../../user/interfaces/user.interface';
-import { MessageI } from '../../interfaces/message.interface';
+import { AttachmentI, MessageI } from '../../interfaces/message.interface';
 import { DatePipe, TitleCasePipe } from '@angular/common';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import {
@@ -100,14 +100,14 @@ export class MessageCardComponent {
 
   getUserCredentials(userId: string): {
     username: string;
-    profile_picture: string;
+    pfp_url: string;
   } {
     const user = this.conversationService
       .activeConversation()
       ?.participants.find((participant) => participant._id === userId);
     return {
       username: user?.username || 'Unknown',
-      profile_picture: user?.profile_picture || '/icons/avatar.svg',
+      pfp_url: user?.pfp_url || '/icons/avatar.svg',
     };
   }
 
@@ -122,25 +122,38 @@ export class MessageCardComponent {
   openMedia(message: MessageI, index: number) {
     this.videoPlayerComponent()?.pauseVideo();
     this.loadedVideoMessageId.set(null);
-    // You can decide based on user preferences or context
-    const enableGallery = this.shouldEnableGallery();
+
+    const attachment = message.attachments?.[index];
+    if (!attachment?.variants) return;
 
     const media: MediaItem = {
       _id: String(message._id),
       type: message.type as 'image' | 'video',
-      url: String(message.file?.url),
-      placeholder_url: message.file?.placeholder_url,
-      thumbnail_url: message.file?.thumbnail_url,
-      size: message.file?.size_in_bytes,
+      url: attachment.variants.medium || attachment.variants.original || '',
+      thumb: attachment.variants.thumb,
+      thumbnail: attachment.variants.thumbnail,
+      size: attachment.fileSize,
     };
 
     this.mediaViewerService.openMedia(media, index, {
-      enableGallery,
-      showThumbnails: enableGallery,
+      enableGallery: this.shouldEnableGallery(),
+      showThumbnails: this.shouldEnableGallery(),
       allowDownload: true,
       autoPlay: false,
     });
   }
+
+  getPrimaryAttachment(message: MessageI): AttachmentI | null {
+    const attachment = message.attachments?.[0];
+    if (!attachment || attachment.status !== 'ready' || !attachment.variants)
+      return null;
+    return attachment;
+  }
+
+  isProcessing(message: MessageI): boolean {
+    return message.attachments?.some((a) => a.status === 'processing') ?? false;
+  }
+
   private shouldEnableGallery(): boolean {
     return (
       this.mediaViewerService['messageService'].activeMediaMessages().length > 3

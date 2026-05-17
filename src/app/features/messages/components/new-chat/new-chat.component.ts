@@ -174,7 +174,7 @@ export class NewChatComponent implements OnInit, OnDestroy {
           last_name: selectedUsers[0].last_name,
           username: selectedUsers[0].username,
           blocked_users: selectedUsers[0].blocked_users,
-          profile_picture: selectedUsers[0].profile_picture,
+          pfp_url: selectedUsers[0].pfp_url,
           last_seen: selectedUsers[0].last_seen,
           status: selectedUsers[0].status,
           bio: selectedUsers[0].bio,

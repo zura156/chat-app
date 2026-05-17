@@ -40,11 +40,11 @@ export class ConversationService {
         .sort({ updatedAt: -1 })
         .skip(offset)
         .limit(limit)
-        .populate('participants', 'username profile_picture')
+        .populate('participants', 'username pfp_url pfp_variants')
         .populate({
           path: 'last_message',
           select: 'content sender timestamp type file', // Include file/type for display
-          populate: { path: 'sender', select: 'username profile_picture' },
+          populate: { path: 'sender', select: 'username pfp_url pfp_variants' },
         }),
       Conversation.countDocuments({ participants: userId }),
     ]);
@@ -73,11 +73,11 @@ export class ConversationService {
         { participants: { $in: otherUserIds } },
       ],
     })
-      .populate('participants', 'username profile_picture')
+      .populate('participants', 'username pfp_url pfp_variants')
       .populate({
         path: 'last_message',
         select: 'content sender timestamp type file',
-        populate: { path: 'sender', select: 'username profile_picture' },
+        populate: { path: 'sender', select: 'username pfp_url pfp_variants' },
       })
       .sort({ updatedAt: -1 });
 
@@ -119,7 +119,7 @@ export class ConversationService {
   ) {
     conversation.populate(
       'participants',
-      'first_name last_name username profile_picture status last_seen',
+      'first_name last_name username pfp_url pfp_variants status last_seen',
     );
 
     // Logic to filter the current user from the participants list for the client
@@ -168,7 +168,7 @@ export class ConversationService {
 
     const populatedConversation = (await conversation.populate(
       'participants created_by',
-      'first_name last_name username profile_picture',
+      'first_name last_name username pfp_url pfp_variants',
     )) as ConversationI;
 
     if (!populatedConversation || !populatedConversation._id) {
@@ -207,7 +207,7 @@ export class ConversationService {
     await conversation.save();
     const populatedConversation = (await conversation.populate(
       'participants created_by',
-      'first_name last_name username profile_picture status last_seen',
+      'first_name last_name username pfp_url pfp_variants status last_seen',
     )) as ConversationI;
 
     let infoMessage = {
@@ -322,7 +322,7 @@ export class ConversationService {
     const removedUserDocs = await User.find({
       _id: { $in: Array.from(removeSet) },
     })
-      .select('first_name last_name username profile_picture')
+      .select('first_name last_name username pfp_url pfp_variants')
       .lean();
 
     conversation.participants = conversation.participants.filter(
@@ -342,12 +342,12 @@ export class ConversationService {
     let populatedConversation = (await conversation.populate([
       {
         path: 'participants',
-        select: 'first_name last_name username profile_picture',
+        select: 'first_name last_name username pfp_url pfp_variants',
       },
       {
         path: 'last_message',
         select: 'content sender timestamp type file',
-        populate: { path: 'sender', select: 'username profile_picture' },
+        populate: { path: 'sender', select: 'username pfp_url pfp_variants' },
       },
     ])) as ConversationI;
 
@@ -392,12 +392,12 @@ export class ConversationService {
     populatedConversation = (await conversation.populate([
       {
         path: 'participants',
-        select: 'first_name last_name username profile_picture',
+        select: 'first_name last_name username pfp_url pfp_variants',
       },
       {
         path: 'last_message',
         select: 'content sender timestamp type file',
-        populate: { path: 'sender', select: 'username profile_picture' },
+        populate: { path: 'sender', select: 'username pfp_url pfp_variants' },
       },
     ])) as ConversationI;
 

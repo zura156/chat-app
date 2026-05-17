@@ -3,7 +3,7 @@
 <div class="relative w-full flex items-center">
   <audio
     #audioPlayer
-    [src]="`${apiUrl}${file?.url}`"
+    [src]="audio().variants?.original"
     (timeupdate)="onTimeUpdate(audioPlayer)"
   ></audio>
 

@@ -76,7 +76,7 @@ export class ProfileSettings {
   private authService = inject(AuthService);
 
   readonly AVATAR_CONFIG: FilePickerConfig = {
-    context: { mode: 'avatar' },
+    context: 'avatar',
     maxSizeMb: 10,
   };
 

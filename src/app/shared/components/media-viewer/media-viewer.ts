@@ -24,6 +24,7 @@ import {
   lucidePlay,
   lucideX,
 } from '@ng-icons/lucide';
+import { AttachmentI } from '../../../features/messages/interfaces/message.interface';
 
 interface MediaViewerData {
   mediaMessages: MediaItem[];
@@ -212,7 +213,7 @@ export class MediaViewer implements OnInit {
   async downloadMedia() {
     try {
       // Show loading state if needed
-      const response = await fetch(this.apiUrl + this.currentMedia.url);
+      const response = await fetch(this.currentMedia.url);
 
       if (!response.ok) {
         throw new Error('Download failed');
@@ -270,8 +271,22 @@ export class MediaViewer implements OnInit {
       const media = this.mediaMessages[index];
       if (media.type === 'image') {
         const img = new Image();
-        img.src = this.apiUrl + media.url;
+        img.src = media.url;
       }
     });
+  }
+
+  get currentAsAttachment(): AttachmentI {
+    return {
+      uploadId: this.currentMedia._id,
+      context: 'dm-video',
+      mimeType: 'video/mp4',
+      fileSize: this.currentMedia.size ?? 0,
+      status: 'ready',
+      variants: {
+        hls: this.currentMedia.url,
+        thumbnail: this.currentMedia.thumbnail,
+      },
+    };
   }
 }

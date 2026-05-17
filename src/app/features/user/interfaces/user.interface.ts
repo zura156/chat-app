@@ -10,7 +10,12 @@ export interface UserI {
   login_attempts: number;
   lock_until?: string;
   last_login?: string;
-  profile_picture?: string;
+  pfp_url?: string;
+  pfp_variants?: {
+    thumb: string;
+    medium: string;
+    large: string;
+  };
   status: 'offline' | 'online';
   last_seen: string;
   blocked_users: string[] | UserI[];

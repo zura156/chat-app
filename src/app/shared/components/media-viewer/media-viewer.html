@@ -67,7 +67,7 @@
       } @if (currentMedia.type === 'image') {
       <img
         #mediaElement
-        [src]="apiUrl + currentMedia.url"
+        [src]="currentMedia.url"
         [alt]="currentMedia.name || 'Image'"
         (load)="onMediaLoad()"
         (error)="onMediaError()"
@@ -80,7 +80,7 @@
       />
       } @if (currentMedia.type === 'video') {
       <app-video-player
-        [video]="currentMedia"
+        [video]="currentAsAttachment"
         [class.hidden]="isLoading() || hasError()"
         (loaded)="onMediaLoad()"
       />
@@ -129,7 +129,7 @@
         </div>
         } @if (media.type === 'image') {
         <img
-          [src]="apiUrl + media.url"
+          [src]="media.url"
           [alt]="media.name || 'Thumbnail'"
           class="size-full object-cover"
           [class.hidden]="getThumbnailState(i).loading || getThumbnailState(i).error"
@@ -142,7 +142,7 @@
           [class.hidden]="getThumbnailState(i).loading || getThumbnailState(i).error"
         >
           <img
-            [src]="apiUrl + media.thumbnail_url"
+            [src]="media.thumbnail"
             [alt]="media.name || 'Thumbnail'"
             class="size-full object-cover"
             (load)="setThumbnailLoading(i, false)"

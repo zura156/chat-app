@@ -36,7 +36,7 @@ export class PrivacySettings {
       value: signal<Visibility>('everyone'),
     },
     {
-      key: 'profile_picture',
+      key: 'pfp_url',
       label: 'Profile picture',
       description: 'Who can see your profile photo',
       value: signal<Visibility>('everyone'),

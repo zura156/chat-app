@@ -108,7 +108,7 @@
               >
                 <hlm-avatar variant="medium" class="shrink-0">
                   <img
-                    [src]="user.profile_picture"
+                    [src]="user.pfp_url"
                     [alt]="user.username"
                     hlmAvatarImage
                   />
@@ -191,9 +191,7 @@
               class="size-20 border-4 border-background shadow-sm"
             >
               <img
-                [src]="
-                  selectedUsers()[0].profile_picture ?? '/icons/avatar.svg'
-                "
+                [src]="selectedUsers()[0].pfp_url ?? '/icons/avatar.svg'"
                 [alt]="selectedUsers()[0].username"
                 hlmAvatarImage
               />
@@ -214,7 +212,7 @@
                   [style.z-index]="10 - i"
                 >
                   <img
-                    [src]="user.profile_picture ?? '/icons/avatar.svg'"
+                    [src]="user.pfp_url ?? '/icons/avatar.svg'"
                     [alt]="user.username"
                     class="w-full h-full object-cover"
                   />

@@ -33,9 +33,6 @@ export class MessageService {
 
   private apiUrl = `${environment.apiUrl}/messages`;
 
-  // private readonly SEND_MESSAGE_URL = `${this.apiUrl}/send`;
-  private readonly UPLOAD_FILE_MESSAGE_URL = `${this.apiUrl}/upload`;
-
   previousConversationId = signal<string | null>(null);
 
   // state management for all messages
@@ -232,23 +229,6 @@ export class MessageService {
     });
   }
 
-  sendMessage(
-    message: MessageI,
-    participants: Partial<ParticipantI>[],
-    isNewest: boolean = false,
-  ): Observable<MessageI> {
-    const data: ChatMessage = {
-      type: 'message',
-      message,
-      participants,
-    };
-
-    this.addMessage(message, isNewest);
-    this.webSocketService.sendMessage(data);
-
-    return of(message);
-  }
-
   activeMessagesResource = httpResource<MessageListI>(() => {
     const conversationId = this.conversationService.selectedConversationId();
 
@@ -343,6 +323,72 @@ export class MessageService {
     this.#activeFileMessages.set([]);
   }
 
+  sendMessage(
+    conversationId: string,
+    content: string,
+    tempId: string,
+  ): Observable<MessageI> {
+    const url = `${this.apiUrl}/${conversationId}/send`;
+    console.log(url);
+    return this.http.post<MessageI>(url, { content, tempId });
+  }
+
+  sendMessageWithAttachments(
+    conversationId: string,
+    content: string | null,
+    attachments: {
+      uploadId: string;
+      context: string;
+      mimeType: string;
+      fileSize: number;
+      originalName?: string;
+    }[],
+    tempId: string,
+  ): Observable<MessageI> {
+    return this.http.post<MessageI>(`${this.apiUrl}/${conversationId}/send`, {
+      content,
+      attachments,
+      tempId,
+    });
+  }
+
+  // update attachment variants when worker finishes
+  updateAttachmentVariants(
+    uploadId: string,
+    variants: Record<string, string>,
+  ): void {
+    this.#activeMessages.update((messages) =>
+      messages.map((msg) => {
+        const idx =
+          msg.attachments?.findIndex((a) => a.uploadId === uploadId) ?? -1;
+        if (idx === -1) return msg;
+        const updatedAttachments = [...(msg.attachments ?? [])];
+        updatedAttachments[idx] = {
+          ...updatedAttachments[idx],
+          status: 'ready',
+          variants,
+        };
+        return { ...msg, attachments: updatedAttachments };
+      }),
+    );
+  }
+
+  markAttachmentInfected(uploadId: string): void {
+    this.#activeMessages.update((messages) =>
+      messages.map((msg) => {
+        const idx =
+          msg.attachments?.findIndex((a) => a.uploadId === uploadId) ?? -1;
+        if (idx === -1) return msg;
+        const updatedAttachments = [...(msg.attachments ?? [])];
+        updatedAttachments[idx] = {
+          ...updatedAttachments[idx],
+          status: 'infected',
+        };
+        return { ...msg, attachments: updatedAttachments };
+      }),
+    );
+  }
+
   markMessageAsRead(lastMessageId: string) {
     if (!lastMessageId) return;
 
@@ -408,9 +454,7 @@ export class MessageService {
   }
 
   uploadFileMessage(formData: FormData): Observable<any> {
-    return this.http
-      .post(this.UPLOAD_FILE_MESSAGE_URL, formData)
-      .pipe(delay(500));
+    return this.http.post(`${this.apiUrl}/upload`, formData).pipe(delay(500));
   }
 
   // Clear active messages (useful when changing conversations)

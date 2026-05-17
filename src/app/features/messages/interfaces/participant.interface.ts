@@ -7,7 +7,12 @@ export interface ParticipantI {
   username: string;
   bio: string;
   status?: 'offline' | 'online';
-  profile_picture?: string;
+  pfp_url?: string;
+  pfp_variants?: {
+    thumb: string;
+    medium: string;
+    large: string;
+  };
   last_seen?: string;
   blocked_users: string[] | UserI[];
 }

@@ -5,13 +5,12 @@ import { MediaViewer } from '../components/media-viewer/media-viewer';
 
 export interface MediaItem {
   _id: string;
-  url: string;
-  placeholder_url?: string;
-  thumbnail_url?: string;
   type: 'image' | 'video';
+  url: string; // full CDN URL — no apiUrl prefix needed
+  thumbnail?: string; // video thumbnail
+  thumb?: string; // small preview (was placeholder_url)
   name?: string;
   size?: number;
-  timestamp?: Date;
 }
 
 export interface MediaViewerConfig {
@@ -40,12 +39,15 @@ export class MediaViewerService {
           (el): MediaItem => ({
             _id: String(el._id),
             type: el.type as 'image' | 'video',
-            url: String(el.file?.url),
-            thumbnail_url: String(el.file?.thumbnail_url),
-            placeholder_url: String(el.file?.placeholder_url),
-            name: el.file?.name,
-            size: el.file?.size_in_bytes,
-          })
+            url:
+              el.attachments?.[0]?.variants?.medium ||
+              el.attachments?.[0]?.variants?.original ||
+              '',
+            thumbnail: el.attachments?.[0]?.variants?.thumbnail,
+            thumb: el.attachments?.[0]?.variants?.thumb,
+            name: el.attachments?.[0]?.originalName,
+            size: el.attachments?.[0]?.fileSize,
+          }),
         )
       : [media];
 

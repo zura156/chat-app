@@ -72,6 +72,18 @@ export const CONTEXT_CONFIG: Record<UploadContext, ContextConfig> = {
     bucket: config.s3TempBucket!,
     expiresIn: 1800,
   },
+  'dm-audio': {
+    allowedMimes: [
+      'audio/webm',
+      'audio/ogg',
+      'audio/mp4',
+      'audio/mpeg',
+      'audio/wav',
+    ],
+    maxBytes: 25 * MB,
+    bucket: config.s3TempBucket,
+    expiresIn: 600,
+  },
   'dm-file': {
     allowedMimes: [
       'application/pdf',

@@ -15,7 +15,7 @@
   <video
     class="w-full h-full rounded-xl"
     #videoPlayer
-    [src]="`${apiUrl}${video.url}`"
+    [src]="`${apiUrl}${video.variants?.original}`"
     [volume]="volume()"
     (timeupdate)="onTimeUpdate(videoPlayer)"
     (loadeddata)="duration.set(videoPlayer.duration); loaded.emit()"

@@ -76,7 +76,7 @@ export class UserService {
 
           this.userStateService.setCurrentUser({
             ...currentUser,
-            profile_picture: profilePictureUrl,
+            pfp_url: profilePictureUrl,
           });
         }),
       );

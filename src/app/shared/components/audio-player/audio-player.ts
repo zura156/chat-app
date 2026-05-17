@@ -2,7 +2,7 @@ import { Component, input, linkedSignal, signal } from '@angular/core';
 import { FormatTimePipe } from '../../pipes/format-time.pipe';
 import { HlmButton } from '@spartan-ng/helm/button';
 import { MediaPlayerSizesT } from '../../types/media-player-sizes.type';
-import { FileI } from '../../../features/messages/interfaces/message.interface';
+import { AttachmentI } from '../../../features/messages/interfaces/message.interface';
 import { environment } from '../../../../environments/environment';
 import { NgIcon, provideIcons } from '@ng-icons/core';
 import { HlmIconImports } from '@spartan-ng/helm/icon';
@@ -22,7 +22,7 @@ import { lucideCirclePause, lucideCirclePlay } from '@ng-icons/lucide';
   providers: [provideIcons({ lucideCirclePlay, lucideCirclePause })],
 })
 export class AudioPlayer {
-  audio = input.required<FileI>();
+  audio = input.required<AttachmentI>();
   size = input<MediaPlayerSizesT>('sm'); // (no support yet)
   readonly apiUrl = environment.apiUrl;
 

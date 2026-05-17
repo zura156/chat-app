@@ -2,13 +2,8 @@ import { Types } from 'mongoose';
 import { IMessage, Message } from '../models/message.model';
 import { Conversation } from '../models/conversation.model';
 import { BroadcastFunction } from '../../websocket/services/websocket.service';
-import {
-  MessageTypeEnum,
-  getMessageTypeFromMime,
-} from '../interfaces/message.interface';
-import path from 'path';
-import sharp from 'sharp';
-import ffmpeg from 'fluent-ffmpeg';
+import { MessageTypeEnum } from '../interfaces/message.interface';
+import { Upload } from '../../upload/upload.model';
 
 export class MessageService {
   private broadcast: BroadcastFunction;
@@ -36,7 +31,7 @@ export class MessageService {
         .sort({ timestamp: -1 })
         .skip(offset)
         .limit(limit)
-        .populate('sender', 'username profile_picture'),
+        .populate('sender', 'username pfp_url pfp_variants'),
       Message.countDocuments({ conversation: conversationId }),
     ]);
     return { messages, totalCount };
@@ -49,23 +44,20 @@ export class MessageService {
   ) {
     const query = {
       conversation: conversationId,
-      file: { $exists: true },
-      'file.mime_type': {
-        $regex: /^(image|video)\//,
-        $options: 'i',
-      },
+      'attachments.0': { $exists: true },
+      'attachments.context': { $in: ['dm-image', 'dm-video'] },
     };
     const [messages, totalCount] = await Promise.all([
-      Message.find(query)
+      Message.find({ where: query })
         .sort({ timestamp: -1 })
         .skip(offset)
         .limit(limit)
-        .populate('sender', 'username profile_picture'),
-      Message.countDocuments(query),
+        .populate('sender', 'username pfp_url pfp_variants'),
+      Message.countDocuments({ where: query }),
     ]);
-
     return { messages, totalCount };
   }
+
   public async getFileMessages(
     conversationId: string,
     limit: number,
@@ -73,21 +65,108 @@ export class MessageService {
   ) {
     const query = {
       conversation: conversationId,
-      file: { $exists: true },
-      'file.mime_type': {
-        $not: { $regex: /^(image|video)\//, $options: 'i' },
-      },
+      'attachments.0': { $exists: true },
+      'attachments.context': 'dm-file',
     };
     const [messages, totalCount] = await Promise.all([
-      Message.find(query)
+      Message.find({ where: query })
         .sort({ timestamp: -1 })
         .skip(offset)
         .limit(limit)
-        .populate('sender', 'username profile_picture'),
-      Message.countDocuments(query),
+        .populate('sender', 'username pfp_url pfp_variants'),
+      Message.countDocuments({ where: query }),
     ]);
-
     return { messages, totalCount };
+  }
+
+  public async createMessageWithAttachments(
+    senderId: string,
+    conversationId: string,
+    content: string | undefined,
+    attachmentPayloads: {
+      uploadId: string;
+      context: 'dm-image' | 'dm-video' | 'dm-file' | 'dm-audio';
+      mimeType: string;
+      fileSize: number;
+      originalName?: string;
+    }[],
+    tempId?: string,
+  ): Promise<IMessage> {
+    if (!content?.trim() && !attachmentPayloads?.length) {
+      throw new Error('Message must have content or attachments.');
+    }
+
+    if (content && content.length > 2000) {
+      throw new Error('Message content exceeds 2000 characters.');
+    }
+
+    if (attachmentPayloads.length > 10) {
+      throw new Error('Maximum 10 attachments per message.');
+    }
+
+    // verify all uploads exist and belong to sender
+    const uploadIds = attachmentPayloads.map((a) => a.uploadId);
+    const uploads = await Upload.find({
+      _id: { $in: uploadIds },
+      userId: senderId,
+    });
+
+    if (uploads.length !== uploadIds.length) {
+      throw new Error('One or more uploads not found or unauthorized.');
+    }
+
+    // build attachments from upload records
+    const attachments = attachmentPayloads.map((a) => {
+      const upload = uploads.find((u) => u._id.toString() === a.uploadId)!;
+      return {
+        uploadId: a.uploadId,
+        context: a.context,
+        mimeType: a.mimeType,
+        fileSize: a.fileSize,
+        originalName: a.originalName,
+        status: upload.status === 'ready' ? 'ready' : 'processing',
+        variants: upload.variants ?? null,
+      };
+    });
+
+    const message = new Message({
+      sender: senderId,
+      conversation: new Types.ObjectId(conversationId),
+      content: content?.trim() || undefined,
+
+      type:
+        attachments.length === 0
+          ? MessageTypeEnum.TEXT
+          : attachments[0].context === 'dm-image'
+            ? MessageTypeEnum.IMAGE
+            : attachments[0].context === 'dm-video'
+              ? MessageTypeEnum.VIDEO
+              : attachments[0].context === 'dm-audio'
+                ? MessageTypeEnum.AUDIO
+                : MessageTypeEnum.FILE,
+      attachments,
+    });
+
+    await message.save();
+
+    await Conversation.findByIdAndUpdate(conversationId, {
+      last_message: message._id,
+    });
+
+    const populated = await Message.findById(message._id).populate(
+      'sender',
+      'username pfp_url pfp_variants',
+    );
+
+    if (!populated) throw new Error('Failed to populate message.');
+
+    const broadcastPayload = tempId
+      ? { ...populated.toObject(), tempId }
+      : populated;
+
+    this.broadcast(broadcastPayload);
+
+    return populated;
   }
 
   /**
@@ -133,7 +212,7 @@ export class MessageService {
 
     const populatedMessage = await Message.findById(message._id).populate(
       'sender',
-      'username profile_picture',
+      'username pfp_url pfp_variants',
     );
 
     if (!populatedMessage) {

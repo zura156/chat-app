@@ -13,7 +13,17 @@ export interface IUser extends Document {
   login_attempts: number;
   lock_until?: Date;
   last_login?: Date;
-  profile_picture?: string;
+  pfp_url?: string;
+  pfp_variants?: {
+    thumb?: string;
+    medium?: string;
+    large?: string;
+  };
+  cover_url?: string;
+  cover_variants?: {
+    sm?: string;
+    md?: string;
+  };
   status: 'offline' | 'online' | 'away';
   last_seen: Date;
   blocked_users: Types.ObjectId[];
@@ -48,7 +58,19 @@ const UserSchema = new Schema<IUser>(
         'Password must be 8+ chars with uppercase, lowercase, numbers, and symbols',
       ],
     },
-    profile_picture: { type: String },
+
+    pfp_url: { type: String },
+    pfp_variants: {
+      thumb: { type: String },
+      medium: { type: String },
+      large: { type: String },
+    },
+    cover_url: { type: String },
+    cover_variants: {
+      sm: { type: String },
+      md: { type: String },
+    },
+
     status: {
       type: String,
       enum: ['offline', 'online', 'away'],

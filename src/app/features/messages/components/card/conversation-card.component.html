@@ -23,7 +23,7 @@
           @if (participant._id !== currentUser()?._id) {
             <hlm-avatar variant="medium">
               <img
-                [src]="participant?.profile_picture ?? '/icons/avatar.svg'"
+                [src]="participant?.pfp_url ?? '/icons/avatar.svg'"
                 alt="profile picture"
                 hlmAvatarImage
               />

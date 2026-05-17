@@ -1,0 +1,152 @@
+import { computed, inject, Injectable, signal } from '@angular/core';
+import {
+  HttpClient,
+  HttpEventType,
+  HttpHeaders,
+  HttpRequest,
+} from '@angular/common/http';
+import { catchError, filter, map, switchMap, tap, throwError } from 'rxjs';
+import { Observable } from 'rxjs';
+import { environment } from '../../../../environments/environment';
+import {
+  PresignResponse,
+  UploadContext,
+  UploadState,
+} from '../interfaces/upload.interface';
+
+@Injectable({ providedIn: 'root' })
+export class UploadService {
+  private readonly http = inject(HttpClient);
+  private readonly apiUrl = `${environment.apiUrl}/upload`;
+
+  // map of uploadId → UploadState
+  private readonly _uploads = signal<Map<string, UploadState>>(new Map());
+
+  // public read-only view
+  readonly uploads = this._uploads.asReadonly();
+
+  readonly isUploading = computed(() => {
+    const uploads = [...this._uploads().values()];
+    return uploads.some(
+      (u) => u.status === 'uploading' || u.status === 'confirming',
+    );
+  });
+
+  readonly overallProgress = computed(() => {
+    const uploads = [...this._uploads().values()];
+    if (!uploads.length) return 0;
+    return Math.round(
+      uploads.reduce((s, u) => s + u.progress, 0) / uploads.length,
+    );
+  });
+
+  // get state for a specific upload
+  getUploadState(uploadId: string) {
+    return computed(() => this._uploads().get(uploadId) ?? null);
+  }
+
+  // full flow: presign → PUT to S3 → confirm
+  // emits progress (0-100) then completes with uploadId
+  uploadFile(
+    context: UploadContext,
+    file: File,
+    resourceId?: string,
+  ): Observable<string> {
+    return this.presign(context, file, resourceId).pipe(
+      tap(({ uploadId }) =>
+        this.setState(uploadId, { uploadId, progress: 0, status: 'uploading' }),
+      ),
+      switchMap((presignRes) =>
+        this.putToS3(presignRes.presignedUrl, file).pipe(
+          tap((progress) =>
+            this.setState(presignRes.uploadId, {
+              uploadId: presignRes.uploadId,
+              progress,
+              status: 'uploading',
+            }),
+          ),
+          filter((progress) => progress === 100),
+          switchMap(() => {
+            this.setState(presignRes.uploadId, {
+              uploadId: presignRes.uploadId,
+              progress: 100,
+              status: 'confirming',
+            });
+            return this.confirm(presignRes.uploadId);
+          }),
+          tap(() =>
+            this.setState(presignRes.uploadId, {
+              uploadId: presignRes.uploadId,
+              progress: 100,
+              status: 'done',
+            }),
+          ),
+          map(() => presignRes.uploadId),
+        ),
+      ),
+      catchError((err) => {
+        // mark failed state if we have an uploadId
+        // best effort — presign might not have returned yet
+        return throwError(() => err);
+      }),
+    );
+  }
+
+  clearUpload(uploadId: string): void {
+    this._uploads.update((map) => {
+      const next = new Map(map);
+      next.delete(uploadId);
+      return next;
+    });
+  }
+
+  private presign(
+    context: UploadContext,
+    file: File,
+    resourceId?: string,
+  ): Observable<PresignResponse> {
+    return this.http.post<PresignResponse>(`${this.apiUrl}/presign`, {
+      context,
+      mimeType: file.type,
+      fileSize: file.size,
+      resourceId: resourceId ?? undefined,
+    });
+  }
+
+  // PUT directly to S3 presigned URL — emits progress 0-100
+  private putToS3(presignedUrl: string, file: File): Observable<number> {
+    const req = new HttpRequest('PUT', presignedUrl, file, {
+      reportProgress: true, // enables UploadProgress events
+      headers: new HttpHeaders({ 'Content-Type': file.type }),
+    });
+
+    return this.http.request(req).pipe(
+      map((event) => {
+        if (event.type === HttpEventType.UploadProgress) {
+          return Math.round(
+            (100 * event.loaded) / (event.total ?? event.loaded),
+          );
+        }
+        if (event.type === HttpEventType.Response) {
+          return 100;
+        }
+        return -1; // sentinel for non-progress events
+      }),
+      filter((progress) => progress >= 0),
+    );
+  }
+
+  private confirm(uploadId: string): Observable<{ ok: boolean }> {
+    return this.http.post<{ ok: boolean }>(`${this.apiUrl}/confirm`, {
+      uploadId,
+    });
+  }
+
+  private setState(uploadId: string, state: UploadState): void {
+    this._uploads.update((map) => {
+      const next = new Map(map);
+      next.set(uploadId, state);
+      return next;
+    });
+  }
+}

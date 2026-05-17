@@ -8,7 +8,7 @@ export const onAvatarComplete = async (
   result: ProcessResult,
 ) => {
   await User.findByIdAndUpdate(payload.userId, {
-    profile_picture: result.variants.medium,
+    pfp_url: result.variants.medium,
   });
 };
 

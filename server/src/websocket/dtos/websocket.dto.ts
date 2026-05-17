@@ -99,7 +99,6 @@ export type WebSocketMessage =
   | TypingMessage
   | ConversationJoinMessage
   | ConversationLeaveMessage
-  | ChatMessage
   | MessageStatusMessage
   | UserStatusMessage
   | UploadReadyMessage

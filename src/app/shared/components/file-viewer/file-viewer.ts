@@ -1,7 +1,7 @@
 import { Component, input } from '@angular/core';
 import { NgIcon, provideIcons } from '@ng-icons/core';
 import { lucideDownload } from '@ng-icons/lucide';
-import { FileI } from '../../../features/messages/interfaces/message.interface';
+import { AttachmentI } from '../../../features/messages/interfaces/message.interface';
 import { FileSizePipe } from '../../pipes/file-size.pipe';
 import { environment } from '../../../../environments/environment';
 import { HlmIcon } from '@spartan-ng/helm/icon';
@@ -18,5 +18,5 @@ import { HlmIcon } from '@spartan-ng/helm/icon';
 })
 export class FileViewer {
   readonly apiUrl = environment.apiUrl;
-  file = input<FileI>();
+  file = input<AttachmentI>();
 }
