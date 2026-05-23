@@ -52,8 +52,8 @@
           "
         >
           <div
-            class="py-1.5 text-ellipsis max-w-xs"
-            [class]="message.type === 'audio' ? '' : 'px-3'"
+            class="text-ellipsis"
+            [class]="message.type === 'text' ? 'py-1.5 px-3 max-w-xs' : ''"
           >
             @switch (message.type) {
               @case ("info") {
@@ -69,27 +69,51 @@
                 </p>
               }
               @case ("image") {
-                @let attachment = getPrimaryAttachment(message);
-                @if (attachment) {
-                  <div
-                    class="py-1 w-fit h-fit cursor-pointer"
-                    (click)="openMedia(message, 0)"
-                  >
-                    <img
-                      class="object-contain max-h-72 max-w-full rounded-xl"
-                      [class]="isImageLoaded() ? 'h-fit' : 'h-72'"
-                      [src]="
-                        isImageLoaded()
-                          ? attachment.variants?.original
-                          : attachment.variants?.thumb
-                      "
-                      (load)="onFullImageLoad()"
-                      [alt]="message.content"
-                    />
-                  </div>
-                } @else {
-                  <hlm-skeleton class="w-64 h-48 rounded-xl" />
-                }
+                @let attachments = message.attachments ?? [];
+                @let readyAttachments = attachments;
+                @let visible = readyAttachments.slice(0, 4);
+                @let overflow = readyAttachments.length - 3;
+
+                <div
+                  [class]="
+                    visible.length === 1
+                      ? 'p-1'
+                      : 'grid grid-cols-2 gap-0.5 p-1'
+                  "
+                >
+                  @for (
+                    attachment of visible;
+                    track attachment.uploadId;
+                    let i = $index
+                  ) {
+                    <div
+                      class="relative cursor-pointer overflow-hidden rounded-xl"
+                      [class]="visible.length === 1 ? '' : 'size-32'"
+                      (click)="openMedia(message, i)"
+                    >
+                      @if (
+                        attachment.status === "ready" && attachment.variants
+                      ) {
+                        <img
+                          class="w-full h-full object-cover"
+                          [src]="attachment.variants.thumb"
+                          [alt]="attachment.originalName"
+                        />
+                        @if (i === 3 && overflow > 1) {
+                          <div
+                            class="absolute inset-0 bg-black/60 flex items-center justify-center"
+                          >
+                            <span class="text-white font-semibold text-lg"
+                              >+{{ overflow }}</span
+                            >
+                          </div>
+                        }
+                      } @else {
+                        <hlm-skeleton class="size-32" />
+                      }
+                    </div>
+                  }
+                </div>
               }
 
               @case ("video") {
@@ -150,17 +174,30 @@
               }
 
               @case ("file") {
-                @let attachment = getPrimaryAttachment(message);
-                @if (attachment) {
-                  <app-file-viewer [file]="attachment" />
-                }
-              }
-              @case ("file") {
                 @for (
                   attachment of message.attachments;
                   track attachment.uploadId
                 ) {
-                  <app-file-viewer [file]="attachment" />
+                  @if (attachment.status === "ready" && attachment.variants) {
+                    <app-file-viewer [file]="attachment" />
+                  } @else if (attachment.status === "infected") {
+                    <div
+                      class="flex items-center gap-2 px-3 py-2 text-destructive text-xs"
+                    >
+                      <ng-icon hlm name="lucideAlertCircle" size="sm" />
+                      File blocked — failed security scan
+                    </div>
+                  } @else {
+                    <div class="flex items-center gap-2 px-3 py-2">
+                      <hlm-skeleton class="size-8 rounded-md shrink-0" />
+                      <div class="flex flex-col gap-1">
+                        <span class="text-xs font-medium">{{
+                          attachment.originalName ?? "File"
+                        }}</span>
+                        <hlm-skeleton class="w-16 h-2.5 rounded" />
+                      </div>
+                    </div>
+                  }
                 }
               }
             }

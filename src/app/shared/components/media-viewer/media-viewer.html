@@ -8,11 +8,11 @@
   >
     <div class="flex items-center gap-x-3">
       <span class="text-sm text-white/80 font-medium truncate max-w-48">
-        {{ currentMedia.name || "Media" }}
+        {{ currentMedia().name || "Media" }}
       </span>
       @if (config.enableGallery) {
       <span class="text-xs text-white/40 tabular-nums">
-        {{ currentIndex + 1 }} / {{ mediaMessages.length }}
+        {{ currentIndex() + 1 }} / {{ mediaMessages.length }}
       </span>
       }
     </div>
@@ -45,7 +45,7 @@
     <!-- Prev arrow -->
     @if (config.enableGallery && canNavigatePrevious()) {
     <button
-      (click)="navigateToMedia(currentIndex - 1)"
+      (click)="navigateToMedia(currentIndex() - 1)"
       class="absolute left-3 z-10 size-10 flex items-center justify-center rounded-full bg-black/40 hover:bg-black/70 text-white transition-colors cursor-pointer backdrop-blur-sm"
       title="Previous"
     >
@@ -64,11 +64,11 @@
         <ng-icon hlm name="lucideImageOff" size="xl" />
         <p class="text-sm">Failed to load media</p>
       </div>
-      } @if (currentMedia.type === 'image') {
+      } @if (currentMedia().type === 'image') {
       <img
         #mediaElement
-        [src]="currentMedia.url"
-        [alt]="currentMedia.name || 'Image'"
+        [src]="currentMedia().url"
+        [alt]="currentMedia().name || 'Image'"
         (load)="onMediaLoad()"
         (error)="onMediaError()"
         (click)="toggleZoom()"
@@ -78,7 +78,7 @@
         [class.cursor-zoom-in]="!isZoomed()"
         [class.cursor-zoom-out]="isZoomed()"
       />
-      } @if (currentMedia.type === 'video') {
+      } @if (currentMedia().type === 'video') {
       <app-video-player
         [video]="currentAsAttachment"
         [class.hidden]="isLoading() || hasError()"
@@ -90,7 +90,7 @@
     <!-- Next arrow -->
     @if (config.enableGallery && canNavigateNext()) {
     <button
-      (click)="navigateToMedia(currentIndex + 1)"
+      (click)="navigateToMedia(currentIndex() + 1)"
       class="absolute right-3 z-10 size-10 flex items-center justify-center rounded-full bg-black/40 hover:bg-black/70 text-white transition-colors cursor-pointer backdrop-blur-sm"
       title="Next"
     >
@@ -112,10 +112,10 @@
       <button
         (click)="navigateToMedia(i)"
         class="shrink-0 size-14 rounded-lg overflow-hidden relative ring-offset-black transition-all cursor-pointer hover:opacity-100 hover:ring-2 hover:ring-white/50"
-        [class.ring-2]="i === currentIndex"
-        [class.ring-white]="i === currentIndex"
-        [class.opacity-100]="i === currentIndex"
-        [class.opacity-40]="i !== currentIndex"
+        [class.ring-2]="i === currentIndex()"
+        [class.ring-white]="i === currentIndex()"
+        [class.opacity-100]="i === currentIndex()"
+        [class.opacity-40]="i !== currentIndex()"
       >
         <!-- * dim inactive thumbnails -->
 

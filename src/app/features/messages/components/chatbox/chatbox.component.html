@@ -267,14 +267,65 @@
         #fileInput
         type="file"
         class="hidden"
+        multiple
         [accept]="filePickerConfig.acceptAttr ?? '*/*'"
         (change)="filePicker.onInputChange($event)"
       />
       <app-file-picker
         #filePicker
         [config]="filePickerConfig"
+        [contextResolver]="fileContextResolver"
+        (fileSelected)="onFileSelected($event)"
         (fileReady)="onFileReady($event)"
+        (fileError)="onFileError($event)"
+        (cleared)="clearPendingAttachments()"
       />
+
+      <div
+        class="flex flex-row flex-nowrap items-center gap-2 px-1 pb-2 overflow-x-auto"
+      >
+        @for (attachment of pendingAttachments(); track attachment.tempId) {
+          <div
+            class="relative shrink-0 size-14 rounded-xl overflow-hidden bg-muted border border-border group"
+          >
+            @if (attachment.uploading) {
+              <hlm-skeleton class="size-full" />
+              <div class="absolute inset-0 flex items-center justify-center">
+                <hlm-spinner class="size-4" />
+              </div>
+            } @else if (attachment.previewUrl) {
+              <img
+                [src]="attachment.previewUrl"
+                class="size-full object-cover"
+                alt="preview"
+              />
+            } @else if (attachment.error) {
+              <div
+                class="size-full flex items-center justify-center bg-destructive/10"
+              >
+                <ng-icon
+                  hlm
+                  name="lucideAlertCircle"
+                  size="sm"
+                  class="text-destructive"
+                />
+              </div>
+            } @else {
+              <!-- file icon block unchanged -->
+            }
+
+            @if (!attachment.uploading) {
+              <button
+                type="button"
+                (click)="removeAttachment(attachment.tempId)"
+                class="absolute top-0.5 right-0.5 size-4 rounded-full bg-background/90 border border-border flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+              >
+                <ng-icon hlm name="lucideX" size="xs" />
+              </button>
+            }
+          </div>
+        }
+      </div>
 
       @if (isRecording()) {
         <div class="flex-1">
@@ -316,12 +367,10 @@
             (input)="autoResize($event)"
           ></textarea>
 
-          {{ isUploading() + " " + overallProgress() }}
-
           <button
             hlmBtn
             variant="outline"
-            [disabled]="!canMessage()"
+            [disabled]="!canMessage() || !hasSendableContent() || pendingAttachments().some(a => a.uploading)"
             (click)="sendMessage()"
             class="rounded-full px-4 shrink-0 flex items-center justify-center cursor-pointer disabled:opacity-40 transition-colors"
           >

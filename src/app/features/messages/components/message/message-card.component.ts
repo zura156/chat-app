@@ -119,28 +119,27 @@ export class MessageCardComponent {
     this.loadedVideoMessageId.set(messageId);
   }
 
-  openMedia(message: MessageI, index: number) {
+  openMedia(message: MessageI, clickedIndex: number): void {
     this.videoPlayerComponent()?.pauseVideo();
     this.loadedVideoMessageId.set(null);
 
-    const attachment = message.attachments?.[index];
-    if (!attachment?.variants) return;
+    const readyAttachments = (message.attachments ?? []).filter(
+      (a) => a.status === 'ready' && a.variants,
+    );
+    if (!readyAttachments.length) return;
 
-    const media: MediaItem = {
+    const items: MediaItem[] = readyAttachments.map((a) => ({
       _id: String(message._id),
+      uploadId: a.uploadId,
       type: message.type as 'image' | 'video',
-      url: attachment.variants.medium || attachment.variants.original || '',
-      thumb: attachment.variants.thumb,
-      thumbnail: attachment.variants.thumbnail,
-      size: attachment.fileSize,
-    };
+      url: a.variants!.large || a.variants!.medium || '',
+      thumb: a.variants!.thumb,
+      thumbnail: a.variants!.thumbnail || a.variants!.thumb,
+      name: a.originalName,
+      size: a.fileSize,
+    }));
 
-    this.mediaViewerService.openMedia(media, index, {
-      enableGallery: this.shouldEnableGallery(),
-      showThumbnails: this.shouldEnableGallery(),
-      allowDownload: true,
-      autoPlay: false,
-    });
+    this.mediaViewerService.openGallery(items, clickedIndex);
   }
 
   getPrimaryAttachment(message: MessageI): AttachmentI | null {
@@ -155,8 +154,6 @@ export class MessageCardComponent {
   }
 
   private shouldEnableGallery(): boolean {
-    return (
-      this.mediaViewerService['messageService'].activeMediaMessages().length > 3
-    );
+    return this.mediaViewerService.hasEnoughForGallery();
   }
 }

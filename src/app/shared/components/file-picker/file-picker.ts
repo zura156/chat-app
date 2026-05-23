@@ -9,7 +9,7 @@ import {
   output,
   signal,
 } from '@angular/core';
-import { Subscription } from 'rxjs';
+import { Subject, Subscription, takeUntil } from 'rxjs';
 import {
   UploadContext,
   UploadState,
@@ -28,7 +28,14 @@ export interface FilePickerConfig {
   acceptAttr?: string;
 }
 
+export interface FileSelectedEvent {
+  tempId: string;
+  file: File;
+  previewUrl: string | null;
+}
+
 export interface FileReadyEvent {
+  tempId: string; // add this
   file: File;
   fileKey: string;
   previewUrl: string | null;
@@ -44,6 +51,8 @@ export class FilePicker implements OnDestroy {
   config = input.required<FilePickerConfig>();
   fileReady = output<FileReadyEvent>();
   cleared = output<void>();
+  fileSelected = output<FileSelectedEvent>();
+  fileError = output<{ tempId: string; error: string }>();
 
   readonly uploadState = signal<UploadState | null>(null);
   readonly validationError = signal<string | null>(null);
@@ -69,21 +78,22 @@ export class FilePicker implements OnDestroy {
 
   private selectedFile = signal<File | null>(null);
 
-  private uploadSub: Subscription | null = null;
-
   private inputRef = signal<HTMLInputElement | null>(null);
 
   private readonly uploadService = inject(UploadService);
   private readonly destroyRef = inject(DestroyRef);
+  private readonly cancelAll$ = new Subject<void>();
+
+  contextResolver = input<((file: File) => UploadContext) | null>(null);
 
   triggerInput(): void {
     this.inputRef()?.click();
   }
 
   onInputChange(event: Event): void {
-    const file = (event.target as HTMLInputElement).files?.[0];
-
-    if (file) this.processFile(file);
+    const files = Array.from((event.target as HTMLInputElement).files ?? []);
+    files.forEach((file) => this.processFile(file));
+    (event.target as HTMLInputElement).value = ''; // reset so same file can be re-selected
   }
 
   onDragOver(event: DragEvent): void {
@@ -94,12 +104,13 @@ export class FilePicker implements OnDestroy {
   onDrop(event: DragEvent): void {
     event.preventDefault();
     this.isDragOver.set(false);
-    const file = event.dataTransfer?.files[0];
-    if (file) this.processFile(file);
+    const files = Array.from(event.dataTransfer?.files ?? []);
+    files.forEach((file) => this.processFile(file));
   }
 
   clear(): void {
-    this.uploadSub?.unsubscribe();
+    this.cancelAll$.next();
+
     this.selectedFile.set(null);
     this.uploadState.set(null);
     this.validationError.set(null);
@@ -112,23 +123,16 @@ export class FilePicker implements OnDestroy {
   }
 
   ngOnDestroy(): void {
+    this.cancelAll$.next();
+    this.cancelAll$.complete();
     const url = this.previewUrl();
     if (url) URL.revokeObjectURL(url);
-    this.uploadSub?.unsubscribe();
   }
 
-  private processFile(file: File): void {
+  public processFile(file: File): void {
     const cfg = this.config();
     const maxBytes = (cfg.maxSizeMb ?? 50) * 1024 * 1024;
     const allowed = cfg.allowedMimeTypes ?? defaultAllowed(cfg.context);
-    console.log(
-      'file.type:',
-      file.type,
-      '| allowed:',
-      allowed,
-      '| context:',
-      cfg.context,
-    );
 
     if (allowed && allowed.length > 0 && !allowed.includes(file.type)) {
       this.validationError.set(`File type ${file.type} not allowed.`);
@@ -143,26 +147,41 @@ export class FilePicker implements OnDestroy {
     this.validationError.set(null);
     this.selectedFile.set(file);
 
-    if (file.type.startsWith('image/')) {
-      this.previewUrl.set(URL.createObjectURL(file));
-    }
-    this.startUpload(file);
+    const isPreviewable =
+      file.type.startsWith('image/') &&
+      !['image/heic', 'image/heif'].includes(file.type);
+
+    const previewUrl = isPreviewable ? URL.createObjectURL(file) : null;
+
+    const tempId = crypto.randomUUID();
+    this.fileSelected.emit({ tempId, file, previewUrl });
+    this.startUpload(file, tempId, previewUrl);
   }
 
-  private startUpload(file: File): void {
-    this.uploadSub?.unsubscribe();
-    this.uploadSub = this.uploadService
-      .uploadFile(this.config().context, file)
-      .pipe(takeUntilDestroyed(this.destroyRef))
+  private startUpload(
+    file: File,
+    tempId: string,
+    previewUrl: string | null,
+  ): void {
+    const context = this.contextResolver()?.(file) ?? this.config().context;
+
+    this.uploadService
+      .uploadFile(context, file)
+      .pipe(takeUntil(this.cancelAll$), takeUntilDestroyed(this.destroyRef))
       .subscribe({
         next: (uploadId) => {
           this.fileReady.emit({
+            tempId,
             file,
             fileKey: uploadId,
-            previewUrl: this.previewUrl(),
+            previewUrl,
           });
         },
         error: (err) => {
+          this.fileError.emit({
+            tempId,
+            error: err.message ?? 'Upload failed',
+          });
           this.uploadState.set({
             uploadId: '',
             progress: 0,

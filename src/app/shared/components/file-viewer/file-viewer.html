@@ -1,23 +1,27 @@
 @let file = this.file();
-<div class="bg-accent rounded-lg flex items-center p-2 sm:p-0 md:p-2">
+<div
+  class="bg-accent/80 hover:bg-accent border border-border transition-colors rounded-xl p-3 w-full sm:w-64 max-w-70"
+>
   <a
-    [href]="apiUrl + file?.variants?.original"
+    [href]="apiUrl + (file?.variants?.original || '')"
     target="_blank"
     [download]="file?.originalName"
-    class="flex items-center justify-start"
+    class="flex items-center gap-3 w-full outline-none"
   >
-    <span
-      class="text-blue-500 flex items-center justify-center mr-3 rounded-xl bg-blue-100 p-1.5"
+    <div
+      class="shrink-0 flex items-center justify-center size-10 rounded-lg bg-blue-500/10 text-blue-500"
     >
-      <ng-icon hlm name="lucideDownload" size="base" />
-    </span>
-    <div class="flex flex-col items-start justify-center text-sm">
+      <ng-icon hlm name="lucideDownload" size="sm" />
+    </div>
+
+    <div class="flex flex-col flex-1 min-w-0 justify-center">
       <h1
-        class="font-medium text-ellipsis whitespace-normal wrap-anywhere [word-break:break-word]"
+        class="text-sm font-medium text-foreground truncate"
+        [title]="file?.originalName"
       >
         {{ file?.originalName }}
       </h1>
-      <span class="text-blue-500 hover:underline">
+      <span class="text-xs text-muted-foreground mt-0.5">
         {{ (file?.fileSize || 0) | fileSize }}
       </span>
     </div>

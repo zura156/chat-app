@@ -5,6 +5,7 @@ import {
   OnInit,
   signal,
   ChangeDetectionStrategy,
+  computed,
 } from '@angular/core';
 import { DialogRef, DIALOG_DATA } from '@angular/cdk/dialog';
 import { environment } from '../../../../environments/environment';
@@ -19,6 +20,7 @@ import { NgIcon, provideIcons } from '@ng-icons/core';
 import { HlmIconImports } from '@spartan-ng/helm/icon';
 import {
   lucideChevronLeft,
+  lucideChevronRight,
   lucideDownload,
   lucideImageOff,
   lucidePlay,
@@ -41,6 +43,7 @@ interface MediaViewerData {
       lucideDownload,
       lucideX,
       lucideChevronLeft,
+      lucideChevronRight,
       lucideImageOff,
       lucidePlay,
     }),
@@ -68,7 +71,10 @@ export class MediaViewer implements OnInit {
   apiUrl = environment.apiUrl;
 
   mediaMessages = this.data.mediaMessages;
-  currentIndex = this.data.currentIndex;
+
+  currentIndex = signal(this.data.currentIndex);
+  currentMedia = computed(() => this.mediaMessages[this.currentIndex()]);
+
   config = this.data.config;
 
   isLoading = signal<boolean>(true);
@@ -82,10 +88,6 @@ export class MediaViewer implements OnInit {
   zoomLevel = 1;
   panX = 0;
   panY = 0;
-
-  get currentMedia(): MediaItem {
-    return this.mediaMessages[this.currentIndex];
-  }
 
   ngOnInit() {
     if (this.config.enableGallery) {
@@ -144,38 +146,30 @@ export class MediaViewer implements OnInit {
 
   navigateToMedia(index: number) {
     if (index >= 0 && index < this.mediaMessages.length) {
-      this.currentIndex = index;
+      this.currentIndex.set(index); // ← was this.currentIndex = index
       this.resetZoom();
       this.isLoading.set(true);
       this.hasError.set(false);
-
-      // Preload adjacent media
       this.preloadAdjacentMedia();
     }
   }
 
-  navigatePrevious() {
-    if (this.canNavigatePrevious()) {
-      this.navigateToMedia(this.currentIndex - 1);
-    }
-  }
-
-  navigateNext() {
-    if (this.canNavigateNext()) {
-      this.navigateToMedia(this.currentIndex + 1);
-    }
-  }
-
   canNavigatePrevious(): boolean {
-    return this.currentIndex > 0;
+    return this.currentIndex() > 0;
   }
-
   canNavigateNext(): boolean {
-    return this.currentIndex < this.mediaMessages.length - 1;
+    return this.currentIndex() < this.mediaMessages.length - 1;
+  }
+  navigatePrevious() {
+    if (this.canNavigatePrevious())
+      this.navigateToMedia(this.currentIndex() - 1);
+  }
+  navigateNext() {
+    if (this.canNavigateNext()) this.navigateToMedia(this.currentIndex() + 1);
   }
 
   toggleZoom() {
-    if (this.currentMedia.type === 'image') {
+    if (this.currentMedia().type === 'image') {
       this.isZoomed.update((val) => !val);
       this.zoomLevel = this.isZoomed() ? 2 : 1;
 
@@ -213,7 +207,7 @@ export class MediaViewer implements OnInit {
   async downloadMedia() {
     try {
       // Show loading state if needed
-      const response = await fetch(this.currentMedia.url);
+      const response = await fetch(this.currentMedia().url);
 
       if (!response.ok) {
         throw new Error('Download failed');
@@ -225,7 +219,7 @@ export class MediaViewer implements OnInit {
       const link = document.createElement('a');
       link.href = url;
       link.download =
-        this.currentMedia.name || `media-${this.currentMedia._id}`;
+        this.currentMedia().name || `media-${this.currentMedia()._id}`;
       document.body.appendChild(link);
       link.click();
 
@@ -263,8 +257,8 @@ export class MediaViewer implements OnInit {
   private preloadAdjacentMedia() {
     // Preload previous and next media for smoother navigation
     const indicesToPreload = [
-      this.currentIndex - 1,
-      this.currentIndex + 1,
+      this.currentIndex() - 1,
+      this.currentIndex() + 1,
     ].filter((i) => i >= 0 && i < this.mediaMessages.length);
 
     indicesToPreload.forEach((index) => {
@@ -278,14 +272,14 @@ export class MediaViewer implements OnInit {
 
   get currentAsAttachment(): AttachmentI {
     return {
-      uploadId: this.currentMedia._id,
+      uploadId: this.currentMedia()._id,
       context: 'dm-video',
       mimeType: 'video/mp4',
-      fileSize: this.currentMedia.size ?? 0,
+      fileSize: this.currentMedia().size ?? 0,
       status: 'ready',
       variants: {
-        hls: this.currentMedia.url,
-        thumbnail: this.currentMedia.thumbnail,
+        hls: this.currentMedia().url,
+        thumbnail: this.currentMedia().thumbnail,
       },
     };
   }

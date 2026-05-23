@@ -5,6 +5,7 @@ import { MediaViewer } from '../components/media-viewer/media-viewer';
 
 export interface MediaItem {
   _id: string;
+  uploadId?: string; // needed to find correct position in flattened gallery
   type: 'image' | 'video';
   url: string; // full CDN URL — no apiUrl prefix needed
   thumbnail?: string; // video thumbnail
@@ -33,34 +34,80 @@ export class MediaViewerService {
    * @param config - Configuration options for the viewer
    */
   openMedia(media: MediaItem, index: number, config: MediaViewerConfig = {}) {
-    // Get all media messages if gallery is enabled
-    const mediaMessages = config.enableGallery
-      ? this.messageService.activeMediaMessages().map(
-          (el): MediaItem => ({
-            _id: String(el._id),
-            type: el.type as 'image' | 'video',
-            url:
-              el.attachments?.[0]?.variants?.medium ||
-              el.attachments?.[0]?.variants?.original ||
-              '',
-            thumbnail: el.attachments?.[0]?.variants?.thumbnail,
-            thumb: el.attachments?.[0]?.variants?.thumb,
-            name: el.attachments?.[0]?.originalName,
-            size: el.attachments?.[0]?.fileSize,
-          }),
-        )
-      : [media];
+    let mediaItems: MediaItem[];
+    let currentIndex: number;
 
-    // Find current media index
-    const currentIndex = index;
+    if (config.enableGallery) {
+      // Flatten every ready attachment across all media messages
+      mediaItems = this.messageService.activeMediaMessages().flatMap((el) =>
+        (el.attachments ?? [])
+          .filter((a) => a.status === 'ready' && a.variants)
+          .map(
+            (a): MediaItem => ({
+              _id: String(el._id),
+              uploadId: a.uploadId,
+              type: el.type as 'image' | 'video',
+              url: a.variants?.large || a.variants?.medium || '',
+              thumbnail: a.variants?.thumbnail || a.variants?.thumb, // video poster or fallback
+              thumb: a.variants?.thumb,
+              name: a.originalName,
+              size: a.fileSize,
+            }),
+          ),
+      );
+
+      // Find clicked item by uploadId — index within message is meaningless globally
+      currentIndex = media.uploadId
+        ? mediaItems.findIndex((m) => m.uploadId === media.uploadId)
+        : 0;
+      if (currentIndex < 0) currentIndex = 0;
+    } else {
+      mediaItems = [media];
+      currentIndex = 0;
+    }
 
     return this.dialog.open(MediaViewer, {
       data: {
-        mediaMessages,
-        currentIndex: currentIndex >= 0 ? currentIndex : 0,
+        mediaMessages: mediaItems,
+        currentIndex,
         config: {
           enableGallery: false,
           showThumbnails: false,
+          allowDownload: true,
+          autoPlay: false,
+          ...config,
+        },
+      },
+      panelClass: [
+        'media-viewer-dialog',
+        'fixed',
+        'inset-0',
+        'z-50',
+        'bg-transparent',
+        'overflow-hidden',
+      ],
+      hasBackdrop: true,
+      backdropClass: 'media-viewer-backdrop',
+      disableClose: false,
+      maxWidth: '100vw',
+      maxHeight: '100vh',
+      width: '100vw',
+      height: '100vh',
+    });
+  }
+
+  openGallery(
+    items: MediaItem[],
+    startIndex: number,
+    config: Partial<MediaViewerConfig> = {},
+  ) {
+    return this.dialog.open(MediaViewer, {
+      data: {
+        mediaMessages: items,
+        currentIndex: Math.max(0, Math.min(startIndex, items.length - 1)),
+        config: {
+          enableGallery: items.length > 1,
+          showThumbnails: items.length > 1,
           allowDownload: true,
           autoPlay: false,
           ...config,
@@ -103,5 +150,19 @@ export class MediaViewerService {
       showThumbnails,
       allowDownload: true,
     });
+  }
+
+  hasEnoughForGallery(): boolean {
+    return (
+      this.messageService
+        .activeMediaMessages()
+        .reduce(
+          (count, msg) =>
+            count +
+            (msg.attachments?.filter((a) => a.status === 'ready' && a.variants)
+              .length ?? 0),
+          0,
+        ) > 1
+    );
   }
 }

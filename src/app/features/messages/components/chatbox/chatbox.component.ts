@@ -52,12 +52,14 @@ import { TimeAgoPipe } from '../../../../shared/pipes/time-ago.pipe';
 import { MessageCardComponent } from '../message/message-card.component';
 import { NgIcon, provideIcons } from '@ng-icons/core';
 import {
+  lucideAlertCircle,
   lucideCirclePlus,
   lucideInfo,
   lucideMessageCircle,
   lucideMic,
   lucidePaperclip,
   lucideSend,
+  lucideX,
 } from '@ng-icons/lucide';
 import { HlmIcon } from '@spartan-ng/helm/icon';
 import { LayoutService } from '../../services/layout.service';
@@ -74,7 +76,10 @@ import {
   FilePicker,
   FilePickerConfig,
   FileReadyEvent,
+  FileSelectedEvent,
 } from '../../../../shared/components/file-picker/file-picker';
+import { PendingAttachment } from '../../../upload/interfaces/pending-attachment.interface';
+import { UploadContext } from '../../../upload/interfaces/upload.interface';
 
 @Component({
   selector: 'app-chatbox',
@@ -106,6 +111,8 @@ import {
       lucideMic,
       lucideSend,
       lucidePaperclip,
+      lucideX,
+      lucideAlertCircle,
     }),
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -140,6 +147,7 @@ export class ChatboxComponent implements OnInit {
   private divTopIntersectionObserver?: IntersectionObserver;
   private messageIntersectionObserver?: IntersectionObserver;
 
+  private readonly filePicker = viewChild.required<FilePicker>('filePicker');
   readonly filePickerConfig: FilePickerConfig = {
     context: 'dm-image', // by default (most common)
     allowedMimeTypes: [], // skips validation
@@ -172,6 +180,22 @@ export class ChatboxComponent implements OnInit {
   );
   isUploading = this.uploadService.isUploading;
   overallProgress = this.uploadService.overallProgress;
+
+  pendingAttachments = signal<PendingAttachment[]>([]);
+
+  hasSendableContent = computed(
+    () =>
+      !!this.messageControl.value?.trim() ||
+      this.pendingAttachments().some((a) => !a.uploading),
+  );
+
+  // Context resolver:
+  readonly fileContextResolver = (file: File): UploadContext => {
+    if (file.type.startsWith('image/')) return 'dm-image';
+    if (file.type.startsWith('video/')) return 'dm-video';
+    if (file.type.startsWith('audio/')) return 'dm-audio';
+    return 'dm-file';
+  };
 
   // ── WS messages as Signals (toSignal auto-unsubscribes on destroy) ──────────
 
@@ -335,6 +359,7 @@ export class ChatboxComponent implements OnInit {
           if (this.conversation()?._id !== id) {
             this.messageService.clearActiveMessages();
             this.messageOffset.set(0);
+            this.clearPendingAttachments();
           }
 
           this.conversationService.selectedConversationId.set(id);
@@ -409,34 +434,102 @@ export class ChatboxComponent implements OnInit {
 
   @HostListener('paste', ['$event'])
   onPaste(event: ClipboardEvent) {
-    const files = Array.from(event.clipboardData?.items || [])
+    const files = Array.from(event.clipboardData?.items ?? [])
       .filter((item) => item.kind === 'file')
       .map((item) => item.getAsFile())
       .filter((f): f is File => f !== null);
 
     if (!files.length) return;
-
     event.preventDefault();
 
-    // TODO: handle clipboard files
-    // ...
+    if (this.pendingAttachments().length + files.length > 10) {
+      toast.error('Maximum 10 attachments per message.');
+      return;
+    }
+
+    files.forEach((file) => this.filePicker().processFile(file));
+  }
+
+  onFileSelected(event: FileSelectedEvent): void {
+    const isDuplicate = this.pendingAttachments().some(
+      (a) => a.file.name === event.file.name && a.file.size === event.file.size,
+    );
+    if (isDuplicate) {
+      toast.warning(`"${event.file.name}" is already added.`);
+      return;
+    }
+
+    if (this.pendingAttachments().length >= 10) {
+      toast.error('Maximum 10 attachments per message.', {
+        id: 'max-attachment-errors',
+      });
+      return;
+    }
+    const context = this.fileContextResolver(event.file);
+    this.pendingAttachments.update((list) => [
+      ...list,
+      {
+        tempId: event.tempId,
+        file: event.file,
+        fileKey: null,
+        previewUrl: event.previewUrl,
+        context,
+        uploading: true,
+        error: null,
+      },
+    ]);
   }
 
   onFileReady(event: FileReadyEvent): void {
-    const { file, fileKey } = event;
-    const context = file.type.startsWith('image/')
-      ? 'dm-image'
-      : file.type.startsWith('video/')
-        ? 'dm-video'
-        : file.type.startsWith('audio/')
-          ? 'dm-audio'
-          : 'dm-file';
+    this.pendingAttachments.update((list) =>
+      list.map((a) =>
+        a.tempId === event.tempId
+          ? { ...a, fileKey: event.fileKey, uploading: false }
+          : a,
+      ),
+    );
+  }
 
-    // TODO: prepare attachments for send
-    // ...
+  onFileError(event: { tempId: string; error: string }): void {
+    const attachment = this.pendingAttachments().find(
+      (a) => a.tempId === event.tempId,
+    );
+    if (attachment?.fileKey) this.uploadService.clearUpload(attachment.fileKey);
+
+    this.pendingAttachments.update((list) =>
+      list.map((a) =>
+        a.tempId === event.tempId
+          ? { ...a, uploading: false, error: event.error }
+          : a,
+      ),
+    );
+  }
+
+  removeAttachment(tempId: string): void {
+    const attachment = this.pendingAttachments().find(
+      (a) => a.tempId === tempId,
+    );
+    if (attachment?.previewUrl) URL.revokeObjectURL(attachment.previewUrl);
+    this.pendingAttachments.update((list) =>
+      list.filter((a) => a.tempId !== tempId),
+    );
+  }
+
+  clearPendingAttachments(): void {
+    this.pendingAttachments().forEach((a) => {
+      if (a.previewUrl) URL.revokeObjectURL(a.previewUrl);
+      if (a.fileKey) this.uploadService.clearUpload(a.fileKey);
+    });
+    this.pendingAttachments.set([]);
   }
 
   sendMessage(): void {
+    const stillUploading = this.pendingAttachments().some((a) => a.uploading);
+    if (stillUploading) {
+      toast.warning('Please wait for all files to finish uploading.');
+      return;
+    }
+
     const content = this.messageControl.value;
 
     if (content && content.length > 2000) {
@@ -481,7 +574,7 @@ export class ChatboxComponent implements OnInit {
         .pipe(
           takeUntilDestroyed(this.destroyRef),
           switchMap((uploadId) =>
-            this.messageService.sendMessageWithAttachments(
+            this.messageService.sendMessage(
               activeConversation._id,
               null,
               [
@@ -500,6 +593,7 @@ export class ChatboxComponent implements OnInit {
             this.recordingResult = undefined;
             this.canMessage.set(true);
             this.lastMessageSentAt = Date.now();
+            this.clearPendingAttachments();
           }),
           catchError((err) => this.handleError(err)),
         )
@@ -508,7 +602,7 @@ export class ChatboxComponent implements OnInit {
       return;
     }
 
-    if (!content?.trim()) return;
+    if (!content && !this.pendingAttachments().length) return;
 
     const tempId = crypto.randomUUID();
     const conversationId = activeConversation._id;
@@ -534,6 +628,12 @@ export class ChatboxComponent implements OnInit {
           catchError((err) => this.handleError(err)),
           switchMap((conversation) => {
             this.canMessage.set(false);
+
+            const attachments = this.pendingAttachments().filter(
+              (a) => !a.uploading && a.fileKey,
+            );
+            this.clearPendingAttachments();
+
             this.messageControl.reset();
             const textarea = document.getElementById(
               `send_input/${conversationId}`,
@@ -548,7 +648,20 @@ export class ChatboxComponent implements OnInit {
             this.router.navigateByUrl(`/messages/${conversation._id}`);
 
             return this.messageService
-              .sendMessage(conversation._id, content, tempId)
+              .sendMessage(
+                conversationId,
+                content ?? null,
+                attachments
+                  .filter((a) => a.fileKey)
+                  .map((a) => ({
+                    uploadId: a.fileKey as string,
+                    context: a.context as string,
+                    mimeType: a.file.type,
+                    fileSize: a.file.size,
+                    originalName: a.file.name,
+                  })),
+                tempId,
+              )
               .pipe(
                 takeUntilDestroyed(this.destroyRef),
                 catchError((err) => this.handleError(err)),
@@ -556,6 +669,7 @@ export class ChatboxComponent implements OnInit {
                   this.isMessageLoading.set(false);
                   this.canMessage.set(true);
                   this.lastMessageSentAt = Date.now();
+                  this.clearPendingAttachments();
                 }),
               );
           }),
@@ -574,8 +688,24 @@ export class ChatboxComponent implements OnInit {
     }
     this.messageService.addMessage(optimisticMessage);
 
+    const attachments = this.pendingAttachments().filter(
+      (a) => !a.uploading && a.fileKey,
+    );
+    this.clearPendingAttachments();
+
     this.messageService
-      .sendMessage(conversationId, content, tempId)
+      .sendMessage(
+        conversationId,
+        content,
+        attachments.map((a) => ({
+          uploadId: a.fileKey as string,
+          context: a.context,
+          mimeType: a.file.type,
+          fileSize: a.file.size,
+          originalName: a.file.name,
+        })),
+        tempId,
+      )
       .pipe(
         takeUntilDestroyed(this.destroyRef),
         catchError((err) => this.handleError(err)),
@@ -583,6 +713,7 @@ export class ChatboxComponent implements OnInit {
           this.isMessageLoading.set(false);
           this.canMessage.set(true);
           this.lastMessageSentAt = Date.now();
+          this.clearPendingAttachments();
         }),
       )
       .subscribe();

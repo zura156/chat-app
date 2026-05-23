@@ -17,19 +17,25 @@ export enum MessageStatus {
   DELIVERED = 'delivered',
   READ = 'read',
 }
+
+export interface AttachmentVariants {
+  // video specific
+  hls?: string;
+  original?: string;
+  thumbnail?: string;
+
+  // image specific
+  thumb?: string;
+  medium?: string;
+  large?: string;
+}
 export interface AttachmentI {
   uploadId: string;
   context: 'dm-image' | 'dm-video' | 'dm-file' | 'dm-audio';
   mimeType: string;
   fileSize: number;
   status: 'processing' | 'ready' | 'failed' | 'infected';
-  variants: {
-    original?: string;
-    thumb?: string;
-    medium?: string;
-    hls?: string;
-    thumbnail?: string;
-  } | null;
+  variants: AttachmentVariants | null;
   originalName?: string;
   duration?: number; // For audio/video files, in seconds
 }
@@ -40,7 +46,7 @@ export interface MessageI {
   sender: Partial<ParticipantI>;
   conversation: ConversationI | string;
   attachments?: AttachmentI[];
-  content?: string;
+  content?: string | null;
   type: MessageType;
   status: MessageStatus;
   timestamp: string;

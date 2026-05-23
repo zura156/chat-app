@@ -3,7 +3,7 @@
 <div class="relative w-full flex items-center">
   <audio
     #audioPlayer
-    [src]="audio().variants?.original"
+    [src]="file.variants?.original"
     (timeupdate)="onTimeUpdate(audioPlayer)"
   ></audio>
 

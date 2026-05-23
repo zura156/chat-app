@@ -325,16 +325,6 @@ export class MessageService {
 
   sendMessage(
     conversationId: string,
-    content: string,
-    tempId: string,
-  ): Observable<MessageI> {
-    const url = `${this.apiUrl}/${conversationId}/send`;
-    console.log(url);
-    return this.http.post<MessageI>(url, { content, tempId });
-  }
-
-  sendMessageWithAttachments(
-    conversationId: string,
     content: string | null,
     attachments: {
       uploadId: string;
