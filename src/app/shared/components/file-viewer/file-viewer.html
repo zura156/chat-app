@@ -3,7 +3,7 @@
   class="bg-accent/80 hover:bg-accent border border-border transition-colors rounded-xl p-3 w-full sm:w-64 max-w-70"
 >
   <a
-    [href]="apiUrl + (file?.variants?.original || '')"
+    [href]="file?.variants?.original"
     target="_blank"
     [download]="file?.originalName"
     class="flex items-center gap-3 w-full outline-none"
