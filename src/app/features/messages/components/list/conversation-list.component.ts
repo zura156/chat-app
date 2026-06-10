@@ -273,11 +273,24 @@ export class ConversationListComponent {
               break;
 
             case 'conversation-leave':
-              const { conversation: leftConversation } = res;
+              const { conversation: left, removed_users } = res;
+              const currentUserId = this.currentUser()?._id;
 
-              this.conversationService.removeConversationFromList(
-                leftConversation as ConversationI,
+              const isCurrentUserRemoved = removed_users?.some(
+                (u: any) =>
+                  (typeof u === 'string' ? u : u._id) === currentUserId,
               );
+
+              if (isCurrentUserRemoved) {
+                this.conversationService.removeConversationFromList(
+                  left as ConversationI,
+                );
+                this.router.navigate(['/messages']);
+              } else {
+                this.conversationService.updateConversationState(
+                  left as ConversationI,
+                );
+              }
               break;
           }
         }),

@@ -279,6 +279,7 @@
         (fileReady)="onFileReady($event)"
         (fileError)="onFileError($event)"
         (cleared)="clearPendingAttachments()"
+        [remainingSlots]="10 - pendingAttachments().length"
       />
 
       <div
@@ -298,6 +299,7 @@
                 [src]="attachment.previewUrl"
                 class="size-full object-cover"
                 alt="preview"
+                (click)="previewMedia(attachment, $index)"
               />
             } @else if (attachment.error) {
               <div
@@ -318,7 +320,7 @@
               <button
                 type="button"
                 (click)="removeAttachment(attachment.tempId)"
-                class="absolute top-0.5 right-0.5 size-4 rounded-full bg-background/90 border border-border flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                class="absolute top-0.5 right-0.5 size-4 rounded-full bg-background/90 border border-border flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
               >
                 <ng-icon hlm name="lucideX" size="xs" />
               </button>
@@ -328,11 +330,26 @@
       </div>
 
       @if (isRecording()) {
-        <div class="flex-1">
-          <app-audio-recorder
-            (recordingDone)="onStopRecording($event)"
-            (recordingDeleted)="deleteRecording()"
-          ></app-audio-recorder>
+        <div class="flex items-center gap-x-2">
+          <div class="flex-1">
+            <app-audio-recorder
+              (recordingDone)="onStopRecording($event)"
+              (recordingDeleted)="deleteRecording()"
+            />
+          </div>
+
+          <!-- send button — only visible after recording stops -->
+          @if (recordingResult()) {
+            <button
+              hlmBtn
+              variant="outline"
+              (click)="sendMessage()"
+              [disabled]="!canMessage()"
+              class="rounded-full px-4 shrink-0 flex items-center justify-center cursor-pointer disabled:opacity-40 transition-colors"
+            >
+              <ng-icon hlm size="base" name="lucideSend" />
+            </button>
+          }
         </div>
       } @else {
         <div class="flex items-center gap-x-1">
@@ -342,6 +359,7 @@
               variant="ghost"
               class="rounded-full size-9 p-0 flex items-center justify-center cursor-pointer hover:bg-muted transition-colors"
               (click)="fileInput.click()"
+              [disabled]="pendingAttachments().length >= 10"
             >
               <ng-icon hlm size="base" name="lucidePaperclip"></ng-icon>
             </button>
@@ -356,6 +374,7 @@
           </div>
 
           <textarea
+            #sendInput
             [id]="`send_input/${conversation?._id}`"
             autocomplete="off"
             hlmInput

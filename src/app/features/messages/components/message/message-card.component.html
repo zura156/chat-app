@@ -61,13 +61,6 @@
                   {{ message.content }}
                 </p>
               }
-              @case ("text") {
-                <p
-                  class="whitespace-pre-wrap text-sm wrap-anywhere [word-break:break-word]"
-                >
-                  {{ message.content }}
-                </p>
-              }
               @case ("image") {
                 @let attachments = message.attachments ?? [];
                 @let readyAttachments = attachments;
@@ -87,7 +80,7 @@
                     let i = $index
                   ) {
                     <div
-                      class="relative cursor-pointer overflow-hidden rounded-xl"
+                      class="relative size-32 cursor-pointer overflow-hidden rounded-xl border border-accent"
                       [class]="visible.length === 1 ? '' : 'size-32'"
                       (click)="openMedia(message, i)"
                     >
@@ -95,8 +88,8 @@
                         attachment.status === "ready" && attachment.variants
                       ) {
                         <img
-                          class="w-full h-full object-cover"
-                          [src]="attachment.variants.thumb"
+                          class="size-full object-cover"
+                          [src]="attachment.variants.medium"
                           [alt]="attachment.originalName"
                         />
                         @if (i === 3 && overflow > 1) {
@@ -200,6 +193,31 @@
                   }
                 }
               }
+              @default {
+                @if (message.content) {
+                  <p
+                    class="whitespace-pre-wrap text-sm wrap-anywhere [word-break:break-word]"
+                  >
+                    {{ message.content }}
+                  </p>
+                } @else {
+                  <div class="py-1.5 px-3">
+                    <hlm-skeleton class="h-3.5 w-32 rounded" />
+                  </div>
+                }
+              }
+            }
+
+            @if (
+              message.content &&
+              message.type !== "info" &&
+              message.type !== "text"
+            ) {
+              <p
+                class="whitespace-pre-wrap text-sm wrap-anywhere [word-break:break-word] py-1.5 px-3"
+              >
+                {{ message.content }}
+              </p>
             }
           </div>
         </div>

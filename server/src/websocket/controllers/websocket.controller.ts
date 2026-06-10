@@ -138,15 +138,24 @@ export class WebSocketController {
     data: DTO.ConversationLeaveMessage,
   ): Promise<void> {
     try {
-      const allRecipientIds = [
-        ...(data.conversation.participants as any[]).map((p) => p._id),
-        ...(data.removed_users
-          ? data.removed_users.map((u) => (typeof u === 'string' ? u : u._id))
-          : []),
-      ];
+      const removedIds = new Set(
+        (data.removed_users ?? []).map((u) =>
+          String(typeof u === 'string' ? u : u._id),
+        ),
+      );
 
-      for (const userId of allRecipientIds) {
-        this.websocketService.sendToUser(userId.toString(), data);
+      // Remaining participants — still in the conversation, just update it
+      for (const participant of data.conversation.participants as any[]) {
+        const id = String(participant._id ?? participant);
+        this.websocketService.sendToUser(id, {
+          type: 'conversation-update',
+          conversation: data.conversation,
+        });
+      }
+
+      // Removed users — they leave
+      for (const userId of removedIds) {
+        this.websocketService.sendToUser(userId, data);
       }
     } catch (error) {
       logger.error('Error handling conversation-leave:', error);

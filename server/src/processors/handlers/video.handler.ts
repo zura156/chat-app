@@ -64,7 +64,7 @@ const extractThumbnail = (
         folder: outputPath,
         size: '640x?',
       })
-      .on('end', () => resolve)
+      .on('end', () => resolve())
       .on('error', reject);
   });
 };
@@ -73,6 +73,7 @@ const transcodeToHls = (
   inputPath: string,
   outputDir: string,
 ): Promise<void> => {
+  console.log('Starting transcoding for', inputPath);
   return new Promise((resolve, reject) => {
     ffmpeg(inputPath)
       .inputOptions(['-hide_banner'])
@@ -103,12 +104,11 @@ const transcodeToHls = (
         '-hls_time 6',
         '-hls_playlist_type vod',
         `-hls_segment_filename ${outputDir}/%v/seg_%03d.ts`,
-        '-var_stream_map',
-        'v:0,a:0 v:1,a:1',
         '-master_pl_name index.m3u8',
       ])
+      .outputOption('-var_stream_map', 'v:0,a:0 v:1,a:1')
       .output(`${outputDir}/%v/index.m3u8`)
-      .on('end', () => resolve)
+      .on('end', () => resolve())
       .on('error', reject)
       .run();
   });

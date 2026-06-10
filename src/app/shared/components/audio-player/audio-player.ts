@@ -7,7 +7,7 @@ import { environment } from '../../../../environments/environment';
 import { NgIcon, provideIcons } from '@ng-icons/core';
 import { HlmIconImports } from '@spartan-ng/helm/icon';
 import { HlmProgressImports } from '@spartan-ng/helm/progress';
-import { lucideCirclePause, lucideCirclePlay } from '@ng-icons/lucide';
+import { lucidePause, lucidePlay } from '@ng-icons/lucide';
 
 @Component({
   selector: 'app-audio-player',
@@ -19,7 +19,7 @@ import { lucideCirclePause, lucideCirclePlay } from '@ng-icons/lucide';
     HlmProgressImports,
     HlmButton,
   ],
-  providers: [provideIcons({ lucideCirclePlay, lucideCirclePause })],
+  providers: [provideIcons({ lucidePlay, lucidePause })],
 })
 export class AudioPlayer {
   audio = input.required<AttachmentI>();

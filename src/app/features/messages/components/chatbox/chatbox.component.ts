@@ -15,6 +15,7 @@ import {
 import {
   catchError,
   distinctUntilChanged,
+  EMPTY,
   map,
   Observable,
   of,
@@ -77,9 +78,13 @@ import {
   FilePickerConfig,
   FileReadyEvent,
   FileSelectedEvent,
-} from '../../../../shared/components/file-picker/file-picker';
+} from '../../../upload/file-picker/file-picker';
 import { PendingAttachment } from '../../../upload/interfaces/pending-attachment.interface';
 import { UploadContext } from '../../../upload/interfaces/upload.interface';
+import {
+  MediaItem,
+  MediaViewerService,
+} from '../../../../shared/services/media-viewer.service';
 
 @Component({
   selector: 'app-chatbox',
@@ -128,6 +133,7 @@ export class ChatboxComponent implements OnInit {
   private readonly conversationService = inject(ConversationService);
   private readonly messageService = inject(MessageService);
   private readonly webSocketService = inject(WebSocketService);
+  private readonly mediaViewerService = inject(MediaViewerService); // will take this into another component eventually, just want to get it working first
   // private readonly notificationService = inject(NotificationService);
   private readonly destroyRef = inject(DestroyRef);
 
@@ -142,7 +148,7 @@ export class ChatboxComponent implements OnInit {
   private readonly CHAT_PREFERENCE_STORAGE_KEY = 'prefers-chat-settings-open';
 
   private lastMessageSentAt = 0;
-  private recordingResult?: RecordingResult;
+  readonly recordingResult = signal<RecordingResult | undefined>(undefined);
   private observedElement? = viewChild<ElementRef>('topTracker');
   private divTopIntersectionObserver?: IntersectionObserver;
   private messageIntersectionObserver?: IntersectionObserver;
@@ -153,6 +159,9 @@ export class ChatboxComponent implements OnInit {
     allowedMimeTypes: [], // skips validation
     acceptAttr: '*/*',
   };
+
+  private readonly sendInput =
+    viewChild.required<ElementRef<HTMLTextAreaElement>>('sendInput');
 
   // ── Signals ────────────────────────────────────────────────────────────────
 
@@ -218,7 +227,7 @@ export class ChatboxComponent implements OnInit {
 
   // ── Derived signals ─────────────────────────────────────────────────────────
 
-  groupImageUrl = linkedSignal<string | null>(() => {
+  groupImageUrl = computed<string | null>(() => {
     const activeConversation = this.conversation();
     if (!activeConversation) return null;
     if (activeConversation.is_group)
@@ -230,7 +239,7 @@ export class ChatboxComponent implements OnInit {
     );
   });
 
-  groupedMessages = linkedSignal<GroupedMessages[]>(() => {
+  groupedMessages = computed<GroupedMessages[]>(() => {
     const result: GroupedMessages[] = [];
     const messages = this.messages();
     let currentGroup: MessageI[] = [];
@@ -367,7 +376,13 @@ export class ChatboxComponent implements OnInit {
           const selectedUser: UserI | null = JSON.parse(
             sessionStorage.getItem('selectedUser') ?? 'null',
           );
+
           if (selectedUser) {
+            if (selectedUser._id !== id) {
+              sessionStorage.removeItem('selectedUser');
+              toast.error('Sanitized and neutralized. Thanks for playing!');
+              return EMPTY;
+            }
             this.conversationService.selectUserForConversation(selectedUser);
             if (id === selectedUser._id) {
               this.conversationService.createMockConversation();
@@ -412,14 +427,14 @@ export class ChatboxComponent implements OnInit {
 
   startRecording(): void {
     this.isRecording.set(true);
-    this.recordingResult = undefined;
+    this.recordingResult.set(undefined);
   }
   deleteRecording(): void {
     this.isRecording.set(false);
-    this.recordingResult = undefined;
+    this.recordingResult.set(undefined);
   }
   onStopRecording(result: RecordingResult): void {
-    this.recordingResult = result;
+    this.recordingResult.set(result);
   }
 
   // ── File / message sending ──────────────────────────────────────────────────
@@ -437,7 +452,8 @@ export class ChatboxComponent implements OnInit {
     const files = Array.from(event.clipboardData?.items ?? [])
       .filter((item) => item.kind === 'file')
       .map((item) => item.getAsFile())
-      .filter((f): f is File => f !== null);
+      .filter((f): f is File => f !== null)
+      .slice(0, 10 - this.pendingAttachments().length);
 
     if (!files.length) return;
     event.preventDefault();
@@ -478,6 +494,25 @@ export class ChatboxComponent implements OnInit {
         error: null,
       },
     ]);
+  }
+
+  previewMedia(attachment: PendingAttachment, clickedIndex: number): void {
+    if (attachment.context === 'dm-file') return;
+
+    const readyAttachments = this.pendingAttachments() ?? [];
+
+    if (!readyAttachments.length) return;
+
+    const items: MediaItem[] = readyAttachments.map((a) => ({
+      _id: String(a.tempId),
+      uploadId: a.tempId,
+      type: attachment.context === 'dm-image' ? 'image' : 'video',
+      url: a.previewUrl || '',
+      name: a.file.name,
+      size: a.file.size,
+    }));
+
+    this.mediaViewerService.openGallery(items, clickedIndex);
   }
 
   onFileReady(event: FileReadyEvent): void {
@@ -549,9 +584,11 @@ export class ChatboxComponent implements OnInit {
     )
       return;
 
-    if (this.recordingResult) {
+    const recordingResult = this.recordingResult();
+
+    if (recordingResult) {
       const tempId = crypto.randomUUID();
-      const blob = this.recordingResult.blob;
+      const blob = recordingResult.blob;
       const file = new File([blob], 'recording.webm', { type: 'audio/webm' });
 
       // optimistic
@@ -565,6 +602,7 @@ export class ChatboxComponent implements OnInit {
         attachments: [],
       };
 
+      this.clearPendingAttachments();
       this.messageService.addMessage(optimisticMessage);
 
       this.canMessage.set(false);
@@ -590,10 +628,9 @@ export class ChatboxComponent implements OnInit {
           ),
           tap(() => {
             this.isRecording.set(false);
-            this.recordingResult = undefined;
+            this.recordingResult.set(undefined);
             this.canMessage.set(true);
             this.lastMessageSentAt = Date.now();
-            this.clearPendingAttachments();
           }),
           catchError((err) => this.handleError(err)),
         )
@@ -635,9 +672,8 @@ export class ChatboxComponent implements OnInit {
             this.clearPendingAttachments();
 
             this.messageControl.reset();
-            const textarea = document.getElementById(
-              `send_input/${conversationId}`,
-            ) as HTMLTextAreaElement;
+            const textarea = this.sendInput().nativeElement;
+
             if (textarea) {
               textarea.style.height = 'auto';
             }
@@ -669,7 +705,6 @@ export class ChatboxComponent implements OnInit {
                   this.isMessageLoading.set(false);
                   this.canMessage.set(true);
                   this.lastMessageSentAt = Date.now();
-                  this.clearPendingAttachments();
                 }),
               );
           }),
@@ -680,9 +715,7 @@ export class ChatboxComponent implements OnInit {
 
     this.canMessage.set(false);
     this.messageControl.reset();
-    const textarea = document.getElementById(
-      `send_input/${conversationId}`,
-    ) as HTMLTextAreaElement;
+    const textarea = this.sendInput().nativeElement;
     if (textarea) {
       textarea.style.height = 'auto';
     }
@@ -713,7 +746,6 @@ export class ChatboxComponent implements OnInit {
           this.isMessageLoading.set(false);
           this.canMessage.set(true);
           this.lastMessageSentAt = Date.now();
-          this.clearPendingAttachments();
         }),
       )
       .subscribe();
@@ -884,9 +916,35 @@ export class ChatboxComponent implements OnInit {
     );
   }
 
+  @HostListener('document:visibilitychange')
+  onVisibilityChange(): void {
+    // When the user switches back to this tab
+    if (document.visibilityState === 'visible') {
+      const activeConversation = this.conversation();
+      const currentMessages = this.messages();
+
+      if (activeConversation && currentMessages.length > 0) {
+        // Grab the latest message in the active chat (assuming index 0 is the newest based on your effect)
+        const lastMessage = currentMessages[0];
+
+        // If it exists and wasn't sent by the current user, mark it as read
+        if (
+          lastMessage?._id &&
+          lastMessage.sender._id !== this.currentUser()?._id
+        ) {
+          this.messageService.markMessageAsRead(lastMessage._id);
+        }
+      }
+    }
+  }
   private markMessageAsRead(message: MessageI): void {
+    const isOwnMessage = message.sender._id === this.currentUser()?._id;
+    const isGroup = this.conversation()?.is_group ?? false;
+
     if (
-      !message._id
+      !message._id ||
+      document.visibilityState !== 'visible' ||
+      (isOwnMessage && !isGroup)
       // || message.sender._id === this.currentUser()?._id // * Responsible for not marking mark own messages as read
     )
       return;

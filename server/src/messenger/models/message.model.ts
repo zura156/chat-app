@@ -6,7 +6,7 @@ import {
 
 export interface IAttachment {
   uploadId: string;
-  context: 'dm-image' | 'dm-video' | 'dm-file';
+  context: 'dm-image' | 'dm-video' | 'dm-audio' | 'dm-file';
   mimeType: string;
   fileSize: number;
   status: 'processing' | 'ready' | 'failed' | 'infected';
@@ -36,7 +36,7 @@ const AttachmentSchema = new Schema<IAttachment>(
     uploadId: { type: String, required: true },
     context: {
       type: String,
-      enum: ['dm-image', 'dm-video', 'dm-file'],
+      enum: ['dm-image', 'dm-video', 'dm-audio', 'dm-file'],
       required: true,
     },
     mimeType: { type: String, required: true },

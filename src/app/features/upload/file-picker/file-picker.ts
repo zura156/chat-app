@@ -49,6 +49,8 @@ export interface FileReadyEvent {
 })
 export class FilePicker implements OnDestroy {
   config = input.required<FilePickerConfig>();
+  remainingSlots = input<number>(Infinity);
+
   fileReady = output<FileReadyEvent>();
   cleared = output<void>();
   fileSelected = output<FileSelectedEvent>();
@@ -91,7 +93,9 @@ export class FilePicker implements OnDestroy {
   }
 
   onInputChange(event: Event): void {
-    const files = Array.from((event.target as HTMLInputElement).files ?? []);
+    const files = Array.from(
+      (event.target as HTMLInputElement).files ?? [],
+    ).slice(0, this.remainingSlots());
     files.forEach((file) => this.processFile(file));
     (event.target as HTMLInputElement).value = ''; // reset so same file can be re-selected
   }

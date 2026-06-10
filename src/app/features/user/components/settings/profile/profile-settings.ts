@@ -37,7 +37,7 @@ import { AuthService } from '../../../../auth/services/auth.service';
 import {
   FilePicker,
   FilePickerConfig,
-} from '../../../../../shared/components/file-picker/file-picker';
+} from '../../../../upload/file-picker/file-picker';
 
 @Component({
   selector: 'user-profile-settings',

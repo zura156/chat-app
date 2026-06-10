@@ -4,6 +4,7 @@ import config from './config';
 import rateLimit from 'express-rate-limit';
 import RedisStore from 'rate-limit-redis';
 import { Request, Response, NextFunction } from 'express';
+import { AuthRequest } from '../auth/middlewares/auth.middleware';
 
 const redisClient: RedisClientType = createClient({
   socket: {
@@ -37,7 +38,7 @@ let _presignLimiter: ReturnType<typeof rateLimit> | null = null;
 export function initLimiters(): void {
   _limiter = rateLimit({
     windowMs: 5 * 60 * 1000,
-    max: 100,
+    max: (req: AuthRequest) => (req?.user ? 500 : 100),
     standardHeaders: true,
     legacyHeaders: false,
     store: new RedisStore({
@@ -48,7 +49,7 @@ export function initLimiters(): void {
 
   _presignLimiter = rateLimit({
     windowMs: 60_000,
-    max: 30,
+    max: (req: AuthRequest) => (req?.user ? 100 : 30),
     standardHeaders: true,
     legacyHeaders: false,
     message: { error: 'Too many upload requests' },

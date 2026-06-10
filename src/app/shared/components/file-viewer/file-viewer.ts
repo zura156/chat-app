@@ -1,4 +1,4 @@
-import { Component, input } from '@angular/core';
+import { ChangeDetectionStrategy, Component, input } from '@angular/core';
 import { NgIcon, provideIcons } from '@ng-icons/core';
 import { lucideDownload } from '@ng-icons/lucide';
 import { AttachmentI } from '../../../features/messages/interfaces/message.interface';
@@ -15,6 +15,7 @@ import { HlmIcon } from '@spartan-ng/helm/icon';
       lucideDownload,
     }),
   ],
+  changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class FileViewer {
   readonly apiUrl = environment.apiUrl;

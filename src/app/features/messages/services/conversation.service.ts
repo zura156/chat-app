@@ -323,6 +323,24 @@ export class ConversationService {
 
       return { ...c, read_receipts: newReceipts };
     });
+
+    this.#conversationList.update((prev) => {
+    if (!prev) return null;
+    return {
+      ...prev,
+      conversations: prev.conversations.map((c) => {
+        if (c._id !== this.selectedConversationId()) return c;
+        const idx = c.read_receipts.findIndex(
+          (r) => r.user_id === readReceipt.user_id,
+        );
+        const receipts = [...c.read_receipts];
+        if (idx > -1) receipts[idx] = readReceipt;
+        else receipts.push(readReceipt);
+        return { ...c, read_receipts: receipts };
+      }),
+    };
+  });
+
   }
 
   manageConversationMembers(
