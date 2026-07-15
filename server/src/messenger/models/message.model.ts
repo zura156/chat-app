@@ -17,6 +17,7 @@ export interface IAttachment {
     hls?: string;
     thumbnail?: string;
   } | null;
+  duration?: number;
   originalName?: string;
 }
 
@@ -47,6 +48,7 @@ const AttachmentSchema = new Schema<IAttachment>(
       default: 'processing',
     },
     variants: { type: Schema.Types.Mixed, default: null },
+    duration: { type: Number },
     originalName: { type: String },
   },
   { _id: false },

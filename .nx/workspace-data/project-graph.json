@@ -14,9 +14,6 @@
           "build": {
             "executor": "@angular/build:application",
             "options": {
-              "allowedCommonJsDependencies": [
-                "hammerjs"
-              ],
               "outputPath": "dist/chat-app",
               "index": "src/index.html",
               "browser": "src/main.ts",
@@ -4997,15 +4994,6 @@
         "hash": "sha512-0dzKcwO+S8s2kuF5Z9oUWatQJj5Uq/iqphEtE3GQJVRRYm/tD1LglU2UnXi2A8jLq5umkGouOXOR9y0n613ZwQ=="
       }
     },
-    "npm:@types/hammerjs": {
-      "type": "npm",
-      "name": "npm:@types/hammerjs",
-      "data": {
-        "version": "2.0.46",
-        "packageName": "@types/hammerjs",
-        "hash": "sha512-ynRvcq6wvqexJ9brDMS4BnBLzmr0e14d6ZJTEShTBWKymQiHwlAyGu0ZPEFI2Fh1U53F7tN9ufClWM5KvqkKOw=="
-      }
-    },
     "npm:@types/http-errors": {
       "type": "npm",
       "name": "npm:@types/http-errors",
@@ -7983,15 +7971,6 @@
         "version": "4.2.11",
         "packageName": "graceful-fs",
         "hash": "sha512-RbJ5/jmFcNNCcDV5o9eTnBLJ/HszWV0P73bc+Ff4nS/rJj+YaS6IGyiOL0VoBYX+l1Wrl3k63h/KrH+nhJ0XvQ=="
-      }
-    },
-    "npm:hammerjs": {
-      "type": "npm",
-      "name": "npm:hammerjs",
-      "data": {
-        "version": "2.0.8",
-        "packageName": "hammerjs",
-        "hash": "sha512-tSQXBXS/MWQOn/RKckawJ61vvsDpCom87JgxiYdGwHdOa0ht0vzUWDlfioofFCRU0L+6NGDt6XzbgoJvZkMeRQ=="
       }
     },
     "npm:handle-thing": {
@@ -12434,11 +12413,6 @@
       },
       {
         "source": "chat-app",
-        "target": "npm:@types/hammerjs",
-        "type": "static"
-      },
-      {
-        "source": "chat-app",
         "target": "npm:@types/jasmine",
         "type": "static"
       },
@@ -12595,11 +12569,6 @@
       {
         "source": "chat-app",
         "target": "npm:firebase",
-        "type": "static"
-      },
-      {
-        "source": "chat-app",
-        "target": "npm:hammerjs",
         "type": "static"
       },
       {

@@ -1,5 +1,5 @@
 import { Job } from 'bullmq';
-import { GetObjectCommand } from '@aws-sdk/client-s3';
+import { GetObjectCommand, DeleteObjectCommand } from '@aws-sdk/client-s3';
 import { contextHandlers } from './handlers';
 import { Upload } from '../upload/upload.model';
 import { s3App } from '../config/s3';
@@ -47,6 +47,7 @@ export const processUpload = async (job: Job<JobPayload>) => {
   await Upload.findByIdAndUpdate(payload.uploadId, {
     status: 'ready',
     variants: result.variants,
+    duration: result.duration,
   });
 
   await handlerConfig.onComplete(payload, result);
@@ -55,6 +56,14 @@ export const processUpload = async (job: Job<JobPayload>) => {
     type: 'upload-ready',
     uploadId: payload.uploadId,
     context: payload.context,
+    duration: result.duration,
     variants: result.variants,
   });
+
+  await s3App.send(
+    new DeleteObjectCommand({
+      Bucket: config.s3TempBucket,
+      Key: payload.fileKey,
+    }),
+  );
 };

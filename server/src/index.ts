@@ -89,8 +89,8 @@ app.use(hpp());
 
 // Middlewares
 
-app.use(express.json({ limit: '100mb' }));
-app.use(express.urlencoded({ limit: '100mb', extended: true }));
+app.use(express.json({ limit: '1mb' }));
+app.use(express.urlencoded({ limit: '1mb', extended: true }));
 app.use(cookieParser());
 ffmpeg.setFfmpegPath(ffmpegPath || '');
 // app.use(morgan('combined'));
@@ -143,15 +143,6 @@ server.listen(port, async () => {
       webSocketServiceInstance.sendToUser(userId, notification);
     } catch (err) {
       logger.error('Notification sub error:', err);
-    }
-  });
-
-  await redisSubscriber.subscribe('ws:upload', (raw) => {
-    try {
-      const { userId, payload } = JSON.parse(raw);
-      webSocketServiceInstance.sendToUser(userId, payload);
-    } catch (err) {
-      logger.error('Upload WS sub error:', err);
     }
   });
 

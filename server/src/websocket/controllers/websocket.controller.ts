@@ -199,7 +199,7 @@ export class WebSocketController {
               },
             },
           },
-          { new: true, select: 'participants' },
+          { returnDocument: 'after', select: 'participants' },
         );
       }
 

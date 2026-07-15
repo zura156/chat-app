@@ -685,7 +685,7 @@ export class ChatboxComponent implements OnInit {
 
             return this.messageService
               .sendMessage(
-                conversationId,
+                conversation._id,
                 content ?? null,
                 attachments
                   .filter((a) => a.fileKey)
@@ -900,6 +900,7 @@ export class ChatboxComponent implements OnInit {
             this.messageService.updateAttachmentVariants(
               res.uploadId,
               res.variants,
+              res.duration,
             );
             break;
           }

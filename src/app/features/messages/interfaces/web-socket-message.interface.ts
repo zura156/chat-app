@@ -90,6 +90,7 @@ export interface UploadReadyMessage extends BaseWebSocketMessage {
   type: 'upload-ready';
   uploadId: string;
   variants: Record<string, string>;
+  duration?: number; // for audio/video length in seconds
 }
 
 export interface UploadInfectedMessage extends BaseWebSocketMessage {

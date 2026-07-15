@@ -10,16 +10,12 @@ import {
 } from '@angular/core';
 import { environment } from '../../../../environments/environment';
 import { HttpClient, httpResource } from '@angular/common/http';
-import { delay, Observable, of } from 'rxjs';
+import { Observable } from 'rxjs';
 import { MessageI, MessageStatus } from '../interfaces/message.interface';
 import { MessageListI } from '../interfaces/message-list.interface';
-import { ParticipantI } from '../interfaces/participant.interface';
 import { ConversationService } from './conversation.service';
 import { WebSocketService } from './web-socket.service';
-import {
-  ChatMessage,
-  MessageStatusMessage,
-} from '../interfaces/web-socket-message.interface';
+import { MessageStatusMessage } from '../interfaces/web-socket-message.interface';
 import { UserStateService } from '../../user/services/user-state.service';
 import { AuthService } from '../../auth/services/auth.service';
 
@@ -346,6 +342,7 @@ export class MessageService {
   updateAttachmentVariants(
     uploadId: string,
     variants: Record<string, string>,
+    duration?: number,
   ): void {
     this.#activeMessages.update((messages) =>
       messages.map((msg) => {
@@ -357,6 +354,7 @@ export class MessageService {
           ...updatedAttachments[idx],
           status: 'ready',
           variants,
+          ...(duration !== undefined && { duration }),
         };
         return { ...msg, attachments: updatedAttachments };
       }),
@@ -433,18 +431,14 @@ export class MessageService {
   }
 
   // Add a single message to the active messages (useful for real-time updates)
-  addMessage(message: MessageI, isNewest: boolean = false): void {
+  addMessage(message: MessageI): void {
     this.#activeMessages.update((currentMessages) => {
-      if (isNewest) {
-        return currentMessages;
-      } else {
-        return [message, ...currentMessages];
-      }
+      return [message, ...currentMessages];
     });
   }
 
   uploadFileMessage(formData: FormData): Observable<any> {
-    return this.http.post(`${this.apiUrl}/upload`, formData).pipe(delay(500));
+    return this.http.post(`${this.apiUrl}/upload`, formData);
   }
 
   // Clear active messages (useful when changing conversations)

@@ -34,6 +34,7 @@ export interface UploadReadyMessage extends BaseWebSocketMessage {
   uploadId: string;
   context: string;
   variants: Record<string, string>;
+  duration?: number; // for audio/video length in seconds
 }
 
 export interface UploadInfectedMessage extends BaseWebSocketMessage {

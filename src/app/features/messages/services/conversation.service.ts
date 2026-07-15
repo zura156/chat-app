@@ -29,8 +29,6 @@ export class ConversationService {
   private readonly SEARCH_CONVERSATIONS_URL = `${this.apiUrl}/conversations/search`;
   private readonly FIND_CONVERSATION_ID_BY_USER_ID_URL = `${this.apiUrl}/conversations/find/:participantId`;
   private readonly CREATE_CONVERSATION_URL = `${this.apiUrl}/conversations`;
-  private readonly GET_CONVERSATION_URL = `${this.apiUrl}/conversations/:id`;
-  private readonly UPDATE_CONVERSATION_URL = `${this.apiUrl}/conversations/:id`;
   private readonly MANAGE_CONVERSATION_MEMBERS_URL = `${this.apiUrl}/conversations/:conversationId/members`;
 
   // Cache for active conversation data (messages, etc.)
@@ -85,7 +83,7 @@ export class ConversationService {
 
   // Get a single conversation with messages
   getConversationById(id: string): Observable<ConversationI> {
-    const url = `${this.GET_CONVERSATION_URL.split(':id')[0]}${id}`;
+    const url = `${this.apiUrl}/conversations/${id}`;
     const data = this.activeConversation();
 
     if (data && data._id === id) {
@@ -211,9 +209,7 @@ export class ConversationService {
       return of(activeConversation);
     }
 
-    const url = `${
-      this.UPDATE_CONVERSATION_URL.split(':id')[0]
-    }${conversationId}`;
+    const url = `${this.apiUrl}/conversations/${conversationId}`;
     const formData = new FormData();
 
     if (newGroupName) {
@@ -325,22 +321,21 @@ export class ConversationService {
     });
 
     this.#conversationList.update((prev) => {
-    if (!prev) return null;
-    return {
-      ...prev,
-      conversations: prev.conversations.map((c) => {
-        if (c._id !== this.selectedConversationId()) return c;
-        const idx = c.read_receipts.findIndex(
-          (r) => r.user_id === readReceipt.user_id,
-        );
-        const receipts = [...c.read_receipts];
-        if (idx > -1) receipts[idx] = readReceipt;
-        else receipts.push(readReceipt);
-        return { ...c, read_receipts: receipts };
-      }),
-    };
-  });
-
+      if (!prev) return null;
+      return {
+        ...prev,
+        conversations: prev.conversations.map((c) => {
+          if (c._id !== this.selectedConversationId()) return c;
+          const idx = c.read_receipts.findIndex(
+            (r) => r.user_id === readReceipt.user_id,
+          );
+          const receipts = [...c.read_receipts];
+          if (idx > -1) receipts[idx] = readReceipt;
+          else receipts.push(readReceipt);
+          return { ...c, read_receipts: receipts };
+        }),
+      };
+    });
   }
 
   manageConversationMembers(

@@ -1,4 +1,10 @@
-import { Component, input, linkedSignal, signal } from '@angular/core';
+import {
+  Component,
+  computed,
+  input,
+  linkedSignal,
+  signal,
+} from '@angular/core';
 import { FormatTimePipe } from '../../pipes/format-time.pipe';
 import { HlmButton } from '@spartan-ng/helm/button';
 import { MediaPlayerSizesT } from '../../types/media-player-sizes.type';
@@ -27,7 +33,7 @@ export class AudioPlayer {
   readonly apiUrl = environment.apiUrl;
 
   currentTime = signal<number>(0);
-  duration = linkedSignal<number>(() => this.audio()?.duration || 0);
+  duration = computed<number>(() => this.audio()?.duration || 0);
   progressPercentage = linkedSignal<number>(() => {
     const duration = this.duration();
 

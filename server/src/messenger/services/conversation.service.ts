@@ -88,8 +88,8 @@ export class ConversationService {
     userId: string,
     participantId: string,
   ) {
-    const userObjectId = new Object(userId);
-    const participantObjectId = new Object(participantId);
+    const userObjectId = new Types.ObjectId(userId);
+    const participantObjectId = new Types.ObjectId(participantId);
 
     if (
       !Types.ObjectId.isValid(userId) ||
@@ -117,7 +117,7 @@ export class ConversationService {
     conversation: IConversation,
     userId: string,
   ) {
-    conversation.populate(
+    await conversation.populate(
       'participants',
       'first_name last_name username pfp_url pfp_variants status last_seen',
     );
@@ -436,7 +436,4 @@ export class ConversationService {
     );
     return { ...conversation.toObject(), participants: otherParticipants };
   }
-}
-function next(arg0: CustomAPIError) {
-  throw new Error('Function not implemented.');
 }

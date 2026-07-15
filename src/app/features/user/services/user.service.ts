@@ -21,7 +21,6 @@ export class UserService {
 
   private readonly _GET_CURRENT_USER_URL = `${this.apiUrl}/user/profile`;
   private readonly _GET_USERS_URL = `${this.apiUrl}/user`;
-  private readonly _GET_USER_BY_ID = `${this.apiUrl}/user/:id`;
   private readonly _SEARCH_USERS_URL = `${this.apiUrl}/user/search`;
   private readonly _UPDATE_PROFILE_PICTURE_URL = `${this.apiUrl}/user/profile-picture`;
 
@@ -92,7 +91,7 @@ export class UserService {
     const user = this.selectedUser();
     if (user && user._id === userId) return of(user);
 
-    const url = `${this._GET_USER_BY_ID.split(':id')[0]}${userId}`;
+    const url = `${this.apiUrl}/user/${userId}`;
     return this.http
       .get<UserI>(url)
       .pipe(tap((res) => this.#selectedUser.set(res)));

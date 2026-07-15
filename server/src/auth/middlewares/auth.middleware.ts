@@ -3,6 +3,7 @@ import jwt from 'jsonwebtoken';
 import config from '../../config/config';
 import { IConversation } from '../../messenger/models/conversation.model';
 import { IUser, User } from '../../user/models/user.model';
+import { isAccessTokenBlacklisted } from '../services/token.service';
 
 export interface AuthRequest extends Request {
   user?: IUser;
@@ -23,6 +24,13 @@ export const authenticateToken = async (
 
   try {
     const decoded = jwt.verify(token, config.jwtSecret) as { userId: string };
+    const blacklisted = await isAccessTokenBlacklisted(token);
+
+    if (blacklisted) {
+      res.status(401).json({ error: 'Token revoked' });
+      return;
+    }
+
     const user = await User.findById(decoded.userId).select(
       '-password -refreshTokens -is_email_verified -login_attempts -lock_until -last_login',
     );

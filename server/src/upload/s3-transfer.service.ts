@@ -8,6 +8,7 @@ import { s3App, s3Quarantine } from '../config/s3';
 import { createWriteStream, createReadStream } from 'fs';
 import { pipeline } from 'stream/promises';
 import { Readable } from 'stream';
+import config from '../config/config';
 
 export async function downloadFromQuarantine(
   key: string,
@@ -15,7 +16,7 @@ export async function downloadFromQuarantine(
 ): Promise<void> {
   const { Body } = await s3Quarantine.send(
     new GetObjectCommand({
-      Bucket: process.env.S3_QUARANTINE_BUCKET!,
+      Bucket: config.s3QuarantineBucket,
       Key: key,
     }),
   );
@@ -30,7 +31,7 @@ export async function uploadToApp(
   const body = createReadStream(localPath);
   await s3App.send(
     new PutObjectCommand({
-      Bucket: process.env.S3_APP_BUCKET!,
+      Bucket: config.s3PublicBucket,
       Key: destKey,
       Body: body,
       ContentType: contentType,
@@ -45,7 +46,7 @@ export async function uploadBufferToApp(
 ): Promise<void> {
   await s3App.send(
     new PutObjectCommand({
-      Bucket: process.env.S3_APP_BUCKET!,
+      Bucket: config.s3PublicBucket,
       Key: destKey,
       Body: buffer,
       ContentType: contentType,
@@ -56,7 +57,7 @@ export async function uploadBufferToApp(
 export async function deleteFromQuarantine(key: string): Promise<void> {
   await s3Quarantine.send(
     new DeleteObjectCommand({
-      Bucket: process.env.S3_QUARANTINE_BUCKET!,
+      Bucket: config.s3QuarantineBucket,
       Key: key,
     }),
   );
@@ -68,8 +69,8 @@ export async function copyQuarantineToApp(
 ): Promise<void> {
   await s3App.send(
     new CopyObjectCommand({
-      CopySource: `${process.env.S3_QUARANTINE_BUCKET!}/${srcKey}`,
-      Bucket: process.env.S3_APP_BUCKET!,
+      CopySource: `${config.s3QuarantineBucket}/${srcKey}`,
+      Bucket: config.s3PublicBucket,
       Key: destKey,
     }),
   );

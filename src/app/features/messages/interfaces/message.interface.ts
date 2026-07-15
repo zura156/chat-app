@@ -36,8 +36,8 @@ export interface AttachmentI {
   fileSize: number;
   status: 'processing' | 'ready' | 'failed' | 'infected';
   variants: AttachmentVariants | null;
-  originalName?: string;
   duration?: number; // For audio/video files, in seconds
+  originalName?: string;
 }
 
 export interface MessageI {

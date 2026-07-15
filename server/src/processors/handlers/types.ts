@@ -9,6 +9,7 @@ export interface JobPayload {
 
 export interface ProcessResult {
   variants: Record<string, string>; // CDN URLs
+  duration?: number; // audio/video duration in seconds
   finalBucket: string;
   finalKey: string;
 }

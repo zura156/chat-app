@@ -14,7 +14,7 @@
           "builder": "@angular/build:application",
           "options": {
             "allowedCommonJsDependencies": [
-              "hammerjs"
+              "eruda"
             ],
             "outputPath": "dist/chat-app",
             "index": "src/index.html",

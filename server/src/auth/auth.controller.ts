@@ -1,7 +1,10 @@
 import { NextFunction, Request, Response } from 'express';
 import { User } from '../user/models/user.model';
 import { generateTokens } from './services/jwt.service';
-import { createCustomError } from '../error-handling/models/custom-api-error.model';
+import {
+  createCustomError,
+  CustomAPIError,
+} from '../error-handling/models/custom-api-error.model';
 import config from '../config/config';
 import { LoginDto } from './dtos/login.dto';
 import { RegisterDto } from './dtos/register.dto';
@@ -116,8 +119,8 @@ export const registerUser = async (
       },
     });
   } catch (error: any) {
-    if (error.message) return next(createCustomError(error.message, 400));
-    return next(createCustomError('Server error during registration!', 500));
+    if (error instanceof CustomAPIError) return next(error);
+    return next(createCustomError('Server error', 500));
   }
 };
 
