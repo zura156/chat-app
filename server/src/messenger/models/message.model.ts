@@ -18,6 +18,7 @@ export interface IAttachment {
     thumbnail?: string;
   } | null;
   originalName?: string;
+  duration?: number;
 }
 
 export interface IMessage extends Document {
@@ -48,6 +49,7 @@ const AttachmentSchema = new Schema<IAttachment>(
     },
     variants: { type: Schema.Types.Mixed, default: null },
     originalName: { type: String },
+    duration: { type: Number },
   },
   { _id: false },
 );

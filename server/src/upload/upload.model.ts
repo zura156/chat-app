@@ -22,6 +22,7 @@ const uploadSchema = new Schema(
       default: 'pending',
     },
     variants: { type: Schema.Types.Mixed, default: null }, // CDN URLs after processing
+    duration: { type: Number, default: null }, // audio/video length in seconds
     expiresAt: { type: Date, default: null }, // for stories
   },
   { _id: false, timestamps: true },

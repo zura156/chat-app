@@ -900,6 +900,7 @@ export class ChatboxComponent implements OnInit {
             this.messageService.updateAttachmentVariants(
               res.uploadId,
               res.variants,
+              res.duration,
             );
             break;
           }

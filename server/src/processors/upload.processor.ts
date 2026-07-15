@@ -47,6 +47,7 @@ export const processUpload = async (job: Job<JobPayload>) => {
   await Upload.findByIdAndUpdate(payload.uploadId, {
     status: 'ready',
     variants: result.variants,
+    duration: result.duration,
   });
 
   await handlerConfig.onComplete(payload, result);
@@ -56,5 +57,6 @@ export const processUpload = async (job: Job<JobPayload>) => {
     uploadId: payload.uploadId,
     context: payload.context,
     variants: result.variants,
+    duration: result.duration,
   });
 };

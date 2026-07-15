@@ -34,6 +34,7 @@ export interface UploadReadyMessage extends BaseWebSocketMessage {
   uploadId: string;
   context: string;
   variants: Record<string, string>;
+  duration?: number;
 }
 
 export interface UploadInfectedMessage extends BaseWebSocketMessage {

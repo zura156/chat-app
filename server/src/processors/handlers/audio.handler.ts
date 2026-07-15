@@ -62,9 +62,11 @@ export const audioHandler = async (
       Buffer.from(await raw.Body!.transformToByteArray()),
     );
 
-    const duration = await getDuration(tmpInput);
-
     await transcodeAudio(tmpInput, tmpOutput);
+    // raw MediaRecorder webm has no reliable duration in its container
+    // (confirmed: ffprobe returns it for neither streams nor format on
+    // such files) — read it from the finalized .ogg output instead.
+    const duration = await getDuration(tmpOutput);
 
     const baseKey = `${payload.context}/${payload.userId}/${payload.uploadId}`;
     const finalKey = `${baseKey}/audio.ogg`;
@@ -87,10 +89,9 @@ export const audioHandler = async (
 
     const variants = {
       original: `${config.s3Url}/${config.s3PrivateBucket}/${finalKey}`,
-      duration: duration.toString(),
     };
 
-    return { variants, finalBucket: config.s3PrivateBucket, finalKey };
+    return { variants, duration, finalBucket: config.s3PrivateBucket, finalKey };
   } finally {
     await rm(tmpBase, { recursive: true, force: true });
   }

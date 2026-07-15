@@ -126,6 +126,7 @@ export class MessageService {
         originalName: a.originalName,
         status: upload.status === 'ready' ? 'ready' : 'processing',
         variants: upload.variants ?? null,
+        duration: upload.duration ?? undefined,
       };
     });
 

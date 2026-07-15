@@ -346,6 +346,7 @@ export class MessageService {
   updateAttachmentVariants(
     uploadId: string,
     variants: Record<string, string>,
+    duration?: number,
   ): void {
     this.#activeMessages.update((messages) =>
       messages.map((msg) => {
@@ -357,6 +358,7 @@ export class MessageService {
           ...updatedAttachments[idx],
           status: 'ready',
           variants,
+          ...(duration !== undefined && { duration }),
         };
         return { ...msg, attachments: updatedAttachments };
       }),
