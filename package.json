@@ -48,7 +48,6 @@
     "@spartan-ng/brain": "^1.1.1",
     "@spartan-ng/cli": "^1.1.1",
     "@types/jasmine": "~6.0.0",
-    "eruda": "^3.4.3",
     "istanbul-lib-instrument": "^6.0.3",
     "jasmine-core": "~6.1.0",
     "karma": "~6.4.4",

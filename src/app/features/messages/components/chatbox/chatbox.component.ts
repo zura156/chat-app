@@ -1,4 +1,5 @@
 import {
+  ChangeDetectionStrategy,
   Component,
   DestroyRef,
   computed,
@@ -119,6 +120,7 @@ import {
       lucideAlertCircle,
     }),
   ],
+  changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './chatbox.component.html',
   styleUrl: './chatbox.component.css',
 })
@@ -565,7 +567,7 @@ export class ChatboxComponent implements OnInit {
 
     const content = this.messageControl.value;
 
-    if (content && content.length > 2000) {
+    if (content && content. length > 2000) {
       toast.error('Message is too long. Maximum length is 2000 characters.');
       return;
     }
@@ -601,38 +603,32 @@ export class ChatboxComponent implements OnInit {
       };
 
       this.clearPendingAttachments();
-      this.messageService.addMessage(optimisticMessage);
-
       this.canMessage.set(false);
 
-      this.uploadService
-        .uploadFile('dm-audio', file)
-        .pipe(
-          takeUntilDestroyed(this.destroyRef),
-          switchMap((uploadId) =>
-            this.messageService.sendMessage(
-              activeConversation._id,
-              null,
-              [
-                {
-                  uploadId,
-                  context: 'dm-audio',
-                  mimeType: file.type,
-                  fileSize: file.size,
-                },
-              ],
-              tempId,
-            ),
-          ),
-          tap(() => {
-            this.isRecording.set(false);
-            this.recordingResult.set(undefined);
-            this.canMessage.set(true);
-            this.lastMessageSentAt = Date.now();
-          }),
-          catchError((err) => this.handleError(err)),
-        )
-        .subscribe();
+      // first message to a not-yet-created conversation — activeConversation._id
+      // is a mock id (the other user's userId, see createMockConversation()).
+      // Create the real conversation first, same as the text-message path.
+      if (!activeConversation.createdAt) {
+        this.conversationService
+          .createConversation([sender._id, this.selectedUser()!._id])
+          .pipe(
+            catchError((err) => this.handleError(err)),
+            switchMap((conversation) => {
+              this.messageService.addMessage({
+                ...optimisticMessage,
+                conversation: conversation._id,
+              });
+              this.router.navigateByUrl(`/messages/${conversation._id}`);
+              return this.sendRecordedAudio(conversation._id, tempId, file);
+            }),
+          )
+          .subscribe();
+
+        return;
+      }
+
+      this.messageService.addMessage(optimisticMessage);
+      this.sendRecordedAudio(activeConversation._id, tempId, file).subscribe();
 
       return;
     }
@@ -747,6 +743,38 @@ export class ChatboxComponent implements OnInit {
         }),
       )
       .subscribe();
+  }
+
+  private sendRecordedAudio(
+    conversationId: string,
+    tempId: string,
+    file: File,
+  ) {
+    return this.uploadService.uploadFile('dm-audio', file).pipe(
+      takeUntilDestroyed(this.destroyRef),
+      switchMap((uploadId) =>
+        this.messageService.sendMessage(
+          conversationId,
+          null,
+          [
+            {
+              uploadId,
+              context: 'dm-audio',
+              mimeType: file.type,
+              fileSize: file.size,
+            },
+          ],
+          tempId,
+        ),
+      ),
+      tap(() => {
+        this.isRecording.set(false);
+        this.recordingResult.set(undefined);
+        this.canMessage.set(true);
+        this.lastMessageSentAt = Date.now();
+      }),
+      catchError((err) => this.handleError(err)),
+    );
   }
 
   autoResize(event: Event): void {

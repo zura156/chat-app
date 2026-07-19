@@ -13,9 +13,6 @@
         "build": {
           "builder": "@angular/build:application",
           "options": {
-            "allowedCommonJsDependencies": [
-              "eruda"
-            ],
             "outputPath": "dist/chat-app",
             "index": "src/index.html",
             "browser": "src/main.ts",

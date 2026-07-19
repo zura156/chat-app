@@ -5,7 +5,6 @@ import { RouterOutlet } from '@angular/router';
 import { NgxLoadingBar } from '@ngx-loading-bar/core';
 // import { NotificationService } from './features/messages/services/notification.service';
 import { AuthService } from './features/auth/services/auth.service';
-import { ErudaService } from './shared/services/eruda.service';
 
 @Component({
   selector: 'app-root',
@@ -16,13 +15,10 @@ export class AppComponent implements OnInit {
   private themeService = inject(ThemeService);
   // private notificationService = inject(NotificationService);
   private authService = inject(AuthService);
-  private eruda = inject(ErudaService);
 
   theme = this.themeService.theme;
 
   ngOnInit(): void {
-    this.eruda.init(); // for development
-
     if (this.authService.isAuthenticated()) {
       // this.notificationService.loadNotifications();
 
