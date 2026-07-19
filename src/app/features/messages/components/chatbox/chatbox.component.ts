@@ -1,5 +1,4 @@
 import {
-  ChangeDetectionStrategy,
   Component,
   DestroyRef,
   computed,
@@ -120,7 +119,6 @@ import {
       lucideAlertCircle,
     }),
   ],
-  changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './chatbox.component.html',
   styleUrl: './chatbox.component.css',
 })

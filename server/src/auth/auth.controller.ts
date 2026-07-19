@@ -1,10 +1,7 @@
 import { NextFunction, Request, Response } from 'express';
 import { User } from '../user/models/user.model';
 import { generateTokens } from './services/jwt.service';
-import {
-  createCustomError,
-  CustomAPIError,
-} from '../error-handling/models/custom-api-error.model';
+import { CustomAPIError } from '../error-handling/models/custom-api-error.model';
 import config from '../config/config';
 import { LoginDto } from './dtos/login.dto';
 import { RegisterDto } from './dtos/register.dto';
@@ -119,8 +116,8 @@ export const registerUser = async (
       },
     });
   } catch (error: any) {
-    if (error instanceof CustomAPIError) return next(error);
-    return next(createCustomError('Server error', 500));
+    if (error instanceof CustomAPIError) throw error;
+    next(error);
   }
 };
 
@@ -162,8 +159,8 @@ export const loginUser = async (
     setAuthCookies(res, accessToken, refreshToken);
     res.status(200).json({ message: 'Login successful' });
   } catch (error: any) {
-    if (error.message) return next(createCustomError(error.message, 400));
-    return next(createCustomError('Server error during login', 500));
+    if (error instanceof CustomAPIError) throw error;
+    next(error);
   }
 };
 
@@ -211,8 +208,8 @@ export const refreshAccessToken = async (
     setAuthCookies(res, accessToken, newRefreshToken);
     res.json({ message: 'Token refreshed successfully' });
   } catch (error: any) {
-    if (error.message) return next(createCustomError(error.message, 400));
-    return next(createCustomError('Server error during token refresh', 500));
+    if (error instanceof CustomAPIError) throw error;
+    next(error);
   }
 };
 
@@ -248,8 +245,8 @@ export const logOut = async (
     clearAuthCookies(res);
     res.json({ message: 'Logout successful' });
   } catch (error: any) {
-    if (error.message) return next(createCustomError(error.message, 400));
-    return next(createCustomError('Server error during logout', 500));
+    if (error instanceof CustomAPIError) throw error;
+    next(error);
   }
 };
 
@@ -295,10 +292,8 @@ export const forgotPassword = async (
       .status(200)
       .json({ message: 'Password reset link sent if email exists.' });
   } catch (error: any) {
-    if (error.message) return next(createCustomError(error.message, 400));
-    return next(
-      createCustomError('Server error during forgot password request', 500),
-    );
+    if (error instanceof CustomAPIError) throw error;
+    next(error);
   }
 };
 
@@ -358,8 +353,8 @@ export const resetPassword = async (
     clearAuthCookies(res);
     res.status(200).json({ message: 'Password reset successful.' });
   } catch (error: any) {
-    if (error.message) return next(createCustomError(error.message, 400));
-    return next(createCustomError('Server error during password reset', 500));
+    if (error instanceof CustomAPIError) throw error;
+    next(error);
   }
 };
 
@@ -412,10 +407,8 @@ export const verifyEmail = async (
 
     res.status(200).json({ message: 'Email verification successful.' });
   } catch (error: any) {
-    if (error.message) return next(createCustomError(error.message, 400));
-    return next(
-      createCustomError('Server error during email verification', 500),
-    );
+    if (error instanceof CustomAPIError) throw error;
+    next(error);
   }
 };
 
@@ -468,7 +461,7 @@ export const unlockAccount = async (
 
     res.status(200).json({ message: 'Account unlocked successfully.' });
   } catch (error: any) {
-    if (error.message) return next(createCustomError(error.message, 400));
-    return next(createCustomError('Server error during account unlock', 500));
+    if (error instanceof CustomAPIError) throw error;
+    next(error);
   }
 };

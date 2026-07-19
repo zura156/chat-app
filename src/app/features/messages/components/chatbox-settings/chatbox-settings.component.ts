@@ -1,5 +1,4 @@
 import {
-  ChangeDetectionStrategy,
   Component,
   ComponentRef,
   DestroyRef,
@@ -83,7 +82,6 @@ import { environment } from '../../../../../environments/environment';
   ],
   templateUrl: './chatbox-settings.component.html',
   styleUrl: './chatbox-settings.component.css',
-  changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class ChatboxSettingsComponent {
   conversation = input<ConversationI>();

@@ -5,6 +5,7 @@ import { processUpload } from './processors/upload.processor';
 import { logger } from './utils/logger';
 import { connectDB } from './config/db';
 import { connectRedis } from './config/redis';
+import { Upload } from './upload/upload.model';
 
 const CONCURRENCY = parseInt(process.env.WORKER_CONCURRENCY ?? '2');
 // Keep low: ffmpeg is CPU-heavy. Scale horizontally via Coolify replicas instead.
@@ -29,7 +30,7 @@ async function startWorker() {
     worker.on('completed', ({ id }) =>
       logger.info(JSON.stringify({ jobId: id }), 'Job completed'),
     );
-    worker.on('failed', (job, err) => {
+    worker.on('failed', async (job, err) => {
       const id = job?.id;
       // MANUALLY extract properties because Error objects don't stringify
       const errorInfo = {
@@ -40,6 +41,9 @@ async function startWorker() {
         code: (err as any).Code || (err as any).name,
         status: (err as any).$metadata?.httpStatusCode,
       };
+
+      // update the database
+      await Upload.findByIdAndUpdate(id, { status: 'failed' }).exec();
 
       console.error('Job failed, Raw error:', err);
       logger.error('Job failed', { jobId: id, error: errorInfo });

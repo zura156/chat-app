@@ -1,9 +1,4 @@
-import {
-  ChangeDetectionStrategy,
-  Component,
-  inject,
-  OnInit,
-} from '@angular/core';
+import { Component, inject, OnInit } from '@angular/core';
 import { HlmToasterImports } from '@spartan-ng/helm/sonner';
 import { ThemeService } from './shared/services/theme.service';
 import { RouterOutlet } from '@angular/router';
@@ -16,7 +11,6 @@ import { ErudaService } from './shared/services/eruda.service';
   selector: 'app-root',
   imports: [HlmToasterImports, NgxLoadingBar, RouterOutlet],
   templateUrl: './app.component.html',
-  changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class AppComponent implements OnInit {
   private themeService = inject(ThemeService);

@@ -59,9 +59,9 @@ export const onDmAttachmentComplete = async (
     duration: result.duration,
   };
   await Promise.all(
-    (conversation?.participants ?? []).map((p) =>
-      emitToUser(p.toString(), event),
-    ),
+    (conversation?.participants ?? [])
+      .filter((p) => p.toString() !== payload.userId)
+      .map((p) => emitToUser(p.toString(), event)),
   );
 };
 

@@ -74,7 +74,7 @@ export class MessageService {
         .skip(offset)
         .limit(limit)
         .populate('sender', 'username pfp_url pfp_variants'),
-      Message.countDocuments({ where: query }),
+      Message.countDocuments(query),
     ]);
     return { messages, totalCount };
   }

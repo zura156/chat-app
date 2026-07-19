@@ -1,5 +1,4 @@
 import {
-  ChangeDetectionStrategy,
   Component,
   DestroyRef,
   OnDestroy,
@@ -45,7 +44,6 @@ export interface FileReadyEvent {
 @Component({
   selector: 'app-file-picker',
   template: `<ng-content />`,
-  changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class FilePicker implements OnDestroy {
   config = input.required<FilePickerConfig>();

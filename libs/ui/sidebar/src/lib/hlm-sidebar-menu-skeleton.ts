@@ -10,13 +10,16 @@ import { classes } from '@spartan-ng/helm/utils';
 	host: {
 		'data-slot': 'sidebar-menu-skeleton',
 		'data-sidebar': 'menu-skeleton',
-		'[style.--skeleton-width]': '_width',
 	},
 	template: `
 		@if (showIcon()) {
 			<hlm-skeleton data-sidebar="menu-skeleton-icon" class="size-4 rounded-md" />
 		} @else {
-			<hlm-skeleton data-sidebar="menu-skeleton-text" class="h-4 max-w-[var(--skeleton-width)] flex-1" />
+			<hlm-skeleton
+				data-sidebar="menu-skeleton-text"
+				class="h-4 max-w-(--skeleton-width) flex-1"
+				[style.--skeleton-width]="_width"
+			/>
 		}
 	`,
 })
@@ -25,6 +28,6 @@ export class HlmSidebarMenuSkeleton {
 	protected readonly _width = `${Math.floor(Math.random() * 40) + 50}%`;
 
 	constructor() {
-		classes(() => 'flex h-8 items-center gap-2 rounded-md px-2');
+		classes(() => 'h-8 gap-2 rounded-md px-2 flex items-center');
 	}
 }

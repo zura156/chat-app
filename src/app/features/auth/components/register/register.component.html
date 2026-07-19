@@ -39,7 +39,7 @@
 
     <!-- Password strength alert -->
     @if (
-      form.get("password")?.errors?.["passwordStrength"] !== null &&
+      form.get("password")?.errors?.["passwordStrength"] &&
       !form.controls["password"].hasError("required") &&
       form.controls["password"].dirty
     ) {

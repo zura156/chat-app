@@ -12,7 +12,6 @@ import {
 import { routes } from './app.routes';
 import {
   provideHttpClient,
-  withFetch,
   withInterceptors,
   withXsrfConfiguration,
 } from '@angular/common/http';
@@ -26,7 +25,6 @@ export const appConfig: ApplicationConfig = {
     provideRouter(routes, withPreloading(PreloadAllModules)),
     provideZoneChangeDetection({ eventCoalescing: true }),
     provideHttpClient(
-      withFetch(),
       withInterceptors([httpOptionsInterceptor, authInterceptor]),
       withXsrfConfiguration({
         cookieName: 'csrfToken',

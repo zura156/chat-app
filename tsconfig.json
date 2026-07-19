@@ -22,6 +22,9 @@
       "@spartan-ng/helm/form-field": [
         "./libs/ui/form-field/src/index.ts"
       ],
+      "@spartan-ng/helm/icon": [
+        "./libs/ui/icon/src/index.ts"
+      ],
       "@spartan-ng/helm/alert": [
         "./libs/ui/alert/src/index.ts"
       ],
@@ -43,11 +46,11 @@
       "@spartan-ng/helm/dropdown-menu": [
         "./libs/ui/dropdown-menu/src/index.ts"
       ],
+      "@spartan-ng/helm/field": [
+        "./libs/ui/field/src/index.ts"
+      ],
       "@spartan-ng/helm/hover-card": [
         "./libs/ui/hover-card/src/index.ts"
-      ],
-      "@spartan-ng/helm/icon": [
-        "./libs/ui/icon/src/index.ts"
       ],
       "@spartan-ng/helm/input": [
         "./libs/ui/input/src/index.ts"
@@ -96,9 +99,6 @@
       ],
       "@spartan-ng/helm/utils": [
         "./libs/ui/utils/src/index.ts"
-      ],
-      "@spartan-ng/helm/field": [
-        "./libs/ui/field/src/index.ts"
       ]
     }
   },

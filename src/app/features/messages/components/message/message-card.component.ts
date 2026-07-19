@@ -1,11 +1,4 @@
-import {
-  Component,
-  ChangeDetectionStrategy,
-  input,
-  inject,
-  signal,
-  viewChild,
-} from '@angular/core';
+import { Component, input, inject, signal, viewChild } from '@angular/core';
 import { UserI } from '../../../user/interfaces/user.interface';
 import { AttachmentI, MessageI } from '../../interfaces/message.interface';
 import { DatePipe, TitleCasePipe } from '@angular/common';
@@ -74,7 +67,6 @@ import { RouterLink } from '@angular/router';
   ],
   styles: ``,
   templateUrl: './message-card.component.html',
-  changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class MessageCardComponent {
   message = input.required<MessageI>();

@@ -1,9 +1,4 @@
-import {
-  ChangeDetectionStrategy,
-  Component,
-  input,
-  output,
-} from '@angular/core';
+import { Component, input, output } from '@angular/core';
 import { ModalStatesT } from '../../interfaces/modal-states.type';
 import { HlmButton } from '@spartan-ng/helm/button';
 import { ModalVariantsT } from '../../interfaces/modal-variants.type';
@@ -45,7 +40,6 @@ import {
   providers: [
     provideIcons({ lucideSearch, lucideUsers, lucideX, lucideCheck }),
   ],
-  changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class ItemManagerComponent {
   headerText = input<string>();

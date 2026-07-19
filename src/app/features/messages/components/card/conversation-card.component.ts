@@ -1,10 +1,4 @@
-import {
-  ChangeDetectionStrategy,
-  Component,
-  inject,
-  input,
-  linkedSignal,
-} from '@angular/core';
+import { Component, inject, input, linkedSignal } from '@angular/core';
 import { ConversationI } from '../../interfaces/conversation.interface';
 import { LayoutService } from '../../services/layout.service';
 import { HlmIconImports } from '@spartan-ng/helm/icon';
@@ -22,7 +16,6 @@ import { MessageI } from '../../interfaces/message.interface';
   selector: 'app-conversation-card',
   imports: [HlmIconImports, HlmAvatarImports, TimeAgoPipe, HlmBadgeImports],
   templateUrl: './conversation-card.component.html',
-  changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class ConversationCardComponent {
   private layoutService = inject(LayoutService);

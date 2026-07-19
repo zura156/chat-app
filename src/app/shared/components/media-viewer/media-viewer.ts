@@ -4,7 +4,6 @@ import {
   HostListener,
   OnInit,
   signal,
-  ChangeDetectionStrategy,
   computed,
 } from '@angular/core';
 import { DialogRef, DIALOG_DATA } from '@angular/cdk/dialog';
@@ -60,7 +59,6 @@ interface MediaViewerData {
       }
     `,
   ],
-  changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class MediaViewer implements OnInit {
   private dialogRef = inject(DialogRef<MediaViewer>);

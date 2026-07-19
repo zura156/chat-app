@@ -1,5 +1,4 @@
 import {
-  ChangeDetectionStrategy,
   Component,
   computed,
   effect,
@@ -73,7 +72,6 @@ import { environment } from '../../../../../environments/environment';
     }),
   ],
   templateUrl: './new-chat.component.html',
-  changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class NewChatComponent implements OnInit, OnDestroy {
   private readonly router = inject(Router);
