@@ -1,7 +1,7 @@
 import { Component, input, inject, signal, viewChild } from '@angular/core';
 import { UserI } from '../../../user/interfaces/user.interface';
 import { AttachmentI, MessageI } from '../../interfaces/message.interface';
-import { DatePipe, TitleCasePipe } from '@angular/common';
+import { DatePipe, NgClass, TitleCasePipe } from '@angular/common';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import {
   HlmAvatar,
@@ -38,6 +38,7 @@ import { RouterLink } from '@angular/router';
 @Component({
   selector: 'message-card',
   imports: [
+    NgClass,
     RouterLink,
     TitleCasePipe,
     TimeAgoPipe,

@@ -27,42 +27,48 @@
 
   <div
     hlmTabsContent="media"
-    class="grid grid-cols-3 gap-0.5 max-h-80 overflow-y-auto py-2"
+    class="grid grid-cols-3 gap-0.5 max-h-full overflow-y-auto py-2"
   >
     @for (message of mediaMessages(); track message._id) {
-      <button
-        class="aspect-square overflow-hidden rounded-md hover:opacity-80 active:scale-95 transition-all cursor-pointer"
-        (click)="openMedia(message, $index)"
-      >
-        @switch (message.type) {
-          @case ("image") {
-            <img
-              class="w-full h-full object-cover image-pixelated"
-              loading="lazy"
-              [src]="message.attachments?.[0]?.variants?.thumb"
-              [alt]="message.content"
-            />
-          }
-          @case ("video") {
-            <div class="relative w-full h-full">
-              <img
-                class="w-full h-full object-cover pointer-events-none"
-                [src]="message.attachments?.[0]?.variants?.thumbnail"
-              />
-              <div
-                class="absolute inset-0 flex items-center justify-center bg-black/20"
-              >
-                <ng-icon
-                  hlm
-                  name="lucideCirclePlay"
-                  size="sm"
-                  class="text-white"
+      @for (attachment of message.attachments; track attachment.uploadId) {
+        @if (
+          attachment.context === "dm-image" || attachment.context === "dm-video"
+        ) {
+          <button
+            class="aspect-square overflow-hidden rounded-md hover:opacity-80 active:scale-95 transition-all cursor-pointer"
+            (click)="openMedia(attachment, $index)"
+          >
+            @switch (attachment.context) {
+              @case ("dm-image") {
+                <img
+                  class="w-full h-full object-cover image-pixelated"
+                  loading="lazy"
+                  [src]="attachment.variants?.medium"
+                  [alt]="message.content"
                 />
-              </div>
-            </div>
-          }
+              }
+              @case ("dm-video") {
+                <div class="relative w-full h-full">
+                  <img
+                    class="w-full h-full object-cover pointer-events-none"
+                    [src]="attachment.variants?.thumbnail"
+                  />
+                  <div
+                    class="absolute inset-0 flex items-center justify-center bg-black/20"
+                  >
+                    <ng-icon
+                      hlm
+                      name="lucideCirclePlay"
+                      size="sm"
+                      class="text-white"
+                    />
+                  </div>
+                </div>
+              }
+            }
+          </button>
         }
-      </button>
+      }
     }
     @if (mediaMessagesResource.isLoading()) {
       <div
@@ -76,23 +82,24 @@
 
   <div hlmTabsContent="files" class="flex flex-col divide-y divide-border">
     @for (message of fileMessages(); track message._id) {
-      <button
-        class="w-full py-1.5 px-1 text-start hover:bg-muted active:scale-[0.99] transition-all cursor-pointer rounded-lg"
-      >
-        @switch (message.type) {
-          @case ("audio") {
-            @let audioAttachment = message.attachments?.[0];
-            @if (audioAttachment) {
-              <div class="p-1">
-                <app-audio-player [audio]="audioAttachment" />
-              </div>
+      @for (attachment of message.attachments; track attachment.uploadId) {
+        <button
+          class="w-full py-1.5 px-1 text-start hover:bg-muted active:scale-[0.99] transition-all cursor-pointer rounded-lg flex"
+        >
+          @switch (attachment.context) {
+            @case ("dm-audio") {
+              @if (attachment) {
+                <div class="p-1">
+                  <app-audio-player [audio]="attachment" />
+                </div>
+              }
+            }
+            @default {
+              <app-file-viewer [file]="attachment" />
             }
           }
-          @default {
-            <app-file-viewer [file]="message.attachments?.[0]" />
-          }
-        }
-      </button>
+        </button>
+      }
     }
     @if (fileMessagesResource.isLoading()) {
       <div

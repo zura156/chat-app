@@ -7,7 +7,7 @@ import {
   MediaItem,
   MediaViewerService,
 } from '../../../../shared/services/media-viewer.service';
-import { MessageI } from '../../interfaces/message.interface';
+import { AttachmentI, MessageI } from '../../interfaces/message.interface';
 import { AudioPlayer } from '../../../../shared/components/audio-player/audio-player';
 import { FileViewer } from '../../../../shared/components/file-viewer/file-viewer';
 import { NgIcon, provideIcons } from '@ng-icons/core';
@@ -50,22 +50,22 @@ export class MediaFilesListComponent implements OnInit {
   fetchFiles(): void {
     this.messageService.fetchFileMessages();
   }
-  openMedia(message: MessageI, index: number) {
-    const attachment = message.attachments?.[0];
-    if (!attachment) return;
-
+  openMedia(attachment: AttachmentI, index: number) {
+    if (attachment.context === 'dm-file' || attachment.context === 'dm-audio') {
+      return;
+    }
     const media: MediaItem = {
-      _id: String(message._id),
-      type: message.type as 'image' | 'video',
-      url: String(attachment.variants?.original),
+      _id: String(attachment.uploadId),
+      type: attachment.context === 'dm-image' ? 'image' : 'video',
+      url: String(attachment.variants?.large ?? attachment.variants?.original),
       thumbnail: attachment.variants?.thumbnail,
       thumb: attachment.variants?.thumb,
       size: attachment.fileSize,
     };
 
     this.mediaViewerService.openMedia(media, index, {
-      enableGallery: this.shouldEnableGallery(),
-      showThumbnails: this.shouldEnableGallery(),
+      enableGallery: true, //  previously: this.shouldEnableGallery(),
+      showThumbnails: true, // previously: this.shouldEnableGallery(),
       allowDownload: true,
       autoPlay: false,
     });

@@ -58,7 +58,7 @@
                 @if (participant._id !== currentUser()?._id) {
                   <span>{{
                     participant.username +
-                      (i + 1 !== participants?.length ? "," : "")
+                      (i + 1 !== participants?.length ? ", " : "")
                   }}</span>
                 }
               }

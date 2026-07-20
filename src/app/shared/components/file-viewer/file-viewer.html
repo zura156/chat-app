@@ -1,6 +1,6 @@
 @let file = this.file();
 <div
-  class="bg-accent/80 hover:bg-accent border border-border transition-colors rounded-xl p-3 w-full sm:w-64 max-w-70"
+  class="bg-card hover:bg-accent border border-border transition-colors rounded-xl p-3 w-full max-w-32 sm:max-w-52"
 >
   <a
     [href]="file?.variants?.original"
@@ -9,14 +9,14 @@
     class="flex items-center gap-3 w-full outline-none"
   >
     <div
-      class="shrink-0 flex items-center justify-center size-10 rounded-lg bg-blue-500/10 text-blue-500"
+      class="shrink-0 flex items-center justify-center size-5 rounded-lg bg-blue-500/10 text-blue-500"
     >
-      <ng-icon hlm name="lucideDownload" size="sm" />
+      <ng-icon hlm name="lucideDownload" size="xs" />
     </div>
 
     <div class="flex flex-col flex-1 min-w-0 justify-center">
       <h1
-        class="text-sm font-medium text-foreground truncate"
+        class="sm:text-sm text-xs font-medium text-foreground truncate"
         [title]="file?.originalName"
       >
         {{ file?.originalName }}

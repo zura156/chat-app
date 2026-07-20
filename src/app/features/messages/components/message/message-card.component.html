@@ -40,20 +40,25 @@
 
       <div class="flex flex-col">
         <div
-          class="rounded-2xl overflow-hidden"
+          class="overflow-hidden"
           [class]="
             message.type === 'audio' ||
             message.type === 'video' ||
-            message.type === 'info'
+            message.type === 'info' ||
+            message.type === 'file'
               ? 'bg-transparent'
               : isCurrentUserMessage
-                ? 'bg-primary text-primary-foreground'
-                : 'bg-muted text-foreground border border-border'
+                ? 'bg-primary text-primary-foreground rounded-2xl '
+                : 'bg-muted text-foreground border border-border rounded-2xl '
           "
         >
           <div
-            class="text-ellipsis"
-            [class]="message.type === 'text' ? 'py-1.5 px-3 max-w-xs' : ''"
+            class="text-ellipsis flex flex-col *:gap-1"
+            [ngClass]="{
+              'items-end': isCurrentUserMessage,
+              'items-start': !isCurrentUserMessage,
+              'py-1.5 px-3 max-w-xs': message.type === 'text',
+            }"
           >
             @switch (message.type) {
               @case ("info") {
@@ -63,50 +68,66 @@
               }
               @case ("image") {
                 @let attachments = message.attachments ?? [];
-                @let readyAttachments = attachments;
-                @let visible = readyAttachments.slice(0, 4);
-                @let overflow = readyAttachments.length - 3;
+                @let media =
+                  attachments.filter(a => a.context === 'dm-image' || a.context === 'dm-video');
+                @let files =
+                  attachments.filter(a => a.context === 'dm-file' || a.context === 'dm-audio');
+                @let visible = media.slice(0, 4);
+                @let overflow = media.length - 3;
 
-                <div
-                  [class]="
-                    visible.length === 1
-                      ? 'p-1'
-                      : 'grid grid-cols-2 gap-0.5 p-1'
-                  "
-                >
-                  @for (
-                    attachment of visible;
-                    track attachment.uploadId;
-                    let i = $index
-                  ) {
-                    <div
-                      class="relative size-32 cursor-pointer overflow-hidden rounded-xl border border-accent"
-                      [class]="visible.length === 1 ? '' : 'size-32'"
-                      (click)="openMedia(message, i)"
-                    >
-                      @if (
-                        attachment.status === "ready" && attachment.variants
-                      ) {
-                        <img
-                          class="size-full object-cover"
-                          [src]="attachment.variants.medium"
-                          [alt]="attachment.originalName"
-                        />
-                        @if (i === 3 && overflow > 1) {
-                          <div
-                            class="absolute inset-0 bg-black/60 flex items-center justify-center"
-                          >
-                            <span class="text-white font-semibold text-lg"
-                              >+{{ overflow }}</span
+                @if (visible.length) {
+                  <div
+                    [class]="
+                      visible.length === 1
+                        ? 'p-1'
+                        : 'grid grid-cols-2 gap-0.5 p-1'
+                    "
+                  >
+                    @for (
+                      attachment of visible;
+                      track attachment.uploadId;
+                      let i = $index
+                    ) {
+                      <div
+                        class="relative size-32 cursor-pointer overflow-hidden rounded-xl border border-accent/20"
+                        (click)="openMedia(message, i)"
+                      >
+                        @if (
+                          attachment.status === "ready" && attachment.variants
+                        ) {
+                          <img
+                            class="size-full object-cover"
+                            [src]="attachment.variants.medium"
+                            [alt]="attachment.originalName"
+                          />
+                          @if (i === 3 && overflow > 1) {
+                            <div
+                              class="absolute inset-0 bg-black/60 flex items-center justify-center"
                             >
-                          </div>
+                              <span class="text-white font-semibold text-lg"
+                                >+{{ overflow }}</span
+                              >
+                            </div>
+                          }
+                        } @else {
+                          <hlm-skeleton class="size-32" />
                         }
+                      </div>
+                    }
+                  </div>
+                }
+
+                @if (files.length) {
+                  <div class="flex flex-col gap-1 p-1">
+                    @for (attachment of files; track attachment.uploadId) {
+                      @if (attachment.context === "dm-file") {
+                        <app-file-viewer [file]="attachment" />
                       } @else {
-                        <hlm-skeleton class="size-32" />
+                        <app-audio-player [audio]="attachment" />
                       }
-                    </div>
-                  }
-                </div>
+                    }
+                  </div>
+                }
               }
 
               @case ("video") {
@@ -167,31 +188,38 @@
               }
 
               @case ("file") {
-                @for (
-                  attachment of message.attachments;
-                  track attachment.uploadId
-                ) {
-                  @if (attachment.status === "ready" && attachment.variants) {
-                    <app-file-viewer [file]="attachment" />
-                  } @else if (attachment.status === "infected") {
-                    <div
-                      class="flex items-center gap-2 px-3 py-2 text-destructive text-xs"
-                    >
-                      <ng-icon hlm name="lucideAlertCircle" size="sm" />
-                      File blocked — failed security scan
-                    </div>
-                  } @else {
-                    <div class="flex items-center gap-2 px-3 py-2">
-                      <hlm-skeleton class="size-8 rounded-md shrink-0" />
-                      <div class="flex flex-col gap-1">
-                        <span class="text-xs font-medium">{{
-                          attachment.originalName ?? "File"
-                        }}</span>
-                        <hlm-skeleton class="w-16 h-2.5 rounded" />
+                <div
+                  class="flex flex-col gap-1 max-w-full"
+                  [class]="isCurrentUserMessage ? 'items-end' : 'flex-end'"
+                >
+                  @for (
+                    attachment of message.attachments;
+                    track attachment.uploadId
+                  ) {
+                    @if (attachment.status === "ready" && attachment.variants) {
+                      <app-file-viewer [file]="attachment" />
+                    } @else if (attachment.status === "infected") {
+                      <div
+                        class="flex items-center gap-2 px-3 py-2 text-destructive text-xs"
+                      >
+                        <ng-icon hlm name="lucideAlertCircle" size="sm" />
+                        File blocked — failed security scan
                       </div>
-                    </div>
+                    } @else {
+                      <div
+                        class="flex items-center gap-2 px-3 py-2 border rounded-md m-1 w-fit"
+                      >
+                        <hlm-skeleton class="size-8 rounded-md shrink-0" />
+                        <div class="flex flex-col gap-1">
+                          <span class="text-xs font-medium">{{
+                            attachment.originalName ?? "File"
+                          }}</span>
+                          <hlm-skeleton class="w-16 h-2.5 rounded" />
+                        </div>
+                      </div>
+                    }
                   }
-                }
+                </div>
               }
               @default {
                 @if (message.content) {

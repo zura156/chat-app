@@ -567,7 +567,7 @@ export class ChatboxComponent implements OnInit {
 
     const content = this.messageControl.value;
 
-    if (content && content. length > 2000) {
+    if (content && content.length > 2000) {
       toast.error('Message is too long. Maximum length is 2000 characters.');
       return;
     }

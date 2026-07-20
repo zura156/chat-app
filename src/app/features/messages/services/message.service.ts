@@ -435,6 +435,20 @@ export class MessageService {
     this.#activeMessages.update((currentMessages) => {
       return [message, ...currentMessages];
     });
+
+    if (message?.type === 'image' || message?.type === 'video') {
+      this.#activeMediaMessages.update((mediaMessages) => [
+        message,
+        ...mediaMessages,
+      ]);
+      return;
+    } else if (message?.type === 'file') {
+      this.#activeFileMessages.update((fileMessages) => [
+        message,
+        ...fileMessages,
+      ]);
+      return;
+    }
   }
 
   uploadFileMessage(formData: FormData): Observable<any> {

@@ -58,7 +58,10 @@ ConversationSchema.index(
 
 // common queries
 ConversationSchema.index({ participants: 1, updatedAt: -1 });
-ConversationSchema.index({ 'read_receipts.user_id': 1 });
+ConversationSchema.index(
+  { _id: 1, 'read_receipts.user_id': 1 },
+  { unique: true },
+);
 
 export const Conversation = model<IConversation>(
   'Conversation',

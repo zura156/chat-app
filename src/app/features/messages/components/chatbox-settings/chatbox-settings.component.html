@@ -71,7 +71,14 @@
               track participant._id
             ) {
               @if (participant._id !== currentUser()?._id) {
-                {{ participant.first_name + " " + participant.last_name }}
+                {{
+                  participant.first_name +
+                    " " +
+                    participant.last_name +
+                    ($index + 1 !== conversation.participants.length
+                      ? ", "
+                      : "")
+                }}
               }
             }
           }

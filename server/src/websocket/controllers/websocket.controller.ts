@@ -167,40 +167,51 @@ export class WebSocketController {
   ): Promise<void> {
     const { read_receipt, conversation_id } = data;
     try {
-      // Fire-and-forget message status update — doesn't need to block broadcast
       Message.findByIdAndUpdate(read_receipt.last_message_read_id, {
         status: MessageStatusEnum.READ,
       }).catch((err) => logger.error('Failed to update message status:', err));
 
-      // Upsert read receipt atomically
-      let conversation = await Conversation.findOneAndUpdate(
-        {
-          _id: conversation_id,
-          'read_receipts.user_id': new ObjectId(read_receipt.user_id),
-        },
-        {
-          $set: {
-            'read_receipts.$.last_message_read_id':
-              read_receipt.last_message_read_id,
-            'read_receipts.$.read_at': read_receipt.read_at,
-          },
-        },
-        { returnDocument: 'after', select: 'participants' },
-      );
+      const userIdObj = new ObjectId(read_receipt.user_id);
+      const lastReadObj = new ObjectId(read_receipt.last_message_read_id);
+      const readAt = new Date(read_receipt.read_at);
 
-      if (!conversation) {
-        conversation = await Conversation.findByIdAndUpdate(
-          conversation_id,
+      const setExisting = () =>
+        Conversation.findOneAndUpdate(
+          { _id: conversation_id, 'read_receipts.user_id': userIdObj },
           {
-            $push: {
-              read_receipts: {
-                ...read_receipt,
-                user_id: new ObjectId(read_receipt.user_id),
-              },
+            $set: {
+              'read_receipts.$.last_message_read_id': lastReadObj,
+              'read_receipts.$.read_at': readAt,
             },
           },
           { returnDocument: 'after', select: 'participants' },
         );
+
+      let conversation = await setExisting();
+
+      if (!conversation) {
+        try {
+          conversation = await Conversation.findByIdAndUpdate(
+            conversation_id,
+            {
+              $push: {
+                read_receipts: {
+                  user_id: userIdObj,
+                  last_message_read_id: lastReadObj,
+                  read_at: readAt,
+                },
+              },
+            },
+            { returnDocument: 'after', select: 'participants' },
+          );
+        } catch (err: any) {
+          if (err?.code === 11000) {
+            // lost the race — another concurrent read event pushed first, update it instead
+            conversation = await setExisting();
+          } else {
+            throw err;
+          }
+        }
       }
 
       if (!conversation) return;
