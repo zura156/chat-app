@@ -744,10 +744,11 @@ export class ChatboxComponent implements OnInit {
       .pipe(
         takeUntilDestroyed(this.destroyRef),
         catchError((err) => this.handleError(err)),
-        tap(() => {
+        tap((res) => {
           this.isMessageLoading.set(false);
           this.canMessage.set(true);
           this.lastMessageSentAt = Date.now();
+          this.messageService.fillInMessageDetails(res);
         }),
       )
       .subscribe();

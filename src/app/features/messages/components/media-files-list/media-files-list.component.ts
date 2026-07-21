@@ -58,7 +58,7 @@ export class MediaFilesListComponent implements OnInit {
       _id: String(attachment.uploadId),
       uploadId: attachment.uploadId,
       type: attachment.context === 'dm-image' ? 'image' : 'video',
-      url: String(attachment.variants?.large ?? attachment.variants?.original),
+      url: String(attachment.variants?.large ?? attachment.variants?.hls),
       thumbnail: attachment.variants?.thumbnail,
       thumb: attachment.variants?.thumb,
       size: attachment.fileSize,

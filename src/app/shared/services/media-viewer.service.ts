@@ -52,7 +52,10 @@ export class MediaViewerService {
               _id: String(el._id),
               uploadId: a.uploadId,
               type: a.context === 'dm-image' ? 'image' : 'video',
-              url: a.variants?.large || a.variants?.medium || '',
+              url:
+                a.context === 'dm-image'
+                  ? a.variants?.large || a.variants?.medium || ''
+                  : a.variants?.hls || '',
               thumbnail: a.variants?.thumbnail || a.variants?.thumb, // video poster or fallback
               thumb: a.variants?.thumb,
               name: a.originalName,
