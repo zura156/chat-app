@@ -496,21 +496,29 @@ export class ChatboxComponent implements OnInit {
     ]);
   }
 
-  previewMedia(attachment: PendingAttachment, clickedIndex: number): void {
-    if (attachment.context === 'dm-file') return;
+  previewMedia(attachment: PendingAttachment): void {
+    if (attachment.context === 'dm-file' || attachment.context === 'dm-audio')
+      return;
 
-    const readyAttachments = this.pendingAttachments() ?? [];
+    const mediaAttachments = (this.pendingAttachments() ?? []).filter(
+      (a) => a.context === 'dm-image' || a.context === 'dm-video',
+    );
 
-    if (!readyAttachments.length) return;
+    if (!mediaAttachments.length) return;
 
-    const items: MediaItem[] = readyAttachments.map((a) => ({
+    const items: MediaItem[] = mediaAttachments.map((a) => ({
       _id: String(a.tempId),
       uploadId: a.tempId,
-      type: attachment.context === 'dm-image' ? 'image' : 'video',
+      type: a.context === 'dm-image' ? 'image' : 'video',
       url: a.previewUrl || '',
       name: a.file.name,
       size: a.file.size,
     }));
+
+    const clickedIndex = Math.max(
+      0,
+      mediaAttachments.findIndex((a) => a.tempId === attachment.tempId),
+    );
 
     this.mediaViewerService.openGallery(items, clickedIndex);
   }
@@ -965,14 +973,10 @@ export class ChatboxComponent implements OnInit {
     }
   }
   private markMessageAsRead(message: MessageI): void {
-    const isOwnMessage = message.sender._id === this.currentUser()?._id;
-    const isGroup = this.conversation()?.is_group ?? false;
-
     if (
       !message._id ||
       document.visibilityState !== 'visible' ||
-      (isOwnMessage && !isGroup)
-      // || message.sender._id === this.currentUser()?._id // * Responsible for not marking mark own messages as read
+      message.sender._id === this.currentUser()?._id
     )
       return;
 

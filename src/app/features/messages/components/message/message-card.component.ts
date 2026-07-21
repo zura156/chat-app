@@ -112,25 +112,33 @@ export class MessageCardComponent {
     this.loadedVideoMessageId.set(messageId);
   }
 
-  openMedia(message: MessageI, clickedIndex: number): void {
+  openMedia(message: MessageI, clicked: AttachmentI): void {
     this.videoPlayerComponent()?.pauseVideo();
     this.loadedVideoMessageId.set(null);
 
     const readyAttachments = (message.attachments ?? []).filter(
-      (a) => a.status === 'ready' && a.variants,
+      (a) =>
+        a.status === 'ready' &&
+        a.variants &&
+        (a.context === 'dm-image' || a.context === 'dm-video'),
     );
     if (!readyAttachments.length) return;
 
     const items: MediaItem[] = readyAttachments.map((a) => ({
       _id: String(message._id),
       uploadId: a.uploadId,
-      type: message.type as 'image' | 'video',
+      type: a.context === 'dm-image' ? 'image' : 'video',
       url: a.variants!.large || a.variants!.medium || '',
       thumb: a.variants!.thumb,
       thumbnail: a.variants!.thumbnail || a.variants!.thumb,
       name: a.originalName,
       size: a.fileSize,
     }));
+
+    const clickedIndex = Math.max(
+      0,
+      readyAttachments.findIndex((a) => a.uploadId === clicked.uploadId),
+    );
 
     this.mediaViewerService.openGallery(items, clickedIndex);
   }

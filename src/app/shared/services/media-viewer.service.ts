@@ -41,12 +41,17 @@ export class MediaViewerService {
       // Flatten every ready attachment across all media messages
       mediaItems = this.messageService.activeMediaMessages().flatMap((el) =>
         (el.attachments ?? [])
-          .filter((a) => a.status === 'ready' && a.variants)
+          .filter(
+            (a) =>
+              a.status === 'ready' &&
+              a.variants &&
+              (a.context === 'dm-image' || a.context === 'dm-video'),
+          )
           .map(
             (a): MediaItem => ({
               _id: String(el._id),
               uploadId: a.uploadId,
-              type: el.type as 'image' | 'video',
+              type: a.context === 'dm-image' ? 'image' : 'video',
               url: a.variants?.large || a.variants?.medium || '',
               thumbnail: a.variants?.thumbnail || a.variants?.thumb, // video poster or fallback
               thumb: a.variants?.thumb,

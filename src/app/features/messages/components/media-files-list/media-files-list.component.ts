@@ -56,6 +56,7 @@ export class MediaFilesListComponent implements OnInit {
     }
     const media: MediaItem = {
       _id: String(attachment.uploadId),
+      uploadId: attachment.uploadId,
       type: attachment.context === 'dm-image' ? 'image' : 'video',
       url: String(attachment.variants?.large ?? attachment.variants?.original),
       thumbnail: attachment.variants?.thumbnail,

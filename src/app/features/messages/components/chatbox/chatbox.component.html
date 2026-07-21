@@ -299,7 +299,7 @@
                 [src]="attachment.previewUrl"
                 class="size-full object-cover"
                 alt="preview"
-                (click)="previewMedia(attachment, $index)"
+                (click)="previewMedia(attachment)"
               />
             } @else if (attachment.error) {
               <div

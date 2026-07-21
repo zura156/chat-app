@@ -90,7 +90,7 @@
                     ) {
                       <div
                         class="relative size-32 cursor-pointer overflow-hidden rounded-xl border border-accent/20"
-                        (click)="openMedia(message, i)"
+                        (click)="openMedia(message, attachment)"
                       >
                         @if (
                           attachment.status === "ready" && attachment.variants
@@ -254,6 +254,19 @@
   </div>
 </div>
 
+@if (
+  isCurrentUserMessage &&
+  isLastMessage() &&
+  !(isGroup() && message.status === "read")
+) {
+  <div class="text-xs text-end mt-0.5 opacity-60 pr-1">
+    {{ message.status | titlecase }}
+    @if (message.status !== "sending" && message.status !== "failed") {
+      · {{ message.timestamp | timeAgo }}
+    }
+  </div>
+}
+
 @if (readReceipts() && readReceipts().length > 0 && isGroup()) {
   @let matchingReceipts =
     readReceipts().filter(r =>
@@ -313,11 +326,4 @@
       }
     </div>
   }
-} @else if (isCurrentUserMessage && isLastMessage() && !isGroup()) {
-  <div class="text-xs text-end mt-0.5 opacity-60 pr-1">
-    {{ message.status | titlecase }}
-    @if (message.status !== "sending" && message.status !== "failed") {
-      · {{ message.timestamp | timeAgo }}
-    }
-  </div>
 }
