@@ -75,6 +75,7 @@ import { MessageI } from '../../interfaces/message.interface';
     }),
   ],
   templateUrl: './conversation-list.component.html',
+  styles: [':host{display:block;height:100%}'],
 })
 export class ConversationListComponent {
   // Injected services

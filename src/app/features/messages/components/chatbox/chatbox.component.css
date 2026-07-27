@@ -1,3 +1,8 @@
+:host {
+  display: block;
+  height: 100%;
+}
+
 .typing-indicator {
   display: flex;
   align-items: center;
