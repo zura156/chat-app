@@ -1,4 +1,5 @@
 export interface UpdateConversationI {
   group_name?: string;
-  group_picture?: File | Blob;
+  /** URL of an already-uploaded picture — binaries go through UploadService. */
+  group_picture?: string;
 }

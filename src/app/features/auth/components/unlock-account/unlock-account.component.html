@@ -12,11 +12,18 @@
           class="text-muted-foreground"
         />
       </div>
-      <h1 class="text-xl font-semibold tracking-tight">Unlock your account</h1>
-      <p class="text-sm text-muted-foreground">
-        Your account has been locked. Enter your email to receive an unlock
-        link.
-      </p>
+      @if (success()) {
+        <h1 class="text-xl font-semibold tracking-tight">Account unlocked</h1>
+        <p class="text-sm text-muted-foreground">
+          You can sign in again now.
+        </p>
+      } @else {
+        <h1 class="text-xl font-semibold tracking-tight">Unlock your account</h1>
+        <p class="text-sm text-muted-foreground">
+          Open the unlock link we emailed you after the failed sign-in attempts.
+          Links expire one hour after they are sent.
+        </p>
+      }
     </div>
 
     <!-- Alerts -->
@@ -40,51 +47,27 @@
     } @else if (success()) {
       <div hlmAlert class="text-start">
         <ng-icon hlm hlmAlertIcon name="lucideCircleCheck" />
-        <h4 hlmAlertTitle>Unlock link sent</h4>
-        <p hlmAlertDesc>Check your inbox and follow the instructions.</p>
+        <h4 hlmAlertTitle>Unlocked</h4>
+        <p hlmAlertDesc>The lock on your account has been lifted.</p>
       </div>
     }
 
-    <!-- Form -->
-    <form
-      [formGroup]="form"
-      (ngSubmit)="onSubmit()"
-      class="space-y-4 text-start"
+    <a
+      hlmBtn
+      variant="outline"
+      [routerLink]="'/auth/login'"
+      class="w-full cursor-pointer rounded-full"
     >
-      <hlm-field>
-        <input
-          type="email"
-          name="email"
-          formControlName="email"
-          id="email"
-          autocomplete="email"
-          required
-          hlmInput
-          placeholder="Email address"
-          class="w-full"
-        />
-        @if (form.controls["email"].hasError("required")) {
-          <hlm-field-error class="text-xs">Email required</hlm-field-error>
-        }
-        @if (form.controls["email"].hasError("email")) {
-          <hlm-field-error class="text-xs"
-            >Invalid email address</hlm-field-error
-          >
-        }
-      </hlm-field>
-
-      <button type="submit" hlmBtn class="w-full cursor-pointer rounded-full">
-        Send unlock link
-      </button>
-    </form>
+      Back to sign in
+    </a>
 
     <p class="text-xs text-muted-foreground">
-      Back to
+      Didn't get an email? Locks lift automatically after 30 minutes, or you can
       <a
-        [routerLink]="'/auth/login'"
+        [routerLink]="'/auth/forgot-password'"
         class="text-foreground underline-offset-4 hover:underline cursor-pointer"
-        >Login</a
-      >
+        >reset your password</a
+      >.
     </p>
   </div>
 </main>

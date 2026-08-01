@@ -177,13 +177,17 @@ export class ConversationService {
           this.userStateService.setSelectedUser(null);
           sessionStorage.removeItem('selectedUser');
           this.#activeConversation.set(newConversation);
-          const conversationList = this.conversationList();
-          if (conversationList && conversationList.conversations.length > 0) {
-            this.#conversationList.update((val) => {
-              val!.conversations = [newConversation, ...val!.conversations];
-              return val;
-            });
-          }
+          // must return a NEW object — mutating and returning the same
+          // reference means the signal never notifies its consumers
+          this.#conversationList.update((prev) =>
+            prev
+              ? {
+                  ...prev,
+                  conversations: [newConversation, ...prev.conversations],
+                  totalCount: prev.totalCount + 1,
+                }
+              : prev,
+          );
         }),
       );
   }
@@ -210,16 +214,14 @@ export class ConversationService {
     }
 
     const url = `${this.apiUrl}/conversations/${conversationId}`;
-    const formData = new FormData();
 
-    if (newGroupName) {
-      formData.append('group_name', newGroupName);
-    }
-    if (newGroupPicture) {
-      formData.append('group_picture', newGroupPicture);
-    }
+    // JSON, not FormData: the API has no multipart parser mounted, so a
+    // multipart body arrives as an empty req.body
+    const body: Record<string, string> = {};
+    if (newGroupName) body['group_name'] = newGroupName;
+    if (newGroupPicture) body['group_picture'] = newGroupPicture;
 
-    return this.http.patch<ConversationI>(url, formData).pipe(
+    return this.http.patch<ConversationI>(url, body).pipe(
       tap((response) => {
         this.#activeConversation.update(() => response);
 

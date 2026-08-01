@@ -1,6 +1,8 @@
 @let file = this.file();
+@let visual = file?.originalName | fileVisual;
+
 <div
-  class="bg-card hover:bg-accent border border-border transition-colors rounded-xl p-3 w-full max-w-32 sm:max-w-52"
+  class="group bg-card hover:bg-accent border border-border transition-colors rounded-xl p-3 w-full max-w-32 sm:max-w-52"
 >
   <a
     [href]="file?.variants?.original"
@@ -9,9 +11,15 @@
     class="flex items-center gap-3 w-full outline-none"
   >
     <div
-      class="shrink-0 flex items-center justify-center size-5 rounded-lg bg-blue-500/10 text-blue-500"
+      class="relative shrink-0 flex items-center justify-center size-10 rounded-lg"
+      [class]="visual.bg"
     >
-      <ng-icon hlm name="lucideDownload" size="xs" />
+      <ng-icon hlm [name]="visual.icon" size="base" />
+      <span
+        class="absolute -bottom-1 -right-1 text-[8px] font-bold leading-none px-1 py-0.5 rounded bg-background border border-border text-muted-foreground"
+      >
+        {{ visual.ext }}
+      </span>
     </div>
 
     <div class="flex flex-col flex-1 min-w-0 justify-center">
@@ -25,5 +33,12 @@
         {{ (file?.fileSize || 0) | fileSize }}
       </span>
     </div>
+
+    <ng-icon
+      hlm
+      name="lucideDownload"
+      size="sm"
+      class="shrink-0 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity"
+    />
   </a>
 </div>

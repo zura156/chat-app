@@ -159,9 +159,14 @@ export const setupWebSocket = (server: Server): void => {
 
         if (messageData.type === 'authenticate') return;
 
+        // Never trust client-supplied identity: stamp every id the handlers
+        // act on with the id proven at the upgrade handshake.
         if (messageData.message?.sender)
           messageData.message.sender._id = ws.userId;
-        if (messageData.user_id) messageData.user_id = ws.userId;
+        if (messageData.sender) messageData.sender._id = ws.userId;
+        if (messageData.read_receipt)
+          messageData.read_receipt.user_id = ws.userId;
+        messageData.user_id = ws.userId;
 
         webSocketController.handleIncomingMessage(ws, messageData);
       } catch (error) {

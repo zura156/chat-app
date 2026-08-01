@@ -77,6 +77,11 @@ const MessageSchema = new Schema<IMessage>({
   edited_at: { type: Date },
 });
 
+// every message read is scoped to a conversation and sorted by timestamp
+MessageSchema.index({ conversation: 1, timestamp: -1 });
+// upload worker looks messages up by attachment id
+MessageSchema.index({ 'attachments.uploadId': 1 });
+
 MessageSchema.pre('validate', function () {
   if (!this.content?.trim() && !this.attachments?.length) {
     throw new Error('Message must have either text content or attachments.');

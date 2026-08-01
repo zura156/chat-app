@@ -21,13 +21,16 @@ import {
 } from 'rxjs';
 import { toast } from '@spartan-ng/brain/sonner';
 
-const MAX_RECONNECT_ATTEMPTS = 5;
-const RECONNECT_DELAY_MS = 2000;
+const RECONNECT_BASE_DELAY_MS = 1000;
+const RECONNECT_MAX_DELAY_MS = 15_000;
 
 @Injectable({ providedIn: 'root' })
 export class WebSocketService {
   private socket$?: WebSocketSubject<WebSocketMessageT>;
   private messages$ = new Subject<WebSocketMessageT>();
+  private readonly reconnected$ = new Subject<void>();
+  private hasConnectedBefore = false;
+  private networkListenersBound = false;
 
   // Signal for connection state — consumed by components/computed without subscriptions
   readonly connected = signal(false);
@@ -55,12 +58,18 @@ export class WebSocketService {
   connect(): void {
     if (this.socket$ && !this.socket$.closed) return;
 
+    this.listenForNetworkRestore();
+
     // No token — cookies sent automatically on the upgrade request
     this.socket$ = webSocket<WebSocketMessageT>({
       url: environment.wsUrl,
       openObserver: {
         next: () => {
           this.connected.set(true);
+          // Anything that happened while we were away was missed: tell
+          // consumers to re-announce presence and refetch.
+          if (this.hasConnectedBefore) this.reconnected$.next();
+          this.hasConnectedBefore = true;
         },
       },
       closeObserver: {
@@ -72,15 +81,24 @@ export class WebSocketService {
 
     this.socket$
       .pipe(
+        // Retry indefinitely with capped exponential backoff + jitter. Giving
+        // up after 5 tries (~30s) left the app silently disconnected after any
+        // longer outage — sleep, tunnel, deploy — until a manual refresh.
         retry({
-          count: MAX_RECONNECT_ATTEMPTS,
-          delay: (_, attempt) => timer(RECONNECT_DELAY_MS * attempt), // 2s, 4s, 6s...
+          delay: (_, attempt) =>
+            timer(
+              Math.min(
+                RECONNECT_BASE_DELAY_MS * 2 ** (attempt - 1),
+                RECONNECT_MAX_DELAY_MS,
+              ) +
+                Math.random() * 500,
+            ),
           resetOnSuccess: true,
         }),
         catchError((err) => {
-          console.error('WebSocket failed after max retries:', err);
+          console.error('WebSocket stream terminated:', err);
           this.connected.set(false);
-          toast.error('Failed to reconnect. Please refresh.');
+          toast.error('Connection lost. Please refresh.');
           return EMPTY;
         }),
         share(),
@@ -91,6 +109,33 @@ export class WebSocketService {
         next: (msg) => this.messages$.next(msg),
         error: (err) => console.error('WebSocket stream error:', err),
       });
+  }
+
+  /** Emits each time the socket comes back after having been connected. */
+  onReconnect(): Observable<void> {
+    return this.reconnected$.asObservable();
+  }
+
+  /**
+   * Backoff alone can leave the app idle for up to 15s after the network is
+   * already back; these events are the reliable signal to retry immediately.
+   */
+  private listenForNetworkRestore(): void {
+    if (this.networkListenersBound) return;
+    this.networkListenersBound = true;
+
+    const retryNow = () => {
+      if (this.connected() || !this.hasConnectedBefore) return;
+      this.close$.next();
+      this.socket$?.complete();
+      this.socket$ = undefined;
+      this.connect();
+    };
+
+    window.addEventListener('online', retryNow);
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'visible') retryNow();
+    });
   }
 
   sendMessage(data: WebSocketMessageT): void {

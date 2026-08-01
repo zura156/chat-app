@@ -5,7 +5,15 @@ import {
   HttpHeaders,
   HttpRequest,
 } from '@angular/common/http';
-import { catchError, filter, map, switchMap, tap, throwError } from 'rxjs';
+import {
+  catchError,
+  filter,
+  map,
+  switchMap,
+  take,
+  tap,
+  throwError,
+} from 'rxjs';
 import { Observable } from 'rxjs';
 import { environment } from '../../../../environments/environment';
 import {
@@ -52,10 +60,15 @@ export class UploadService {
     file: File,
     resourceId?: string,
   ): Observable<string> {
+    // tracked so a failure can mark *this* upload as errored, not every
+    // in-flight one
+    let currentUploadId: string | null = null;
+
     return this.presign(context, file, resourceId).pipe(
-      tap(({ uploadId }) =>
-        this.setState(uploadId, { uploadId, progress: 0, status: 'uploading' }),
-      ),
+      tap(({ uploadId }) => {
+        currentUploadId = uploadId;
+        this.setState(uploadId, { uploadId, progress: 0, status: 'uploading' });
+      }),
       switchMap((presignRes) =>
         this.putToS3(presignRes.presignedUrl, file).pipe(
           tap((progress) =>
@@ -66,6 +79,10 @@ export class UploadService {
             }),
           ),
           filter((progress) => progress === 100),
+          // both the final UploadProgress event and the Response event report
+          // 100 — without take(1) confirm() fires twice and the second call
+          // fails with "Upload already confirmed"
+          take(1),
           switchMap(() => {
             this.setState(presignRes.uploadId, {
               uploadId: presignRes.uploadId,
@@ -85,8 +102,16 @@ export class UploadService {
         ),
       ),
       catchError((err) => {
-        // mark failed state if we have an uploadId
-        // best effort — presign might not have returned yet
+        // Settle this upload's state, otherwise `isUploading` stays true
+        // forever and the composer refuses to send.
+        if (currentUploadId) {
+          this.setState(currentUploadId, {
+            uploadId: currentUploadId,
+            progress: 0,
+            status: 'error',
+            error: err?.message ?? 'Upload failed',
+          });
+        }
         return throwError(() => err);
       }),
     );

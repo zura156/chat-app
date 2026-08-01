@@ -3,8 +3,17 @@ import { logger } from '../../utils/logger';
 import { Conversation } from '../../messenger/models/conversation.model';
 import { MessageTypeEnum } from '../../messenger/interfaces/message.interface';
 import { redisClient } from '../../config/redis';
+import { randomUUID } from 'crypto';
+import { participantsCacheKey } from '../../utils/conversation-cache';
 
 export type BroadcastFunction = (message: any) => Promise<void>;
+
+/**
+ * Unique per running process. `process.pid` is NOT usable here: every container
+ * runs node as pid 1, so instances would collide on the presence key and drop
+ * each other's broadcasts.
+ */
+export const INSTANCE_ID = randomUUID();
 
 const MESSAGE_TYPES = new Set([
   MessageTypeEnum.INFO,
@@ -15,10 +24,15 @@ const MESSAGE_TYPES = new Set([
   MessageTypeEnum.FILE,
 ]);
 
-const INSTANCE_KEY = `online_users:${process.pid}`;
+const INSTANCE_KEY = `online_users:${INSTANCE_ID}`;
+// Presence keys expire so a crashed instance stops counting as online.
+// Refreshed by heartbeat() well inside the TTL.
+const INSTANCE_KEY_TTL = 90;
+const INSTANCE_HEARTBEAT_MS = 30_000;
 
 export class WebSocketService {
   private clients = new Map<string, Set<WebSocket>>();
+  private presenceHeartbeat?: NodeJS.Timeout;
 
   public async authenticate(userId: string, ws: WebSocket): Promise<void> {
     if (!this.clients.has(userId)) {
@@ -30,6 +44,7 @@ export class WebSocketService {
     await Promise.all([
       redisClient.sAdd('online_users', userId),
       redisClient.sAdd(INSTANCE_KEY, userId),
+      redisClient.expire(INSTANCE_KEY, INSTANCE_KEY_TTL),
     ]);
 
     logger.info(
@@ -116,9 +131,7 @@ export class WebSocketService {
       const conversationId = message.conversation._id || message.conversation;
 
       let participantIds: string[] | null = null;
-      const cached = await redisClient.get(
-        `conv:participants:${conversationId}`,
-      );
+      const cached = await redisClient.get(participantsCacheKey(conversationId));
 
       if (cached) {
         participantIds = JSON.parse(cached);
@@ -136,9 +149,10 @@ export class WebSocketService {
 
         participantIds = conversation.participants.map((p) => p.toString());
 
-        // cache for 1 hour — invalidate when participants change
+        // cache for 1 hour — invalidateParticipantsCache() clears it when
+        // membership changes
         await redisClient.setEx(
-          `conv:participants:${conversationId}`,
+          participantsCacheKey(conversationId),
           3600,
           JSON.stringify(participantIds),
         );
@@ -160,10 +174,10 @@ export class WebSocketService {
         this.sendToUser(userId, payload);
       }
 
-      // Publish for other instances — fromPid prevents double-delivery
+      // Publish for other instances — fromInstance prevents double-delivery
       await redisClient.publish(
         'ws:broadcast',
-        JSON.stringify({ participantIds, payload, fromPid: process.pid }),
+        JSON.stringify({ participantIds, payload, fromInstance: INSTANCE_ID }),
       );
     } catch (error) {
       logger.error('Broadcast error:', error);
@@ -172,6 +186,57 @@ export class WebSocketService {
 
   public async registerInstance(): Promise<void> {
     await redisClient.del(INSTANCE_KEY);
-    logger.info(`WebSocket instance registered (pid: ${process.pid})`);
+    await this.reconcileGlobalPresence();
+
+    // Keep this instance's presence key alive; if the process dies the key
+    // expires and its users stop being reported as online.
+    this.presenceHeartbeat = setInterval(() => {
+      redisClient
+        .expire(INSTANCE_KEY, INSTANCE_KEY_TTL)
+        .catch((err) => logger.error('Presence heartbeat failed:', err));
+    }, INSTANCE_HEARTBEAT_MS);
+    this.presenceHeartbeat.unref?.();
+
+    logger.info(`WebSocket instance registered (${INSTANCE_ID})`);
+  }
+
+  public stopInstance(): void {
+    if (this.presenceHeartbeat) clearInterval(this.presenceHeartbeat);
+    this.presenceHeartbeat = undefined;
+  }
+
+  /**
+   * Rebuild the global online set from the live per-instance sets. Without this
+   * a crash leaves users flagged online forever, since nothing removes them.
+   */
+  private async reconcileGlobalPresence(): Promise<void> {
+    try {
+      const instanceKeys: string[] = [];
+      let cursor = '0';
+      do {
+        const [nextCursor, keys] = (await redisClient.sendCommand([
+          'SCAN',
+          cursor,
+          'MATCH',
+          'online_users:*',
+          'COUNT',
+          '100',
+        ])) as [string, string[]];
+        cursor = nextCursor;
+        instanceKeys.push(...keys);
+      } while (cursor !== '0');
+
+      if (instanceKeys.length === 0) {
+        await redisClient.del('online_users');
+        return;
+      }
+      await redisClient.sendCommand([
+        'SUNIONSTORE',
+        'online_users',
+        ...instanceKeys,
+      ]);
+    } catch (error) {
+      logger.error('Failed to reconcile global presence set:', error);
+    }
   }
 }

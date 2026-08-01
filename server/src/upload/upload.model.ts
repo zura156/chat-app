@@ -28,4 +28,10 @@ const uploadSchema = new Schema(
   { _id: false, timestamps: true },
 );
 
+// TTL: Mongo drops a document once `expiresAt` passes, and ignores documents
+// where it is null. presign() sets it so abandoned pending uploads don't
+// accumulate forever; the processor clears it once the upload is ready and
+// therefore referenced by a message.
+uploadSchema.index({ expiresAt: 1 }, { expireAfterSeconds: 0 });
+
 export const Upload = mongoose.model('Upload', uploadSchema);

@@ -6,12 +6,25 @@ export interface IReadReceipt {
   read_at: Date;
 }
 
+/**
+ * Deterministic key for 1:1 conversations: sorted participant ids joined by ':'.
+ * A unique index on `participants` itself does NOT work — a unique *multikey*
+ * index enforces uniqueness per array element across documents, so the second
+ * DM containing a given user would fail with E11000.
+ */
+export const buildDmKey = (participants: (Types.ObjectId | string)[]): string =>
+  participants
+    .map((p) => p.toString())
+    .sort()
+    .join(':');
+
 export interface IConversation extends Document {
   created_by?: Types.ObjectId;
   participants: Types.ObjectId[];
   last_message?: Types.ObjectId;
   read_receipts: IReadReceipt[];
-  is_group: Boolean;
+  is_group: boolean;
+  dm_key?: string;
   group_name?: string;
   group_picture?: string;
   group_picture_variants?: {
@@ -39,6 +52,7 @@ const ConversationSchema = new Schema<IConversation>(
       },
     ],
     is_group: { type: Boolean, default: false },
+    dm_key: { type: String },
     group_name: { type: String },
     group_picture: { type: String },
     group_picture_variants: {
@@ -50,10 +64,11 @@ const ConversationSchema = new Schema<IConversation>(
   { timestamps: true },
 );
 
-// prevent DM duplicates
+// prevent DM duplicates — scalar key, so uniqueness applies to the pair, not
+// to each participant individually (see buildDmKey above)
 ConversationSchema.index(
-  { participants: 1 },
-  { unique: true, partialFilterExpression: { is_group: false } },
+  { dm_key: 1 },
+  { unique: true, partialFilterExpression: { dm_key: { $type: 'string' } } },
 );
 
 // common queries

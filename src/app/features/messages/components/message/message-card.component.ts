@@ -9,6 +9,7 @@ import {
   HlmAvatarImage,
 } from '@spartan-ng/helm/avatar';
 import { TimeAgoPipe } from '../../../../shared/pipes/time-ago.pipe';
+import { FormatTimePipe } from '../../../../shared/pipes/format-time.pipe';
 import { ConversationService } from '../../services/conversation.service';
 import { ReadReceiptI } from '../../interfaces/conversation.interface';
 import { environment } from '../../../../../environments/environment';
@@ -42,6 +43,7 @@ import { RouterLink } from '@angular/router';
     RouterLink,
     TitleCasePipe,
     TimeAgoPipe,
+    FormatTimePipe,
     NgIcon,
     DatePipe,
     FileViewer,
@@ -95,9 +97,16 @@ export class MessageCardComponent {
     username: string;
     pfp_url: string;
   } {
-    const user = this.conversationService
-      .activeConversation()
-      ?.participants.find((participant) => participant._id === userId);
+    // The API strips the caller from `participants`, so looking only there
+    // rendered your own messages in a group as "Unknown".
+    const self = this.currentUser();
+    const user =
+      self?._id === userId
+        ? self
+        : this.conversationService
+            .activeConversation()
+            ?.participants.find((participant) => participant._id === userId);
+
     return {
       username: user?.username || 'Unknown',
       pfp_url: user?.pfp_url || '/icons/avatar.svg',

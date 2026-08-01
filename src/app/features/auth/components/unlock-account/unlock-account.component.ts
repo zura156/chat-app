@@ -1,11 +1,5 @@
-import { Component, inject, signal } from '@angular/core';
-import {
-  ReactiveFormsModule,
-  FormGroup,
-  FormControl,
-  Validators,
-} from '@angular/forms';
-import { RouterLink } from '@angular/router';
+import { Component, inject, OnInit, signal } from '@angular/core';
+import { ActivatedRoute, RouterLink } from '@angular/router';
 import { NgIconComponent, provideIcons } from '@ng-icons/core';
 import {
   lucideLoader,
@@ -15,9 +9,7 @@ import {
 } from '@ng-icons/lucide';
 import { HlmAlertImports } from '@spartan-ng/helm/alert';
 import { HlmButtonImports } from '@spartan-ng/helm/button';
-import { HlmFieldImports } from '@spartan-ng/helm/field';
 import { AuthService } from '../../services/auth.service';
-import { HlmInputImports } from '@spartan-ng/helm/input';
 import { HlmIconImports } from '@spartan-ng/helm/icon';
 
 @Component({
@@ -25,11 +17,8 @@ import { HlmIconImports } from '@spartan-ng/helm/icon';
   templateUrl: './unlock-account.component.html',
   imports: [
     RouterLink,
-    ReactiveFormsModule,
     HlmButtonImports,
     HlmAlertImports,
-    HlmFieldImports,
-    HlmInputImports,
     NgIconComponent,
     HlmIconImports,
   ],
@@ -42,41 +31,43 @@ import { HlmIconImports } from '@spartan-ng/helm/icon';
     }),
   ],
 })
-export class UnlockAccountComponent {
+export class UnlockAccountComponent implements OnInit {
   private authService = inject(AuthService);
+  private route = inject(ActivatedRoute);
 
   isLoading = signal(false);
   error = signal<string | null>(null);
   success = signal(false);
 
-  form = new FormGroup({
-    email: new FormControl('', [Validators.required, Validators.email]),
-  });
+  ngOnInit(): void {
+    // The lock email links here as /auth/unlock-account?token=…&id=…
+    const { token, id } = this.route.snapshot.queryParams;
 
-  clearError() {
-    this.error.set(null);
-  }
-
-  onSubmit() {
-    if (this.form.invalid) {
-      this.form.markAllAsTouched();
+    if (!token || !id) {
+      this.error.set(
+        'This page needs the unlock link from your email. Open the link directly.',
+      );
       return;
     }
 
     this.isLoading.set(true);
-    this.error.set(null);
-    this.success.set(false);
+    this.authService.unlockAccount({ token, userId: id }).subscribe({
+      next: () => {
+        this.success.set(true);
+        this.isLoading.set(false);
+      },
+      error: (err) => {
+        this.error.set(
+          typeof err === 'string'
+            ? err
+            : (err?.error?.message ?? 'This link is invalid or has expired.'),
+        );
+        this.isLoading.set(false);
+      },
+    });
+  }
 
-    // this.authService.unlockAccount(this.form.value.email!).subscribe({
-    //   next: () => {
-    //     this.success.set(true);
-    //     this.isLoading.set(false);
-    //     this.form.reset();
-    //   },
-    //   error: (err) => {
-    //     this.error.set(err?.error?.message ?? 'Something went wrong.');
-    //     this.isLoading.set(false);
-    //   },
-    // });
+  clearError() {
+    this.error.set(null);
   }
 }

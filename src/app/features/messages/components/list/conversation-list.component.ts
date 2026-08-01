@@ -110,13 +110,23 @@ export class ConversationListComponent {
   // Cleanup subject
   private readonly destroy$ = new Subject<void>();
 
+  // whether the cached list currently holds search results rather than the
+  // full list — see fetchConversations()/fetchUsers()
+  private lastLoadWasSearch = false;
+  private lastUserLoadWasSearch = false;
+
   // 5 placeholders; values don't matter—array length does
   placeholders = Array.from({ length: 5 });
 
   ngOnInit(): void {
     this.searchForData();
 
-    this.handleWebSocketMessages().subscribe();
+    // exactly one websocket subscription for the lifetime of the component —
+    // it used to be subscribed here *and* re-subscribed inside searchForData,
+    // so every event was handled twice and this one outlived the component
+    this.handleWebSocketMessages()
+      .pipe(takeUntil(this.destroy$))
+      .subscribe();
   }
 
   ngOnDestroy(): void {
@@ -182,9 +192,7 @@ export class ConversationListComponent {
               return this.fetchUsers(query || '');
             case 'conversations':
             default:
-              return this.fetchConversations(query || '').pipe(
-                switchMap(() => this.handleWebSocketMessages()),
-              );
+              return this.fetchConversations(query || '');
           }
         }),
       )
@@ -194,15 +202,18 @@ export class ConversationListComponent {
   private fetchConversations(
     query: string = '',
   ): Observable<ConversationListI> {
+    // The cache is only reusable if it holds the *full* list. After a search it
+    // holds the filtered result, so clearing the box has to refetch.
     if (
-      this.conversations() &&
-      this.conversations()?.conversations.length! > 0 &&
-      !query
+      !query &&
+      !this.lastLoadWasSearch &&
+      this.conversations()?.conversations.length
     ) {
       return of(this.conversations() as ConversationListI);
     }
 
     this.isLoading.set(true);
+    this.lastLoadWasSearch = !!query;
 
     const request$ = query
       ? this.conversationService.searchConversations(query)
@@ -216,12 +227,13 @@ export class ConversationListComponent {
   }
 
   private fetchUsers(query: string = ''): Observable<UserListI> {
-    // Skip fetch if we have recent data and no query
-    if (this.users() && this.users()?.users.length! > 0 && !query) {
+    // Skip fetch if we have the full list cached and there is no query
+    if (!query && !this.lastUserLoadWasSearch && this.users()?.users.length) {
       return of(this.users() as UserListI);
     }
 
     this.isLoading.set(true);
+    this.lastUserLoadWasSearch = !!query;
 
     // Choose whether to search or get all users
     const request$ = query
@@ -300,14 +312,20 @@ export class ConversationListComponent {
     );
   }
 
+  /**
+   * EMPTY rather than throwError: this sits on the long-lived search and
+   * websocket streams, and re-throwing killed them permanently — one failed
+   * request and search stopped working until a reload.
+   */
   private handleError(
     err: HttpErrorResponse,
     navigation: boolean = false,
   ): Observable<never> {
+    console.error('[conversation-list]', err);
     this.isLoading.set(false);
     if (navigation) {
       this.router.navigate(['/messages']);
     }
-    return throwError(() => err);
+    return EMPTY;
   }
 }

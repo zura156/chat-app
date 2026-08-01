@@ -15,6 +15,41 @@ import { AuthRequest } from '../auth/middlewares/auth.middleware';
 import { s3App as s3, s3App } from '../config/s3';
 import appConfig from '../config/config';
 import { Message } from '../messenger/models/message.model';
+import { Conversation } from '../messenger/models/conversation.model';
+import { Types } from 'mongoose';
+
+/** Contexts whose objects live in the private bucket and need signed reads. */
+const PRIVATE_CONTEXTS = ['dm-image', 'dm-video', 'dm-file', 'dm-audio'];
+
+/** How long an unconfirmed upload record is kept before the TTL index reaps it. */
+const PENDING_UPLOAD_TTL_MS = 24 * 60 * 60 * 1000;
+
+const validateResourceAccess = async (
+  context: string,
+  resourceId: string | undefined | null,
+  userId: string | undefined,
+): Promise<{ status: number; error: string } | null> => {
+  if (context !== 'group-avatar') return null;
+
+  if (!resourceId || !Types.ObjectId.isValid(resourceId)) {
+    return { status: 400, error: 'A valid resourceId is required' };
+  }
+
+  const conversation = await Conversation.findById(resourceId).select(
+    'participants',
+  );
+  if (!conversation) {
+    return { status: 404, error: 'Conversation not found' };
+  }
+
+  const isParticipant = conversation.participants
+    .map((p) => p.toString())
+    .includes(String(userId));
+
+  return isParticipant
+    ? null
+    : { status: 403, error: 'Access denied to this conversation' };
+};
 
 export const presign = async (req: AuthRequest, res: Response) => {
   const { context, mimeType, fileSize, resourceId } =
@@ -33,8 +68,24 @@ export const presign = async (req: AuthRequest, res: Response) => {
   }
 
   // 3. Validate file size
+  if (!Number.isFinite(fileSize) || fileSize <= 0) {
+    return res.status(400).json({ error: 'Invalid file size' });
+  }
+
   if (fileSize > config.maxBytes) {
     return res.status(400).json({ error: 'File too large' });
+  }
+
+  // 3b. Validate the caller may write to the resource this upload targets.
+  // Without this anyone can replace any group's picture by presigning a
+  // 'group-avatar' with someone else's conversation id.
+  const resourceError = await validateResourceAccess(
+    context,
+    resourceId,
+    userId?.toString(),
+  );
+  if (resourceError) {
+    return res.status(resourceError.status).json({ error: resourceError.error });
   }
 
   // 4. Generate unique file key — never use original filename
@@ -64,6 +115,8 @@ export const presign = async (req: AuthRequest, res: Response) => {
     mimeType,
     fileSize,
     status: 'pending',
+    // dropped by the TTL index if the client never confirms
+    expiresAt: new Date(Date.now() + PENDING_UPLOAD_TTL_MS),
   });
 
   return res.json({
@@ -153,10 +206,12 @@ export const getSignedDownloadUrl = async (req: AuthRequest, res: Response) => {
 
   // only private bucket needs signed URLs
   // public bucket files are served directly via CDN
-  const PRIVATE_CONTEXTS = ['dm-image', 'dm-video', 'dm-file'];
-
   if (!PRIVATE_CONTEXTS.includes(upload.context)) {
     return res.json({ variants: upload.variants });
+  }
+
+  if (!upload.variants || typeof upload.variants !== 'object') {
+    return res.status(409).json({ error: 'Upload has no variants' });
   }
 
   // security: verify requesting user is participant in the conversation

@@ -9,8 +9,14 @@ export async function validateConversation(
   next: NextFunction,
 ): Promise<void> {
   try {
-    const conversationId = req.params.id;
+    const conversationId = String(req.params.id ?? '');
     const userId = req.user!._id.toString();
+
+    // Without this an invalid id throws a CastError and surfaces as a 500
+    if (!ObjectId.isValid(conversationId)) {
+      res.status(400).json({ error: 'Invalid conversation id' });
+      return;
+    }
 
     const conversation = await Conversation.findById(conversationId);
 

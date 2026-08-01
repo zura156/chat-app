@@ -167,9 +167,37 @@ export class WebSocketController {
   ): Promise<void> {
     const { read_receipt, conversation_id } = data;
     try {
-      Message.findByIdAndUpdate(read_receipt.last_message_read_id, {
-        status: MessageStatusEnum.READ,
-      }).catch((err) => logger.error('Failed to update message status:', err));
+      const lastReadId = read_receipt?.last_message_read_id;
+
+      if (
+        !ObjectId.isValid(conversation_id) ||
+        !ObjectId.isValid(read_receipt?.user_id) ||
+        !lastReadId ||
+        !ObjectId.isValid(lastReadId)
+      ) {
+        return;
+      }
+
+      // The sender must be a member of the conversation, and the message must
+      // belong to it — otherwise any client could flip any message to READ.
+      const membership = await Conversation.exists({
+        _id: conversation_id,
+        participants: new ObjectId(read_receipt.user_id),
+      });
+      if (!membership) {
+        logger.warn(
+          `Rejected read receipt from non-participant ${read_receipt.user_id}`,
+        );
+        return;
+      }
+
+      Message.findOneAndUpdate(
+        {
+          _id: read_receipt.last_message_read_id,
+          conversation: new ObjectId(conversation_id),
+        },
+        { status: MessageStatusEnum.READ },
+      ).catch((err) => logger.error('Failed to update message status:', err));
 
       const userIdObj = new ObjectId(read_receipt.user_id);
       const lastReadObj = new ObjectId(read_receipt.last_message_read_id);

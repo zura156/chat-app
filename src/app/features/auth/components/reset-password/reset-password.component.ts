@@ -1,4 +1,4 @@
-import { Component, inject, signal } from '@angular/core';
+import { Component, DestroyRef, inject, signal } from '@angular/core';
 import {
   FormGroup,
   FormControl,
@@ -15,7 +15,8 @@ import { passwordValidator } from '../../validators/password.validator';
 import { toast } from '@spartan-ng/brain/sonner';
 import { AuthService } from '../../services/auth.service';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
-import { catchError, switchMap, tap, throwError, timer } from 'rxjs';
+import { catchError, switchMap, take, tap, throwError, timer } from 'rxjs';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import {
   lucideCircleAlert,
   lucideLoader,
@@ -42,6 +43,7 @@ import { ThemeService } from '../../../../shared/services/theme.service';
   ],
 })
 export class ResetPasswordComponent {
+  private readonly destroyRef = inject(DestroyRef);
   private router = inject(Router);
   private route = inject(ActivatedRoute);
   private authService = inject(AuthService);
@@ -71,8 +73,14 @@ export class ResetPasswordComponent {
 
     if (!new_password) return;
 
+    this.isLoading.set(true);
+
     this.route.queryParams
       .pipe(
+        // the params stream is long-lived: without take(1) a later param change
+        // re-submits the reset, and the subscription outlives the component
+        take(1),
+        takeUntilDestroyed(this.destroyRef),
         switchMap(({ token, id }) => {
           const body: ResetPasswordI = {
             token,
@@ -89,7 +97,7 @@ export class ResetPasswordComponent {
             tap((res) => {
               this.error.set(null);
               this.isLoading.set(false);
-              toast.info('Please check your email inbox.', {
+              toast.success('Password updated.', {
                 description: res.message,
               });
             }),

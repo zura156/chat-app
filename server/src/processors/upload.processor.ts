@@ -6,6 +6,7 @@ import { s3App } from '../config/s3';
 import { scanStream } from '../utils/clamav';
 import { moveToQuarantine } from '../utils/quarantine';
 import { JobPayload } from './handlers/types';
+import { markAttachmentStatus } from '../utils/attachment-status';
 import config from '../config/config';
 import { Readable } from 'stream';
 import { emitToUser } from '../utils/ws-emit';
@@ -28,6 +29,8 @@ export const processUpload = async (job: Job<JobPayload>) => {
 
     if (isInfected) {
       await moveToQuarantine(payload.fileKey, payload.uploadId, viruses);
+      await Upload.findByIdAndUpdate(payload.uploadId, { status: 'infected' });
+      await markAttachmentStatus(payload.uploadId, 'infected');
       await emitToUser(payload.userId, {
         type: 'upload-infected',
         uploadId: payload.uploadId,
@@ -48,6 +51,8 @@ export const processUpload = async (job: Job<JobPayload>) => {
     status: 'ready',
     variants: result.variants,
     duration: result.duration,
+    // the record is now referenced by a message — exempt it from the TTL reaper
+    expiresAt: null,
   });
 
   await handlerConfig.onComplete(payload, result);

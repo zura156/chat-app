@@ -18,6 +18,13 @@ import { UserDTO } from '../../user/dtos/user.dto';
 import { ConversationI } from '../interfaces/conversation.interface';
 import { MessageTypeEnum } from '../interfaces/message.interface';
 import { MessageService } from './message.service';
+import { buildDmKey } from '../models/conversation.model';
+import { invalidateParticipantsCache } from '../../utils/conversation-cache';
+
+const escapeRegex = (input: string): string =>
+  input.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+const MAX_PARTICIPANTS = 100;
 
 export class ConversationService {
   private broadcast: BroadcastFunction;
@@ -56,12 +63,20 @@ export class ConversationService {
    */
   public async searchConversations(userId: string, query: string) {
     const userObjectId = new Types.ObjectId(userId);
+    // Escape the user input: unescaped it is both a ReDoS vector and a way to
+    // match every document (e.g. ".*")
+    const safeQuery = escapeRegex((query ?? '').trim()).slice(0, 100);
+
+    if (!safeQuery) {
+      return [];
+    }
+
     // Find users matching the query to search their conversations
     const otherUserIds = await User.find({
       $or: [
-        { username: { $regex: query, $options: 'i' } },
-        { first_name: { $regex: query, $options: 'i' } },
-        { last_name: { $regex: query, $options: 'i' } },
+        { username: { $regex: safeQuery, $options: 'i' } },
+        { first_name: { $regex: safeQuery, $options: 'i' } },
+        { last_name: { $regex: safeQuery, $options: 'i' } },
       ],
       _id: { $ne: userObjectId },
     }).distinct('_id');
@@ -69,7 +84,7 @@ export class ConversationService {
     const conversations = await Conversation.find({
       participants: userObjectId,
       $or: [
-        { group_name: { $regex: query, $options: 'i' } },
+        { group_name: { $regex: safeQuery, $options: 'i' } },
         { participants: { $in: otherUserIds } },
       ],
     })
@@ -140,12 +155,39 @@ export class ConversationService {
     group_name?: string,
     group_picture?: string,
   ) {
+    // The creator is always a member, and a member is only listed once
+    const participantIds = Array.from(
+      new Set([...(participants ?? []), created_by].map(String)),
+    );
+
+    if (participantIds.some((id) => !Types.ObjectId.isValid(id))) {
+      throw createCustomError('Invalid participant id', 400);
+    }
+
+    if (participantIds.length < 2) {
+      throw createCustomError('A conversation needs at least 2 members', 400);
+    }
+
+    if (participantIds.length > MAX_PARTICIPANTS) {
+      throw createCustomError(
+        `A conversation can have at most ${MAX_PARTICIPANTS} members`,
+        400,
+      );
+    }
+
+    const knownUsers = await User.countDocuments({
+      _id: { $in: participantIds },
+    });
+    if (knownUsers !== participantIds.length) {
+      throw createCustomError('One or more participants do not exist', 400);
+    }
+
+    const isDm = !is_group && participantIds.length === 2;
+    const dm_key = isDm ? buildDmKey(participantIds) : undefined;
+
     // Business logic: Prevent duplicate 1-on-1 conversations
-    if (!is_group && participants.length === 2) {
-      const existing = await Conversation.findOne({
-        participants: { $all: participants, $size: 2 },
-        is_group: false,
-      });
+    if (isDm) {
+      const existing = await Conversation.findOne({ dm_key });
       if (existing) {
         throw createCustomError(
           'A conversation with these users already exists',
@@ -155,8 +197,9 @@ export class ConversationService {
     }
 
     let conversation = await Conversation.create({
-      participants,
+      participants: participantIds,
       is_group,
+      dm_key,
       group_name,
       group_picture,
       created_by,
@@ -194,61 +237,33 @@ export class ConversationService {
     currentUser: IUser,
     group_name?: string,
   ): Promise<IConversation> {
-    const updateData: Partial<IConversation> = {};
-
-    if (
-      arguments.length >= 2 &&
-      (typeof group_name === 'string' || group_name === null)
-    ) {
-      updateData.group_name = group_name;
+    if (!conversation.is_group) {
+      throw createCustomError('Only group conversations can be renamed', 400);
     }
 
-    Object.assign(conversation, updateData);
+    if (typeof group_name !== 'string') {
+      throw createCustomError('group_name is required', 400);
+    }
+
+    const nextName = group_name.trim().slice(0, 100);
+    const currentName = conversation.group_name ?? '';
+
+    // Nothing changed — don't save and don't spam the thread with an info message
+    if (nextName === currentName) {
+      return conversation;
+    }
+
+    conversation.group_name = nextName || undefined;
     await conversation.save();
-    const populatedConversation = (await conversation.populate(
-      'participants created_by',
-      'first_name last_name username pfp_url pfp_variants status last_seen',
-    )) as ConversationI;
 
-    let infoMessage = {
-      sender: currentUser._id.toString(),
-      conversation: conversation._id.toString(),
-      content: `Conversation was updated by ${currentUser.username}.`,
-      type: MessageTypeEnum.INFO,
-    };
-
-    // useful in new upload flow
-    // if (group_picture_url) {
-    //   infoMessage.content = `${currentUser.username} updated group picture.`;
-    //   await this.messageService.createTextMessage(
-    //     infoMessage.sender,
-    //     infoMessage.conversation,
-    //     infoMessage.content,
-    //     infoMessage.type,
-    //   );
-    // }
-
-    if (group_name) {
-      infoMessage.content = `${currentUser.username} ${
-        populatedConversation.group_name
-          ? 'changed conversation name to ' + populatedConversation.group_name
-          : 'cleared the conversation name.'
-      }.`;
-      await this.messageService.createTextMessage(
-        infoMessage.sender,
-        infoMessage.conversation,
-        infoMessage.content,
-        infoMessage.type,
-      );
-    }
-
-    if (!group_name)
-      await this.messageService.createTextMessage(
-        infoMessage.sender,
-        infoMessage.conversation,
-        infoMessage.content,
-        infoMessage.type,
-      );
+    await this.messageService.createTextMessage(
+      currentUser._id.toString(),
+      conversation._id.toString(),
+      nextName
+        ? `${currentUser.username} changed conversation name to ${nextName}.`
+        : `${currentUser.username} cleared the conversation name.`,
+      MessageTypeEnum.INFO,
+    );
 
     const message: ConversationUpdateMessage = {
       type: 'conversation-update',
@@ -273,10 +288,11 @@ export class ConversationService {
         403,
       );
     }
+    const conversationId = conversation._id.toString();
     await conversation.deleteOne();
-    // await Conversation.findByIdAndDelete(conversation._id);
     // Delete all messages associated with this conversation here
     await Message.deleteMany({ conversation: conversation._id });
+    await invalidateParticipantsCache(conversationId);
   }
 
   /**
@@ -316,8 +332,33 @@ export class ConversationService {
     userId: string,
     memberChanges: MemberChangesI,
   ): Promise<IConversation> {
-    const removeSet = new Set(memberChanges.remove);
-    const addSet = new Set(memberChanges.add);
+    const removeSet = new Set(memberChanges.remove ?? []);
+    const addSet = new Set(memberChanges.add ?? []);
+
+    // Membership changes only make sense for groups: silently mutating a DM
+    // would turn it into a group the other party never agreed to.
+    if (!conversation.is_group) {
+      throw createCustomError(
+        'Members can only be managed on group conversations',
+        400,
+      );
+    }
+
+    if (
+      [...removeSet, ...addSet].some((id) => !Types.ObjectId.isValid(String(id)))
+    ) {
+      throw createCustomError('Invalid member id', 400);
+    }
+
+    if (
+      conversation.participants.length - removeSet.size + addSet.size >
+      MAX_PARTICIPANTS
+    ) {
+      throw createCustomError(
+        `A conversation can have at most ${MAX_PARTICIPANTS} members`,
+        400,
+      );
+    }
 
     const removedUserDocs = await User.find({
       _id: { $in: Array.from(removeSet) },
@@ -389,6 +430,10 @@ export class ConversationService {
     }
 
     await conversation.save();
+    // Membership changed — the cached participant list used by broadcast() is
+    // now wrong for both the removed and the added users.
+    await invalidateParticipantsCache(conversation._id.toString());
+
     populatedConversation = (await conversation.populate([
       {
         path: 'participants',

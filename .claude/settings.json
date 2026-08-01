@@ -1,0 +1,11 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(echo \"EXIT: $?\")",
+      "Bash(git apply *)",
+      "Bash(echo \"--- check exit: $? ---\")",
+      "Bash(echo \"--- apply exit: $? ---\")",
+      "Bash(npx ng *)"
+    ]
+  }
+}

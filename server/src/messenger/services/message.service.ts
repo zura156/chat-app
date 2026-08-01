@@ -115,15 +115,16 @@ export class MessageService {
       throw new Error('One or more uploads not found or unauthorized.');
     }
 
-    // build attachments from upload records
+    // build attachments from upload records — mimeType/fileSize come from the
+    // stored record, never from the request body, which is client controlled
     const attachments = attachmentPayloads.map((a) => {
       const upload = uploads.find((u) => u._id.toString() === a.uploadId)!;
       return {
         uploadId: a.uploadId,
-        context: a.context,
-        mimeType: a.mimeType,
-        fileSize: a.fileSize,
-        originalName: a.originalName,
+        context: upload.context,
+        mimeType: upload.mimeType,
+        fileSize: upload.fileSize,
+        originalName: a.originalName?.toString().slice(0, 255),
         status: upload.status === 'ready' ? 'ready' : 'processing',
         variants: upload.variants ?? null,
         duration: upload.duration ?? null,

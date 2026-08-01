@@ -65,6 +65,13 @@ export class AuthService {
       this.loadCurrentUser().subscribe();
     }
     this.setupUnloadListener();
+
+    // The server only knows we are back when we say so — without this the
+    // account stays "offline" for everyone else after any reconnect.
+    this.webSocketService.onReconnect().subscribe(() => {
+      const user = this.user();
+      if (user) this.announcePresence(user._id);
+    });
   }
 
   private loadCurrentUser() {
@@ -117,11 +124,9 @@ export class AuthService {
         this.#loading.set(false);
         localStorage.setItem(this.IS_AUTHENTICATED_KEY, 'true');
         this.isAuthenticated.set(true);
+        // loadCurrentUser() already connects the socket and announces presence
         return this.loadCurrentUser().pipe(
-          tap((user) => {
-            this.connectWS(user._id);
-            this.router.navigateByUrl('/messages');
-          }),
+          tap(() => this.router.navigateByUrl('/messages')),
         );
       }),
       catchError(this.handleError),
@@ -193,6 +198,10 @@ export class AuthService {
 
   private connectWS(userId: string): void {
     this.webSocketService.connect();
+    this.announcePresence(userId);
+  }
+
+  private announcePresence(userId: string): void {
     this.webSocketService.sendMessage({
       type: 'user-status',
       user_id: userId,

@@ -6,6 +6,7 @@ import { logger } from './utils/logger';
 import { connectDB } from './config/db';
 import { connectRedis } from './config/redis';
 import { Upload } from './upload/upload.model';
+import { markAttachmentStatus } from './utils/attachment-status';
 
 const CONCURRENCY = parseInt(process.env.WORKER_CONCURRENCY ?? '2');
 // Keep low: ffmpeg is CPU-heavy. Scale horizontally via Coolify replicas instead.
@@ -32,6 +33,8 @@ async function startWorker() {
     );
     worker.on('failed', async (job, err) => {
       const id = job?.id;
+      // NOTE: the Upload document is keyed by uploadId, not by the BullMQ job id
+      const uploadId = job?.data?.uploadId;
       // MANUALLY extract properties because Error objects don't stringify
       const errorInfo = {
         message: err.message,
@@ -42,11 +45,17 @@ async function startWorker() {
         status: (err as any).$metadata?.httpStatusCode,
       };
 
-      // update the database
-      await Upload.findByIdAndUpdate(id, { status: 'failed' }).exec();
+      // update the database — only once the job has exhausted its retries,
+      // otherwise a transient failure marks a still-pending upload as failed
+      const isFinalAttempt =
+        !job || job.attemptsMade >= (job.opts?.attempts ?? 1);
 
-      console.error('Job failed, Raw error:', err);
-      logger.error('Job failed', { jobId: id, error: errorInfo });
+      if (uploadId && isFinalAttempt) {
+        await Upload.findByIdAndUpdate(uploadId, { status: 'failed' }).exec();
+        await markAttachmentStatus(uploadId, 'failed');
+      }
+
+      logger.error('Job failed', { jobId: id, uploadId, error: errorInfo });
     });
 
     worker.on('error', (err) => {

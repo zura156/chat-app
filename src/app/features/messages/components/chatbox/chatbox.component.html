@@ -294,6 +294,20 @@
               <div class="absolute inset-0 flex items-center justify-center">
                 <hlm-spinner class="size-4" />
               </div>
+            } @else if (attachment.previewUrl && attachment.context === "dm-video") {
+              <video
+                [src]="attachment.previewUrl"
+                class="size-full object-cover cursor-pointer"
+                muted
+                playsinline
+                preload="metadata"
+                (click)="previewMedia(attachment)"
+              ></video>
+              <div
+                class="absolute inset-0 flex items-center justify-center bg-black/20 pointer-events-none"
+              >
+                <ng-icon hlm name="lucideCirclePlay" size="sm" class="text-white" />
+              </div>
             } @else if (attachment.previewUrl) {
               <img
                 [src]="attachment.previewUrl"
@@ -313,7 +327,16 @@
                 />
               </div>
             } @else {
-              <!-- file icon block unchanged -->
+              @let visual = attachment.file.name | fileVisual;
+              <div
+                class="size-full flex flex-col items-center justify-center gap-1"
+                [class]="visual.bg"
+              >
+                <ng-icon hlm [name]="visual.icon" size="base" />
+                <span class="text-[8px] font-bold leading-none opacity-80">{{
+                  visual.ext
+                }}</span>
+              </div>
             }
 
             @if (!attachment.uploading) {

@@ -19,6 +19,23 @@ import { MessageStatusMessage } from '../interfaces/web-socket-message.interface
 import { UserStateService } from '../../user/services/user-state.service';
 import { AuthService } from '../../auth/services/auth.service';
 
+/**
+ * Merge a freshly fetched page into what is already on screen.
+ * Keyed by `_id`, falling back to `tempId` so optimistic messages that have no
+ * server id yet survive a page load instead of silently disappearing.
+ */
+function mergeMessagePage(
+  previous: MessageI[],
+  incoming: MessageI[],
+): MessageI[] {
+  const byKey = new Map<string, MessageI>();
+  for (const msg of [...previous, ...incoming]) {
+    const key = msg._id ?? msg.tempId;
+    if (key) byKey.set(key, msg);
+  }
+  return Array.from(byKey.values());
+}
+
 @Injectable()
 export class MessageService {
   private http = inject(HttpClient);
@@ -39,7 +56,7 @@ export class MessageService {
     if (totalCount === undefined) {
       return false;
     }
-    return this.messageOffset() + this.messageLimit() <= totalCount;
+    return this.messageOffset() + this.messageLimit() < totalCount;
   });
 
   // state management for media messages
@@ -51,7 +68,7 @@ export class MessageService {
       return false;
     }
 
-    return this.mediaMessageOffset() + this.mediaMessageLimit() <= totalCount;
+    return this.mediaMessageOffset() + this.mediaMessageLimit() < totalCount;
   });
 
   // state management for file messages
@@ -63,7 +80,7 @@ export class MessageService {
       return false;
     }
 
-    return this.fileMessageOffset() + this.fileMessageLimit() <= totalCount;
+    return this.fileMessageOffset() + this.fileMessageLimit() < totalCount;
   });
 
   // signals for message management
@@ -85,18 +102,9 @@ export class MessageService {
 
       if (isInitialLoad || isDifferentConversation) {
         return newResource.messages;
-      } else {
-        const messageMap = new Map<string, MessageI>();
-        previousMessages.forEach((msg) =>
-          msg._id ? messageMap.set(msg._id, msg) : '',
-        );
-        newResource.messages.forEach((msg) =>
-          msg._id ? messageMap.set(msg._id, msg) : '',
-        );
-        const messages = Array.from(messageMap.values());
-
-        return messages;
       }
+
+      return mergeMessagePage(previousMessages, newResource.messages);
     },
   });
 
@@ -134,19 +142,9 @@ export class MessageService {
 
       if (isInitialLoad || isDifferentConversation) {
         return newResource.messages;
-      } else {
-        const messageMap = new Map<string, MessageI>();
-        previousMessages.forEach((msg) =>
-          msg._id ? messageMap.set(msg._id, msg) : '',
-        );
-        newResource.messages.forEach((msg) =>
-          msg._id ? messageMap.set(msg._id, msg) : '',
-        );
-
-        const messages = Array.from(messageMap.values());
-
-        return messages;
       }
+
+      return mergeMessagePage(previousMessages, newResource.messages);
     },
   });
 
@@ -186,19 +184,9 @@ export class MessageService {
 
       if (isInitialLoad || isDifferentConversation) {
         return newResource.messages;
-      } else {
-        const messageMap = new Map<string, MessageI>();
-        previousMessages.forEach((msg) =>
-          msg._id ? messageMap.set(msg._id, msg) : '',
-        );
-        newResource.messages.forEach((msg) =>
-          msg._id ? messageMap.set(msg._id, msg) : '',
-        );
-
-        const messages = Array.from(messageMap.values());
-
-        return messages;
       }
+
+      return mergeMessagePage(previousMessages, newResource.messages);
     },
   });
 
@@ -433,26 +421,26 @@ export class MessageService {
   // Add a single message to the active messages (useful for real-time updates)
   addMessage(message: MessageI): void {
     this.#activeMessages.update((currentMessages) => {
-      return [message, ...currentMessages];
+      // guard against the same message being pushed twice (e.g. a websocket
+      // redelivery after a reconnect)
+      const exists = currentMessages.some(
+        (m) =>
+          (!!message._id && m._id === message._id) ||
+          (!!message.tempId && m.tempId === message.tempId),
+      );
+      return exists ? currentMessages : [message, ...currentMessages];
     });
 
-    if (message?.type === 'image' || message?.type === 'video') {
-      this.#activeMediaMessages.update((mediaMessages) => [
-        message,
-        ...mediaMessages,
-      ]);
-      return;
-    } else if (message?.type === 'file') {
-      this.#activeFileMessages.update((fileMessages) => [
-        message,
-        ...fileMessages,
-      ]);
-      return;
-    }
-  }
+    const prependOnce = (list: MessageI[]): MessageI[] =>
+      list.some((m) => !!message._id && m._id === message._id)
+        ? list
+        : [message, ...list];
 
-  uploadFileMessage(formData: FormData): Observable<any> {
-    return this.http.post(`${this.apiUrl}/upload`, formData);
+    if (message?.type === 'image' || message?.type === 'video') {
+      this.#activeMediaMessages.update(prependOnce);
+    } else if (message?.type === 'file') {
+      this.#activeFileMessages.update(prependOnce);
+    }
   }
 
   // Clear active messages (useful when changing conversations)
@@ -460,22 +448,72 @@ export class MessageService {
     this.#activeMessages.set([]);
   }
 
+  /**
+   * Reconcile one sent message with what is on screen.
+   *
+   * A message the current user sends arrives twice: once over the websocket
+   * (carries `tempId`) and once as the REST response (carries `_id` only).
+   * Depending on which wins the race there can be *two* entries to collapse —
+   * the optimistic bubble matched by `tempId` and an already-inserted copy
+   * matched by `_id`. Merge into the first match and drop the rest, so the
+   * operation is idempotent no matter the arrival order.
+   */
   fillInMessageDetails(message: MessageI): void {
     this.#activeMessages.update((messages) => {
-      const idx = message.tempId
-        ? messages.findIndex((m) => m.tempId === message.tempId)
-        : -1;
+      const isSame = (m: MessageI): boolean =>
+        (!!message.tempId && m.tempId === message.tempId) ||
+        (!!message._id && m._id === message._id);
 
-      if (idx !== -1) {
-        // Same device — swap optimistic with real
-        const updated = [...messages];
-        updated[idx] = { ...message, status: MessageStatus.SENT };
-        return updated;
+      const next: MessageI[] = [];
+      let merged = false;
+
+      for (const m of messages) {
+        if (!isSame(m)) {
+          next.push(m);
+          continue;
+        }
+        if (merged) continue; // duplicate of one we already merged — drop it
+
+        next.push({
+          ...m,
+          ...message,
+          // keep the temp id so a later echo still recognizes this entry
+          tempId: m.tempId ?? message.tempId,
+          status: message.status ?? MessageStatus.SENT,
+        });
+        merged = true;
       }
 
-      // Other device of same user — just prepend
-      return [message, ...messages];
+      if (merged) return next;
+
+      // Sent from another device of the same user: only insert it if it
+      // actually belongs to the thread on screen, otherwise a message sent to
+      // conversation B shows up inside conversation A.
+      return this.belongsToActiveConversation(message)
+        ? [message, ...messages]
+        : messages;
     });
+  }
+
+  private belongsToActiveConversation(message: MessageI): boolean {
+    const activeId = this.conversationService.activeConversation()?._id;
+    if (!activeId) return false;
+
+    const conversationId =
+      typeof message.conversation === 'string'
+        ? message.conversation
+        : message.conversation?._id;
+
+    return conversationId === activeId;
+  }
+
+  /** Optimistic message could not be delivered — surface it instead of hanging. */
+  markMessageFailed(tempId: string): void {
+    this.#activeMessages.update((messages) =>
+      messages.map((m) =>
+        m.tempId === tempId ? { ...m, status: MessageStatus.FAILED } : m,
+      ),
+    );
   }
 
   private findMessageById(messageId: string): MessageI | undefined {

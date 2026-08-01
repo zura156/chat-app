@@ -17,6 +17,7 @@ import {
   forgotPasswordRateLimiter,
 } from './middlewares/rate-limiter';
 import { csrfProtection } from './middlewares/csrf.middleware';
+import { validateRequest } from './middlewares/validate-request.middleware';
 
 const router = Router();
 
@@ -40,6 +41,7 @@ router.post(
   '/register',
   unauthenticatedGuard,
   validateRegistration,
+  validateRequest,
   registerUser,
 );
 router.post(
@@ -47,6 +49,7 @@ router.post(
   loginRateLimiter,
   unauthenticatedGuard,
   validateLogin,
+  validateRequest,
   loginUser,
 );
 router.post('/logout', authenticateToken, csrfProtection, logOut);

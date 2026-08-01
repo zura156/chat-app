@@ -1,5 +1,7 @@
 import { NextFunction, Request, Response } from 'express';
-import { User } from '../user/models/user.model';
+import { IUser, User } from '../user/models/user.model';
+import { getSecurityAlertEmailHTML } from '../templates/security-alert-email';
+import { logger } from '../utils/logger';
 import { generateTokens } from './services/jwt.service';
 import { CustomAPIError } from '../error-handling/models/custom-api-error.model';
 import config from '../config/config';
@@ -67,9 +69,68 @@ const setAuthCookies = (
 };
 
 const clearAuthCookies = (res: Response) => {
-  res.clearCookie('accessToken');
-  res.clearCookie('refreshToken', { path: '/auth/refresh' });
-  res.clearCookie('csrfToken');
+  // A cookie is only overwritten when name + domain + path match how it was
+  // set — csrfToken is set with a domain, so it must be cleared with one too.
+  res.clearCookie('accessToken', { ...COOKIE_BASE });
+  res.clearCookie('refreshToken', { ...COOKIE_BASE, path: '/auth/refresh' });
+  res.clearCookie('csrfToken', {
+    httpOnly: false,
+    secure: COOKIE_BASE.secure,
+    sameSite: COOKIE_BASE.sameSite,
+    domain: config.cookieDomain,
+  });
+};
+
+// ─── Account lockout ───────────────────────────────────────────────────────────
+
+// Redis rate limiting is per email+IP; this is the per-account backstop that a
+// distributed attempt can't sidestep.
+const MAX_LOGIN_ATTEMPTS = 10;
+const LOCK_DURATION_MS = 30 * 60 * 1000;
+
+const registerFailedLogin = async (
+  user: IUser,
+  req: Request,
+): Promise<void> => {
+  const updated = await User.findByIdAndUpdate(
+    user._id,
+    { $inc: { login_attempts: 1 } },
+    { returnDocument: 'after' },
+  );
+
+  if (!updated || updated.login_attempts < MAX_LOGIN_ATTEMPTS) return;
+
+  const lockUntil = new Date(Date.now() + LOCK_DURATION_MS);
+  await User.updateOne(
+    { _id: user._id },
+    { $set: { lock_until: lockUntil, login_attempts: 0 } },
+  );
+
+  // Deliberately NOT revoking existing sessions: that would let anyone log the
+  // account owner out of every device just by failing to log in.
+  try {
+    const userId = String(user._id);
+    const [unlockLink, resetLink] = await Promise.all([
+      generateLink(AccountTokenEnum.UNLOCK_ACCOUNT, userId),
+      generateLink(AccountTokenEnum.PASSWORD_RESET, userId),
+    ]);
+
+    await sendEmail(
+      user.email,
+      'Unusual sign-in activity on your account',
+      getSecurityAlertEmailHTML(
+        resetLink,
+        unlockLink,
+        new Date().toUTCString(),
+        req.ip ?? 'unknown',
+        'Unknown',
+        String(req.headers['user-agent'] ?? 'Unknown device'),
+      ),
+    );
+  } catch (error) {
+    // the lock still stands even if the mail fails
+    logger.error('Failed to send account lock email:', error);
+  }
 };
 
 // ─── Controllers ───────────────────────────────────────────────────────────────
@@ -143,8 +204,18 @@ export const loginUser = async (
       });
     }
 
+    if (user.lock_until && user.lock_until.getTime() > Date.now()) {
+      res.status(423).json({
+        message:
+          'Account temporarily locked after too many failed attempts. Check your email for the unlock link.',
+        retryAfter: Math.ceil((user.lock_until.getTime() - Date.now()) / 1000),
+      });
+      return;
+    }
+
     const isValidPassword = await user.comparePassword(password);
     if (!isValidPassword) {
+      await registerFailedLogin(user, req);
       return loginRateLimitIncrement(req, res, () => {
         res.status(401).json({ message: 'Invalid credentials' });
       });
@@ -154,7 +225,11 @@ export const loginUser = async (
 
     const { accessToken, refreshToken } = generateTokens(user.id);
     await storeRefreshToken(user.id, refreshToken);
-    await user.updateOne({ $set: { last_login: new Date() } });
+    // a successful sign-in clears the counter and any expired lock
+    await user.updateOne({
+      $set: { last_login: new Date(), login_attempts: 0 },
+      $unset: { lock_until: 1 },
+    });
 
     setAuthCookies(res, accessToken, refreshToken);
     res.status(200).json({ message: 'Login successful' });

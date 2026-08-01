@@ -12,6 +12,7 @@ import {
   setupWebSocket,
   webSocketServiceInstance,
 } from './websocket/websocket.setup';
+import { INSTANCE_ID } from './websocket/services/websocket.service';
 
 import cors from 'cors';
 import http from 'http';
@@ -127,8 +128,8 @@ server.listen(port, async () => {
 
   await redisSubscriber.subscribe('ws:broadcast', (rawMessage) => {
     try {
-      const { participantIds, payload, fromPid } = JSON.parse(rawMessage);
-      if (fromPid === process.pid) return;
+      const { participantIds, payload, fromInstance } = JSON.parse(rawMessage);
+      if (fromInstance === INSTANCE_ID) return;
       for (const userId of participantIds) {
         webSocketServiceInstance.sendToUser(userId, payload);
       }

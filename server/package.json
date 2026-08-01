@@ -9,7 +9,7 @@
   "scripts": {
     "build": "tsc",
     "start": "node dist/src/index.js",
-    "worker:prod": "node dist/worker.js",
+    "worker:prod": "node dist/src/worker.js",
     "dev": "nodemon src/index.ts",
     "worker": "ts-node src/worker.ts"
   },

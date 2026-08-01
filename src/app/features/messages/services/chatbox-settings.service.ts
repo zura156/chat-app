@@ -5,11 +5,13 @@ import { UserService } from '../../user/services/user.service';
 import { ConversationI } from '../interfaces/conversation.interface';
 import { toast } from '@spartan-ng/brain/sonner';
 import { noOnlyWhitespace } from '../../../shared/validators/no-only-whitespace.validator';
+import { UploadService } from '../../upload/services/upload.service';
 
 @Injectable()
 export class ChatboxSettingsService {
   private conversationService = inject(ConversationService);
   private userService = inject(UserService);
+  private uploadService = inject(UploadService);
   private fb = inject(FormBuilder);
 
   buildChatNameForm(currentName: string) {
@@ -32,10 +34,14 @@ export class ChatboxSettingsService {
     });
   }
 
+  /**
+   * Group pictures go through the presign → upload → confirm pipeline; the
+   * worker writes `group_picture` on completion (onGroupAvatarComplete).
+   * Posting the raw File to the conversation endpoint did nothing: there is no
+   * multipart parser on the API.
+   */
   updateChatPicture(conversationId: string, file: File) {
-    return this.conversationService.updateConversation(conversationId, {
-      group_picture: file,
-    });
+    return this.uploadService.uploadFile('group-avatar', file, conversationId);
   }
 
   addMembers(memberIds: string[], conversationId: string) {

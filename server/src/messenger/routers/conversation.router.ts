@@ -72,6 +72,9 @@ router
 
     res.json(conversationWithFilteredParticipants);
   })
+  .patch((req, res, next) =>
+    req.conversationController.updateConversation(req, res, next),
+  )
   .delete((req, res, next) =>
     req.conversationController.deleteConversation(req, res, next),
   );

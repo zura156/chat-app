@@ -4,6 +4,16 @@ import { User } from '../../user/models/user.model';
 import { createCustomError } from '../../error-handling/models/custom-api-error.model';
 import { UserDTO } from '../dtos/user.dto';
 
+/**
+ * Everything another user is allowed to see. Do not widen this: `-password`
+ * alone still leaks email, verification state and lockout counters.
+ */
+const PUBLIC_USER_FIELDS =
+  'first_name last_name username bio pfp_url pfp_variants cover_url cover_variants status last_seen createdAt';
+
+/** The caller's own record — includes account-level fields, still no password. */
+const SELF_USER_FIELDS = `${PUBLIC_USER_FIELDS} email is_email_verified last_login blocked_users`;
+
 export const getUserById = async (
   req: AuthRequest,
   res: Response,
@@ -22,11 +32,10 @@ export const getUserById = async (
       return;
     }
 
-    const user = await User.findById(id).select([
-      '-password',
-      '-accessToken',
-      '-refreshToken',
-    ]);
+    const isSelf = req.user._id.toString() === id;
+    const user = await User.findById(id).select(
+      isSelf ? SELF_USER_FIELDS : PUBLIC_USER_FIELDS,
+    );
 
     if (!user) {
       res.status(404).json({ message: 'User not found' });
@@ -35,7 +44,7 @@ export const getUserById = async (
 
     res.status(200).json(user);
   } catch (error) {
-    console.error('Get current user error:', error);
+    console.error('Get user by id error:', error);
     res.status(500).json({ message: 'Server error' });
   }
 };
@@ -51,11 +60,9 @@ export const getCurrentUser = async (
       return;
     }
 
-    const user = await User.findById(req.user._id.toString()).select([
-      '-password',
-      '-accessToken',
-      '-refreshToken',
-    ]);
+    const user = await User.findById(req.user._id.toString()).select(
+      SELF_USER_FIELDS,
+    );
 
     if (!user) {
       res.status(404).json({ message: 'User not found' });
@@ -170,13 +177,15 @@ export const getUsers = async (
       return;
     }
 
+    const filter = { _id: { $ne: user._id } };
     const [users, totalCount] = await Promise.all([
-      User.find({ _id: { $ne: user._id.toString() } })
+      User.find(filter)
         .sort({ updatedAt: -1 })
         .skip(offset)
-        .limit(limit)
-        .select('-password'),
-      User.countDocuments({ participants: user._id.toString() }),
+        .limit(Math.min(limit, 100))
+        .select(PUBLIC_USER_FIELDS),
+      // was counting a non-existent `participants` field, so it was always 0
+      User.countDocuments(filter),
     ]);
 
     if (!users) {
@@ -213,7 +222,10 @@ export const searchUsers = async (
     const users = await User.find(
       { _id: { $ne: user._id }, $text: { $search: searchQuery } },
       { score: { $meta: 'textScore' } },
-    ).sort({ score: { $meta: 'textScore' } });
+    )
+      .select(PUBLIC_USER_FIELDS)
+      .sort({ score: { $meta: 'textScore' } })
+      .limit(50);
 
     if (!users) {
       next(createCustomError('Could not fetch users!', 502));

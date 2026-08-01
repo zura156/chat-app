@@ -3,9 +3,13 @@ import { inject } from '@angular/core';
 import { CSRFService } from '../services/csrf.service';
 import { catchError } from 'rxjs';
 import { toast } from '@spartan-ng/brain/sonner';
+import { environment } from '../../../../environments/environment';
 
 export const httpOptionsInterceptor: HttpInterceptorFn = (req, next) => {
-  if (req.url.includes('s3.zura156.xyz')) return next(req);
+  // Only our own API gets cookies and the CSRF header. Presigned storage PUTs
+  // must go out untouched — extra headers break the signature and credentials
+  // break CORS. (This used to test for one hardcoded prod hostname.)
+  if (!req.url.startsWith(environment.apiUrl)) return next(req);
 
   const csrf = inject(CSRFService);
   const csrfToken = csrf.getTokenFromCookie();

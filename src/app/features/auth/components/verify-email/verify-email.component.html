@@ -7,10 +7,17 @@
       <div class="size-14 rounded-2xl bg-muted flex items-center justify-center">
         <ng-icon hlm name="lucideMail" size="xl" class="text-muted-foreground" />
       </div>
-      <h1 class="text-xl font-semibold tracking-tight">Check your email</h1>
-      <p class="text-sm text-muted-foreground">
-        We sent a verification link to your email address. Click it to activate your account.
-      </p>
+      @if (verified()) {
+        <h1 class="text-xl font-semibold tracking-tight">Email verified</h1>
+        <p class="text-sm text-muted-foreground">
+          Your account is active. You can sign in now.
+        </p>
+      } @else {
+        <h1 class="text-xl font-semibold tracking-tight">Check your email</h1>
+        <p class="text-sm text-muted-foreground">
+          We sent a verification link to your email address. Click it to activate your account.
+        </p>
+      }
     </div>
 
     <!-- Alerts -->
@@ -26,6 +33,12 @@
         <h4 hlmAlertTitle>Error</h4>
         <p hlmAlertDesc>{{ error() }}</p>
       </div>
+    } @else if (verified()) {
+      <div hlmAlert class="text-start">
+        <ng-icon hlm hlmAlertIcon name="lucideCircleCheck" />
+        <h4 hlmAlertTitle>Verified</h4>
+        <p hlmAlertDesc>Your email address has been confirmed.</p>
+      </div>
     } @else if (success()) {
       <div hlmAlert class="text-start">
         <ng-icon hlm hlmAlertIcon name="lucideCircleCheck" />
@@ -34,17 +47,11 @@
       </div>
     }
 
-    <!-- Resend -->
     <div class="space-y-3">
-      <button hlmBtn variant="outline" class="w-full cursor-pointer rounded-full"
-        [disabled]="isLoading()"
-        (click)="resendVerification()">
-        Resend verification email
-      </button>
-      <p class="text-xs text-muted-foreground">
-        Wrong account?
-        <a [routerLink]="'/auth/login'" class="text-foreground underline-offset-4 hover:underline cursor-pointer">Sign in with another</a>
-      </p>
+      <a hlmBtn variant="outline" [routerLink]="'/auth/login'"
+        class="w-full cursor-pointer rounded-full">
+        Go to sign in
+      </a>
     </div>
 
   </div>

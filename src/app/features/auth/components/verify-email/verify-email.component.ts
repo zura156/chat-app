@@ -1,5 +1,5 @@
-import { Component, inject, signal } from '@angular/core';
-import { RouterLink } from '@angular/router';
+import { Component, inject, OnInit, signal } from '@angular/core';
+import { ActivatedRoute, RouterLink } from '@angular/router';
 import { NgIconComponent, provideIcons } from '@ng-icons/core';
 import {
   lucideLoader,
@@ -31,31 +31,39 @@ import { HlmIconImports } from '@spartan-ng/helm/icon';
     }),
   ],
 })
-export class VerifyEmailComponent {
+export class VerifyEmailComponent implements OnInit {
   private authService = inject(AuthService);
+  private route = inject(ActivatedRoute);
 
   isLoading = signal(false);
   error = signal<string | null>(null);
   success = signal(false);
+  /** true once the token from the email link has been accepted */
+  verified = signal(false);
+
+  ngOnInit(): void {
+    // The email link lands here as /auth/verify-email?token=…&id=…
+    const { token, id } = this.route.snapshot.queryParams;
+    if (!token || !id) return;
+
+    this.isLoading.set(true);
+    this.authService.verifyEmail(token, id).subscribe({
+      next: () => {
+        this.verified.set(true);
+        this.isLoading.set(false);
+      },
+      error: (err) => {
+        this.error.set(
+          typeof err === 'string'
+            ? err
+            : (err?.error?.message ?? 'This link is invalid or has expired.'),
+        );
+        this.isLoading.set(false);
+      },
+    });
+  }
 
   clearError() {
     this.error.set(null);
-  }
-
-  resendVerification() {
-    this.isLoading.set(true);
-    this.error.set(null);
-    this.success.set(false);
-
-    // this.authService.resendVerificationEmail().subscribe({
-    //   next: () => {
-    //     this.success.set(true);
-    //     this.isLoading.set(false);
-    //   },
-    //   error: (err) => {
-    //     this.error.set(err?.error?.message ?? 'Something went wrong.');
-    //     this.isLoading.set(false);
-    //   },
-    // });
   }
 }

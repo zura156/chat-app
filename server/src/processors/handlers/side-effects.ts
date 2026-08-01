@@ -17,9 +17,31 @@ export const onGroupAvatarComplete = async (
   payload: JobPayload,
   result: ProcessResult,
 ) => {
-  await Conversation.findByIdAndUpdate(payload.resourceId, {
-    group_picture: result.variants.medium,
-  });
+  const conversation = await Conversation.findByIdAndUpdate(
+    payload.resourceId,
+    { group_picture: result.variants.medium },
+    { returnDocument: 'after' },
+  )
+    .populate('participants', 'username pfp_url pfp_variants')
+    .populate({
+      path: 'last_message',
+      select: 'content sender timestamp type attachments',
+      populate: { path: 'sender', select: 'username pfp_url pfp_variants' },
+    });
+
+  if (!conversation) return;
+
+  // Push the new picture out, otherwise members only see it after a reload
+  const event = {
+    type: 'conversation-update',
+    conversation: conversation.toObject(),
+  };
+
+  await Promise.all(
+    (conversation.participants as unknown as { _id: unknown }[]).map((p) =>
+      emitToUser(String(p._id), event),
+    ),
+  );
 };
 
 export const onCoverPhotoComplete = async (

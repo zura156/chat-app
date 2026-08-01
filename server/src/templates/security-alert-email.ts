@@ -50,18 +50,22 @@ export const getSecurityAlertEmailHTML = (
                 </tr>
               </table>
               
-              <p style="margin: 20px 0 30px; color: #666; line-height: 1.6;">
-                If this was you, ignore this email. Otherwise, secure your account immediately.
+              <p style="margin: 20px 0 10px; color: #666; line-height: 1.6;">
+                Your account has been locked for 30 minutes. If this was you, use the
+                unlock link below to sign in again right away.
               </p>
-              
+              <p style="margin: 0 0 30px; color: #666; line-height: 1.6;">
+                If it wasn't you, reset your password instead — both links expire in 1 hour.
+              </p>
+
               <!-- Buttons -->
               <table width="100%" cellpadding="0" cellspacing="0">
                 <tr>
                   <td style="padding: 10px 5px;">
-                    <a href="${passwordResetUrl}" style="display: block; background-color: rgb(0,0, 150); color: #ffffff; text-align: center; padding: 15px; text-decoration: none; border-radius: 5px; font-weight: bold;">Reset Password</a>
+                    <a href="${secureAccountUrl}" style="display: block; background-color: rgb(0,0, 150); color: #ffffff; text-align: center; padding: 15px; text-decoration: none; border-radius: 5px; font-weight: bold;">Unlock My Account</a>
                   </td>
                   <td style="padding: 10px 5px;">
-                    <a href="${secureAccountUrl}" style="display: block; background-color: red; color: #ffffff; text-align: center; padding: 15px; text-decoration: none; border-radius: 5px; font-weight: bold;">This Wasn't Me</a>
+                    <a href="${passwordResetUrl}" style="display: block; background-color: red; color: #ffffff; text-align: center; padding: 15px; text-decoration: none; border-radius: 5px; font-weight: bold;">This Wasn't Me</a>
                   </td>
                 </tr>
               </table>

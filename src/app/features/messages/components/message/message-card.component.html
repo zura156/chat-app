@@ -75,14 +75,41 @@
                 @let visible = media.slice(0, 4);
                 @let overflow = media.length - 3;
 
-                @if (visible.length) {
-                  <div
-                    [class]="
-                      visible.length === 1
-                        ? 'p-1'
-                        : 'grid grid-cols-2 gap-0.5 p-1'
-                    "
-                  >
+                @if (visible.length === 1) {
+                  <div class="p-1">
+                    <div
+                      class="relative cursor-pointer rounded-xl overflow-hidden max-w-72 max-h-80 w-fit"
+                      (click)="openMedia(message, visible[0])"
+                    >
+                      @if (
+                        visible[0].status === "ready" && visible[0].variants
+                      ) {
+                        <img
+                          class="max-w-72 max-h-80 w-auto h-auto block rounded-xl"
+                          [src]="
+                            visible[0].variants.medium ||
+                            visible[0].variants.thumbnail
+                          "
+                          [alt]="visible[0].originalName"
+                        />
+                        @if (visible[0].context === "dm-video") {
+                          <div
+                            class="absolute inset-0 flex items-center justify-center bg-black/20 pointer-events-none"
+                          >
+                            <div
+                              class="bg-background/80 backdrop-blur-sm p-2 rounded-full"
+                            >
+                              <ng-icon hlm name="lucideCirclePlay" size="lg" />
+                            </div>
+                          </div>
+                        }
+                      } @else {
+                        <hlm-skeleton class="w-64 h-64 rounded-xl" />
+                      }
+                    </div>
+                  </div>
+                } @else if (visible.length) {
+                  <div class="grid grid-cols-2 gap-0.5 p-1">
                     @for (
                       attachment of visible;
                       track attachment.uploadId;
@@ -95,11 +122,27 @@
                         @if (
                           attachment.status === "ready" && attachment.variants
                         ) {
+                          <!-- videos have no `medium` variant, only a poster -->
                           <img
                             class="size-full object-cover"
-                            [src]="attachment.variants.medium"
+                            [src]="
+                              attachment.variants.medium ||
+                              attachment.variants.thumbnail
+                            "
                             [alt]="attachment.originalName"
                           />
+                          @if (attachment.context === "dm-video") {
+                            <div
+                              class="absolute inset-0 flex items-center justify-center bg-black/20 pointer-events-none"
+                            >
+                              <ng-icon
+                                hlm
+                                name="lucideCirclePlay"
+                                size="lg"
+                                class="text-white"
+                              />
+                            </div>
+                          }
                           @if (i === 3 && overflow > 1) {
                             <div
                               class="absolute inset-0 bg-black/60 flex items-center justify-center"
@@ -158,6 +201,13 @@
                             <ng-icon hlm name="lucideCirclePlay" size="lg" />
                           </div>
                         </div>
+                        @if (attachment.duration) {
+                          <span
+                            class="absolute bottom-1.5 right-1.5 text-[10px] font-medium text-white bg-black/60 px-1.5 py-0.5 rounded"
+                          >
+                            {{ attachment.duration | formatTime }}
+                          </span>
+                        }
                       </div>
                     }
                   </div>

@@ -21,7 +21,6 @@ import {
   of,
   switchMap,
   tap,
-  throwError,
 } from 'rxjs';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, Router } from '@angular/router';
@@ -50,11 +49,18 @@ import { UserI } from '../../../user/interfaces/user.interface';
 import { ParticipantI } from '../../interfaces/participant.interface';
 import { TypingMessage } from '../../interfaces/web-socket-message.interface';
 import { TimeAgoPipe } from '../../../../shared/pipes/time-ago.pipe';
+import { FileVisualPipe } from '../../../../shared/pipes/file-visual.pipe';
 import { MessageCardComponent } from '../message/message-card.component';
 import { NgIcon, provideIcons } from '@ng-icons/core';
 import {
   lucideAlertCircle,
+  lucideCirclePlay,
   lucideCirclePlus,
+  lucideFile,
+  lucideFileArchive,
+  lucideFileSpreadsheet,
+  lucideFileText,
+  lucideFileType,
   lucideInfo,
   lucideMessageCircle,
   lucideMic,
@@ -86,10 +92,22 @@ import {
   MediaViewerService,
 } from '../../../../shared/services/media-viewer.service';
 
+const AUDIO_EXTENSIONS: Record<string, string> = {
+  'audio/webm': 'webm',
+  'audio/ogg': 'ogg',
+  'audio/mp4': 'm4a',
+  'audio/mpeg': 'mp3',
+  'audio/wav': 'wav',
+};
+
+const audioExtension = (mimeType: string): string =>
+  AUDIO_EXTENSIONS[mimeType] ?? 'webm';
+
 @Component({
   selector: 'app-chatbox',
   imports: [
     TimeAgoPipe,
+    FileVisualPipe,
     NgIcon,
     HlmIcon,
     PanGestureDirective,
@@ -118,6 +136,12 @@ import {
       lucidePaperclip,
       lucideX,
       lucideAlertCircle,
+      lucideCirclePlay,
+      lucideFile,
+      lucideFileArchive,
+      lucideFileSpreadsheet,
+      lucideFileText,
+      lucideFileType,
     }),
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -357,6 +381,15 @@ export class ChatboxComponent implements OnInit {
 
     this.trackTypingStatus();
 
+    // Messages sent while the socket was down never arrived — refetch the
+    // newest page on reconnect; the merge dedupes what we already have.
+    this.webSocketService
+      .onReconnect()
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe(() => {
+        if (this.conversation()?._id) this.messagesResource.reload();
+      });
+
     // Route-driven WS message stream — Observable because it needs switchMap + side effects
     this.route.params
       .pipe(
@@ -539,6 +572,13 @@ export class ChatboxComponent implements OnInit {
     );
     if (attachment?.fileKey) this.uploadService.clearUpload(attachment.fileKey);
 
+    // rejected before it ever became a chip (type/size validation) — the only
+    // way the user finds out is a toast
+    if (!attachment) {
+      toast.error(event.error);
+      return;
+    }
+
     this.pendingAttachments.update((list) =>
       list.map((a) =>
         a.tempId === event.tempId
@@ -597,7 +637,13 @@ export class ChatboxComponent implements OnInit {
     if (recordingResult) {
       const tempId = crypto.randomUUID();
       const blob = recordingResult.blob;
-      const file = new File([blob], 'recording.webm', { type: 'audio/webm' });
+      // Derive from the blob: the recorder falls back to other containers when
+      // webm is unsupported (Safari), and the codec parameter must be stripped
+      // because the server matches the mime type against an exact whitelist.
+      const mimeType = (blob.type || 'audio/webm').split(';')[0];
+      const file = new File([blob], `recording.${audioExtension(mimeType)}`, {
+        type: mimeType,
+      });
 
       // optimistic
       const optimisticMessage: MessageI = {
@@ -620,7 +666,7 @@ export class ChatboxComponent implements OnInit {
         this.conversationService
           .createConversation([sender._id, this.selectedUser()!._id])
           .pipe(
-            catchError((err) => this.handleError(err)),
+            catchError((err) => this.handleSendError(err, tempId)),
             switchMap((conversation) => {
               this.messageService.addMessage({
                 ...optimisticMessage,
@@ -664,7 +710,7 @@ export class ChatboxComponent implements OnInit {
       this.conversationService
         .createConversation([sender._id, this.selectedUser()!._id])
         .pipe(
-          catchError((err) => this.handleError(err)),
+          catchError((err) => this.handleSendError(err, tempId)),
           switchMap((conversation) => {
             this.canMessage.set(false);
 
@@ -702,11 +748,12 @@ export class ChatboxComponent implements OnInit {
               )
               .pipe(
                 takeUntilDestroyed(this.destroyRef),
-                catchError((err) => this.handleError(err)),
-                tap(() => {
+                catchError((err) => this.handleSendError(err, tempId)),
+                tap((res) => {
                   this.isMessageLoading.set(false);
                   this.canMessage.set(true);
                   this.lastMessageSentAt = Date.now();
+                  this.messageService.fillInMessageDetails(res);
                 }),
               );
           }),
@@ -743,7 +790,7 @@ export class ChatboxComponent implements OnInit {
       )
       .pipe(
         takeUntilDestroyed(this.destroyRef),
-        catchError((err) => this.handleError(err)),
+        catchError((err) => this.handleSendError(err, tempId)),
         tap((res) => {
           this.isMessageLoading.set(false);
           this.canMessage.set(true);
@@ -776,13 +823,14 @@ export class ChatboxComponent implements OnInit {
           tempId,
         ),
       ),
-      tap(() => {
+      tap((res) => {
         this.isRecording.set(false);
         this.recordingResult.set(undefined);
         this.canMessage.set(true);
         this.lastMessageSentAt = Date.now();
+        this.messageService.fillInMessageDetails(res);
       }),
-      catchError((err) => this.handleError(err)),
+      catchError((err) => this.handleSendError(err, tempId)),
     );
   }
 
@@ -808,6 +856,9 @@ export class ChatboxComponent implements OnInit {
     if (!this.observedElement?.() || this.isVisibilityObserving()) return;
 
     this.isVisibilityObserving.set(true);
+    // the callback re-arms isVisibilityObserving, so without this every
+    // re-entry would leak another live observer on the same element
+    this.divTopIntersectionObserver?.disconnect();
     this.divTopIntersectionObserver = new IntersectionObserver(
       ([entry]) => {
         this.isVisible.set(
@@ -1005,10 +1056,26 @@ export class ChatboxComponent implements OnInit {
       .subscribe();
   }
 
+  /**
+   * Returns EMPTY, never throwError: these handlers sit on long-lived streams
+   * (route params, the websocket feed). Re-throwing tears the subscription down
+   * for good, so one failed request would stop every later navigation from
+   * loading.
+   */
   private handleError(err: any, navigation = false): Observable<never> {
+    console.error('[chatbox]', err);
     this.isMessageLoading.set(false);
     this.isConversationLoading.set(false);
+    // never leave the composer permanently disabled after a failure
+    this.canMessage.set(true);
     if (navigation) this.router.navigate(['/messages']);
-    return throwError(() => err);
+    return EMPTY;
+  }
+
+  /** Send failed: surface it on the optimistic bubble and re-enable the composer. */
+  private handleSendError(err: any, tempId: string): Observable<never> {
+    this.messageService.markMessageFailed(tempId);
+    toast.error('Message could not be sent.');
+    return this.handleError(err);
   }
 }

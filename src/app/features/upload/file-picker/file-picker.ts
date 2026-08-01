@@ -133,16 +133,27 @@ export class FilePicker implements OnDestroy {
 
   public processFile(file: File): void {
     const cfg = this.config();
-    const maxBytes = (cfg.maxSizeMb ?? 50) * 1024 * 1024;
-    const allowed = cfg.allowedMimeTypes ?? defaultAllowed(cfg.context);
+    // Resolve the context first: the limit depends on what is being uploaded,
+    // and a flat 50MB default rejected videos the API would happily accept.
+    const context = this.contextResolver()?.(file) ?? cfg.context;
+    const maxMb = cfg.maxSizeMb ?? MAX_SIZE_MB[context] ?? 50;
+    const maxBytes = maxMb * 1024 * 1024;
+    const allowed = cfg.allowedMimeTypes ?? defaultAllowed(context);
+
+    const fail = (message: string) => {
+      this.validationError.set(message);
+      // surface it to the host — the picker's own error signal is not rendered
+      // by every consumer, so rejected files used to disappear silently
+      this.fileError.emit({ tempId: crypto.randomUUID(), error: message });
+    };
 
     if (allowed && allowed.length > 0 && !allowed.includes(file.type)) {
-      this.validationError.set(`File type ${file.type} not allowed.`);
+      fail(`File type ${file.type || 'unknown'} is not allowed.`);
       return;
     }
 
     if (file.size > maxBytes) {
-      this.validationError.set(`File exceeds ${cfg.maxSizeMb ?? 50}MB limit.`);
+      fail(`"${file.name}" exceeds the ${maxMb}MB limit.`);
       return;
     }
 
@@ -150,8 +161,9 @@ export class FilePicker implements OnDestroy {
     this.selectedFile.set(file);
 
     const isPreviewable =
-      file.type.startsWith('image/') &&
-      !['image/heic', 'image/heif'].includes(file.type);
+      (file.type.startsWith('image/') &&
+        !['image/heic', 'image/heif'].includes(file.type)) ||
+      file.type.startsWith('video/');
 
     const previewUrl = isPreviewable ? URL.createObjectURL(file) : null;
 
@@ -194,6 +206,21 @@ export class FilePicker implements OnDestroy {
       });
   }
 }
+
+/** Mirrors CONTEXT_CONFIG.maxBytes on the server (config/upload.config.ts). */
+const MAX_SIZE_MB: Partial<Record<UploadContext, number>> = {
+  avatar: 20,
+  'group-avatar': 20,
+  'cover-photo': 20,
+  'dm-image': 50,
+  'dm-video': 500,
+  'dm-audio': 25,
+  'dm-file': 100,
+  'post-image': 50,
+  'post-video': 1024,
+  'story-image': 50,
+  'story-video': 200,
+};
 
 function defaultAllowed(ctx: UploadContext): string[] | null {
   switch (ctx) {

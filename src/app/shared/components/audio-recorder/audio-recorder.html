@@ -1,4 +1,4 @@
-<div class="flex items-center gap-x-1 w-full">
+<div class="flex items-center gap-x-2 w-full">
   <!-- Delete -->
   <button
     hlmBtn
@@ -9,58 +9,85 @@
     <ng-icon hlm size="sm" name="lucideTrash2" />
   </button>
 
-  <!-- Progress bar -->
-  <hlm-progress
-    aria-labelledby="audio-timeline"
-    class="flex-1 h-8 bg-muted inline-flex overflow-hidden relative rounded-full"
-    [value]="recordingPercentage()"
-  >
-    <hlm-progress-indicator
-      class="bg-primary/20 flex-1 h-full inline-flex transform-gpu transition-all w-full ease-linear"
-    />
+  <audio
+    #audioPlayer
+    [src]="audioUrl()"
+    (timeupdate)="onPreviewTimeUpdate(audioPlayer)"
+  ></audio>
 
-    <!-- Recording pulse indicator * -->
-    @if (mediaRecorder?.state === 'recording') {
-    <span
-      class="absolute left-3 top-1/2 -translate-y-1/2 flex items-center gap-x-1.5"
+  @if (mediaRecorder?.state === "recording") {
+    <div class="flex-1 h-8 flex items-center gap-x-2">
+      <span
+        class="size-2 rounded-full bg-destructive animate-pulse shrink-0"
+      ></span>
+      <div class="flex-1 h-full flex items-center gap-px">
+        @for (level of liveLevels(); track $index) {
+          <span
+            class="flex-1 rounded-full bg-destructive/70 min-w-px transition-[height] duration-75"
+            [style.height.%]="level * 100"
+          ></span>
+        }
+      </div>
+      <span class="text-xs text-muted-foreground tabular-nums shrink-0">
+        {{ recordingTime() | formatTime }}
+      </span>
+    </div>
+  } @else if (mediaRecorder?.state === "inactive" && audioUrl()) {
+    <div
+      class="flex-1 h-8 flex items-center gap-px cursor-pointer"
+      (click)="seekPreview($event, audioPlayer)"
     >
-      <span class="size-2 rounded-full bg-destructive animate-pulse"></span>
-      <span class="text-xs text-muted-foreground select-none">Recording</span>
+      @for (bar of previewBars(); track $index) {
+        <span
+          class="flex-1 rounded-full min-w-px transition-colors"
+          [class]="
+            $index < previewPlayedBars()
+              ? 'bg-primary'
+              : 'bg-muted-foreground/30'
+          "
+          [style.height.%]="bar * 100"
+        ></span>
+      }
+    </div>
+    <span class="text-xs text-muted-foreground tabular-nums shrink-0">
+      {{
+        (audioPlayer.paused && previewProgress() === 0
+          ? previewDuration()
+          : previewCurrentTime()
+        ) | formatTime
+      }}
     </span>
-    }
-  </hlm-progress>
-
-  <audio #audioPlayer [src]="audioUrl()"></audio>
+  }
 
   <!-- Right action button -->
-  @if (mediaRecorder?.state === 'recording') {
-  <button
-    hlmBtn
-    variant="ghost"
-    class="shrink-0 size-8 p-0 flex items-center justify-center rounded-full cursor-pointer text-muted-foreground hover:text-foreground transition-colors"
-    (click)="stopRecording()"
-  >
-    <ng-icon hlm size="sm" name="lucideSquare" />
-  </button>
-
-  } @else if (mediaRecorder?.state === 'inactive' && audioUrl()) { @if
-  (audioPlayer.paused) {
-  <button
-    hlmBtn
-    variant="ghost"
-    class="shrink-0 size-8 p-0 flex items-center justify-center rounded-full cursor-pointer text-muted-foreground hover:text-foreground transition-colors"
-    (click)="audioPlayer.play()"
-  >
-    <ng-icon hlm size="sm" name="lucidePlay" />
-  </button>
-  } @else {
-  <button
-    hlmBtn
-    variant="ghost"
-    class="shrink-0 size-8 p-0 flex items-center justify-center rounded-full cursor-pointer text-muted-foreground hover:text-foreground transition-colors"
-    (click)="audioPlayer.pause()"
-  >
-    <ng-icon hlm size="sm" name="lucidePause" />
-  </button>
-  } }
+  @if (mediaRecorder?.state === "recording") {
+    <button
+      hlmBtn
+      variant="ghost"
+      class="shrink-0 size-8 p-0 flex items-center justify-center rounded-full cursor-pointer text-muted-foreground hover:text-foreground transition-colors"
+      (click)="stopRecording()"
+    >
+      <ng-icon hlm size="sm" name="lucideSquare" />
+    </button>
+  } @else if (mediaRecorder?.state === "inactive" && audioUrl()) {
+    @if (audioPlayer.paused) {
+      <button
+        hlmBtn
+        variant="ghost"
+        class="shrink-0 size-8 p-0 flex items-center justify-center rounded-full cursor-pointer text-muted-foreground hover:text-foreground transition-colors"
+        (click)="audioPlayer.play()"
+      >
+        <ng-icon hlm size="sm" name="lucidePlay" />
+      </button>
+    } @else {
+      <button
+        hlmBtn
+        variant="ghost"
+        class="shrink-0 size-8 p-0 flex items-center justify-center rounded-full cursor-pointer text-muted-foreground hover:text-foreground transition-colors"
+        (click)="audioPlayer.pause()"
+      >
+        <ng-icon hlm size="sm" name="lucidePause" />
+      </button>
+    }
+  }
 </div>
