@@ -1,4 +1,7 @@
 import 'dotenv/config';
+import ffmpeg from 'fluent-ffmpeg';
+import ffmpegPath from 'ffmpeg-static';
+import { execFile } from 'child_process';
 import { Worker, QueueEvents } from 'bullmq';
 import { bullMQConnection } from './config/queue';
 import { processUpload } from './processors/upload.processor';
@@ -6,13 +9,47 @@ import { logger } from './utils/logger';
 import { connectDB } from './config/db';
 import { connectRedis } from './config/redis';
 import { Upload } from './upload/upload.model';
-import { markAttachmentStatus } from './utils/attachment-status';
+import {
+  markAttachmentStatus,
+  notifyAttachmentOutcome,
+} from './utils/attachment-status';
+import config from './config/config';
 
-const CONCURRENCY = parseInt(process.env.WORKER_CONCURRENCY ?? '2');
 // Keep low: ffmpeg is CPU-heavy. Scale horizontally via Coolify replicas instead.
+
+const CONCURRENCY = config.workerConcurrency;
+
+/**
+ * This is the process that actually transcodes — the paths used to be set in
+ * index.ts (the API), which does none, leaving the worker dependent on whatever
+ * happened to be on $PATH.
+ *
+ * ffmpeg comes from the `ffmpeg-static` dependency so it works without a system
+ * install. ffprobe has no such package and must be on PATH (both Dockerfiles
+ * apt-install ffmpeg, which provides it) — verified here so a missing binary
+ * fails loudly at boot instead of failing every job later.
+ */
+function configureFfmpeg(): void {
+  if (ffmpegPath) {
+    ffmpeg.setFfmpegPath(ffmpegPath);
+    logger.info(`ffmpeg binary: ${ffmpegPath}`);
+  } else {
+    logger.warn('ffmpeg-static provided no binary; falling back to $PATH');
+  }
+
+  execFile('ffprobe', ['-version'], (error) => {
+    if (error) {
+      logger.error(
+        'ffprobe not found on PATH — media duration extraction will fail. Install ffmpeg in this image.',
+      );
+    }
+  });
+}
 
 async function startWorker() {
   try {
+    configureFfmpeg();
+
     await connectDB();
 
     await connectRedis();
@@ -53,6 +90,13 @@ async function startWorker() {
       if (uploadId && isFinalAttempt) {
         await Upload.findByIdAndUpdate(uploadId, { status: 'failed' }).exec();
         await markAttachmentStatus(uploadId, 'failed');
+
+        // notify the client that the upload failed, so it can update its UI
+        await notifyAttachmentOutcome(uploadId, {
+          type: 'upload-failed',
+          uploadId,
+          context: job?.data?.context,
+        });
       }
 
       logger.error('Job failed', { jobId: id, uploadId, error: errorInfo });

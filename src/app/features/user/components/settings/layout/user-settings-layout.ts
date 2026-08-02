@@ -1,4 +1,5 @@
-import { Component, computed, inject, OnInit, signal } from '@angular/core';
+import { Component, DestroyRef, inject, OnInit, signal } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import {
   ActivatedRoute,
   NavigationEnd,
@@ -86,6 +87,8 @@ export class UserSettingsLayout implements OnInit {
     { title: 'Help & Support', url: 'help-support', icon: 'lucideHelpCircle' },
   ];
 
+  private readonly destroyRef = inject(DestroyRef);
+
   ngOnInit(): void {
     this.router.events
       .pipe(
@@ -96,6 +99,7 @@ export class UserSettingsLayout implements OnInit {
           while (route.firstChild) route = route.firstChild;
           return route?.snapshot?.title ?? '';
         }),
+        takeUntilDestroyed(this.destroyRef),
       )
       .subscribe((title) => this.activePageTitle.set(title));
   }

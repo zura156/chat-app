@@ -103,15 +103,15 @@ export class ConversationService {
     userId: string,
     participantId: string,
   ) {
-    const userObjectId = new Types.ObjectId(userId);
-    const participantObjectId = new Types.ObjectId(participantId);
-
     if (
       !Types.ObjectId.isValid(userId) ||
       !Types.ObjectId.isValid(participantId)
     ) {
       throw createCustomError('Invalid user ID(s)', 400);
     }
+
+    const userObjectId = new Types.ObjectId(userId);
+    const participantObjectId = new Types.ObjectId(participantId);
 
     const conversation = await Conversation.findOne({
       participants: { $all: [userObjectId, participantObjectId] },
@@ -196,14 +196,25 @@ export class ConversationService {
       }
     }
 
-    let conversation = await Conversation.create({
-      participants: participantIds,
-      is_group,
-      dm_key,
-      group_name,
-      group_picture,
-      created_by,
-    });
+    let conversation;
+    try {
+      conversation = await Conversation.create({
+        participants: participantIds,
+        is_group,
+        dm_key,
+        group_name,
+        group_picture,
+        created_by,
+      });
+    } catch (error: any) {
+      if (error?.code === 11000 && isDm) {
+        throw createCustomError(
+          'A conversation with these users already exists',
+          409,
+        );
+      }
+      throw error;
+    }
 
     if (!conversation) {
       throw createCustomError('Failed to create conversation', 500);
@@ -265,9 +276,22 @@ export class ConversationService {
       MessageTypeEnum.INFO,
     );
 
+    const populated = await conversation.populate([
+      {
+        path: 'participants',
+        select:
+          'first_name last_name username pfp_url pfp_variants status last_seen',
+      },
+      {
+        path: 'last_message',
+        select: 'content sender timestamp type attachments',
+        populate: { path: 'sender', select: 'username pfp_url pfp_variants' },
+      },
+    ]);
+
     const message: ConversationUpdateMessage = {
       type: 'conversation-update',
-      conversation: conversation.toObject(),
+      conversation: populated.toObject(),
     };
     this.broadcast(message);
 
@@ -289,6 +313,15 @@ export class ConversationService {
       );
     }
     const conversationId = conversation._id.toString();
+
+    const leaveMessage: ConversationLeaveMessage = {
+      type: 'conversation-leave',
+      conversation: conversation.toObject(),
+      removed_users: conversation.participants.map((p) => p.toString()),
+      removed_by: userId,
+    };
+    await this.broadcast(leaveMessage);
+
     await conversation.deleteOne();
     // Delete all messages associated with this conversation here
     await Message.deleteMany({ conversation: conversation._id });
@@ -345,7 +378,9 @@ export class ConversationService {
     }
 
     if (
-      [...removeSet, ...addSet].some((id) => !Types.ObjectId.isValid(String(id)))
+      [...removeSet, ...addSet].some(
+        (id) => !Types.ObjectId.isValid(String(id)),
+      )
     ) {
       throw createCustomError('Invalid member id', 400);
     }

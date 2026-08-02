@@ -3,6 +3,7 @@ import { Conversation } from '../../messenger/models/conversation.model';
 import { Message } from '../../messenger/models/message.model';
 import { JobPayload, ProcessResult } from './types';
 import { emitToUser } from '../../utils/ws-emit';
+import { signVariants } from '../../upload/media-url.service';
 
 export const onAvatarComplete = async (
   payload: JobPayload,
@@ -77,7 +78,7 @@ export const onDmAttachmentComplete = async (
   const event = {
     type: 'upload-ready',
     uploadId: payload.uploadId,
-    variants: result.variants,
+    variants: await signVariants(result.variants),
     duration: result.duration,
   };
   await Promise.all(

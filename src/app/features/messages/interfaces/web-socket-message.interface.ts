@@ -19,6 +19,7 @@ type WebSocketMessageType =
   | 'file-upload'
   | 'upload-ready'
   | 'upload-infected'
+  | 'upload-failed'
   | 'notification';
 
 interface BaseWebSocketMessage {
@@ -89,6 +90,7 @@ export interface FileUploadMessage extends BaseWebSocketMessage {
 export interface UploadReadyMessage extends BaseWebSocketMessage {
   type: 'upload-ready';
   uploadId: string;
+  context?: string;
   variants: Record<string, string>;
   duration?: number; // for audio/video length in seconds
 }
@@ -96,6 +98,12 @@ export interface UploadReadyMessage extends BaseWebSocketMessage {
 export interface UploadInfectedMessage extends BaseWebSocketMessage {
   type: 'upload-infected';
   uploadId: string;
+}
+
+export interface UploadFailedMessage extends BaseWebSocketMessage {
+  type: 'upload-failed';
+  uploadId: string;
+  context?: string;
 }
 
 export interface NotificationMessage extends BaseWebSocketMessage {
@@ -118,4 +126,5 @@ export type WebSocketMessageT =
   | FileUploadMessage
   | UploadReadyMessage
   | UploadInfectedMessage
+  | UploadFailedMessage
   | NotificationMessage;

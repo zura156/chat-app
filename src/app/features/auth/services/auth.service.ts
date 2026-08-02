@@ -15,7 +15,11 @@ import { HttpClient, HttpErrorResponse } from '@angular/common/http';
 import { RegisterCredentialsI } from '../interfaces/register-credentials.interface';
 import { LoginCredentialsI } from '../interfaces/login-credentials.interface';
 import { WebSocketService } from '../../messages/services/web-socket.service';
-import { UserStatusMessage } from '../../messages/interfaces/web-socket-message.interface';
+import { NotificationService } from '../../messages/services/notification.service';
+import {
+  UploadReadyMessage,
+  UserStatusMessage,
+} from '../../messages/interfaces/web-socket-message.interface';
 import { UserStateService } from '../../user/services/user-state.service';
 import { MessageResponseI } from '../../../shared/interfaces/message-response.interface';
 import { ResetPasswordI } from '../interfaces/reset-password.interface';
@@ -32,6 +36,7 @@ export class AuthService {
   private userStateService = inject(UserStateService);
   private userService = inject(UserService);
   private webSocketService = inject(WebSocketService);
+  private notificationService = inject(NotificationService);
 
   private readonly _LOGIN_URL = `${environment.apiUrl}/auth/login`;
   private readonly _REGISTER_URL = `${environment.apiUrl}/auth/register`;
@@ -72,6 +77,15 @@ export class AuthService {
       const user = this.user();
       if (user) this.announcePresence(user._id);
     });
+
+    // Avatars are processed asynchronously; this is when the new URL exists.
+    this.webSocketService
+      .onMessageOfType<UploadReadyMessage>('upload-ready')
+      .subscribe((msg) => {
+        if (msg.context === 'avatar' && msg.variants?.['medium']) {
+          this.userService.applyProfilePicture(msg.variants['medium']);
+        }
+      });
   }
 
   private loadCurrentUser() {
@@ -199,6 +213,9 @@ export class AuthService {
   private connectWS(userId: string): void {
     this.webSocketService.connect();
     this.announcePresence(userId);
+    // Seed unread counts once per session; realtime `notification` events keep
+    // them current from here on.
+    this.notificationService.load().subscribe();
   }
 
   private announcePresence(userId: string): void {
@@ -212,6 +229,7 @@ export class AuthService {
 
   private clearAppState(): void {
     this.userStateService.setCurrentUser(null);
+    this.notificationService.reset();
     this.webSocketService.close();
     localStorage.clear();
     localStorage.setItem(this.IS_AUTHENTICATED_KEY, 'false');

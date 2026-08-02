@@ -27,7 +27,7 @@ const RECONNECT_MAX_DELAY_MS = 15_000;
 @Injectable({ providedIn: 'root' })
 export class WebSocketService {
   private socket$?: WebSocketSubject<WebSocketMessageT>;
-  private messages$ = new Subject<WebSocketMessageT>();
+  private readonly messages$ = new Subject<WebSocketMessageT>();
   private readonly reconnected$ = new Subject<void>();
   private hasConnectedBefore = false;
   private networkListenersBound = false;
@@ -163,10 +163,5 @@ export class WebSocketService {
     this.socket$?.complete();
     this.socket$ = undefined;
     this.connected.set(false);
-  }
-
-  reset(): void {
-    this.close();
-    this.messages$ = new Subject<WebSocketMessageT>();
   }
 }

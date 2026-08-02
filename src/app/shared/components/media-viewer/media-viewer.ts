@@ -1,11 +1,13 @@
 import {
   Component,
+  ElementRef,
   inject,
   HostListener,
   OnInit,
   signal,
   computed,
 } from '@angular/core';
+import { toast } from '@spartan-ng/brain/sonner';
 import { DialogRef, DIALOG_DATA } from '@angular/cdk/dialog';
 import { environment } from '../../../../environments/environment';
 import {
@@ -63,6 +65,7 @@ interface MediaViewerData {
 export class MediaViewer implements OnInit {
   private dialogRef = inject(DialogRef<MediaViewer>);
   private data: MediaViewerData = inject(DIALOG_DATA);
+  private host = inject(ElementRef<HTMLElement>);
 
   state = signal<ModalStatesT>('open');
 
@@ -204,11 +207,10 @@ export class MediaViewer implements OnInit {
 
   async downloadMedia() {
     try {
-      // Show loading state if needed
       const response = await fetch(this.currentMedia().url);
 
       if (!response.ok) {
-        throw new Error('Download failed');
+        throw new Error(`Download failed (${response.status})`);
       }
 
       const blob = await response.blob();
@@ -226,18 +228,18 @@ export class MediaViewer implements OnInit {
       window.URL.revokeObjectURL(url);
     } catch (error) {
       console.error('Download failed:', error);
-      // Show error message to user
+      toast.error('Could not download this file.');
     }
   }
 
   togglePlayPause() {
-    const videoElement = document.querySelector('video') as HTMLVideoElement;
-    if (videoElement) {
-      if (videoElement.paused) {
-        videoElement.play();
-      } else {
-        videoElement.pause();
-      }
+    const videoElement = this.host.nativeElement.querySelector('video');
+    if (!videoElement) return;
+
+    if (videoElement.paused) {
+      videoElement.play();
+    } else {
+      videoElement.pause();
     }
   }
 
@@ -276,7 +278,7 @@ export class MediaViewer implements OnInit {
       fileSize: this.currentMedia().size ?? 0,
       status: 'ready',
       variants: {
-        hls: this.currentMedia().url,
+        original: this.currentMedia().url,
         thumbnail: this.currentMedia().thumbnail,
       },
     };

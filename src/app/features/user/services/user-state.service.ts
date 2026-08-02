@@ -14,8 +14,12 @@ export class UserStateService {
 
   constructor() {
     const selectedUser = sessionStorage.getItem('selectedUser');
-    if (selectedUser) {
+    if (!selectedUser) return;
+
+    try {
       this._selectedUser.set(JSON.parse(selectedUser));
+    } catch {
+      sessionStorage.removeItem('selectedUser');
     }
   }
 

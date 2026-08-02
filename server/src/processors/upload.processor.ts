@@ -6,7 +6,11 @@ import { s3App } from '../config/s3';
 import { scanStream } from '../utils/clamav';
 import { moveToQuarantine } from '../utils/quarantine';
 import { JobPayload } from './handlers/types';
-import { markAttachmentStatus } from '../utils/attachment-status';
+import {
+  markAttachmentStatus,
+  notifyAttachmentOutcome,
+} from '../utils/attachment-status';
+import { signVariants } from '../upload/media-url.service';
 import config from '../config/config';
 import { Readable } from 'stream';
 import { emitToUser } from '../utils/ws-emit';
@@ -31,12 +35,20 @@ export const processUpload = async (job: Job<JobPayload>) => {
       await moveToQuarantine(payload.fileKey, payload.uploadId, viruses);
       await Upload.findByIdAndUpdate(payload.uploadId, { status: 'infected' });
       await markAttachmentStatus(payload.uploadId, 'infected');
-      await emitToUser(payload.userId, {
+
+      const infectedEvent = {
         type: 'upload-infected',
         uploadId: payload.uploadId,
         context: payload.context,
-        viruses,
-      });
+      };
+      // the uploader gets the virus names; the rest of the conversation only
+      // needs to know the attachment is not coming
+      await emitToUser(payload.userId, { ...infectedEvent, viruses });
+      await notifyAttachmentOutcome(
+        payload.uploadId,
+        infectedEvent,
+        payload.userId,
+      );
       return;
     }
   }
@@ -62,7 +74,7 @@ export const processUpload = async (job: Job<JobPayload>) => {
     uploadId: payload.uploadId,
     context: payload.context,
     duration: result.duration,
-    variants: result.variants,
+    variants: await signVariants(result.variants),
   });
 
   await s3App.send(

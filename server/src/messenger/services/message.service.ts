@@ -4,6 +4,9 @@ import { Conversation } from '../models/conversation.model';
 import { BroadcastFunction } from '../../websocket/services/websocket.service';
 import { MessageTypeEnum } from '../interfaces/message.interface';
 import { Upload } from '../../upload/upload.model';
+import { signMessage, signMessages } from '../../upload/media-url.service';
+import { createNotification } from './notification.service';
+import { logger } from '../../utils/logger';
 
 export class MessageService {
   private broadcast: BroadcastFunction;
@@ -34,7 +37,7 @@ export class MessageService {
         .populate('sender', 'username pfp_url pfp_variants'),
       Message.countDocuments({ conversation: conversationId }),
     ]);
-    return { messages, totalCount };
+    return { messages: await signMessages(messages), totalCount };
   }
 
   public async getMediaMessages(
@@ -55,7 +58,7 @@ export class MessageService {
         .populate('sender', 'username pfp_url pfp_variants'),
       Message.countDocuments(query),
     ]);
-    return { messages, totalCount };
+    return { messages: await signMessages(messages), totalCount };
   }
 
   public async getFileMessages(
@@ -76,7 +79,7 @@ export class MessageService {
         .populate('sender', 'username pfp_url pfp_variants'),
       Message.countDocuments(query),
     ]);
-    return { messages, totalCount };
+    return { messages: await signMessages(messages), totalCount };
   }
 
   public async createMessageWithAttachments(
@@ -91,7 +94,7 @@ export class MessageService {
       originalName?: string;
     }[],
     tempId?: string,
-  ): Promise<IMessage> {
+  ): Promise<Record<string, any>> {
     if (!content?.trim() && !attachmentPayloads?.length) {
       throw new Error('Message must have content or attachments.');
     }
@@ -162,13 +165,16 @@ export class MessageService {
 
     if (!populated) throw new Error('Failed to populate message.');
 
-    const broadcastPayload = tempId
-      ? { ...populated.toObject(), tempId }
-      : populated;
+    const signed = await signMessage(populated);
+    const broadcastPayload = tempId ? { ...signed, tempId } : signed;
 
     this.broadcast(broadcastPayload);
 
-    return populated;
+    createNotification(senderId, conversationId, message._id.toString()).catch(
+      (error) => logger.error('Failed to create notification:', error),
+    );
+
+    return signed;
   }
 
   /**
@@ -227,6 +233,15 @@ export class MessageService {
 
     // Broadcast the new message to relevant clients
     this.broadcast(broadcastPayload);
+
+    // system/INFO messages are not something anyone needs a badge for
+    if ((type ?? MessageTypeEnum.TEXT) !== MessageTypeEnum.INFO) {
+      createNotification(
+        senderId,
+        conversationId,
+        message._id.toString(),
+      ).catch((error) => logger.error('Failed to create notification:', error));
+    }
 
     return populatedMessage;
   }

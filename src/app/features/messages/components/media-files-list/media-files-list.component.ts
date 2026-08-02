@@ -54,25 +54,39 @@ export class MediaFilesListComponent implements OnInit {
     if (attachment.context === 'dm-file' || attachment.context === 'dm-audio') {
       return;
     }
-    const media: MediaItem = {
-      _id: String(attachment.uploadId),
-      uploadId: attachment.uploadId,
-      type: attachment.context === 'dm-image' ? 'image' : 'video',
-      url: String(attachment.variants?.large ?? attachment.variants?.hls),
-      thumbnail: attachment.variants?.thumbnail,
-      thumb: attachment.variants?.thumb,
-      size: attachment.fileSize,
-    };
 
-    this.mediaViewerService.openMedia(media, index, {
-      enableGallery: true, //  previously: this.shouldEnableGallery(),
-      showThumbnails: true, // previously: this.shouldEnableGallery(),
-      allowDownload: true,
-      autoPlay: false,
-    });
-  }
+    const items: MediaItem[] = this.mediaMessages().flatMap((message) =>
+      (message.attachments ?? [])
+        .filter(
+          (a) =>
+            a.status === 'ready' &&
+            a.variants &&
+            (a.context === 'dm-image' || a.context === 'dm-video'),
+        )
+        .map((a) => ({
+          _id: String(message._id),
+          uploadId: a.uploadId,
+          type: (a.context === 'dm-image' ? 'image' : 'video') as
+            | 'image'
+            | 'video',
+          url:
+            a.context === 'dm-image'
+              ? (a.variants?.large ?? a.variants?.medium ?? '')
+              : (a.variants?.original ?? a.variants?.hls ?? ''),
+          thumbnail: a.variants?.thumbnail,
+          thumb: a.variants?.thumb,
+          name: a.originalName,
+          size: a.fileSize,
+        })),
+    );
 
-  private shouldEnableGallery(): boolean {
-    return this.mediaMessages().length > 3;
+    if (!items.length) return;
+
+    const clickedIndex = Math.max(
+      0,
+      items.findIndex((m) => m.uploadId === attachment.uploadId),
+    );
+
+    this.mediaViewerService.openGallery(items, clickedIndex);
   }
 }

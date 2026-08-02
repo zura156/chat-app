@@ -1,12 +1,14 @@
 import { Component, inject } from '@angular/core';
 import { NotificationService } from '../../../features/messages/services/notification.service';
 import { HlmButtonImports } from '@spartan-ng/helm/button';
-import { NgIcon } from '@ng-icons/core';
+import { NgIcon, provideIcons } from '@ng-icons/core';
 import { HlmIconImports } from '@spartan-ng/helm/icon';
+import { lucideBell } from '@ng-icons/lucide';
 
 @Component({
   selector: 'app-notification-bell',
   imports: [HlmButtonImports, NgIcon, HlmIconImports],
+  providers: [provideIcons({ lucideBell })],
   template: `
     <button hlmBtn variant="ghost" class="relative">
       <ng-icon name="lucideBell" />

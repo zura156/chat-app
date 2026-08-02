@@ -25,8 +25,9 @@ export async function validateConversation(
       return;
     }
 
-    // Check if user has access (could be based on different criteria)
-    const hasAccess = conversation.participants.includes(new ObjectId(userId));
+    const hasAccess = conversation.participants.some(
+      (participantId) => String(participantId) === userId,
+    );
     if (!hasAccess) {
       res.status(403).json({ error: 'Access denied to this conversation' });
       return;

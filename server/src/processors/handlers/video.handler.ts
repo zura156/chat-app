@@ -111,11 +111,15 @@ const getVideoDuration = (inputPath: string): Promise<number> => {
 const extractThumbnail = (
   inputPath: string,
   outputPath: string,
+  duration: number,
 ): Promise<void> => {
+  // a fixed 00:00:01 seek fails outright on sub-second clips
+  const seek = duration > 1 ? '00:00:01' : '00:00:00';
+
   return new Promise((resolve, reject) => {
     ffmpeg(inputPath)
       .screenshots({
-        timestamps: ['00:00:01'],
+        timestamps: [seek],
         filename: 'thumb.webp',
         folder: outputPath,
         size: '640x?',
@@ -124,6 +128,35 @@ const extractThumbnail = (
       .on('error', reject);
   });
 };
+
+/**
+ * Single progressive MP4, used for anything served from the private bucket.
+ *
+ * HLS cannot be delivered from a private bucket: the master playlist references
+ * variant playlists and segments by relative path, and those requests would go
+ * out unsigned. A single object needs exactly one signed URL. MP4 also plays
+ * natively in Chrome and Firefox, which HLS in a bare <video src> never did.
+ */
+const transcodeToMp4 = (inputPath: string, outputPath: string): Promise<void> =>
+  new Promise((resolve, reject) => {
+    ffmpeg(inputPath)
+      .inputOptions(['-hide_banner'])
+      .videoCodec('libx264')
+      .audioCodec('aac')
+      .audioBitrate('128k')
+      .outputOptions([
+        '-preset veryfast',
+        '-crf 26',
+        '-vf scale=-2:min(720\\,ih)', // cap at 720p, never upscale
+        '-pix_fmt yuv420p', // required for Safari/QuickTime
+        '-movflags +faststart', // moov atom first so playback can start early
+        '-max_muxing_queue_size 1024',
+      ])
+      .output(outputPath)
+      .on('end', () => resolve())
+      .on('error', reject)
+      .run();
+  });
 
 const transcodeToHls = (
   inputPath: string,
@@ -177,6 +210,7 @@ export const videoHandler = async (
   const tmpInput = join(tmpBase, 'input');
   const tmpHls = join(tmpBase, 'hls');
   const tmpThumb = join(tmpBase, 'thumb');
+  const tmpMp4 = join(tmpBase, 'video.mp4');
 
   await mkdir(tmpBase, { recursive: true });
   await mkdir(tmpHls, { recursive: true });
@@ -197,43 +231,69 @@ export const videoHandler = async (
 
     const duration = await getVideoDuration(tmpInput);
 
-    // 2. transcode → HLS
-    await transcodeToHls(tmpInput, tmpHls);
+    // 2. thumbnail (both paths need it)
+    await extractThumbnail(tmpInput, tmpThumb, duration);
 
-    // 3. extract thumbnail
-    await extractThumbnail(tmpInput, tmpThumb);
-
-    // 4. determine target buckets
-    const hlsBucket = isPublic ? config.s3HlsBucket : config.s3PrivateBucket;
+    const baseKey = `${payload.context}/${payload.userId}/${payload.uploadId}`;
     const thumbBucket = isPublic
       ? config.s3PublicBucket
       : config.s3PrivateBucket;
-    const baseKey = `${payload.context}/${payload.userId}/${payload.uploadId}`;
-
-    // 5. upload all HLS segments + playlists
-    await uploadHlsDir(tmpHls, hlsBucket, baseKey);
-
-    // 6. upload thumbnail
-    const thumbPath = join(tmpThumb, 'thumb.webp');
-    const thumbBody = await readFile(thumbPath);
     const thumbKey = `${baseKey}/thumb.webp`;
 
-    await s3App.send(
-      new PutObjectCommand({
-        Bucket: thumbBucket,
-        Key: thumbKey,
-        Body: thumbBody,
-        ContentType: 'image/webp',
-      }),
-    );
+    const uploadThumb = async () => {
+      const thumbBody = await readFile(join(tmpThumb, 'thumb.webp'));
+      await s3App.send(
+        new PutObjectCommand({
+          Bucket: thumbBucket,
+          Key: thumbKey,
+          Body: thumbBody,
+          ContentType: 'image/webp',
+        }),
+      );
+    };
 
-    // 7. build CDN URLs
+    // 3. private (conversation) video → single signable MP4.
+    //    public (posts/stories) → HLS ladder as before.
+    if (!isPublic) {
+      await transcodeToMp4(tmpInput, tmpMp4);
+
+      const videoKey = `${baseKey}/video.mp4`;
+      await s3App.send(
+        new PutObjectCommand({
+          Bucket: config.s3PrivateBucket,
+          Key: videoKey,
+          Body: await readFile(tmpMp4),
+          ContentType: 'video/mp4',
+        }),
+      );
+      await uploadThumb();
+
+      return {
+        variants: {
+          original: `${config.s3Url}/${config.s3PrivateBucket}/${videoKey}`,
+          thumbnail: `${config.s3Url}/${thumbBucket}/${thumbKey}`,
+        },
+        duration,
+        finalBucket: config.s3PrivateBucket,
+        finalKey: videoKey,
+      };
+    }
+
+    await transcodeToHls(tmpInput, tmpHls);
+    await uploadHlsDir(tmpHls, config.s3HlsBucket, baseKey);
+    await uploadThumb();
+
     const variants = {
-      hls: `${config.s3Url}/${hlsBucket}/${baseKey}/index.m3u8`,
+      hls: `${config.s3Url}/${config.s3HlsBucket}/${baseKey}/index.m3u8`,
       thumbnail: `${config.s3Url}/${thumbBucket}/${thumbKey}`,
     };
 
-    return { variants, duration, finalBucket: hlsBucket, finalKey: baseKey };
+    return {
+      variants,
+      duration,
+      finalBucket: config.s3HlsBucket,
+      finalKey: baseKey,
+    };
   } finally {
     // always clean up tmp regardless of success/failure
     await rm(tmpBase, { recursive: true, force: true });

@@ -80,6 +80,17 @@ export class WebSocketController {
       }
 
       const senderId = String(data.sender._id);
+
+      const isParticipant = conversation.participants.some(
+        (participantId) => String(participantId) === senderId,
+      );
+      if (!isParticipant) {
+        logger.warn(
+          `Rejected typing event from non-participant ${senderId} in ${data.conversation_id}`,
+        );
+        return;
+      }
+
       for (const participantId of conversation.participants) {
         const participantStr = String(participantId);
         if (participantStr !== senderId) {

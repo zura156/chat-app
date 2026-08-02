@@ -1,7 +1,12 @@
 import { Component, input, inject, signal, viewChild } from '@angular/core';
 import { UserI } from '../../../user/interfaces/user.interface';
 import { AttachmentI, MessageI } from '../../interfaces/message.interface';
-import { DatePipe, NgClass, TitleCasePipe } from '@angular/common';
+import {
+  DatePipe,
+  NgClass,
+  NgTemplateOutlet,
+  TitleCasePipe,
+} from '@angular/common';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import {
   HlmAvatar,
@@ -17,12 +22,13 @@ import { NgIcon, provideIcons } from '@ng-icons/core';
 import {
   lucideCircleStop,
   lucideCirclePause,
-  lucideCirclePlay,
+  lucidePlay,
   lucideCircleX,
   lucideVolume,
   lucideVolume2,
   lucideVolume1,
   lucideVideo,
+  lucideTriangleAlert,
 } from '@ng-icons/lucide';
 import { HlmIcon } from '@spartan-ng/helm/icon';
 import { VideoPlayer } from '../../../../shared/components/video-player/video-player';
@@ -40,6 +46,7 @@ import { RouterLink } from '@angular/router';
   selector: 'message-card',
   imports: [
     NgClass,
+    NgTemplateOutlet,
     RouterLink,
     TitleCasePipe,
     TimeAgoPipe,
@@ -60,12 +67,15 @@ import { RouterLink } from '@angular/router';
     provideIcons({
       lucideCircleStop,
       lucideCirclePause,
-      lucideCirclePlay,
+      lucidePlay,
       lucideCircleX,
       lucideVolume,
       lucideVolume1,
       lucideVolume2,
       lucideVideo,
+      // was referenced by the infected-attachment branch but never registered,
+      // so that branch rendered a missing icon
+      lucideTriangleAlert,
     }),
   ],
   styles: ``,
@@ -137,7 +147,10 @@ export class MessageCardComponent {
       _id: String(message._id),
       uploadId: a.uploadId,
       type: a.context === 'dm-image' ? 'image' : 'video',
-      url: a.variants!.large || a.variants!.medium || '',
+      url:
+        a.context === 'dm-image'
+          ? a.variants!.large || a.variants!.medium || ''
+          : a.variants!.original || a.variants!.hls || '',
       thumb: a.variants!.thumb,
       thumbnail: a.variants!.thumbnail || a.variants!.thumb,
       name: a.originalName,
@@ -163,7 +176,21 @@ export class MessageCardComponent {
     return message.attachments?.some((a) => a.status === 'processing') ?? false;
   }
 
-  private shouldEnableGallery(): boolean {
-    return this.mediaViewerService.hasEnoughForGallery();
+  hasFailedAttachment(message: MessageI): boolean {
+    return (
+      message.attachments?.some(
+        (a) => a.status === 'failed' || a.status === 'infected',
+      ) ?? false
+    );
+  }
+
+  isOnlyEmoji(text: string): boolean {
+    const trimmed = text.trim();
+    if (!trimmed) return false;
+
+    // Matches one or more Extended_Pictographic sequences (including skin tones, zero-width joiners, flags)
+    const emojiRegex = /^(\p{Extended_Pictographic}|\p{Emoji_Component}|\s)+$/u;
+
+    return emojiRegex.test(trimmed);
   }
 }

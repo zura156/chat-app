@@ -19,10 +19,11 @@ import {
   map,
   Observable,
   of,
+  startWith,
   switchMap,
   tap,
 } from 'rxjs';
-import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
+import { takeUntilDestroyed, toSignal } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, Router } from '@angular/router';
 import { ConversationService } from '../../services/conversation.service';
 import { MessageService } from '../../services/message.service';
@@ -70,6 +71,7 @@ import {
 } from '@ng-icons/lucide';
 import { HlmIcon } from '@spartan-ng/helm/icon';
 import { LayoutService } from '../../services/layout.service';
+import { NotificationService } from '../../services/notification.service';
 import { AudioRecorder } from '../../../../shared/components/audio-recorder/audio-recorder';
 import { RecordingResult } from '../../../../shared/interfaces/audio-message.interface';
 import { ChatboxSettingsComponent } from '../chatbox-settings/chatbox-settings.component';
@@ -158,7 +160,7 @@ export class ChatboxComponent implements OnInit {
   private readonly messageService = inject(MessageService);
   private readonly webSocketService = inject(WebSocketService);
   private readonly mediaViewerService = inject(MediaViewerService); // will take this into another component eventually, just want to get it working first
-  // private readonly notificationService = inject(NotificationService);
+  private readonly notificationService = inject(NotificationService);
   private readonly destroyRef = inject(DestroyRef);
 
   readonly apiUrl = environment.apiUrl;
@@ -216,9 +218,15 @@ export class ChatboxComponent implements OnInit {
 
   pendingAttachments = signal<PendingAttachment[]>([]);
 
+  // * The textarea's value as a signal.
+  private readonly draft = toSignal(
+    this.messageControl.valueChanges.pipe(startWith(this.messageControl.value)),
+    { initialValue: this.messageControl.value },
+  );
+
   hasSendableContent = computed(
     () =>
-      !!this.messageControl.value?.trim() ||
+      !!this.draft()?.trim() ||
       this.pendingAttachments().some((a) => !a.uploading),
   );
 
@@ -310,7 +318,7 @@ export class ChatboxComponent implements OnInit {
       const isLoading = this.messagesResource.isLoading();
       const prevId = this.previousConversationId();
 
-      const conversationChanged = prevId !== undefined && prevId !== currentId;
+      const conversationChanged = prevId !== currentId;
       const messagesAvailable = messages && !isLoading;
 
       if (prevId && prevId !== currentId) {
@@ -318,11 +326,7 @@ export class ChatboxComponent implements OnInit {
         this.messageService.resetFileMessagesFetch();
       }
 
-      if (
-        (conversationChanged || prevId === undefined) &&
-        messagesAvailable &&
-        currentId
-      ) {
+      if (conversationChanged && messagesAvailable && currentId) {
         const lastMessage = messages.messages[0];
         if (
           lastMessage?._id &&
@@ -330,6 +334,7 @@ export class ChatboxComponent implements OnInit {
         ) {
           this.markMessageAsRead(lastMessage);
         }
+        this.notificationService.markSeen(currentId);
         this.previousConversationId.set(currentId);
       }
     });
@@ -632,6 +637,8 @@ export class ChatboxComponent implements OnInit {
     )
       return;
 
+    this.lastMessageSentAt = now;
+
     const recordingResult = this.recordingResult();
 
     if (recordingResult) {
@@ -657,7 +664,6 @@ export class ChatboxComponent implements OnInit {
       };
 
       this.clearPendingAttachments();
-      this.canMessage.set(false);
 
       // first message to a not-yet-created conversation — activeConversation._id
       // is a mock id (the other user's userId, see createMockConversation()).
@@ -712,8 +718,6 @@ export class ChatboxComponent implements OnInit {
         .pipe(
           catchError((err) => this.handleSendError(err, tempId)),
           switchMap((conversation) => {
-            this.canMessage.set(false);
-
             const attachments = this.pendingAttachments().filter(
               (a) => !a.uploading && a.fileKey,
             );
@@ -751,8 +755,6 @@ export class ChatboxComponent implements OnInit {
                 catchError((err) => this.handleSendError(err, tempId)),
                 tap((res) => {
                   this.isMessageLoading.set(false);
-                  this.canMessage.set(true);
-                  this.lastMessageSentAt = Date.now();
                   this.messageService.fillInMessageDetails(res);
                 }),
               );
@@ -762,7 +764,6 @@ export class ChatboxComponent implements OnInit {
       return;
     }
 
-    this.canMessage.set(false);
     this.messageControl.reset();
     const textarea = this.sendInput().nativeElement;
     if (textarea) {
@@ -793,8 +794,6 @@ export class ChatboxComponent implements OnInit {
         catchError((err) => this.handleSendError(err, tempId)),
         tap((res) => {
           this.isMessageLoading.set(false);
-          this.canMessage.set(true);
-          this.lastMessageSentAt = Date.now();
           this.messageService.fillInMessageDetails(res);
         }),
       )
@@ -826,8 +825,6 @@ export class ChatboxComponent implements OnInit {
       tap((res) => {
         this.isRecording.set(false);
         this.recordingResult.set(undefined);
-        this.canMessage.set(true);
-        this.lastMessageSentAt = Date.now();
         this.messageService.fillInMessageDetails(res);
       }),
       catchError((err) => this.handleSendError(err, tempId)),
@@ -994,9 +991,13 @@ export class ChatboxComponent implements OnInit {
             this.messageService.markAttachmentInfected(res.uploadId);
             break;
           }
-          // case 'notification':
-          //   this.notificationService.handleRealtimeNotification(res);
-          //   break;
+          case 'upload-failed': {
+            this.messageService.markAttachmentFailed(res.uploadId);
+            break;
+          }
+          case 'notification':
+            this.notificationService.handleRealtimeNotification(res);
+            break;
         }
       }),
       catchError((err) => this.handleError(err)),

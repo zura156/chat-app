@@ -11,7 +11,11 @@ import {
 import { environment } from '../../../../environments/environment';
 import { HttpClient, httpResource } from '@angular/common/http';
 import { Observable } from 'rxjs';
-import { MessageI, MessageStatus } from '../interfaces/message.interface';
+import {
+  AttachmentI,
+  MessageI,
+  MessageStatus,
+} from '../interfaces/message.interface';
 import { MessageListI } from '../interfaces/message-list.interface';
 import { ConversationService } from './conversation.service';
 import { WebSocketService } from './web-socket.service';
@@ -350,16 +354,24 @@ export class MessageService {
   }
 
   markAttachmentInfected(uploadId: string): void {
+    this.setAttachmentStatus(uploadId, 'infected');
+  }
+
+  markAttachmentFailed(uploadId: string): void {
+    this.setAttachmentStatus(uploadId, 'failed');
+  }
+
+  private setAttachmentStatus(
+    uploadId: string,
+    status: AttachmentI['status'],
+  ): void {
     this.#activeMessages.update((messages) =>
       messages.map((msg) => {
         const idx =
           msg.attachments?.findIndex((a) => a.uploadId === uploadId) ?? -1;
         if (idx === -1) return msg;
         const updatedAttachments = [...(msg.attachments ?? [])];
-        updatedAttachments[idx] = {
-          ...updatedAttachments[idx],
-          status: 'infected',
-        };
+        updatedAttachments[idx] = { ...updatedAttachments[idx], status };
         return { ...msg, attachments: updatedAttachments };
       }),
     );

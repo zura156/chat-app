@@ -10,124 +10,39 @@ behaviour is not obvious.
 
 ---
 
-## ⚠️ Required migration
-
-Two changes need a manual step before they take effect.
-
-### 1. Drop the broken conversation index (blocking)
-
-`{ participants: 1 }` was declared `unique` with `partialFilterExpression: { is_group: false }`.
-That is a **multikey** unique index: uniqueness applies to each array element
-across documents, so once a user appeared in one DM, any second DM containing
-them failed with E11000. It is replaced by a scalar `dm_key`.
-
-```js
-// mongosh <your db>
-db.conversations.dropIndex('participants_1');
-db.conversations.find({ is_group: false, dm_key: { $exists: false } }).forEach(c =>
-  db.conversations.updateOne(
-    { _id: c._id },
-    { $set: { dm_key: c.participants.map(p => p.toString()).sort().join(':') } }
-  )
-);
-db.conversations.getIndexes();   // participants_1 should be gone
-```
-
-Restart the API afterwards so Mongoose builds `dm_key_1`. If that build fails
-with E11000 there are genuine duplicate DMs in the data — dedupe them first.
-
-**Test:** open DMs with two different people from the same account. The second
-one used to 500.
-
-### 2. New indexes build on boot
-
-`{ conversation, timestamp }` and `{ attachments.uploadId }` on `messages`, and a
-TTL index on `uploads.expiresAt`. These build automatically on restart; on a large
-`messages` collection expect the first boot to take a while.
-
----
-
-## Security
-
-- **Anyone could overwrite any group's picture.**
-  `onGroupAvatarComplete` wrote to `payload.resourceId`, which came from the
-  client at presign time and was never checked. `presign` now verifies the caller
-  is a participant of the target conversation for `group-avatar` uploads.
-  *server/src/upload/upload.controller.ts*
-
-- **Read receipts were spoofable.** The websocket layer stamped the top-level
-  `user_id` from the authenticated socket but not `read_receipt.user_id`, so a
-  client could mark messages read on behalf of another user, in any conversation,
-  and flip *any* message id in the database to READ. The socket's proven identity
-  is now stamped onto every id the handlers act on, the sender must be a
-  participant, and the message update is scoped to the conversation.
-  *server/src/websocket/websocket.setup.ts, websocket/controllers/websocket.controller.ts*
-
-- **Every user's email address was readable by any logged-in user.**
-  `getUserById`, `getUsers` and `searchUsers` returned the whole document minus
-  `password`, which still included `email`, `is_email_verified`, `login_attempts`,
-  `lock_until` and `blocked_users` — `/user?limit=100` was a mailing-list export.
-  Replaced with explicit `PUBLIC_USER_FIELDS` / `SELF_USER_FIELDS` projections;
-  account fields are only returned when you ask for yourself.
-  *server/src/user/controllers/user.controller.ts*
-
-- **Regex injection / ReDoS in conversation search.** The raw query string went
-  into `$regex` on three fields: `.*` matched everything, `(a+)+$` pinned the
-  database. Input is now escaped and length-capped; an empty query returns `[]`.
-  *server/src/messenger/services/conversation.service.ts*
-
-- **Conversation creation trusted the client.** The participant list was used
-  verbatim — a user could create a conversation between two other people, with
-  ids that need not exist, unbounded in size. The creator is now forced into the
-  list, ids are validated and deduped, users must exist, 2–100 members.
-  Membership changes are rejected on DMs (silently turning a DM into a group was
-  possible) and tolerate a missing `add`/`remove` array, which used to throw.
-  *server/src/messenger/services/conversation.service.ts*
-
-- **Voice messages skipped the participant check.** `PRIVATE_CONTEXTS` in the
-  signed-URL endpoint listed `dm-image`/`dm-video`/`dm-file` but not `dm-audio`,
-  so DM audio variants were returned to any authenticated caller. Added.
-  *server/src/upload/upload.controller.ts*
-
-- **Attachment metadata came from the request body.** `mimeType`, `fileSize` and
-  `context` are now read off the stored Upload record — the client could
-  previously label anything as anything. `originalName` is capped at 255 chars.
-  *server/src/messenger/services/message.service.ts*
-
-- **The CSRF cookie survived logout.** It is set with a `domain`, but
-  `clearCookie` was called without one, and a cookie is only overwritten when
-  name + domain + path match. All three auth cookies now clear with the
-  attributes they were set with.
-  *server/src/auth/auth.controller.ts*
-
-- **express-validator was inert.** `validationResult` was never called anywhere,
-  so the validators on `/auth/register` and `/auth/login` recorded errors nobody
-  read; bad input fell through to Mongoose and surfaced as a 500. Added a
-  `validateRequest` middleware returning 400 with field-level errors.
-  *server/src/auth/middlewares/validate-request.middleware.ts* (new)
-
-- **Account lockout now exists.** `login_attempts` and `lock_until` were on the
-  model, an unlock endpoint and token type existed, and a security-alert email
-  template sat unused — but nothing ever incremented or set the fields, so no
-  account could ever lock. 10 failed attempts per account now lock it for 30
-  minutes and send the alert email with unlock + password-reset links; login
-  returns **423** with `retryAfter` while locked; a successful login clears the
-  counter and any expired lock. Sessions are deliberately *not* revoked on lock —
-  that would let anyone log you out of every device by failing to sign in.
-  *server/src/auth/auth.controller.ts*
-
-- **Presigned uploads no longer receive our cookies.** The interceptor tested for
-  one hardcoded production S3 hostname; against any other bucket host it attached
-  `withCredentials` and the CSRF header to the presigned PUT, breaking the
-  signature or CORS. It now only stamps requests to `environment.apiUrl`.
-  *src/app/features/auth/interceptors/http-options.interceptor.ts*
-
-- Nginx now sends `X-Content-Type-Options`, `X-Frame-Options: DENY`,
-  `Referrer-Policy`, `Permissions-Policy`, and hides its version. *nginx.conf*
-
----
-
 ## Fixed — flows that did not work at all
+
+- **Conversation video could not play in Chrome or Firefox.** DM video was
+  transcoded to HLS only and rendered with `<video [src]="…index.m3u8">`, with
+  no hls.js anywhere in the project — native HLS is Safari-only. It was also
+  written to the private bucket, which HLS fundamentally cannot be served from:
+  playlists and segments are relative URLs and would go out unsigned. DM video
+  now produces a single progressive MP4 (720p cap, faststart, yuv420p) which
+  plays everywhere and needs exactly one signature. HLS is retained for the
+  public post/story contexts.
+  *server/src/processors/handlers/video.handler.ts, video-player.html*
+
+- **Avatar upload 404'd.** It PATCHed `FormData` to `/user/profile-picture`,
+  a route that does not exist (and no multipart parser is mounted). Rewired
+  through the presign → upload → confirm pipeline the worker already supports
+  via `onAvatarComplete`, with the new URL applied when `upload-ready` arrives.
+  *src/app/features/user/services/user.service.ts, profile-settings.ts*
+
+- **Notifications were never created.** `createNotification` had zero callers,
+  so no notification document was ever written and no badge could appear;
+  `markNotificationsAsSeen` existed but was never routed. Now invoked on message
+  creation (skipping INFO messages), with `PATCH /notifications/seen` added —
+  optionally scoped to one conversation, and resetting `unread_count` so the
+  badge number clears rather than just the `seen` flag.
+  *server/src/messenger/services/message.service.ts, routers/notifications.router.ts*
+
+- **The worker never configured ffmpeg.** `ffmpeg.setFfmpegPath()` ran in the
+  API process, which does no transcoding, leaving the worker dependent on
+  whatever was on `$PATH`. Moved to `worker.ts`, using the `ffmpeg-static`
+  binary, with a startup probe that logs loudly if `ffprobe` is missing instead
+  of failing every job later. `audio.handler` no longer shells out to `ffprobe`
+  directly and no longer throws when a file reports no streams.
+  *server/src/worker.ts, index.ts, processors/handlers/audio.handler.ts*
 
 - **Messages appeared twice when sent.** The message comes back twice — over the
   websocket (carrying `tempId`) and as the REST response (carrying `_id` only) —
@@ -221,7 +136,248 @@ TTL index on `uploads.expiresAt`. These build automatically on restart; on a lar
 
 ---
 
+## Fixed — mobile and input handling
+
+- **The send button was enabled or disabled at random.** `hasSendableContent`
+  was a `computed()` reading `messageControl.value` — a FormControl, not a
+  signal. Nothing invalidated the computed when you typed, so it kept whatever
+  it had cached the last time `pendingAttachments` happened to change. In a new
+  conversation the route change clears attachments immediately before you start
+  typing, which cached `false` and left the button dead for that whole
+  conversation. The draft is now a signal (`toSignal(valueChanges)`).
+  *chatbox.component.ts*
+
+- **`canMessage` doubled as a send-in-flight latch.** It was set to `false`
+  before each send and only restored on success, so a send that never settled
+  disabled the composer permanently. It now means only "a conversation is
+  loaded"; double-sends are prevented by stamping `lastMessageSentAt` when the
+  send starts rather than when it finishes (which also closed the window where
+  two fast taps both passed the throttle).
+  *chatbox.component.ts*
+
+- **The chat could not be scrolled on mobile.** The message wrapper inside the
+  scroll container had `h-full`, pinning it to exactly the container height in a
+  `column-reverse` flex context — the overflow then sits past the block-start
+  edge, which WebKit will not scroll to. Desktop Chrome tolerated it; mobile
+  Safari did not. Changed to `min-h-full`, and the scroll area now declares
+  `overscroll-contain touch-pan-y`.
+  *chatbox.component.html*
+
+- **The swipe-gesture directive fought the scroll container.** `@HostListener`
+  registers `touchmove` as non-passive and inside the Angular zone, so every
+  frame of every scroll blocked on a handler and triggered a full
+  change-detection pass. It now binds passive listeners outside the zone and
+  bails out as soon as a gesture commits to the vertical axis.
+  *pan.directive.ts*
+
+### Video player — rewritten
+
+The controls overlay was revealed by `mouseenter`/`mousemove` only, so on a
+phone it stayed at `opacity-0` with `pointer-events-none`: nothing could be
+paused, scrubbed or fullscreened. Player state was also inferred rather than
+observed. Rewritten around the element's own media events.
+
+**Compatibility**
+- `playsinline` + `webkit-playsinline` + `x5-playsinline`. Without the first,
+  iOS hijacks playback into its own fullscreen player and the custom UI never
+  appears at all.
+- Fullscreen falls back to `video.webkitEnterFullscreen()` — iPhone implements
+  the Fullscreen API on video elements only, never on a container div, so the
+  button was inert there. iOS's `webkitbegin/endfullscreen` events are now
+  observed too, since they don't fire `fullscreenchange`.
+- Seeking moved from `mousedown`/`mousemove` to pointer events with pointer
+  capture: one code path for mouse, touch and pen, and the drag survives the
+  finger leaving a 4px track. `touch-action: none` stops the page scrolling
+  mid-scrub.
+- Volume is persisted (localStorage, guarded — it throws in private mode) and
+  synced from `volumechange` rather than a `volume` *attribute* that does not
+  exist. The slider is hidden on coarse pointers, where iOS ignores volume
+  entirely and no hover exists to reveal it; mute still works everywhere.
+
+**Correctness**
+- `ended` comes from the `ended` event instead of `currentTime === duration`,
+  which is float equality and routinely missed.
+- `duration` guards against `Infinity`/`NaN` (streams, metadata not yet loaded);
+  seeking is disabled and the readout shows `--:--` instead of `NaN:NaN`.
+- `play()`'s promise rejection is handled — autoplay-policy blocks and
+  `AbortError` from a `pause()` racing a `play()` used to surface as unhandled
+  rejections.
+- Buffering spinner from `waiting`/`playing`, a real buffered-range bar, and an
+  error state with retry. `loaded` is emitted on error too, so a host that hides
+  the player until it loads can't spin forever.
+
+**Seeking**
+- Every seek path — timeline drag, keyboard arrows, `Home`/`End` — goes through
+  one `applySeek`. Timeline scrubbing previously assigned `currentTime`
+  directly, which is precisely the write Chromium discards when there are no
+  seekable ranges, so dragging stayed broken there even after the clamping below
+  was added for the other paths.
+- Seeks are clamped to the element's `seekable` ranges, falling back to
+  `buffered`. Chromium only honours a seek to a position it considers seekable,
+  and it populates `seekable` solely from responses that support HTTP Range
+  (206 Partial Content); Firefox buffers the whole file and seeks within
+  `buffered` regardless. A host that answers every request with a plain 200
+  therefore yields video that plays but cannot be scrubbed **in Chromium only**
+  (Chrome and Brave alike). The player logs that diagnosis the first time a seek
+  finds no seekable range, instead of appearing to ignore the input.
+
+  **Root cause — Cloudflare, not the app.** Measured against the live endpoint:
+
+  | Request | Cache path | Result |
+  |---|---|---|
+  | SDK `GetObject` + `Range` (sends `Authorization:`, so CF bypasses cache) | origin | `206`, `Content-Range: bytes 0-99/2795361` |
+  | Presigned URL + `Range` (no auth header, so CF caches) | Cloudflare | `200`, full body, no `Accept-Ranges`, no `Content-Length` |
+  | Same presigned URL again | `cf-cache-status: HIT` | identical broken response |
+
+  The SeaweedFS origin serves Range correctly. Cloudflare caches the object
+  (`Cache-Control: max-age=14400`) and re-serves it chunked with `Accept-Ranges`
+  stripped, and gzips the mp4 outright when the client advertises gzip — which
+  makes byte ranges impossible by construction. The browser only ever uses the
+  presigned path, hence the browser split.
+
+  **Fix is in Cloudflare, scoped to the storage hostname:** a Compression Rule
+  set to *off*, a Cache Rule set to *bypass*, then **purge the cache** — the
+  broken representation is already stored and will keep being served for up to
+  4 hours otherwise. Verify with
+  `curl -s -o /dev/null -D - -r 0-99 -H 'Accept-Encoding: identity' "<signed url>"`
+  and expect `206` plus `accept-ranges: bytes`.
+
+**UI**
+- The volume slider is vertical and floats above the mute button rather than
+  sitting inline. Inline, revealing it widened the controls row and pushed the
+  timestamp and fullscreen button sideways, and every breakpoint had to budget
+  for a control that may or may not occupy space. Orientation uses
+  `writing-mode: vertical-rl` + `direction: rtl` (the standardised form, and the
+  one that puts minimum volume at the bottom) with `appearance: slider-vertical`
+  behind it for older WebKit/Blink.
+- The popup sits flush on top of the button with no vertical offset. Its reveal
+  transition briefly ended at `translateY(-0.25rem)`, opening a 4px gap between
+  button and pill — an unhovered dead zone that closed the popup the instant the
+  cursor left the button, making the slider impossible to reach. The reveal now
+  scales and fades only; it must never translate away from the button.
+- Hiding uses `opacity` + `pointer-events` rather than `visibility: hidden`,
+  which would pull the slider out of the tab order and stop `:focus-within` from
+  ever firing — leaving keyboard users unable to open it at all.
+- No on-screen skip buttons: keyboard arrows (±5s) and the timeline cover it,
+  and two extra controls crowded the row on small inline players.
+- The centre play button rendered `lucidePause` while labelled "Play" and shown
+  only when paused.
+- Control buttons had `size-8` and nothing else inside a flex row. `flex-shrink`
+  defaults to `1`, so their width collapsed under pressure — a long duration
+  label, a narrow player — while height stayed fixed, which is why the circles
+  were often ovals. They now use fixed metrics with `flex: 0 0 auto` and grid
+  centring, in component CSS rather than fighting `hlmBtn`'s own size variants
+  (`size="icon"` sets `size-9`, which the template then overrode with `size-8`).
+- 44px touch targets on coarse pointers, `focus-visible` rings, `aria-label` on
+  every control, `role="slider"` with full `aria-value*` and arrow/Home/End
+  support on the timeline, and `prefers-reduced-motion` honoured.
+  *video-player.ts, video-player.html, video-player.css (new)*
+
 ## Fixed — behaviour
+
+### Attachments that never arrive
+
+- **A permanently failed upload told nobody.** The worker marked the `Upload` and
+  the message attachment `failed` in Mongo and stopped there — no websocket
+  event, and no `upload-failed` message type existed on the client at all. The
+  placeholder therefore stayed in its loading state until a full reload, which
+  reads as a hang. The worker now emits `upload-failed` to every participant, and
+  the client marks the attachment accordingly.
+- **Infected uploads only notified the uploader.** Everyone else in the
+  conversation kept a spinner for a file that was never coming. Both terminal
+  outcomes now fan out to all participants via `notifyAttachmentOutcome`; the
+  uploader still gets the virus names, the others just learn it is not arriving.
+- Terminal states are rendered. `failed` previously fell through to the same
+  skeleton as `processing` for images, audio and files, and for video it produced
+  an *empty bubble* — `getPrimaryAttachment` returns null and `isProcessing` is
+  false, so no branch matched and the message looked like it had vanished.
+- `lucideAlertCircle` was used by the infected-file branch but never passed to
+  `provideIcons`, so that state rendered a missing icon. Now `lucideTriangleAlert`,
+  registered.
+- `WORKER_CONCURRENCY` had two different defaults — `2` read directly from
+  `process.env` in `worker.ts`, `4` in `config.ts`. The config value was never
+  read by anything. The worker now goes through config.
+
+### Conversations and stability
+
+- **A stray rejection could kill the whole API.** `createNotification` was called
+  as `void createNotification(...)` with no `.catch()`, and there was no
+  `unhandledRejection` handler. Node terminates the process on an unhandled
+  rejection by default, so a Mongo or Redis blip during an ordinary message send
+  would take down the API and every websocket connection on the instance. Both
+  call sites now catch and log, and `index.ts` installs process-level handlers as
+  a backstop.
+- **Renaming a group blanked out its members.** `updateConversation` broadcast a
+  bare `conversation.toObject()` — participants as raw ObjectIds — and the
+  client's `updateConversationState` *replaces* the stored conversation with the
+  payload. Every member's username and avatar vanished until reload, rendering
+  senders as "Unknown". Now populated before broadcast, as
+  `onGroupAvatarComplete` already did.
+- **Deleting a conversation told nobody.** Other participants kept it in their
+  list, and every message in it 404'd, until they reloaded. It now broadcasts
+  `conversation-leave` *before* deleting — `broadcast()` resolves recipients by
+  looking the conversation up, so afterwards it would deliver to nobody.
+- **Two clients opening the same DM at once produced a 500.** Both passed the
+  `findOne` pre-check, both inserted, and the unique `dm_key` index rejected the
+  loser with E11000. Now reported as the same 409 the pre-check returns.
+- `findConversationIdByUserId` validated its ids *after* passing them to
+  `new Types.ObjectId()`, which throws on a malformed id — so the 400 guard was
+  unreachable and bad input surfaced as a 500.
+
+### Notifications — client half implemented
+
+The server has always maintained notifications: `createNotification` writes an
+unread count per participant on every message and publishes a `notification`
+event. Nothing consumed it. `NotificationService` on the client was an empty
+stub whose `totalUnread` signal was never written, and the websocket `case
+'notification'` was commented out, so the badge could only ever read zero.
+The service now loads initial counts at login, applies realtime events, and
+clears a conversation's badge when you open it.
+
+**Note:** `NotificationBell` is not mounted in any template — the badge still
+will not appear anywhere until it is placed in a layout. That is a design
+decision, so it was left alone.
+
+### Latent traps and leaks
+
+- **Typing indicators could be pushed into conversations you are not in.**
+  Identity is safe — `websocket.setup.ts` re-stamps every client-supplied id with
+  the one proven at the upgrade handshake — but `handleTyping` never checked
+  *membership*, so any authenticated user could name an arbitrary conversation id
+  and have the server relay "X is typing" to its participants.
+  `handleMessageStatus` already did this check; `handleTyping` now does too.
+- **`validateConversation` was one keyword away from denying all access.** It
+  used `participants.includes(new ObjectId(userId))`, which works only because a
+  hydrated Mongoose array proxies `includes` into an `.equals()` comparison.
+  Adding `.lean()` to that query — a routine optimisation, and one this codebase
+  already applies to similar queries — drops the proxy, `SameValueZero` reference
+  comparison applies, and every membership check silently returns false. Verified
+  both ways against the live database; now compares as strings, like every other
+  membership check in the codebase.
+- **`WebSocketService.reset()` removed.** Nothing called it, and anything that
+  had would have broken the app silently: it replaced `messages$` with a fresh
+  Subject while `typingMessage`, `userStatusMessage` and `messageStatusMessage`
+  hold `toSignal` subscriptions taken against the original instance, so typing
+  indicators and read receipts would stop updating for the rest of the session
+  with no error. It also bought nothing — a plain Subject holds no buffered
+  state. `messages$` is now `readonly` so the trap cannot return.
+- The settings layout subscribed to `router.events` — an app-lifetime stream —
+  with no teardown, so every visit left another live subscription writing
+  `activePageTitle` on a destroyed component.
+- `lucideBell` was rendered by the notification bell but never registered, and
+  there is no app-level `provideIcons`, so the bell icon did not appear at all.
+- `timeAgo` was a pure pipe, so a timestamp — whose reference never changes —
+  never re-rendered: "just now" stayed "just now" indefinitely on a quiet chat.
+  It is now impure and reads a shared 30s clock signal; both halves are needed,
+  since the signal read is what marks the view dirty and impurity is what allows
+  `transform` to run again.
+- The read-receipt effect branched on `prevId === undefined` for its first-load
+  case, but `previousConversationId` is `string | null` and starts at `null` — so
+  that branch was unreachable and its sibling `prevId !== undefined` was always
+  true. The work happened anyway via the other condition; the dead comparison is
+  gone.
+
+### Other
 
 - Presence survives crashes: per-instance keys carry a 90s TTL refreshed by a
   heartbeat, and the global `online_users` set is rebuilt from live instances on
@@ -259,6 +415,20 @@ TTL index on `uploads.expiresAt`. These build automatically on restart; on a lar
   query-param change and leaked its subscription, and the success toast said
   "check your email inbox".
 - Login no longer connects the websocket twice.
+- Spacebar in the media viewer controls the video *in the viewer*; it used to
+  `document.querySelector('video')`, which returns the first video on the page —
+  usually an attachment preview in the composer behind the overlay.
+- Failed media downloads raise a toast instead of only a console error.
+- `searchUsers` encodes its query; `&`, `#` or `+` in the search text silently
+  corrupted the request.
+- A corrupt `selectedUser` in sessionStorage no longer throws during bootstrap
+  and brick the app.
+- `timeAgo` handles future timestamps (clock skew made fresh messages render as
+  a raw ISO string) and invalid dates.
+- Pan gestures ignore multi-touch, so a pinch-zoom can no longer emit a large
+  bogus `deltaX` and navigate away from the chat.
+- Videos opened from a message card or the media panel use the right URL —
+  both built image-only URLs, so the media panel literally opened `"undefined"`.
 
 ---
 
@@ -325,6 +495,17 @@ no `medium` variant, so they rendered as broken images (pre-existing).
 
 ## Removed
 
+- `ViewportTopVisibleDirective` — referenced by no template, and it listened to
+  `window` scroll, which never fires here (the chat scrolls in an inner
+  container).
+- `s3-transfer.service.ts` — no callers; had it been used, it would have written
+  released quarantine files to the *public* bucket.
+- `MediaViewerService.openMedia` / `openSingleMedia` / `openMediaGallery` /
+  `hasEnoughForGallery` — the one real caller now builds its own item list and
+  goes through `openGallery` like everything else, instead of the service
+  reaching back into message state.
+- `MediaViewerService` is no longer re-provided on the `:id` route; it is
+  `providedIn: 'root'`, so that just created a second instance.
 - `MessageService.uploadFileMessage()` — posted to `/messages/upload`, which does
   not exist.
 - The email form on the unlock page (there is no "request an unlock link"

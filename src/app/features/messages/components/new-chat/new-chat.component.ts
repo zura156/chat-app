@@ -100,8 +100,7 @@ export class NewChatComponent implements OnInit, OnDestroy {
     return this.#users().filter(
       (user) =>
         `${user.first_name} ${user.last_name}`.toLowerCase().includes(query) ||
-        user.username.toLowerCase().includes(query) ||
-        user.email.toLowerCase().includes(query),
+        user.username?.toLowerCase().includes(query),
     );
   });
 

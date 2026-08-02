@@ -24,8 +24,6 @@ import mongoSanitize from '@exortek/express-mongo-sanitize';
 import hpp from 'hpp';
 import { authenticateToken } from './auth/middlewares/auth.middleware';
 
-import ffmpeg from 'fluent-ffmpeg';
-import ffmpegPath from 'ffmpeg-static';
 import {
   connectRedis,
   redisSubscriber,
@@ -93,7 +91,6 @@ app.use(hpp());
 app.use(express.json({ limit: '1mb' }));
 app.use(express.urlencoded({ limit: '1mb', extended: true }));
 app.use(cookieParser());
-ffmpeg.setFfmpegPath(ffmpegPath || '');
 // app.use(morgan('combined'));
 
 // Public routes
@@ -119,6 +116,21 @@ app.use('/upload', generalLimiter, authenticateToken, uploadRouter);
 
 app.use((err: Error, req: Request, res: Response, next: NextFunction) => {
   errorMiddleware(err, req, res, next);
+});
+
+/*
+ * Node terminates the process on an unhandled rejection by default (>= 15), so
+ * one stray promise anywhere in a request path would drop every websocket
+ * connection on this instance. Log it loudly and stay up — for a chat server a
+ * missed background task beats disconnecting everyone. This is a safety net,
+ * not a licence to skip .catch() at the call site.
+ */
+process.on('unhandledRejection', (reason) => {
+  logger.error('Unhandled promise rejection:', reason);
+});
+
+process.on('uncaughtException', (error) => {
+  logger.error('Uncaught exception:', error);
 });
 
 server.listen(port, async () => {

@@ -5,10 +5,9 @@ import { UserI } from '../interfaces/user.interface';
 import { Observable, of, tap } from 'rxjs';
 import { UserListI } from '../interfaces/user-list.interface';
 import { UserStateService } from './user-state.service';
-import { UpdateProfilePictureI } from '../interfaces/update-profile-picture.interface';
-import { UpdateProfilePictureResponseI } from '../interfaces/update-profile-picture-response.interface';
 import { toast } from '@spartan-ng/brain/sonner';
 import { UpdateProfileDataI } from '../interfaces/update-profile-data.interface';
+import { UploadService } from '../../upload/services/upload.service';
 
 @Injectable({
   providedIn: 'root',
@@ -16,13 +15,13 @@ import { UpdateProfileDataI } from '../interfaces/update-profile-data.interface'
 export class UserService {
   private http = inject(HttpClient);
   private userStateService = inject(UserStateService);
+  private uploadService = inject(UploadService);
 
   private readonly apiUrl = environment.apiUrl;
 
   private readonly _GET_CURRENT_USER_URL = `${this.apiUrl}/user/profile`;
   private readonly _GET_USERS_URL = `${this.apiUrl}/user`;
   private readonly _SEARCH_USERS_URL = `${this.apiUrl}/user/search`;
-  private readonly _UPDATE_PROFILE_PICTURE_URL = `${this.apiUrl}/user/profile-picture`;
 
   currentUser = this.userStateService.currentUser;
 
@@ -52,33 +51,20 @@ export class UserService {
     );
   }
 
-  updateProfilePicture(
-    body: UpdateProfilePictureI,
-  ): Observable<UpdateProfilePictureResponseI> {
-    const formData = new FormData();
-    formData.append('userId', body.userId);
-    formData.append('profilePicture', body.profilePicture);
+  uploadProfilePicture(file: File): Observable<string> {
+    return this.uploadService.uploadFile('avatar', file).pipe(
+      tap(() => {
+        toast.success('Profile picture updated.', {
+          description: 'It may take a moment to finish processing.',
+        });
+      }),
+    );
+  }
 
-    return this.http
-      .patch<UpdateProfilePictureResponseI>(
-        this._UPDATE_PROFILE_PICTURE_URL,
-        formData,
-      )
-      .pipe(
-        tap(({ message, profilePictureUrl }) => {
-          toast.success(message);
-          const currentUser = this.currentUser();
-          if (!currentUser) {
-            toast.error('Current user not found in state.');
-            return;
-          }
-
-          this.userStateService.setCurrentUser({
-            ...currentUser,
-            pfp_url: profilePictureUrl,
-          });
-        }),
-      );
+  applyProfilePicture(pfpUrl: string): void {
+    const currentUser = this.currentUser();
+    if (!currentUser) return;
+    this.userStateService.setCurrentUser({ ...currentUser, pfp_url: pfpUrl });
   }
 
   getCurrentUser(): Observable<UserI> {
@@ -104,7 +90,7 @@ export class UserService {
   }
 
   searchUsers(query: string) {
-    const url = `${this._SEARCH_USERS_URL}?q=${query}`;
+    const url = `${this._SEARCH_USERS_URL}?q=${encodeURIComponent(query)}`;
     return this.http
       .get<UserListI>(url)
       .pipe(tap((res) => this.#users.set(res)));

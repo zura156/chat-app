@@ -16,6 +16,7 @@ const IMAGE_VARIANTS = {
 
 export const imageHandler = async (
   payload: JobPayload,
+  bucket: string = config.s3PublicBucket,
 ): Promise<ProcessResult> => {
   // 1. fetch raw file from uploads-temp
   const raw = await s3App.send(
@@ -41,14 +42,14 @@ export const imageHandler = async (
     const key = `${baseKey}/${name}.webp`;
     await s3App.send(
       new PutObjectCommand({
-        Bucket: config.s3PublicBucket,
+        Bucket: bucket,
         Key: key,
         Body: processed,
         ContentType: 'image/webp',
       }),
     );
 
-    variants[name] = `${config.s3Url}/${config.s3PublicBucket}/${key}`;
+    variants[name] = `${config.s3Url}/${bucket}/${key}`;
   }
 
   // 3. delete from temp
@@ -59,5 +60,5 @@ export const imageHandler = async (
     }),
   );
 
-  return { variants, finalBucket: config.s3PublicBucket, finalKey: baseKey };
+  return { variants, finalBucket: bucket, finalKey: baseKey };
 };

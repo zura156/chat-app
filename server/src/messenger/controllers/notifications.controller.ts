@@ -10,10 +10,16 @@ export const markNotificationsAsSeen = async (
 ): Promise<void> => {
   try {
     const userId = new Types.ObjectId(req.user?._id.toString());
-    await Notification.updateMany(
-      { user: userId, seen: false },
-      { seen: true },
-    );
+    const { conversationId } = req.body ?? {};
+
+    const filter: Record<string, unknown> = { user: userId, seen: false };
+    if (conversationId && Types.ObjectId.isValid(conversationId)) {
+      filter['conversation'] = new Types.ObjectId(conversationId);
+    }
+
+    await Notification.updateMany(filter, {
+      $set: { seen: true, unread_count: 0 },
+    });
 
     res.status(200).json({ message: 'Notifications marked as seen' });
   } catch (error) {

@@ -10,22 +10,30 @@ import { JobPayload, ProcessResult } from './types';
 import { tmpdir } from 'os';
 import { join } from 'path';
 import { writeFile, readFile, rm, mkdir } from 'fs/promises';
-import { execFile } from 'child_process';
-import { promisify } from 'util';
 
-const execFileAsync = promisify(execFile);
-const getDuration = async (filePath: string): Promise<number> => {
-  const { stdout } = await execFileAsync('ffprobe', [
-    '-v',
-    'quiet',
-    '-print_format',
-    'json',
-    '-show_streams',
-    filePath,
-  ]);
-  const data = JSON.parse(stdout);
-  return parseFloat(data.streams[0]?.duration ?? '0');
-};
+/**
+ * Uses fluent-ffmpeg rather than shelling out to `ffprobe` directly, so it
+ * honours whatever binary the worker configured instead of silently depending
+ * on $PATH resolution.
+ */
+const getDuration = (filePath: string): Promise<number> =>
+  new Promise((resolve) => {
+    ffmpeg.ffprobe(filePath, (err, metadata) => {
+      if (err) {
+        console.error('ffprobe failed for audio duration:', err);
+        return resolve(0);
+      }
+
+      const fmtDur = Number(metadata?.format?.duration);
+      if (Number.isFinite(fmtDur) && fmtDur > 0) return resolve(fmtDur);
+
+      const streamDur = metadata?.streams
+        ?.map((s) => Number(s.duration))
+        .find((d) => Number.isFinite(d) && d > 0);
+
+      resolve(streamDur ?? 0);
+    });
+  });
 
 const transcodeAudio = (input: string, output: string): Promise<void> =>
   new Promise((resolve, reject) => {

@@ -1,7 +1,6 @@
 import { Routes } from '@angular/router';
 import { MessagesLayoutComponent } from './components/layout/messages-layout.component';
 import { LayoutService } from './services/layout.service';
-import { MediaViewerService } from '../../shared/services/media-viewer.service';
 import { conversationsResolver } from './services/conversations.resolver';
 
 export const messagesRoutes: Routes = [
@@ -32,7 +31,6 @@ export const messagesRoutes: Routes = [
           import('./components/chatbox/chatbox.component').then(
             (c) => c.ChatboxComponent,
           ),
-        providers: [MediaViewerService],
       },
     ],
   },

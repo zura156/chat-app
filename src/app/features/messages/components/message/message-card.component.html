@@ -45,7 +45,8 @@
             message.type === 'audio' ||
             message.type === 'video' ||
             message.type === 'info' ||
-            message.type === 'file'
+            message.type === 'file' ||
+            isOnlyEmoji(message.content || '')
               ? 'bg-transparent'
               : isCurrentUserMessage
                 ? 'bg-primary text-primary-foreground rounded-2xl '
@@ -57,7 +58,8 @@
             [ngClass]="{
               'items-end': isCurrentUserMessage,
               'items-start': !isCurrentUserMessage,
-              'py-1.5 px-3 max-w-xs': message.type === 'text',
+              'py-1.5 px-3 max-w-xs':
+                message.type === 'text' && !isOnlyEmoji(message.content || ''),
             }"
           >
             @switch (message.type) {
@@ -99,7 +101,7 @@
                             <div
                               class="bg-background/80 backdrop-blur-sm p-2 rounded-full"
                             >
-                              <ng-icon hlm name="lucideCirclePlay" size="lg" />
+                              <ng-icon hlm name="lucidePlay" size="lg" />
                             </div>
                           </div>
                         }
@@ -137,7 +139,7 @@
                             >
                               <ng-icon
                                 hlm
-                                name="lucideCirclePlay"
+                                name="lucidePlay"
                                 size="lg"
                                 class="text-white"
                               />
@@ -196,9 +198,9 @@
                           class="absolute inset-0 flex items-center justify-center bg-black/20"
                         >
                           <div
-                            class="bg-background/80 backdrop-blur-sm p-2 rounded-full"
+                            class="bg-background/80 size-14 flex items-center justify-center backdrop-blur-sm p-2 rounded-full"
                           >
-                            <ng-icon hlm name="lucideCirclePlay" size="lg" />
+                            <ng-icon hlm name="lucidePlay" size="lg" />
                           </div>
                         </div>
                         @if (attachment.duration) {
@@ -217,12 +219,17 @@
                     <div
                       class="absolute inset-0 flex flex-col gap-y-1 items-center justify-center"
                     >
-                      <ng-icon hlm name="lucideCirclePlay" size="xl" />
+                      <ng-icon hlm name="lucidePlay" size="xl" />
                       <span class="text-xs text-muted-foreground"
                         >Processing...</span
                       >
                     </div>
                   </div>
+                } @else if (hasFailedAttachment(message)) {
+                  <ng-container
+                    [ngTemplateOutlet]="attachmentFailed"
+                    [ngTemplateOutletContext]="{ $implicit: message }"
+                  />
                 }
               }
 
@@ -234,6 +241,11 @@
                   </div>
                 } @else if (isProcessing(message)) {
                   <hlm-skeleton class="w-48 h-10 rounded-full" />
+                } @else if (hasFailedAttachment(message)) {
+                  <ng-container
+                    [ngTemplateOutlet]="attachmentFailed"
+                    [ngTemplateOutletContext]="{ $implicit: message }"
+                  />
                 }
               }
 
@@ -248,12 +260,19 @@
                   ) {
                     @if (attachment.status === "ready" && attachment.variants) {
                       <app-file-viewer [file]="attachment" />
-                    } @else if (attachment.status === "infected") {
+                    } @else if (
+                      attachment.status === "infected" ||
+                      attachment.status === "failed"
+                    ) {
                       <div
                         class="flex items-center gap-2 px-3 py-2 text-destructive text-xs"
                       >
-                        <ng-icon hlm name="lucideAlertCircle" size="sm" />
-                        File blocked — failed security scan
+                        <ng-icon hlm name="lucideTriangleAlert" size="sm" />
+                        {{
+                          attachment.status === "infected"
+                            ? "File blocked — failed security scan"
+                            : "Upload failed — this file could not be processed"
+                        }}
                       </div>
                     } @else {
                       <div
@@ -274,7 +293,10 @@
               @default {
                 @if (message.content) {
                   <p
-                    class="whitespace-pre-wrap text-sm wrap-anywhere [word-break:break-word]"
+                    class="whitespace-pre-wrap wrap-anywhere [word-break:break-word]"
+                    [class]="
+                      isOnlyEmoji(message.content) ? 'text-3xl' : 'text-sm'
+                    "
                   >
                     {{ message.content }}
                   </p>
@@ -377,3 +399,18 @@
     </div>
   }
 }
+
+<!-- Terminal attachment outcome -->
+<ng-template #attachmentFailed let-message>
+  @let blocked = (message.attachments ?? []).some(a => a.status === 'infected');
+  <div
+    class="flex items-center gap-2 px-3 py-2 m-1 w-fit text-xs text-destructive border border-destructive/30 rounded-xl"
+  >
+    <ng-icon hlm name="lucideTriangleAlert" size="sm" />
+    {{
+      blocked
+        ? "Blocked — failed security scan"
+        : "Upload failed — this attachment could not be processed"
+    }}
+  </div>
+</ng-template>

@@ -30,7 +30,6 @@ import { base64ToFile } from '../../../../../shared/functions/base64-to-file';
 import { FileMetadata } from '../../../../../shared/interfaces/file-metadata.interface';
 import { catchError, EMPTY, tap } from 'rxjs';
 import { UserService } from '../../../services/user.service';
-import { UpdateProfilePictureI } from '../../../interfaces/update-profile-picture.interface';
 import { UpdateProfileDataI } from '../../../interfaces/update-profile-data.interface';
 import { RouterLink } from '@angular/router';
 import { AuthService } from '../../../../auth/services/auth.service';
@@ -146,24 +145,22 @@ export class ProfileSettings {
     const file = base64ToFile(imgSrc, 'pfp.png');
 
     const userId = this.currentUser()?._id;
-    const metadata = this.selectedFileMetadata();
-    if (!userId || !metadata) {
-      toast.error('User ID or file metadata is missing.');
+    if (!userId) {
+      toast.error('User ID is missing.');
       return;
     }
-    const updateProfilePictureBody: UpdateProfilePictureI = {
-      userId,
-      profilePicture: file,
-    };
 
     this.userService
-      .updateProfilePicture(updateProfilePictureBody)
+      .uploadProfilePicture(file)
       .pipe(
+        tap(() => this.selectedImageSrc.set(null)),
         catchError((error) => {
-          toast.error('Failed to update profile picture.', error.error.message);
+          // error.error may be absent entirely (network failure)
+          toast.error('Failed to update profile picture.', {
+            description: error?.error?.message ?? error?.message,
+          });
           return EMPTY;
         }),
-        tap(() => this.selectedImageSrc.set(null)),
       )
       .subscribe();
   }
