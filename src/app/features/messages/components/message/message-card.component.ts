@@ -189,8 +189,8 @@ export class MessageCardComponent {
     if (!trimmed) return false;
 
     // Matches one or more Extended_Pictographic sequences (including skin tones, zero-width joiners, flags)
-    const emojiRegex = /^(\p{Extended_Pictographic}|\p{Emoji_Component}|\s)+$/u;
-
+    const emojiRegex =
+      /^(?:(?:\p{Extended_Pictographic}(?:\uFE0F|\p{Emoji_Modifier})?|\p{Regional_Indicator}{2}|\d\uFE0F?\u20E3|#\uFE0F?\u20E3|\*\uFE0F?\u20E3)(?:\u200D(?:\p{Extended_Pictographic}(?:\uFE0F|\p{Emoji_Modifier})?))*|\s)+$/u;
     return emojiRegex.test(trimmed);
   }
 }

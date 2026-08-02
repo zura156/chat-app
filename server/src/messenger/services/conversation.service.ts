@@ -20,6 +20,7 @@ import { MessageTypeEnum } from '../interfaces/message.interface';
 import { MessageService } from './message.service';
 import { buildDmKey } from '../models/conversation.model';
 import { invalidateParticipantsCache } from '../../utils/conversation-cache';
+import { seedNotificationWatermarks } from './notification.service';
 
 const escapeRegex = (input: string): string =>
   input.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -409,11 +410,18 @@ export class ConversationService {
       conversation.participants.map((id) => id.toString()),
     );
 
+    const addedParticipantIds: Types.ObjectId[] = [];
     for (const id of addSet) {
       if (!currentParticipantIds.has(id)) {
-        conversation.participants.push(new Types.ObjectId(id));
+        const objectId = new Types.ObjectId(id);
+        conversation.participants.push(objectId);
+        addedParticipantIds.push(objectId);
       }
     }
+
+    // Before any info message lands, so the join itself does not become their
+    // first unread — and so the history they were never part of is not counted.
+    await seedNotificationWatermarks(conversation._id, addedParticipantIds);
 
     let populatedConversation = (await conversation.populate([
       {

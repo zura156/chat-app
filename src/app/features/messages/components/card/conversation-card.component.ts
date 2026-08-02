@@ -1,4 +1,10 @@
-import { Component, inject, input, linkedSignal } from '@angular/core';
+import {
+  Component,
+  computed,
+  inject,
+  input,
+  linkedSignal,
+} from '@angular/core';
 import { ConversationI } from '../../interfaces/conversation.interface';
 import { LayoutService } from '../../services/layout.service';
 import { HlmIconImports } from '@spartan-ng/helm/icon';
@@ -7,8 +13,7 @@ import { TimeAgoPipe } from '../../../../shared/pipes/time-ago.pipe';
 import { environment } from '../../../../../environments/environment';
 import { UserStateService } from '../../../user/services/user-state.service';
 import { Router } from '@angular/router';
-// import { NotificationService } from '../../services/notification.service';
-// import { computed } from '@angular/core';
+import { NotificationService } from '../../services/notification.service';
 import { HlmBadgeImports } from '@spartan-ng/helm/badge';
 import { MessageI } from '../../interfaces/message.interface';
 
@@ -20,13 +25,13 @@ import { MessageI } from '../../interfaces/message.interface';
 export class ConversationCardComponent {
   private layoutService = inject(LayoutService);
   private userStateService = inject(UserStateService);
-  // private notificationService = inject(NotificationService);
+  private notificationService = inject(NotificationService);
   private router = inject(Router);
 
   conversation = input.required<ConversationI>();
-  // unreadCount = computed(() =>
-  //   this.notificationService.unreadForConversation(this.conversation()._id)(),
-  // );
+  unreadCount = computed(() =>
+    this.notificationService.unreadFor(this.conversation()?._id),
+  );
 
   apiUrl = environment.apiUrl;
 

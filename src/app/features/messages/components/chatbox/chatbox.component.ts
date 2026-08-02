@@ -995,9 +995,6 @@ export class ChatboxComponent implements OnInit {
             this.messageService.markAttachmentFailed(res.uploadId);
             break;
           }
-          case 'notification':
-            this.notificationService.handleRealtimeNotification(res);
-            break;
         }
       }),
       catchError((err) => this.handleError(err)),

@@ -1,18 +1,125 @@
 import { Notification } from '../models/notifications.model';
 import { MutedConversation } from '../models/muted-conversation.model';
-import { Conversation } from '../models/conversation.model';
+import { Conversation, IReadReceipt } from '../models/conversation.model';
+import { Message } from '../models/message.model';
+import { MessageTypeEnum } from '../interfaces/message.interface';
 import { Types } from 'mongoose';
 import { redisClient } from '../../config/redis';
+
+/*
+ * unread_count used to be a running total maintained with $inc, cleared from
+ * three different places. Nothing ever recomputed it, so a single lost clear or
+ * repeated increment was permanent — the counter had no way back to the truth,
+ * which is what produced badges reading 2 for one new message.
+ *
+ * It is now derived from the messages collection on every write and every read.
+ * The stored number is only a cache; a wrong one survives until the next
+ * message or the next load, then corrects itself.
+ */
+
+/** Nothing at or before this instant is unread for the user. */
+const watermarkOf = (
+  lastReadAt: Date | undefined,
+  seenAt: Date | undefined,
+): Date | undefined => {
+  const candidates = [lastReadAt, seenAt].filter((d): d is Date => !!d);
+  if (candidates.length === 0) return undefined;
+  return new Date(Math.max(...candidates.map((d) => d.getTime())));
+};
+
+/**
+ * Nobody needs an exact count past this — the card renders `9+`. Capping keeps
+ * the count off the full history of a long conversation, which matters because
+ * this runs once per recipient per message.
+ */
+const UNREAD_COUNT_CAP = 99;
+
+/**
+ * Messages in the conversation that this user has not read: not their own, not
+ * system info, newer than their watermark. Served by the existing
+ * `{conversation, timestamp}` index.
+ *
+ * No watermark means nothing has ever been read, so everything counts — which
+ * is why a user joining an existing conversation gets one seeded at join time.
+ */
+const deriveUnreadCount = (
+  conversation: Types.ObjectId,
+  user: Types.ObjectId,
+  since: Date | undefined,
+): Promise<number> =>
+  Message.countDocuments(
+    {
+      conversation,
+      sender: { $ne: user },
+      type: { $ne: MessageTypeEnum.INFO },
+      ...(since ? { timestamp: { $gt: since } } : {}),
+    },
+    { limit: UNREAD_COUNT_CAP },
+  );
+
+/**
+ * Read receipts store a message id; the watermark needs that message's
+ * server-assigned timestamp. Client-supplied `read_at` is not usable here — it
+ * comes off the sender's clock.
+ *
+ * Keyed by message id rather than by user: one user holds a different receipt
+ * in every conversation, so a user-keyed map collides as soon as the caller
+ * spans more than one.
+ */
+const timestampsByMessageId = async (
+  receipts: IReadReceipt[],
+): Promise<Map<string, Date>> => {
+  const messageIds = receipts
+    .map((receipt) => receipt.last_message_read_id)
+    .filter((id): id is Types.ObjectId => !!id);
+
+  if (messageIds.length === 0) return new Map();
+
+  const messages = await Message.find({ _id: { $in: messageIds } })
+    .select('timestamp')
+    .lean();
+
+  return new Map(
+    messages.map((message) => [message._id.toString(), message.timestamp]),
+  );
+};
+
+/** The user's own receipt in a conversation, resolved to a timestamp. */
+const receiptTimestampFor = (
+  receipts: IReadReceipt[] | undefined,
+  userId: string,
+  timestampById: Map<string, Date>,
+): Date | undefined => {
+  const receipt = receipts?.find((r) => r.user_id?.toString() === userId);
+  const messageId = receipt?.last_message_read_id?.toString();
+  return messageId ? timestampById.get(messageId) : undefined;
+};
+
+const publishNotification = (
+  userId: string,
+  conversationId: string,
+  state: { unread_count: number; seen: boolean },
+): Promise<unknown> =>
+  redisClient.publish(
+    'ws:notification',
+    JSON.stringify({
+      userId,
+      notification: {
+        type: 'notification',
+        conversationId,
+        ...state,
+      },
+    }),
+  );
 
 export const createNotification = async (
   senderId: string,
   conversationId: string,
-  messageId: string,
 ): Promise<void> => {
   const conversationObjectId = new Types.ObjectId(conversationId);
 
   const conversation = await Conversation.findById(conversationObjectId)
-    .select('participants')
+    .select('participants read_receipts')
     .lean();
 
   if (!conversation) return;
@@ -26,42 +133,211 @@ export const createNotification = async (
 
   const mutedUserIds = new Set(mutedDocs.map((m) => m.user.toString()));
 
-  const bulkOps = conversation.participants
-    .filter((p) => p.toString() !== senderId && !mutedUserIds.has(p.toString()))
-    .map((participantId) => ({
+  const recipients = conversation.participants.filter(
+    (p) => p.toString() !== senderId && !mutedUserIds.has(p.toString()),
+  );
+
+  if (recipients.length === 0) return;
+
+  const [timestampById, existing] = await Promise.all([
+    timestampsByMessageId(conversation.read_receipts ?? []),
+    Notification.find({
+      conversation: conversationObjectId,
+      user: { $in: recipients },
+    })
+      .select('user seen_at')
+      .lean(),
+  ]);
+
+  const seenAtByUser = new Map(
+    existing.map((notif) => [notif.user.toString(), notif.seen_at]),
+  );
+
+  const counts = await Promise.all(
+    recipients.map(async (user) => {
+      const key = user.toString();
+      return {
+        user,
+        unread_count: await deriveUnreadCount(
+          conversationObjectId,
+          user,
+          watermarkOf(
+            receiptTimestampFor(conversation.read_receipts, key, timestampById),
+            seenAtByUser.get(key),
+          ),
+        ),
+      };
+    }),
+  );
+
+  // seen tracks unread_count everywhere, rather than being hardcoded false
+  // here: a recipient who dismissed the conversation in the moment between the
+  // message landing and this running derives 0, and 0-but-unseen is a state the
+  // client renders as a badge with nothing behind it.
+  await Notification.bulkWrite(
+    counts.map(({ user, unread_count }) => ({
       updateOne: {
-        filter: { user: participantId, conversation: conversationObjectId },
+        filter: { user, conversation: conversationObjectId },
+        update: { $set: { unread_count, seen: unread_count === 0 } },
+        upsert: true,
+      },
+    })),
+  );
+
+  // The values just written are the ones to publish — re-reading them invited
+  // a second writer to change the answer in between.
+  await Promise.all(
+    counts.map(({ user, unread_count }) =>
+      publishNotification(user.toString(), conversationId, {
+        unread_count,
+        seen: unread_count === 0,
+      }),
+    ),
+  );
+};
+
+/**
+ * Reading a message is what actually makes it read — the client sends a read
+ * receipt for every message that arrives while the conversation is open. Until
+ * this existed, only an explicit `PATCH /notifications/seen` (fired on
+ * conversation *change*) cleared anything, so the badge climbed on the very
+ * chat the user was looking at.
+ *
+ * Recomputes rather than zeroing: the receipt names the message that was read,
+ * and anything that landed after it is still genuinely unread. Blindly writing
+ * 0 here is how a counter starts lying.
+ */
+export const recomputeNotification = async (
+  userId: string,
+  conversationId: string,
+  lastReadMessageId: string,
+): Promise<void> => {
+  const userObjectId = new Types.ObjectId(userId);
+  const conversationObjectId = new Types.ObjectId(conversationId);
+
+  const [lastRead, existing] = await Promise.all([
+    Message.findById(new Types.ObjectId(lastReadMessageId))
+      .select('timestamp')
+      .lean(),
+    Notification.findOne({
+      user: userObjectId,
+      conversation: conversationObjectId,
+    })
+      .select('seen_at unread_count seen')
+      .lean(),
+  ]);
+
+  // Nothing was ever recorded for this pair, so there is no badge to correct.
+  if (!existing) return;
+
+  const unread_count = await deriveUnreadCount(
+    conversationObjectId,
+    userObjectId,
+    watermarkOf(lastRead?.timestamp, existing.seen_at),
+  );
+
+  const seen = unread_count === 0;
+  if (existing.unread_count === unread_count && existing.seen === seen) return;
+
+  await Notification.updateOne(
+    { user: userObjectId, conversation: conversationObjectId },
+    { $set: { unread_count, seen } },
+  );
+
+  await publishNotification(userId, conversationId, { unread_count, seen });
+};
+
+/**
+ * A user added to an existing conversation has not missed its history — they
+ * were not there for it. Without a watermark at join time the derived count has
+ * nothing to bound it and reports every message ever sent as unread.
+ */
+export const seedNotificationWatermarks = async (
+  conversationId: Types.ObjectId,
+  userIds: Types.ObjectId[],
+): Promise<void> => {
+  if (userIds.length === 0) return;
+
+  const joinedAt = new Date();
+
+  await Notification.bulkWrite(
+    userIds.map((user) => ({
+      updateOne: {
+        filter: { user, conversation: conversationId },
         update: {
-          $inc: { unread_count: 1 },
-          $set: { last_message: new Types.ObjectId(messageId), seen: false },
+          $set: { seen_at: joinedAt, unread_count: 0, seen: true },
         },
         upsert: true,
       },
-    }));
+    })),
+  );
+};
 
-  if (bulkOps.length > 0) {
-    await Notification.bulkWrite(bulkOps);
-  }
+/**
+ * Recomputes every row for one user and writes back what changed. This is what
+ * makes drift temporary: whatever a race left behind is corrected the next time
+ * the user loads their notifications.
+ */
+export const refreshNotificationsForUser = async (
+  userId: Types.ObjectId,
+): Promise<Map<string, number>> => {
+  const notifications = await Notification.find({ user: userId })
+    .select('conversation seen_at')
+    .lean();
 
-  const updatedNotifs = await Notification.find({
-    conversation: conversationObjectId,
-    user: {
-      $in: conversation.participants.filter((p) => p.toString() !== senderId),
-    },
-  });
+  if (notifications.length === 0) return new Map();
 
-  for (const notif of updatedNotifs) {
-    await redisClient.publish(
-      'ws:notification',
-      JSON.stringify({
-        userId: notif.user.toString(),
-        notification: {
-          type: 'notification',
-          conversationId: conversationId,
-          unread_count: notif.unread_count,
-          seen: notif.seen,
-        },
-      }),
-    );
-  }
+  const conversations = await Conversation.find({
+    _id: { $in: notifications.map((n) => n.conversation) },
+  })
+    .select('read_receipts')
+    .lean();
+
+  const key = userId.toString();
+
+  const receiptsByConversation = new Map(
+    conversations.map((c) => [c._id.toString(), c.read_receipts ?? []]),
+  );
+
+  const timestampById = await timestampsByMessageId(
+    conversations.flatMap((c) =>
+      (c.read_receipts ?? []).filter((r) => r.user_id?.toString() === key),
+    ),
+  );
+
+  const counts = await Promise.all(
+    notifications.map(async (notif) => ({
+      conversation: notif.conversation,
+      unread_count: await deriveUnreadCount(
+        notif.conversation,
+        userId,
+        watermarkOf(
+          receiptTimestampFor(
+            receiptsByConversation.get(notif.conversation.toString()),
+            key,
+            timestampById,
+          ),
+          notif.seen_at,
+        ),
+      ),
+    })),
+  );
+
+  // seen tracks unread_count: the client hides any row flagged seen, so a
+  // refreshed count on a still-seen row would be invisible.
+  await Notification.bulkWrite(
+    counts.map(({ conversation, unread_count }) => ({
+      updateOne: {
+        filter: { user: userId, conversation },
+        update: { $set: { unread_count, seen: unread_count === 0 } },
+      },
+    })),
+  );
+
+  return new Map(
+    counts.map(({ conversation, unread_count }) => [
+      conversation.toString(),
+      unread_count,
+    ]),
+  );
 };

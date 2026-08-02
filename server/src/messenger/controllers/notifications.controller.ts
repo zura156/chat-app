@@ -1,6 +1,7 @@
 import { Response, NextFunction } from 'express';
 import { Types } from 'mongoose';
 import { Notification } from '../models/notifications.model';
+import { refreshNotificationsForUser } from '../services/notification.service';
 import { AuthRequest } from '../../auth/middlewares/auth.middleware';
 
 export const markNotificationsAsSeen = async (
@@ -17,8 +18,11 @@ export const markNotificationsAsSeen = async (
       filter['conversation'] = new Types.ObjectId(conversationId);
     }
 
+    // seen_at is the watermark for a dismissal. Without it the derived count
+    // recomputes from the read receipt alone and resurrects everything the user
+    // dismissed without opening.
     await Notification.updateMany(filter, {
-      $set: { seen: true, unread_count: 0 },
+      $set: { seen: true, unread_count: 0, seen_at: new Date() },
     });
 
     res.status(200).json({ message: 'Notifications marked as seen' });
@@ -34,6 +38,11 @@ export const getNotifications = async (
 ) => {
   try {
     const userId = new Types.ObjectId(req.user?._id.toString());
+
+    // Recompute before serving: the stored counts are a cache, and this is the
+    // point where any drift a race left behind gets corrected.
+    await refreshNotificationsForUser(userId);
+
     const notifications = await Notification.find({ user: userId })
       .populate(
         'conversation',

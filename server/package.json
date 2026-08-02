@@ -11,7 +11,9 @@
     "start": "node dist/src/index.js",
     "worker:prod": "node dist/src/worker.js",
     "dev": "nodemon src/index.ts",
-    "worker": "ts-node src/worker.ts"
+    "worker": "ts-node src/worker.ts",
+    "dedupe:notifications": "ts-node src/scripts/dedupe-notifications.ts",
+    "diagnose:notifications": "ts-node src/scripts/diagnose-notifications.ts"
   },
   "devDependencies": {
     "@types/clamscan": "^2.4.1",

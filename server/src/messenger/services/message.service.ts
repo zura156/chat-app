@@ -170,8 +170,8 @@ export class MessageService {
 
     this.broadcast(broadcastPayload);
 
-    createNotification(senderId, conversationId, message._id.toString()).catch(
-      (error) => logger.error('Failed to create notification:', error),
+    createNotification(senderId, conversationId).catch((error) =>
+      logger.error('Failed to create notification:', error),
     );
 
     return signed;
@@ -236,11 +236,9 @@ export class MessageService {
 
     // system/INFO messages are not something anyone needs a badge for
     if ((type ?? MessageTypeEnum.TEXT) !== MessageTypeEnum.INFO) {
-      createNotification(
-        senderId,
-        conversationId,
-        message._id.toString(),
-      ).catch((error) => logger.error('Failed to create notification:', error));
+      createNotification(senderId, conversationId).catch((error) =>
+        logger.error('Failed to create notification:', error),
+      );
     }
 
     return populatedMessage;

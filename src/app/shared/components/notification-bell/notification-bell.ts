@@ -10,11 +10,20 @@ import { lucideBell } from '@ng-icons/lucide';
   imports: [HlmButtonImports, NgIcon, HlmIconImports],
   providers: [provideIcons({ lucideBell })],
   template: `
-    <button hlmBtn variant="ghost" class="relative">
-      <ng-icon name="lucideBell" />
+    <button
+      hlmBtn
+      variant="ghost"
+      class="relative cursor-pointer rounded-full size-9 p-0 flex items-center justify-center hover:bg-muted transition-colors"
+      [attr.aria-label]="
+        totalUnread() > 0
+          ? totalUnread() + ' unread messages'
+          : 'No unread messages'
+      "
+    >
+      <ng-icon hlm size="sm" name="lucideBell" />
       @if (totalUnread() > 0) {
         <span
-          class="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center"
+          class="absolute -top-0.5 -right-0.5 bg-red-500 text-white text-[10px] leading-none font-medium rounded-full min-w-4 h-4 px-1 flex items-center justify-center"
         >
           {{ totalUnread() > 99 ? '99+' : totalUnread() }}
         </span>

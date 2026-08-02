@@ -10,6 +10,7 @@ import { MessageStatusEnum } from '../../messenger/interfaces/message.interface'
 import { UserDTO } from '../../user/dtos/user.dto';
 import { ObjectId } from 'mongodb';
 import { redisClient } from '../../config/redis';
+import { recomputeNotification } from '../../messenger/services/notification.service';
 
 const OFFLINE_DELAY_MS = 30_000;
 
@@ -254,6 +255,16 @@ export class WebSocketController {
       }
 
       if (!conversation) return;
+
+      // Only after the receipt is persisted: the unread count is derived from
+      // that watermark, so a createNotification racing this needs to see the
+      // advanced one or it recomputes the message back into the badge.
+      // Fire-and-forget — a failed recompute must not block the broadcast.
+      recomputeNotification(
+        read_receipt.user_id,
+        conversation_id,
+        lastReadId,
+      ).catch((err) => logger.error('Failed to recompute notification:', err));
 
       const payload = {
         type: 'message-status',

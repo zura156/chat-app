@@ -1,4 +1,4 @@
-import { model, Schema, Types } from 'mongoose';
+import { Document, model, Schema, Types } from 'mongoose';
 
 export interface IMutedConversation extends Document {
   user: Types.ObjectId;
@@ -16,7 +16,12 @@ const MutedConversationSchema = new Schema<IMutedConversation>({
   muted_until: { type: Date }, // Optional: Auto-unmute after a time
 });
 
+// createNotification looks up mutes by conversation + participant set on every
+// message. Left non-unique: muteConversation still guards duplicates with a
+// findOne, and an existing dup would block the index from building.
+MutedConversationSchema.index({ conversation: 1, user: 1 });
+
 export const MutedConversation = model<IMutedConversation>(
   'muted_conversation',
-  MutedConversationSchema
+  MutedConversationSchema,
 );
