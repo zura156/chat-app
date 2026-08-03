@@ -1,11 +1,23 @@
-import { Component, signal } from '@angular/core';
+import { Component, OnInit, inject, signal } from '@angular/core';
 import { NgIcon, provideIcons } from '@ng-icons/core';
 import { lucideTrash2, lucideDownload } from '@ng-icons/lucide';
 import { HlmButtonImports } from '@spartan-ng/helm/button';
 import { HlmIconImports } from '@spartan-ng/helm/icon';
 import { HlmProgressImports } from '@spartan-ng/helm/progress';
 import { HlmSeparatorImports } from '@spartan-ng/helm/separator';
+import { toast } from '@spartan-ng/brain/sonner';
+import { StorageSettingsService } from '../../../services/storage-settings.service';
 
+/**
+ * This screen used to show invented storage figures ("Images — 128 MB, 42%"),
+ * a Clear cache button that only rewrote the local array so it looked like it
+ * had worked, and an empty `requestExport()`.
+ *
+ * The totals now come from the uploads this account actually owns, the cache
+ * figure from `navigator.storage.estimate()`, and the export downloads real
+ * data. The auto-download toggles are gone: nothing honoured them and there was
+ * no setting behind them to honour.
+ */
 @Component({
   templateUrl: './data-storage-settings.html',
   imports: [
@@ -17,32 +29,48 @@ import { HlmSeparatorImports } from '@spartan-ng/helm/separator';
   ],
   providers: [provideIcons({ lucideTrash2, lucideDownload })],
 })
-export class DataStorageSettings {
-  storageItems = signal([
-    { label: 'Images', size: '128 MB', percent: 42 },
-    { label: 'Videos', size: '256 MB', percent: 68 },
-    { label: 'Audio', size: '48 MB', percent: 16 },
-    { label: 'Documents', size: '12 MB', percent: 4 },
-    { label: 'Cache', size: '32 MB', percent: 10 },
-  ]);
+export class DataStorageSettings implements OnInit {
+  private readonly storage = inject(StorageSettingsService);
 
-  autoDownloadItems = signal([
-    { key: 'images', label: 'Images', enabled: signal(true) },
-    { key: 'videos', label: 'Videos', enabled: signal(false) },
-    { key: 'audio', label: 'Audio messages', enabled: signal(true) },
-    { key: 'documents', label: 'Documents', enabled: signal(false) },
-  ]);
+  readonly usage = this.storage.usage;
+  readonly loading = this.storage.loading;
+  readonly cacheBytes = this.storage.cacheBytes;
 
-  clearCache() {
-    this.storageItems.update((items) =>
-      items.map((item) =>
-        item.label === 'Cache' ? { ...item, size: '0 MB', percent: 0 } : item,
-      ),
-    );
-    // wire up actual cache clearing
+  readonly clearing = signal(false);
+  readonly exporting = signal(false);
+
+  ngOnInit(): void {
+    this.storage.load().subscribe();
+    void this.storage.measureCache();
   }
 
-  requestExport() {
-    // wire up API call
+  format(bytes: number | null | undefined): string {
+    return this.storage.formatBytes(bytes);
+  }
+
+  async clearCache(): Promise<void> {
+    this.clearing.set(true);
+    try {
+      await this.storage.clearCache();
+      toast.success('Cached data cleared');
+    } catch {
+      toast.error('Could not clear cached data');
+    } finally {
+      this.clearing.set(false);
+    }
+  }
+
+  requestExport(): void {
+    this.exporting.set(true);
+    this.storage.downloadExport().subscribe({
+      next: () => {
+        this.exporting.set(false);
+        toast.success('Export downloaded');
+      },
+      error: () => {
+        this.exporting.set(false);
+        toast.error('Could not export your data');
+      },
+    });
   }
 }

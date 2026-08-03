@@ -31,10 +31,16 @@ import { logger } from '../utils/logger';
  * since the refactor.
  */
 
-const UNREAD_QUERY = (conversation: mongoose.Types.ObjectId, user: mongoose.Types.ObjectId) => ({
+const UNREAD_QUERY = (
+  conversation: mongoose.Types.ObjectId,
+  user: mongoose.Types.ObjectId,
+) => ({
   conversation,
   sender: { $ne: user },
   type: { $ne: MessageTypeEnum.INFO },
+  // Matches deriveUnreadCount, so a fabricated watermark reproduces the count
+  // the service will actually derive.
+  deleted_at: { $exists: false },
 });
 
 const backfill = async (): Promise<void> => {

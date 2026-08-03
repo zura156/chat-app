@@ -124,15 +124,20 @@
       class="relative overflow-y-auto overscroll-contain touch-pan-y flex-1 flex flex-col-reverse scroll-smooth pl-4 pr-2 min-h-0"
     >
       <!--
-        No h-full here. In a column-reverse scroll container the content grows
-        upward, and pinning the wrapper to exactly the container height pushes
-        the overflow past the block-start edge, where it is not reachable by
-        scrolling on WebKit — which is why this scrolled on desktop Chrome but
-        not on mobile Safari.
+        shrink-0 is load-bearing. As a flex item this wrapper defaults to
+        flex-shrink: 1, so a taller-than-container content set gets compressed
+        back to exactly the container height — min-h-full does not prevent that,
+        it only sets the floor. The messages then spill past the wrapper's
+        block-start edge instead of making the wrapper taller, and that spilled
+        overflow is not reachable by scrolling on WebKit, which is why this
+        scrolled on desktop Chrome but not on mobile Safari. With shrink-0 the
+        wrapper takes its real content height and the scroll container overflows
+        normally. min-h-full still keeps a short conversation pinned to the
+        bottom.
       -->
       <div
         id="chat-messages"
-        class="min-h-full flex flex-col-reverse p-2 sm:px-0 sm:py-2 space-y-4 space-y-reverse"
+        class="min-h-full shrink-0 flex flex-col-reverse p-2 sm:px-0 sm:py-2 space-y-4 space-y-reverse"
       >
         @let sender = this.isTyping()?.sender;
         @let isTyping = this.isTyping()?.is_typing;
@@ -436,6 +441,9 @@
       }
     </footer>
   </section>
+
+  <!-- One sheet and one confirmation for the whole thread, not one per message -->
+  <app-message-actions />
 
   <section
     class="absolute transition-all bg-background overflow-hidden w-full md:w-1/2 right-0"

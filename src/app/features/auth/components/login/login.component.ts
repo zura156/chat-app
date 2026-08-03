@@ -52,6 +52,10 @@ export class LoginComponent {
   error = signal<string>('');
   isLoading = signal<boolean>(false);
 
+  /** Set once the password is accepted on an account with a second factor. */
+  twoFactorRequired = this.authService.twoFactorRequired;
+  twoFactorCode = signal<string>('');
+
   form: FormGroup = new FormGroup({
     email: new FormControl('', [Validators.required, Validators.email]),
     password: new FormControl('', [Validators.required, passwordValidator()]),
@@ -92,7 +96,8 @@ export class LoginComponent {
         tap(() => {
           this.clearError();
           this.isLoading.set(false);
-          this.router.navigateByUrl('/messages');
+          // A pending second factor emits null and keeps the user here.
+          if (!this.twoFactorRequired()) this.router.navigateByUrl('/messages');
         }),
         catchError((errorMessage) => {
           this.error.set(errorMessage);
@@ -101,5 +106,41 @@ export class LoginComponent {
         }),
       )
       .subscribe();
+  }
+
+  onTwoFactorCodeInput(value: string): void {
+    // Authenticator codes are six digits; recovery codes are XXXXX-XXXXX.
+    this.twoFactorCode.set(value.replace(/[^0-9A-Za-z-]/g, '').slice(0, 11));
+  }
+
+  submitTwoFactorCode(): void {
+    const code = this.twoFactorCode().trim();
+    if (!code) return;
+
+    this.isLoading.set(true);
+
+    this.authService
+      .submitTwoFactorCode(code)
+      .pipe(
+        takeUntil(this.destroy$),
+        tap(() => {
+          this.clearError();
+          this.isLoading.set(false);
+          this.router.navigateByUrl('/messages');
+        }),
+        catchError((errorMessage) => {
+          this.error.set(errorMessage);
+          this.isLoading.set(false);
+          this.twoFactorCode.set('');
+          return throwError(() => errorMessage);
+        }),
+      )
+      .subscribe();
+  }
+
+  cancelTwoFactor(): void {
+    this.authService.cancelTwoFactor();
+    this.twoFactorCode.set('');
+    this.clearError();
   }
 }

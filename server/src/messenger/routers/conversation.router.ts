@@ -72,23 +72,12 @@ router
 router
   .route('/:id')
   .all(validateConversation)
-  .get(async (req: AuthRequest, res) => {
-    const conversation = await req.conversation?.populate(
-      'participants',
-      'first_name last_name username pfp_url pfp_variants status last_seen',
-    );
-
-    const otherParticipants = conversation?.participants.filter(
-      (p: any) => p._id.toString() !== req.user?._id.toString(),
-    );
-
-    const conversationWithFilteredParticipants = {
-      ...conversation?.toObject(),
-      participants: otherParticipants,
-    };
-
-    res.json(conversationWithFilteredParticipants);
-  })
+  // Was an inline handler duplicating ConversationController.getConversationById,
+  // which had no route and so was dead. Same populate, same self-filter, same
+  // shape — the controller just also guards the conversation being absent.
+  .get((req, res, next) =>
+    req.conversationController.getConversationById(req, res, next),
+  )
   .patch((req, res, next) =>
     req.conversationController.updateConversation(req, res, next),
   )

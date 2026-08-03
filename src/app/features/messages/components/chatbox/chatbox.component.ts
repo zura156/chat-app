@@ -75,6 +75,7 @@ import { NotificationService } from '../../services/notification.service';
 import { AudioRecorder } from '../../../../shared/components/audio-recorder/audio-recorder';
 import { RecordingResult } from '../../../../shared/interfaces/audio-message.interface';
 import { ChatboxSettingsComponent } from '../chatbox-settings/chatbox-settings.component';
+import { MessageActionsComponent } from '../message-actions/message-actions.component';
 import { PanGestureDirective } from '../../../../shared/directives/pan.directive';
 import { HlmSkeleton } from '@spartan-ng/helm/skeleton';
 import { environment } from '../../../../../environments/environment';
@@ -124,6 +125,7 @@ const audioExtension = (mimeType: string): string =>
     ReactiveFormsModule,
     AudioRecorder,
     ChatboxSettingsComponent,
+    MessageActionsComponent,
     FilePicker,
     HlmSkeleton,
     HlmAvatarFallback,
@@ -959,6 +961,18 @@ export class ChatboxComponent implements OnInit {
             this.markMessageAsRead(message);
             break;
           }
+          // Edits and deletes arrive for every participant, including the one
+          // who made them — the local optimistic update is idempotent, so
+          // applying it twice is harmless and a second device stays in sync.
+          case 'message-edited':
+            this.messageService.applyEdited(res.message);
+            break;
+          case 'message-deleted':
+            this.messageService.applyDeleted(
+              res.message._id,
+              res.message.deleted_at,
+            );
+            break;
           case 'conversation-update':
             this.conversationService.updateConversationState(
               res.conversation as ConversationI,

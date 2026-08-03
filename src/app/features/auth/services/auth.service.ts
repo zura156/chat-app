@@ -130,20 +130,62 @@ export class AuthService {
     );
   }
 
-  login(credentials: LoginCredentialsI): Observable<UserI> {
+  /**
+   * True once the password has been accepted but a second factor is still
+   * outstanding. The login screen swaps to the code step on this rather than
+   * routing, so the challenge cookie's short life is not spent on a navigation.
+   */
+  readonly twoFactorRequired = signal(false);
+
+  login(credentials: LoginCredentialsI): Observable<UserI | null> {
     this.#loading.set(true);
     this.#error.set(null);
+    this.twoFactorRequired.set(false);
+
     return this.http.post<AuthResponseI>(this._LOGIN_URL, credentials).pipe(
-      switchMap(() => {
-        this.#loading.set(false);
-        localStorage.setItem(this.IS_AUTHENTICATED_KEY, 'true');
-        this.isAuthenticated.set(true);
-        // loadCurrentUser() already connects the socket and announces presence
-        return this.loadCurrentUser().pipe(
-          tap(() => this.router.navigateByUrl('/messages')),
-        );
+      switchMap((response) => {
+        // The password was right but it is not sufficient on this account. No
+        // session exists yet, so nothing may be marked authenticated here.
+        if ((response as { two_factor_required?: boolean })?.two_factor_required) {
+          this.#loading.set(false);
+          this.twoFactorRequired.set(true);
+          return of(null);
+        }
+
+        return this.completeLogin();
       }),
       catchError(this.handleError),
+    );
+  }
+
+  /** Second step: exchanges an authenticator or recovery code for a session. */
+  submitTwoFactorCode(code: string): Observable<UserI | null> {
+    this.#loading.set(true);
+    this.#error.set(null);
+
+    return this.http
+      .post<AuthResponseI>(`${environment.apiUrl}/auth/login/2fa`, { code })
+      .pipe(
+        switchMap(() => {
+          this.twoFactorRequired.set(false);
+          return this.completeLogin();
+        }),
+        catchError(this.handleError),
+      );
+  }
+
+  cancelTwoFactor(): void {
+    this.twoFactorRequired.set(false);
+    this.#error.set(null);
+  }
+
+  private completeLogin(): Observable<UserI> {
+    this.#loading.set(false);
+    localStorage.setItem(this.IS_AUTHENTICATED_KEY, 'true');
+    this.isAuthenticated.set(true);
+    // loadCurrentUser() already connects the socket and announces presence
+    return this.loadCurrentUser().pipe(
+      tap(() => this.router.navigateByUrl('/messages')),
     );
   }
 

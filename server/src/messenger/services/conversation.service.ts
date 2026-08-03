@@ -26,6 +26,10 @@ import {
   refreshNotificationForConversation,
   seedNotificationWatermarks,
 } from './notification.service';
+import {
+  blockedAmong,
+  isBlockedEitherWay,
+} from '../../user/services/blocking.service';
 
 const escapeRegex = (input: string): string =>
   input.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -116,6 +120,10 @@ export class ConversationService {
       throw createCustomError('Invalid user ID(s)', 400);
     }
 
+    if (await isBlockedEitherWay(userId, participantId)) {
+      throw createCustomError('Conversation not found!', 404);
+    }
+
     const userObjectId = new Types.ObjectId(userId);
     const participantObjectId = new Types.ObjectId(participantId);
 
@@ -186,6 +194,20 @@ export class ConversationService {
     });
     if (knownUsers !== participantIds.length) {
       throw createCustomError('One or more participants do not exist', 400);
+    }
+
+    // A block has to stop the conversation being created, not just its
+    // messages — otherwise blocking someone still leaves them able to open a
+    // thread with you and sit in your list.
+    const blocked = await blockedAmong(
+      created_by,
+      participantIds.filter((id) => id !== String(created_by)),
+    );
+    if (blocked.size > 0) {
+      throw createCustomError(
+        'You cannot start a conversation with this user',
+        403,
+      );
     }
 
     const isDm = !is_group && participantIds.length === 2;
@@ -418,14 +440,54 @@ export class ConversationService {
       throw createCustomError('Invalid member id', 400);
     }
 
+    // Counted against the members that actually change, not against the sizes
+    // of the requested sets. The code below ignores removals of people who are
+    // not in the conversation and additions of people already in it, so
+    // measuring the raw sets let padding `remove` with unrelated ids shrink the
+    // projected total without shrinking the real one — and the group past the
+    // cap. Additions are counted the same way for symmetry: re-adding an
+    // existing member is a no-op and should not be charged against the limit.
+    const currentIds = new Set(
+      conversation.participants.map((p) => p.toString()),
+    );
+    const effectiveRemovals = [...removeSet].filter((id) =>
+      currentIds.has(String(id)),
+    ).length;
+    const effectiveAdditions = [...addSet].filter(
+      (id) => !currentIds.has(String(id)),
+    ).length;
+
     if (
-      conversation.participants.length - removeSet.size + addSet.size >
+      conversation.participants.length - effectiveRemovals + effectiveAdditions >
       MAX_PARTICIPANTS
     ) {
       throw createCustomError(
         `A conversation can have at most ${MAX_PARTICIPANTS} members`,
         400,
       );
+    }
+
+    // createConversation has always rejected participants who do not exist;
+    // this path never did, so any well-formed ObjectId could be pushed into the
+    // participant list. That leaves members nothing can resolve: populate
+    // returns null for them, they are broadcast to and seeded a notification
+    // watermark, and they count against the cap forever.
+    if (addSet.size > 0) {
+      const addIds = Array.from(addSet).map((id) => String(id));
+      const knownUsers = await User.countDocuments({ _id: { $in: addIds } });
+      if (knownUsers !== addIds.length) {
+        throw createCustomError('One or more members do not exist', 400);
+      }
+
+      // You cannot pull someone you have blocked (or who blocked you) into a
+      // group, which would route their messages to you anyway.
+      const blocked = await blockedAmong(userId, addIds);
+      if (blocked.size > 0) {
+        throw createCustomError(
+          'You cannot add a user you have blocked',
+          403,
+        );
+      }
     }
 
     const removedUserDocs = await User.find({

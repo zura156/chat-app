@@ -11,13 +11,18 @@
         : 'justify-start'
   "
 >
-  <div class="flex flex-col w-fit">
+  <!--
+    `group` is what the edit/delete row's group-hover reveal keys off. Scoped to
+    the message block rather than the full-width row so the actions appear when
+    you are over the message itself, not anywhere on its line.
+  -->
+  <div class="group flex flex-col w-fit">
     @if (isGroup() && !isCurrentUserMessage && message.type !== "info") {
       <span class="text-xs text-muted-foreground ml-7 mb-0.5">
         {{ message.sender.username }}
       </span>
     }
-    <div class="flex justify-start items-end gap-x-1.5">
+    <div class="relative flex justify-start items-end gap-x-1.5">
       @if (!isCurrentUserMessage && message.type !== "info") {
         <hlm-avatar
           variant="small"
@@ -38,9 +43,79 @@
         </hlm-avatar>
       }
 
-      <div class="flex flex-col">
+      @if (hasActions(message)) {
+        <!--
+          Pointer devices only — touch reaches the same actions by holding the
+          bubble, which opens a sheet instead. Absolutely positioned so
+          revealing it never reflows the thread; the bubble must not shift
+          sideways when you happen to hover it. It sits on the inner side of the
+          bubble: left of your own messages, right of everyone else's.
+        -->
+        <button
+          type="button"
+          aria-label="Message actions"
+          [hlmDropdownMenuTrigger]="messageActions"
+          class="absolute top-1/2 -translate-y-1/2 z-10 size-7 flex items-center justify-center rounded-full text-muted-foreground opacity-0 transition-opacity cursor-pointer hover:bg-accent hover:text-foreground focus-visible:opacity-100 pointer-fine:group-hover:opacity-100 pointer-coarse:hidden"
+          [class]="isCurrentUserMessage ? 'right-full mr-1' : 'left-full ml-1'"
+        >
+          <ng-icon hlm size="sm" name="lucideEllipsis" />
+        </button>
+
+        <ng-template #messageActions>
+          <hlm-dropdown-menu>
+            <hlm-dropdown-menu-group>
+              @if (canEdit(message)) {
+                <button
+                  hlmDropdownMenuItem
+                  class="cursor-pointer"
+                  (click)="actions.beginEdit(message)"
+                >
+                  <ng-icon hlm name="lucidePencil" />
+                  <span>Edit</span>
+                </button>
+              }
+              @if (canCopy(message)) {
+                <button
+                  hlmDropdownMenuItem
+                  class="cursor-pointer"
+                  (click)="actions.copy(message)"
+                >
+                  <ng-icon hlm name="lucideCopy" />
+                  <span>Copy</span>
+                </button>
+              }
+              @if (canDelete(message)) {
+                <hlm-dropdown-menu-separator />
+                <button
+                  hlmDropdownMenuItem
+                  variant="destructive"
+                  class="cursor-pointer"
+                  (click)="actions.requestDelete(message)"
+                >
+                  <ng-icon hlm name="lucideTrash2" />
+                  <span>Delete</span>
+                </button>
+              }
+            </hlm-dropdown-menu-group>
+          </hlm-dropdown-menu>
+        </ng-template>
+      }
+
+      <!--
+        The alignment is not cosmetic. A flex column stretches its items across
+        the cross axis by default, so the bubble was being widened to whatever
+        the widest sibling measures — every short message came out the same
+        inflated width with dead space beside the text. Aligning to the
+        message's own side makes the bubble shrink-wrap its content.
+      -->
+      <div
+        class="flex flex-col"
+        [class]="isCurrentUserMessage ? 'items-end' : 'items-start'"
+      >
         <div
-          class="overflow-hidden"
+          appLongPress
+          (longPress)="actions.openSheet(message)"
+          class="overflow-hidden pointer-coarse:select-none pointer-coarse:[-webkit-touch-callout:none]"
           [class]="
             message.type === 'audio' ||
             message.type === 'video' ||
@@ -62,265 +137,332 @@
                 message.type === 'text' && !isOnlyEmoji(message.content || ''),
             }"
           >
-            @switch (message.type) {
-              @case ("info") {
-                <p class="text-muted-foreground text-xs text-center px-2">
-                  {{ message.content }}
-                </p>
-              }
-              @case ("image") {
-                @let attachments = message.attachments ?? [];
-                @let media =
-                  attachments.filter(a => a.context === 'dm-image' || a.context === 'dm-video');
-                @let files =
-                  attachments.filter(a => a.context === 'dm-file' || a.context === 'dm-audio');
-                @let visible = media.slice(0, 4);
-                @let overflow = media.length - 3;
+            <!--
+              A deleted message keeps its bubble as a tombstone. The row
+              survives on the server because read receipts point at message
+              ids, so removing it here would disagree with that.
+            -->
+            @if (message.deleted_at) {
+              <p class="text-xs italic opacity-70 px-1">
+                This message was deleted
+              </p>
+            } @else if (isEditing(message)) {
+              <!--
+                The editor deliberately keeps the bubble's own shape and color
+                rather than dropping a bordered form control inside it — you are
+                editing the message in place, not filling in a field that
+                happens to sit where the message was.
+              -->
+              <div class="flex flex-col gap-1.5 w-[min(18rem,60vw)]">
+                <textarea
+                  #editInput
+                  rows="1"
+                  aria-label="Edit message"
+                  class="w-full resize-none overflow-hidden bg-transparent text-sm leading-snug outline-none placeholder:opacity-60"
+                  [value]="draft()"
+                  (input)="onDraftInput($event)"
+                  (keydown.enter)="onEditEnter($event, message)"
+                  (keydown.escape)="cancelEdit()"
+                ></textarea>
 
-                @if (visible.length === 1) {
-                  <div class="p-1">
-                    <div
-                      class="relative cursor-pointer rounded-xl overflow-hidden max-w-72 max-h-80 w-fit"
-                      (click)="openMedia(message, visible[0])"
+                <div class="flex items-center justify-between gap-x-2">
+                  <span class="text-[10px] opacity-60 max-sm:hidden">
+                    Enter to save · Esc to cancel
+                  </span>
+                  <div class="flex items-center gap-x-1.5 ms-auto">
+                    <button
+                      hlmBtn
+                      type="button"
+                      size="sm"
+                      variant="ghost"
+                      class="h-7 px-2.5 text-xs"
+                      [disabled]="busy()"
+                      (click)="cancelEdit()"
                     >
-                      @if (
-                        visible[0].status === "ready" && visible[0].variants
+                      Cancel
+                    </button>
+                    <button
+                      hlmBtn
+                      type="button"
+                      size="sm"
+                      class="h-7 px-2.5 text-xs"
+                      [disabled]="busy() || !draft().trim()"
+                      (click)="saveEdit(message)"
+                    >
+                      Save
+                    </button>
+                  </div>
+                </div>
+              </div>
+            } @else {
+              @switch (message.type) {
+                @case ("info") {
+                  <p class="text-muted-foreground text-xs text-center px-2">
+                    {{ message.content }}
+                  </p>
+                }
+                @case ("image") {
+                  @let attachments = message.attachments ?? [];
+                  @let media =
+                    attachments.filter(a => a.context === 'dm-image' || a.context === 'dm-video');
+                  @let files =
+                    attachments.filter(a => a.context === 'dm-file' || a.context === 'dm-audio');
+                  @let visible = media.slice(0, 4);
+                  @let overflow = media.length - 3;
+
+                  @if (visible.length === 1) {
+                    <div class="p-1">
+                      <div
+                        class="relative cursor-pointer rounded-xl overflow-hidden max-w-72 max-h-80 w-fit"
+                        (click)="openMedia(message, visible[0])"
+                      >
+                        @if (
+                          visible[0].status === "ready" && visible[0].variants
+                        ) {
+                          <img
+                            class="max-w-72 max-h-80 w-auto h-auto block rounded-xl"
+                            [src]="
+                              visible[0].variants.medium ||
+                              visible[0].variants.thumbnail
+                            "
+                            [alt]="visible[0].originalName"
+                          />
+                          @if (visible[0].context === "dm-video") {
+                            <div
+                              class="absolute inset-0 flex items-center justify-center bg-black/20 pointer-events-none"
+                            >
+                              <div
+                                class="bg-background/80 backdrop-blur-sm p-2 rounded-full"
+                              >
+                                <ng-icon hlm name="lucidePlay" size="lg" />
+                              </div>
+                            </div>
+                          }
+                        } @else {
+                          <hlm-skeleton class="w-64 h-64 rounded-xl" />
+                        }
+                      </div>
+                    </div>
+                  } @else if (visible.length) {
+                    <div class="grid grid-cols-2 gap-0.5 p-1">
+                      @for (
+                        attachment of visible;
+                        track attachment.uploadId;
+                        let i = $index
                       ) {
-                        <img
-                          class="max-w-72 max-h-80 w-auto h-auto block rounded-xl"
-                          [src]="
-                            visible[0].variants.medium ||
-                            visible[0].variants.thumbnail
-                          "
-                          [alt]="visible[0].originalName"
+                        <div
+                          class="relative size-32 cursor-pointer overflow-hidden rounded-xl border border-accent/20"
+                          (click)="openMedia(message, attachment)"
+                        >
+                          @if (
+                            attachment.status === "ready" && attachment.variants
+                          ) {
+                            <!-- videos have no `medium` variant, only a poster -->
+                            <img
+                              class="size-full object-cover"
+                              [src]="
+                                attachment.variants.medium ||
+                                attachment.variants.thumbnail
+                              "
+                              [alt]="attachment.originalName"
+                            />
+                            @if (attachment.context === "dm-video") {
+                              <div
+                                class="absolute inset-0 flex items-center justify-center bg-black/20 pointer-events-none"
+                              >
+                                <ng-icon
+                                  hlm
+                                  name="lucidePlay"
+                                  size="lg"
+                                  class="text-white"
+                                />
+                              </div>
+                            }
+                            @if (i === 3 && overflow > 1) {
+                              <div
+                                class="absolute inset-0 bg-black/60 flex items-center justify-center"
+                              >
+                                <span class="text-white font-semibold text-lg"
+                                  >+{{ overflow }}</span
+                                >
+                              </div>
+                            }
+                          } @else {
+                            <hlm-skeleton class="size-32" />
+                          }
+                        </div>
+                      }
+                    </div>
+                  }
+
+                  @if (files.length) {
+                    <div class="flex flex-col gap-1 p-1">
+                      @for (attachment of files; track attachment.uploadId) {
+                        @if (attachment.context === "dm-file") {
+                          <app-file-viewer [file]="attachment" />
+                        } @else {
+                          <app-audio-player [audio]="attachment" />
+                        }
+                      }
+                    </div>
+                  }
+                }
+
+                @case ("video") {
+                  @let attachment = getPrimaryAttachment(message);
+                  @if (attachment) {
+                    <div class="max-w-3xs sm:max-w-xs relative">
+                      @if (loadedVideoMessageId() === message._id) {
+                        <app-video-player
+                          [video]="attachment"
+                          [disableContainerClickToggle]="true"
                         />
-                        @if (visible[0].context === "dm-video") {
+                      } @else {
+                        <div
+                          class="relative cursor-pointer rounded-xl overflow-hidden"
+                          (click)="loadVideo(message._id || '')"
+                        >
+                          <img
+                            class="w-full h-full object-cover"
+                            [src]="attachment.variants?.thumbnail"
+                            [alt]="attachment.originalName"
+                          />
                           <div
-                            class="absolute inset-0 flex items-center justify-center bg-black/20 pointer-events-none"
+                            class="absolute inset-0 flex items-center justify-center bg-black/20"
                           >
                             <div
-                              class="bg-background/80 backdrop-blur-sm p-2 rounded-full"
+                              class="bg-background/80 size-14 flex items-center justify-center backdrop-blur-sm p-2 rounded-full"
                             >
                               <ng-icon hlm name="lucidePlay" size="lg" />
                             </div>
                           </div>
-                        }
-                      } @else {
-                        <hlm-skeleton class="w-64 h-64 rounded-xl" />
+                          @if (attachment.duration) {
+                            <span
+                              class="absolute bottom-1.5 right-1.5 text-[10px] font-medium text-white bg-black/60 px-1.5 py-0.5 rounded"
+                            >
+                              {{ attachment.duration | formatTime }}
+                            </span>
+                          }
+                        </div>
                       }
                     </div>
-                  </div>
-                } @else if (visible.length) {
-                  <div class="grid grid-cols-2 gap-0.5 p-1">
-                    @for (
-                      attachment of visible;
-                      track attachment.uploadId;
-                      let i = $index
-                    ) {
+                  } @else if (isProcessing(message)) {
+                    <div class="w-full h-full py-2 relative">
+                      <hlm-skeleton class="w-64 h-48 rounded-xl" />
                       <div
-                        class="relative size-32 cursor-pointer overflow-hidden rounded-xl border border-accent/20"
-                        (click)="openMedia(message, attachment)"
+                        class="absolute inset-0 flex flex-col gap-y-1 items-center justify-center"
                       >
-                        @if (
-                          attachment.status === "ready" && attachment.variants
-                        ) {
-                          <!-- videos have no `medium` variant, only a poster -->
-                          <img
-                            class="size-full object-cover"
-                            [src]="
-                              attachment.variants.medium ||
-                              attachment.variants.thumbnail
-                            "
-                            [alt]="attachment.originalName"
-                          />
-                          @if (attachment.context === "dm-video") {
-                            <div
-                              class="absolute inset-0 flex items-center justify-center bg-black/20 pointer-events-none"
-                            >
-                              <ng-icon
-                                hlm
-                                name="lucidePlay"
-                                size="lg"
-                                class="text-white"
-                              />
-                            </div>
-                          }
-                          @if (i === 3 && overflow > 1) {
-                            <div
-                              class="absolute inset-0 bg-black/60 flex items-center justify-center"
-                            >
-                              <span class="text-white font-semibold text-lg"
-                                >+{{ overflow }}</span
-                              >
-                            </div>
-                          }
-                        } @else {
-                          <hlm-skeleton class="size-32" />
-                        }
-                      </div>
-                    }
-                  </div>
-                }
-
-                @if (files.length) {
-                  <div class="flex flex-col gap-1 p-1">
-                    @for (attachment of files; track attachment.uploadId) {
-                      @if (attachment.context === "dm-file") {
-                        <app-file-viewer [file]="attachment" />
-                      } @else {
-                        <app-audio-player [audio]="attachment" />
-                      }
-                    }
-                  </div>
-                }
-              }
-
-              @case ("video") {
-                @let attachment = getPrimaryAttachment(message);
-                @if (attachment) {
-                  <div class="max-w-3xs sm:max-w-xs relative">
-                    @if (loadedVideoMessageId() === message._id) {
-                      <app-video-player
-                        [video]="attachment"
-                        [disableContainerClickToggle]="true"
-                      />
-                    } @else {
-                      <div
-                        class="relative cursor-pointer rounded-xl overflow-hidden"
-                        (click)="loadVideo(message._id || '')"
-                      >
-                        <img
-                          class="w-full h-full object-cover"
-                          [src]="attachment.variants?.thumbnail"
-                          [alt]="attachment.originalName"
-                        />
-                        <div
-                          class="absolute inset-0 flex items-center justify-center bg-black/20"
+                        <ng-icon hlm name="lucidePlay" size="xl" />
+                        <span class="text-xs text-muted-foreground"
+                          >Processing...</span
                         >
-                          <div
-                            class="bg-background/80 size-14 flex items-center justify-center backdrop-blur-sm p-2 rounded-full"
-                          >
-                            <ng-icon hlm name="lucidePlay" size="lg" />
+                      </div>
+                    </div>
+                  } @else if (hasFailedAttachment(message)) {
+                    <ng-container
+                      [ngTemplateOutlet]="attachmentFailed"
+                      [ngTemplateOutletContext]="{ $implicit: message }"
+                    />
+                  }
+                }
+
+                @case ("audio") {
+                  @let attachment = getPrimaryAttachment(message);
+                  @if (attachment) {
+                    <div class="w-3xs sm:w-40 md:w-52">
+                      <app-audio-player [audio]="attachment" />
+                    </div>
+                  } @else if (isProcessing(message)) {
+                    <hlm-skeleton class="w-48 h-10 rounded-full" />
+                  } @else if (hasFailedAttachment(message)) {
+                    <ng-container
+                      [ngTemplateOutlet]="attachmentFailed"
+                      [ngTemplateOutletContext]="{ $implicit: message }"
+                    />
+                  }
+                }
+
+                @case ("file") {
+                  <div
+                    class="flex flex-col gap-1 max-w-full"
+                    [class]="isCurrentUserMessage ? 'items-end' : 'flex-end'"
+                  >
+                    @for (
+                      attachment of message.attachments;
+                      track attachment.uploadId
+                    ) {
+                      @if (
+                        attachment.status === "ready" && attachment.variants
+                      ) {
+                        <app-file-viewer [file]="attachment" />
+                      } @else if (
+                        attachment.status === "infected" ||
+                        attachment.status === "failed"
+                      ) {
+                        <div
+                          class="flex items-center gap-2 px-3 py-2 text-destructive text-xs"
+                        >
+                          <ng-icon hlm name="lucideTriangleAlert" size="sm" />
+                          {{
+                            attachment.status === "infected"
+                              ? "File blocked — failed security scan"
+                              : "Upload failed — this file could not be processed"
+                          }}
+                        </div>
+                      } @else {
+                        <div
+                          class="flex items-center gap-2 px-3 py-2 border rounded-md m-1 w-fit"
+                        >
+                          <hlm-skeleton class="size-8 rounded-md shrink-0" />
+                          <div class="flex flex-col gap-1">
+                            <span class="text-xs font-medium">{{
+                              attachment.originalName ?? "File"
+                            }}</span>
+                            <hlm-skeleton class="w-16 h-2.5 rounded" />
                           </div>
                         </div>
-                        @if (attachment.duration) {
-                          <span
-                            class="absolute bottom-1.5 right-1.5 text-[10px] font-medium text-white bg-black/60 px-1.5 py-0.5 rounded"
-                          >
-                            {{ attachment.duration | formatTime }}
-                          </span>
-                        }
-                      </div>
+                      }
                     }
                   </div>
-                } @else if (isProcessing(message)) {
-                  <div class="w-full h-full py-2 relative">
-                    <hlm-skeleton class="w-64 h-48 rounded-xl" />
-                    <div
-                      class="absolute inset-0 flex flex-col gap-y-1 items-center justify-center"
+                }
+                @default {
+                  @if (message.content) {
+                    <p
+                      class="whitespace-pre-wrap wrap-anywhere [word-break:break-word]"
+                      [class]="
+                        isOnlyEmoji(message.content) ? 'text-3xl' : 'text-sm'
+                      "
                     >
-                      <ng-icon hlm name="lucidePlay" size="xl" />
-                      <span class="text-xs text-muted-foreground"
-                        >Processing...</span
-                      >
+                      {{ message.content }}
+                    </p>
+                  } @else {
+                    <div class="py-1.5 px-3">
+                      <hlm-skeleton class="h-3.5 w-32 rounded" />
                     </div>
-                  </div>
-                } @else if (hasFailedAttachment(message)) {
-                  <ng-container
-                    [ngTemplateOutlet]="attachmentFailed"
-                    [ngTemplateOutletContext]="{ $implicit: message }"
-                  />
-                }
-              }
-
-              @case ("audio") {
-                @let attachment = getPrimaryAttachment(message);
-                @if (attachment) {
-                  <div class="w-3xs sm:w-40 md:w-52">
-                    <app-audio-player [audio]="attachment" />
-                  </div>
-                } @else if (isProcessing(message)) {
-                  <hlm-skeleton class="w-48 h-10 rounded-full" />
-                } @else if (hasFailedAttachment(message)) {
-                  <ng-container
-                    [ngTemplateOutlet]="attachmentFailed"
-                    [ngTemplateOutletContext]="{ $implicit: message }"
-                  />
-                }
-              }
-
-              @case ("file") {
-                <div
-                  class="flex flex-col gap-1 max-w-full"
-                  [class]="isCurrentUserMessage ? 'items-end' : 'flex-end'"
-                >
-                  @for (
-                    attachment of message.attachments;
-                    track attachment.uploadId
-                  ) {
-                    @if (attachment.status === "ready" && attachment.variants) {
-                      <app-file-viewer [file]="attachment" />
-                    } @else if (
-                      attachment.status === "infected" ||
-                      attachment.status === "failed"
-                    ) {
-                      <div
-                        class="flex items-center gap-2 px-3 py-2 text-destructive text-xs"
-                      >
-                        <ng-icon hlm name="lucideTriangleAlert" size="sm" />
-                        {{
-                          attachment.status === "infected"
-                            ? "File blocked — failed security scan"
-                            : "Upload failed — this file could not be processed"
-                        }}
-                      </div>
-                    } @else {
-                      <div
-                        class="flex items-center gap-2 px-3 py-2 border rounded-md m-1 w-fit"
-                      >
-                        <hlm-skeleton class="size-8 rounded-md shrink-0" />
-                        <div class="flex flex-col gap-1">
-                          <span class="text-xs font-medium">{{
-                            attachment.originalName ?? "File"
-                          }}</span>
-                          <hlm-skeleton class="w-16 h-2.5 rounded" />
-                        </div>
-                      </div>
-                    }
                   }
-                </div>
-              }
-              @default {
-                @if (message.content) {
-                  <p
-                    class="whitespace-pre-wrap wrap-anywhere [word-break:break-word]"
-                    [class]="
-                      isOnlyEmoji(message.content) ? 'text-3xl' : 'text-sm'
-                    "
-                  >
-                    {{ message.content }}
-                  </p>
-                } @else {
-                  <div class="py-1.5 px-3">
-                    <hlm-skeleton class="h-3.5 w-32 rounded" />
-                  </div>
                 }
+              }
+
+              @if (
+                message.content &&
+                message.type !== "info" &&
+                message.type !== "text"
+              ) {
+                <p
+                  class="whitespace-pre-wrap text-sm wrap-anywhere [word-break:break-word] py-1.5 px-3"
+                >
+                  {{ message.content }}
+                </p>
               }
             }
 
-            @if (
-              message.content &&
-              message.type !== "info" &&
-              message.type !== "text"
-            ) {
-              <p
-                class="whitespace-pre-wrap text-sm wrap-anywhere [word-break:break-word] py-1.5 px-3"
-              >
-                {{ message.content }}
-              </p>
+            <!-- Edited marker, on anything still standing -->
+            @if (message.edited_at && !message.deleted_at) {
+              <span class="text-[10px] opacity-60 px-1 self-end">edited</span>
             }
           </div>
         </div>
+
       </div>
     </div>
   </div>

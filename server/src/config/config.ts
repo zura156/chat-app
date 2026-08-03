@@ -33,6 +33,10 @@ export default {
         throw new Error('JWT_REFRESH_SECRET not set');
       return 'dev_secret';
     })(),
+  // The label authenticator apps show next to the code. Purely cosmetic, but
+  // it is what users read when picking between accounts, so it belongs in
+  // config rather than hardcoded at the call site.
+  twoFactorIssuer: process.env.TWO_FACTOR_ISSUER ?? 'chat-app',
   jwtExpiresIn: process.env.JWT_EXPIRES_IN ?? '1h',
   jwtRefreshTokenExpiresIn: process.env.JWT_REFRESH_EXPIRES_IN ?? '7d',
   clientUrl: process.env.CLIENT_URL ?? 'http://localhost:4200',

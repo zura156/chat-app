@@ -92,6 +92,24 @@
             </svg>
             Message
           </button>
+
+          <!-- Blocking was a schema field with no way to set it; this is it. -->
+          @if (!isSelf(user)) {
+            <button
+              hlmBtn
+              size="sm"
+              [variant]="isBlocked(user) ? 'outline' : 'destructive'"
+              class="cursor-pointer"
+              [disabled]="blocking()"
+              [attr.aria-label]="
+                (isBlocked(user) ? 'Unblock ' : 'Block ') + user.username
+              "
+              (click)="toggleBlock(user)"
+            >
+              {{ isBlocked(user) ? "Unblock" : "Block" }}
+            </button>
+          }
+
           <button hlmBtn size="sm">
             <svg
               class="w-4 h-4 mr-1.5"

@@ -1,76 +1,310 @@
 <main class="max-w-2xl mx-auto px-4 py-8 space-y-8">
   <div>
-    <h1 class="text-lg font-semibold tracking-tight">Security (MOCK COMPONENT)</h1>
+    <h1 class="text-lg font-semibold tracking-tight">Security</h1>
     <p class="text-sm text-muted-foreground">
-      Manage your account security settings.
+      Manage two-factor authentication and the devices signed in to your
+      account.
     </p>
   </div>
 
   <hlm-separator decorative />
 
-  <!-- 2FA -->
-  <section class="space-y-4">
-    <div class="flex items-start justify-between">
-      <div>
-        <h3 class="text-sm font-medium">Two-factor authentication</h3>
-        <p class="text-xs text-muted-foreground">
-          Add an extra layer of security to your account
-        </p>
-      </div>
-      <span
-        class="text-xs px-2.5 py-1 rounded-full bg-muted text-muted-foreground font-medium shrink-0"
+  <!-- ── TWO-FACTOR ─────────────────────────────────────────────────── -->
+  <section class="space-y-3">
+    <h3 class="text-sm font-medium">Two-factor authentication</h3>
+
+    @if (setupStage() === "idle" && !disarming()) {
+      <div
+        class="flex items-start justify-between gap-x-4 px-4 py-3 rounded-xl border border-border"
       >
-        {{ twoFactorEnabled() ? 'Enabled' : 'Disabled' }}
-      </span>
-    </div>
-    <button
-      hlmBtn
-      variant="outline"
-      class="rounded-full cursor-pointer"
-      (click)="toggleTwoFactor()"
-    >
-      <ng-icon
-        hlm
-        [name]="twoFactorEnabled() ? 'lucideShieldOff' : 'lucideShieldCheck'"
-        size="sm"
-        class="mr-1.5"
-      />
-      {{ twoFactorEnabled() ? 'Disable 2FA' : 'Enable 2FA' }}
-    </button>
+        <div class="flex items-start gap-x-3 min-w-0">
+          <ng-icon
+            hlm
+            size="sm"
+            class="mt-0.5 shrink-0"
+            [name]="
+              twoFactor().enabled ? 'lucideShieldCheck' : 'lucideShieldOff'
+            "
+            [class.text-green-600]="twoFactor().enabled"
+            [class.text-muted-foreground]="!twoFactor().enabled"
+          />
+          <div class="min-w-0">
+            <p class="text-sm">{{ twoFactor().enabled ? "On" : "Off" }}</p>
+            <p class="text-xs text-muted-foreground">
+              @if (twoFactor().enabled) {
+                You'll be asked for a code from your authenticator app when you
+                sign in. {{ twoFactor().recovery_codes_remaining }} recovery
+                {{
+                  twoFactor().recovery_codes_remaining === 1 ? "code" : "codes"
+                }}
+                remaining.
+              } @else {
+                Add a code from an authenticator app on top of your password.
+              }
+            </p>
+          </div>
+        </div>
+
+        @if (twoFactor().enabled) {
+          <button
+            hlmBtn
+            variant="outline"
+            size="sm"
+            class="rounded-full cursor-pointer text-xs shrink-0"
+            [disabled]="busy()"
+            (click)="beginDisable()"
+          >
+            Turn off
+          </button>
+        } @else {
+          <button
+            hlmBtn
+            size="sm"
+            class="rounded-full cursor-pointer text-xs shrink-0"
+            [disabled]="busy()"
+            (click)="startTwoFactorSetup()"
+          >
+            Set up
+          </button>
+        }
+      </div>
+    }
+
+    <!-- Enrolment: show the secret, then require a code proving it was stored -->
+    @if (setupStage() === "scanning") {
+      <div class="px-4 py-4 rounded-xl border border-border space-y-4">
+        <div>
+          <p class="text-sm font-medium">Add this to your authenticator app</p>
+          <p class="text-xs text-muted-foreground">
+            Paste the setup key below, or open the link on the device with your
+            authenticator app.
+          </p>
+        </div>
+
+        <div class="space-y-2">
+          <p class="text-xs text-muted-foreground">Setup key</p>
+          <code
+            class="block text-sm font-mono break-all bg-muted rounded-lg px-3 py-2 select-all"
+            >{{ setupSecret() }}</code
+          >
+        </div>
+
+        @if (setupUri(); as uri) {
+          <a
+            [href]="uri"
+            class="text-xs underline text-muted-foreground hover:text-foreground break-all"
+            >Open in authenticator app</a
+          >
+        }
+
+        <div class="space-y-2">
+          <label for="setup-code" class="text-xs text-muted-foreground"
+            >Enter the 6-digit code to confirm</label
+          >
+          <input
+            id="setup-code"
+            inputmode="numeric"
+            autocomplete="one-time-code"
+            placeholder="000000"
+            class="w-full text-sm bg-background border border-border rounded-lg px-3 py-2 font-mono tracking-widest focus:outline-none focus:ring-1 focus:ring-ring"
+            [value]="code()"
+            (input)="onCodeInput($any($event.target).value)"
+          />
+        </div>
+
+        <div class="flex items-center gap-x-2">
+          <button
+            hlmBtn
+            size="sm"
+            class="rounded-full cursor-pointer text-xs"
+            [disabled]="busy() || code().length !== 6"
+            (click)="confirmTwoFactorSetup()"
+          >
+            Confirm
+          </button>
+          <button
+            hlmBtn
+            variant="ghost"
+            size="sm"
+            class="rounded-full cursor-pointer text-xs"
+            [disabled]="busy()"
+            (click)="cancelSetup()"
+          >
+            Cancel
+          </button>
+        </div>
+      </div>
+    }
+
+    <!-- Recovery codes: shown exactly once -->
+    @if (setupStage() === "recovery") {
+      <div class="px-4 py-4 rounded-xl border border-border space-y-4">
+        <div>
+          <p class="text-sm font-medium">Save your recovery codes</p>
+          <p class="text-xs text-muted-foreground">
+            Each code works once, if you lose access to your authenticator app.
+            This is the only time they are shown.
+          </p>
+        </div>
+
+        <ul class="grid grid-cols-2 gap-2">
+          @for (recoveryCode of recoveryCodes(); track recoveryCode) {
+            <li
+              class="text-sm font-mono bg-muted rounded-lg px-3 py-2 text-center select-all"
+            >
+              {{ recoveryCode }}
+            </li>
+          }
+        </ul>
+
+        <div class="flex items-center gap-x-2">
+          <button
+            hlmBtn
+            variant="outline"
+            size="sm"
+            class="rounded-full cursor-pointer text-xs"
+            (click)="copyRecoveryCodes()"
+          >
+            Copy codes
+          </button>
+          <button
+            hlmBtn
+            size="sm"
+            class="rounded-full cursor-pointer text-xs"
+            (click)="finishSetup()"
+          >
+            I've saved them
+          </button>
+        </div>
+      </div>
+    }
+
+    @if (disarming()) {
+      <div class="px-4 py-4 rounded-xl border border-border space-y-3">
+        <div>
+          <p class="text-sm font-medium">Turn off two-factor authentication</p>
+          <p class="text-xs text-muted-foreground">
+            Enter a current code or one of your recovery codes. Every device
+            will be signed out.
+          </p>
+        </div>
+
+        <input
+          inputmode="text"
+          autocomplete="one-time-code"
+          placeholder="000000 or recovery code"
+          aria-label="Authentication or recovery code"
+          class="w-full text-sm bg-background border border-border rounded-lg px-3 py-2 font-mono tracking-widest focus:outline-none focus:ring-1 focus:ring-ring"
+          [value]="code()"
+          (input)="onCodeInput($any($event.target).value)"
+        />
+
+        <div class="flex items-center gap-x-2">
+          <button
+            hlmBtn
+            variant="destructive"
+            size="sm"
+            class="rounded-full cursor-pointer text-xs"
+            [disabled]="busy() || !code()"
+            (click)="confirmDisable()"
+          >
+            Turn off
+          </button>
+          <button
+            hlmBtn
+            variant="ghost"
+            size="sm"
+            class="rounded-full cursor-pointer text-xs"
+            [disabled]="busy()"
+            (click)="cancelDisable()"
+          >
+            Cancel
+          </button>
+        </div>
+      </div>
+    }
   </section>
 
   <hlm-separator decorative />
 
-  <!-- Login history -->
-  <section class="space-y-4">
-    <div>
-      <h3 class="text-sm font-medium">Recent login activity</h3>
-      <p class="text-xs text-muted-foreground">Last 5 logins to your account</p>
-    </div>
-    <div class="space-y-2">
-      @for (entry of loginHistory(); track entry.id) {
-      <div
-        class="flex items-center justify-between px-4 py-3 rounded-xl bg-muted/40 border border-border"
-      >
-        <div class="flex items-center gap-x-3">
-          <ng-icon
-            hlm
-            [name]="entry.device === 'mobile' ? 'lucideSmartphone' : 'lucideMonitor'"
-            class="text-muted-foreground shrink-0"
-            size="sm"
-          />
-          <div>
-            <p class="text-sm">{{ entry.location }}</p>
-            <p class="text-xs text-muted-foreground tabular-nums">
-              {{ entry.date | date:'medium' }}
-            </p>
-          </div>
-        </div>
-        @if (entry.current) {
-        <span class="text-xs text-green-500 font-medium shrink-0">Current</span>
-        }
-      </div>
+  <!-- ── SESSIONS ───────────────────────────────────────────────────── -->
+  <section class="space-y-3">
+    <div class="flex items-baseline justify-between gap-x-2">
+      <h3 class="text-sm font-medium">Where you're signed in</h3>
+      @if (!loading() && sessions().length > 1) {
+        <button
+          hlmBtn
+          variant="ghost"
+          size="sm"
+          class="rounded-full cursor-pointer text-xs text-destructive"
+          [disabled]="busy()"
+          (click)="signOutAllDevices()"
+        >
+          Sign out everywhere
+        </button>
       }
     </div>
+
+    @if (loading()) {
+      <div class="space-y-1">
+        @for (placeholder of [1, 2]; track placeholder) {
+          <div class="flex items-center gap-x-3 px-4 py-3">
+            <div
+              class="size-9 rounded-full bg-muted animate-pulse shrink-0"
+            ></div>
+            <div class="h-4 w-48 rounded bg-muted animate-pulse"></div>
+          </div>
+        }
+      </div>
+    } @else if (sessions().length === 0) {
+      <p class="text-sm text-muted-foreground px-4 py-6 text-center">
+        No active sessions.
+      </p>
+    } @else {
+      <ul class="space-y-1">
+        @for (session of sessions(); track session.id) {
+          <li
+            class="flex items-center justify-between gap-x-3 px-4 py-3 rounded-xl hover:bg-muted/40 transition-colors"
+          >
+            <div class="flex items-center gap-x-3 min-w-0">
+              <ng-icon
+                hlm
+                size="sm"
+                class="text-muted-foreground shrink-0"
+                [name]="
+                  isMobile(session) ? 'lucideSmartphone' : 'lucideMonitor'
+                "
+              />
+              <div class="min-w-0">
+                <p class="text-sm truncate">
+                  {{ describeDevice(session) }}
+                  @if (session.current) {
+                    <span class="text-xs text-green-600">· this device</span>
+                  }
+                </p>
+                <p class="text-xs text-muted-foreground truncate">
+                  @if (session.ip) {
+                    {{ session.ip }} ·
+                  }
+                  last active {{ session.last_used_at | date: "medium" }}
+                </p>
+              </div>
+            </div>
+
+            <button
+              hlmBtn
+              variant="outline"
+              size="sm"
+              class="rounded-full cursor-pointer text-xs shrink-0"
+              [attr.aria-label]="'Sign out ' + describeDevice(session)"
+              [disabled]="isRevoking(session.id)"
+              (click)="revoke(session)"
+            >
+              Sign out
+            </button>
+          </li>
+        }
+      </ul>
+    }
   </section>
 </main>

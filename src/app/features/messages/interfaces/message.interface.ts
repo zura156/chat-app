@@ -51,6 +51,12 @@ export interface MessageI {
   status: MessageStatus;
   timestamp: string;
   edited_at?: string;
+  /**
+   * Set when the sender deleted the message. The row survives because read
+   * receipts reference message ids — see the server model — so the client
+   * renders a tombstone rather than removing the bubble.
+   */
+  deleted_at?: string;
 }
 
 export interface GroupedMessages {

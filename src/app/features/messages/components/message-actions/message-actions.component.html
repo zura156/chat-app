@@ -1,0 +1,111 @@
+@let sheetTarget = actions.sheetTarget();
+@let pendingDelete = actions.pendingDelete();
+@let currentUserId = currentUser()?._id;
+
+<!--
+  Touch entry point. A press-and-hold cannot open the ellipsis dropdown: that
+  overlay closes on any outside pointer event, and the click that lands when the
+  finger lifts counts as one — its pointerdown target is the bubble, which is
+  outside the menu. So touch gets a sheet, which is what it should have had
+  anyway. Bigger targets, and no reliance on a hover that never happens.
+-->
+<hlm-sheet
+  side="bottom"
+  [state]="sheetTarget ? 'open' : 'closed'"
+  (closed)="actions.closeSheet()"
+>
+  <hlm-sheet-content
+    *brnSheetContent="let ctx"
+    [showCloseButton]="false"
+    class="rounded-t-2xl px-2 pt-2 pb-[max(0.5rem,env(safe-area-inset-bottom))]"
+  >
+    <!-- the grabber, so the sheet reads as draggable-dismissable like the OS one -->
+    <div class="mx-auto mb-1 h-1 w-9 shrink-0 rounded-full bg-muted-foreground/30"></div>
+
+    @if (sheetTarget) {
+      @if (sheetTarget.content) {
+        <p class="px-3 pb-1 text-xs text-muted-foreground line-clamp-2">
+          {{ sheetTarget.content }}
+        </p>
+      }
+
+      <div class="flex flex-col">
+        @if (actions.canEdit(sheetTarget, currentUserId)) {
+          <button
+            type="button"
+            class="flex items-center gap-x-3 rounded-xl px-3 py-3.5 text-start text-sm active:bg-accent"
+            (click)="actions.beginEdit(sheetTarget)"
+          >
+            <ng-icon hlm size="sm" name="lucidePencil" />
+            Edit
+          </button>
+        }
+        @if (actions.canCopy(sheetTarget)) {
+          <button
+            type="button"
+            class="flex items-center gap-x-3 rounded-xl px-3 py-3.5 text-start text-sm active:bg-accent"
+            (click)="actions.copy(sheetTarget)"
+          >
+            <ng-icon hlm size="sm" name="lucideCopy" />
+            Copy
+          </button>
+        }
+        @if (actions.canDelete(sheetTarget, currentUserId)) {
+          <button
+            type="button"
+            class="flex items-center gap-x-3 rounded-xl px-3 py-3.5 text-start text-sm text-destructive active:bg-destructive/10"
+            (click)="actions.requestDelete(sheetTarget)"
+          >
+            <ng-icon hlm size="sm" name="lucideTrash2" />
+            Delete
+          </button>
+        }
+      </div>
+    }
+  </hlm-sheet-content>
+</hlm-sheet>
+
+<!--
+  Delete confirmation, shared by both entry points. disableClose keeps it from
+  being dismissed out from under an in-flight request.
+-->
+<brn-alert-dialog
+  [state]="pendingDelete ? 'open' : 'closed'"
+  [disableClose]="actions.busy()"
+  (closed)="actions.cancelDelete()"
+>
+  <ng-template brnAlertDialogContent let-ctx>
+    <div
+      class="fixed left-1/2 top-1/2 z-50 w-[calc(100vw-2rem)] max-w-sm -translate-x-1/2 -translate-y-1/2 rounded-2xl border border-border bg-background p-6 shadow-lg"
+    >
+      <h2 brnAlertDialogTitle class="text-lg font-semibold">Delete message?</h2>
+      <p brnAlertDialogDescription class="mt-2 text-sm text-muted-foreground">
+        This removes it for everyone in the conversation. It cannot be undone.
+      </p>
+
+      <div class="mt-6 flex items-center justify-end gap-x-2">
+        <button
+          hlmBtn
+          variant="outline"
+          type="button"
+          [disabled]="actions.busy()"
+          (click)="actions.cancelDelete()"
+        >
+          Cancel
+        </button>
+        <button
+          hlmBtn
+          variant="destructive"
+          type="button"
+          [disabled]="actions.busy()"
+          (click)="actions.confirmDelete()"
+        >
+          @if (actions.busy()) {
+            <hlm-spinner class="size-4" />
+          }
+          Delete
+        </button>
+      </div>
+    </div>
+  </ng-template>
+</brn-alert-dialog>

@@ -159,12 +159,89 @@ migration that has already been applied to the cluster in `.env`.
   *chatbox.component.ts*
 
 - **The chat could not be scrolled on mobile.** The message wrapper inside the
-  scroll container had `h-full`, pinning it to exactly the container height in a
-  `column-reverse` flex context — the overflow then sits past the block-start
-  edge, which WebKit will not scroll to. Desktop Chrome tolerated it; mobile
-  Safari did not. Changed to `min-h-full`, and the scroll area now declares
+  `column-reverse` scroll container was pinned to exactly the container height,
+  so the messages spilled past the wrapper's block-start edge instead of making
+  the wrapper taller — and that spilled overflow is not reachable by scrolling on
+  WebKit. Desktop Chrome tolerated it; mobile Safari did not.
+
+  The wrapper is a flex item, so `flex-shrink: 1` was compressing it back to the
+  container height on every render. `min-h-full` only sets the floor and cannot
+  prevent that, which is why the earlier `h-full` → `min-h-full` change had no
+  effect. The wrapper now carries `shrink-0`, so it takes its real content height
+  and the container overflows normally; `min-h-full` still keeps a short
+  conversation pinned to the bottom. The scroll area also declares
   `overscroll-contain touch-pan-y`.
   *chatbox.component.html*
+
+## Changed — message actions
+
+Message actions now follow the convention every chat client uses, replacing the
+pair of text links parked under each of your own messages.
+
+**Pointer devices.** Hovering a message reveals an ellipsis button on the
+bubble's inner side — left of your own messages, right of everyone else's —
+which opens a dropdown. It is absolutely positioned, so revealing it never
+reflows the thread; the bubble does not shift when you hover it.
+
+**Touch.** A press-and-hold on the bubble opens a bottom sheet with the same
+actions. The first attempt reused the dropdown here, which could not work: a CDK
+menu closes on any outside pointer event, and the click that lands when the
+finger lifts is one of them — `OverlayOutsideClickDispatcher` resolves a click
+back to its `pointerdown` target, which is the bubble, outside the menu. The
+menu opened on the hold and closed again on release. A sheet was the right
+answer anyway: bigger targets, and no dependency on a hover that never happens.
+
+- New `appLongPress` directive, built on touch events rather than pointer events
+  (holding a mouse button is not how anyone opens a context menu) and registered
+  passively outside the Angular zone, for the same reason the pan directive is —
+  one non-passive `touchmove` per message makes the thread feel unscrollable.
+- The long press suppresses both the platform's own press-and-hold callout and
+  the click that would otherwise follow it, which would have opened the media
+  viewer behind the sheet.
+
+**Delete** now confirms in a real dialog rather than a row of underlined words
+wedged under the bubble, and cannot be dismissed while the request is in flight.
+
+**Edit** happens in place: the bubble keeps its own shape and color instead of
+growing a bordered form control. The caret lands at the end of the existing
+text, the box sizes itself to what is there rather than a fixed two rows, Enter
+saves, Shift+Enter breaks a line, and Escape cancels.
+
+**Copy** is new, and is the only action incoming messages have. It also offsets
+the text selection that press-and-hold has to give up on touch.
+
+New `MessageActionsService` owns all of this so both entry points drive the same
+state, and the sheet and confirmation exist once for the thread rather than once
+per message — a long conversation renders every message it has loaded, and none
+of them need to carry an overlay they will never open.
+*message-card.component.\*, message-actions.component.\*, message-actions.service.ts, long-press.directive.ts, chatbox.component.\*, app.routes.ts*
+
+---
+
+## Fixed — message card
+
+- **Edit and delete were unreachable on desktop.** The actions row reveals itself
+  with `group-hover:opacity-100`, but nothing in the message card carried the
+  matching `group` class, and Tailwind compiles that variant to
+  `:is(:where(.group):hover *)` — a selector that can never match without the
+  ancestor. Above the `md` breakpoint the row stayed at `opacity: 0` permanently.
+  It was still laid out and still hit-testable, so every one of your own messages
+  had two invisible buttons under it, one of them Delete. Keyboard users could
+  reach them, since `focus-within` sits on the same element; mouse users could
+  not see them at all. The message block now carries `group`. Every other
+  `group-hover:` in the codebase already pairs with a `group` — this one was the
+  exception.
+  *message-card.component.html*
+
+- **Own-message bubbles were inflated to a fixed width.** The column holding a
+  message also holds its edit/delete row, and a flex column stretches its items
+  across the cross axis by default — so the bubble was widened to whatever
+  "Edit Delete" measures. Every short message of your own came out at that same
+  width with dead space beside the text: "Test" and "Hah" both rendered 67px wide
+  for 26px of text, against 52px for the identical incoming message, which has no
+  actions row. The column now aligns to the message's own side, so the bubble
+  shrink-wraps its content while still lining up with the actions beneath it.
+  *message-card.component.html*
 
 - **The swipe-gesture directive fought the scroll container.** `@HostListener`
   registers `touchmove` as non-passive and inside the Angular zone, so every
@@ -525,6 +602,166 @@ save, and seeding still precedes the join's info message.
 
 ---
 
+## Fixed — auth and group membership
+
+Also driven against a live stack; the checks are noted per item.
+
+- **Members who do not exist could be added to a group.** `createConversation`
+  has always rejected participants that resolve to no user, but
+  `manageConversationMembers` never did — any well-formed ObjectId went straight
+  into the participant list. Those members cannot be resolved by anything
+  downstream: `populate` returns null for them, they are broadcast to, they are
+  seeded a notification watermark, and they count against the participant cap
+  permanently. The same existence check now guards both paths.
+
+  Found by a verification harness rather than by reading: a deliberately
+  oversized request came back `200` instead of the expected `400`, and the
+  reason was not the cap but 60 non-existent ids being accepted as members.
+  *server/src/messenger/services/conversation.service.ts*
+
+- **The participant cap could be walked past.** The check measured the requested
+  sets — `participants.length - remove.size + add.size` — while the code that
+  applies the change ignores removals of people who are not in the conversation
+  and additions of people already in it. Padding `remove` with unrelated ids
+  shrank the projected total without shrinking the real one. It now counts only
+  the members that actually change. Verified: a request with five phantom
+  removals and five real additions grows a 7-member group to exactly 12, and an
+  addition that genuinely exceeds 100 is still rejected.
+  *server/src/messenger/services/conversation.service.ts*
+
+- **An expired refresh token returned 500.** `jwt.verify`'s `TokenExpiredError`
+  fell through to the generic error middleware, so the most ordinary event in
+  the auth lifecycle — a session ending — was reported as a server fault and
+  logged with a full `console.error` every time. It also left the client's
+  `/auth/refresh` 401 branch, the one that navigates to the login page,
+  unreachable. Now a 401 with the auth cookies cleared. The client already
+  recovered through a fallback path, so this is about the status code, the noise
+  and the dead branch rather than a broken logout. Verified for both an expired
+  and a malformed token.
+  *server/src/auth/auth.controller.ts*
+
+- **`GET /conversations/:id` was served by an inline handler duplicating
+  `ConversationController.getConversationById`**, which had no route and was
+  therefore dead. Same populate, same self-filtering, same response shape — the
+  controller additionally guards the conversation being absent. The route now
+  points at the controller and the inline copy is gone. Verified the response
+  still filters the requesting user out of `participants`.
+  *server/src/messenger/routers/conversation.router.ts*
+
+---
+
+## Added — the screens that were pretending
+
+Three settings screens rendered data that did not exist, and one schema field
+described a protection that was never enforced. Each is now real, and each was
+driven against live Mongo and live Redis (31 checks).
+
+- **Blocking works end to end.** `blocked_users` was a real field on the user
+  model, returned to the client in `SELF_USER_FIELDS` — with no endpoint that
+  could write it and no read path that consulted it. The privacy screen listed
+  blocked users from a field nothing could populate, and blocking someone would
+  not have stopped them messaging you.
+
+  `POST`/`DELETE /user/:id/block` and `GET /user/blocked` now exist, and a block
+  is enforced wherever it means anything: sending (both entry points — plain
+  text and attachments — because a block that only stops one is not a block),
+  starting a conversation, being added to a group, the DM lookup, user search,
+  the user list, and the profile page, which 404s rather than 403s so the
+  blocker is not broadcasting that an account exists. A block is one-directional
+  as data and bidirectional as an effect, so every check asks whether *either*
+  side blocked the other. System INFO messages are exempt: those are the app
+  narrating membership changes, not a user reaching anyone.
+  *server/src/user/services/blocking.service.ts, user.controller.ts, conversation.service.ts, message.service.ts*
+
+- **Privacy visibility settings do something.** Four dropdowns — last seen,
+  profile picture, bio, online status — were a hardcoded signal array with no
+  model, no GET and no PATCH. There is now a `privacy` object on the user, a
+  `GET`/`PATCH /user/privacy` whitelisted on both key and value, and redaction
+  applied on the way out of every read path. Presence set to `nobody` is
+  recorded but never broadcast.
+
+  `contacts` means people you share a conversation with — the only relationship
+  this app models, so it is the only honest reading of the word. Hidden presence
+  reads as `offline` rather than as a missing field, because the client renders a
+  status dot for everyone and an absent value would light it up as "unknown".
+  *server/src/user/services/privacy.service.ts, models/user.model.ts*
+
+- **The security screen shows real sessions.** It previously rendered a
+  hardcoded login history — plausible cities, computed relative dates, one entry
+  flagged as the current session — with no session tracking behind it. Someone
+  checking whether anyone else was signed into their account got a fabricated
+  "no". `toggleTwoFactor()` flipped a local signal and `signOutAllDevices()` was
+  an empty function body.
+
+  Refresh-token entries used to hold the string `'1'`; they now carry the
+  session they belong to, so `GET /auth/sessions` can report it. Sessions can be
+  revoked individually or all at once, and revoking your own blacklists the
+  access token so it does not stay valid for its remaining fifteen minutes.
+  **No location is shown** — the server records the address a request arrived
+  from, and turning that into a city name would be the same invention with extra
+  steps. `sid` is stable across token rotation and is carried in the tokens
+  themselves, because the refresh cookie is scoped to `/auth/refresh` and is
+  invisible to the endpoint that lists sessions.
+  *server/src/auth/services/token.service.ts, auth.controller.ts*
+
+- **Two-factor authentication is implemented.** `TwoFactorAuthModel` existed
+  with no controller, no route and no reference anywhere. TOTP (RFC 6238 over
+  RFC 4226) is implemented on node's `crypto` rather than pulled in as a
+  dependency — it is about sixty lines, the algorithm is fixed by the RFCs, and
+  the alternative is trusting a transitive tree with the second factor of every
+  account. **Verified against all six RFC 6238 SHA-1 test vectors**, including
+  the 64-bit counter case at T=20000000000, plus drift and rejection behaviour.
+
+  Enrolment is pending until the user produces a code from the secret — enabling
+  on creation would let an interrupted setup lock someone out with a secret they
+  never stored. Confirming issues eight recovery codes, shown once and stored
+  hashed. Login now returns `two_factor_required` and a five-minute challenge
+  instead of a session; the challenge carries a `purpose` claim so an ordinary
+  access token cannot be presented in its place. Recovery codes are consumed on
+  use, and turning 2FA off requires a current code and revokes every session.
+  *server/src/auth/services/totp.service.ts, two-factor.controller.ts*
+
+- **Data & Storage reports real numbers.** It showed invented totals ("Images —
+  128 MB, 42%"), a Clear cache button that only rewrote the local array so it
+  appeared to have worked, and an empty `requestExport()`. Usage is now summed
+  from the uploads the account owns (only `ready`/`processing` — a pending or
+  failed record describes bytes that are not there), the cache figure comes from
+  `navigator.storage.estimate()`, clearing actually clears the Cache API and
+  session storage, and the export downloads real JSON. Percentages are a share
+  of the user's own usage, since there is no quota to measure against and a
+  percentage of anything else would be invented. The auto-download toggles are
+  gone — nothing honoured them and there was no setting behind them.
+  *server/src/user/controllers/storage.controller.ts*
+
+- **Messages can be edited and deleted.** Neither existed: no route, no service
+  method, no UI. Editing is text-only — swapping the attachments of a message
+  someone has already seen would change what they were shown after the fact —
+  and stamps `edited_at`.
+
+  Deletion is **soft**, and has to be: read receipts reference message ids and
+  the unread count is derived from the referenced message's timestamp, so
+  removing the row a receipt names would leave that user with no watermark and
+  mark the entire conversation unread. `last_message` points there too. The row
+  survives, emptied, and renders as a tombstone. Every derivation site excludes
+  deleted messages by the same clause — the service, the batched aggregation,
+  the diagnostic and the backfill — because two of them disagreeing is exactly
+  what makes the diagnostic report drift that is not real.
+  *server/src/messenger/services/message.service.ts, models/message.model.ts*
+
+Also fixed, uncovered by the above: **`sendMessage` flattened every error to a
+500**, so a refusal the caller could act on — blocked, or content too long —
+was reported as a server fault. Typed errors now keep their status.
+*server/src/messenger/controllers/message.controller.ts*
+
+**No new environment variables are required.** One optional addition:
+`TWO_FACTOR_ISSUER` sets the label authenticator apps display next to the code,
+defaulting to `chat-app`. Two existing variables gain relevance — `JWT_SECRET`
+now also signs the five-minute two-factor challenge, and `TRUSTED_PROXIES`
+determines whether the IP recorded against a session is the user's or the
+proxy's. Verified against valkey 9.1.1 as well as Redis.
+
+---
+
 ## Added
 
 - `dm_key` on conversations — a sorted, joined participant pair used for DM
@@ -684,3 +921,17 @@ Deliberately not addressed:
   themselves read.
 - **`handleChatMessage` in the websocket controller is unreachable** — there is
   no `'message'` case in the dispatcher.
+- **Group permissions still are not enforced on the new endpoints either.** Any
+  participant can manage members or delete a conversation for everyone; blocking
+  and mute are per-user and unaffected, but the underlying gap is unchanged.
+- **`muted_until` is still declared and never enforced** — see above; the mute
+  UI added for it has no duration picker for the same reason.
+- **Privacy is applied to REST reads and presence broadcasts, not to message
+  history.** A user who sets their profile picture to `nobody` still appears
+  with it on messages already rendered from a conversation payload, because
+  those are populated by the conversation and message endpoints rather than the
+  user ones. Closing that means running redaction over populated senders too.
+- **Recovery codes cannot be regenerated.** You get eight at enrolment; when
+  they run out the only route back is turning 2FA off and on again.
+- **The 2FA setup screen shows the key as text, not a QR code.** Rendering one
+  needs a QR library, and the `otpauth://` link covers the same-device case.

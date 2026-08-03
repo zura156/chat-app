@@ -27,8 +27,39 @@ export interface IUser extends Document {
   status: 'offline' | 'online' | 'away';
   last_seen: Date;
   blocked_users: Types.ObjectId[];
+  privacy: IPrivacySettings;
   comparePassword(candidatePassword: string): Promise<boolean>;
 }
+
+/**
+ * Who may see a given field. `contacts` means people this user shares a
+ * conversation with — the only relationship the app actually models, so it is
+ * what "contacts" has to mean here.
+ */
+export type Visibility = 'everyone' | 'contacts' | 'nobody';
+
+export const VISIBILITIES: Visibility[] = ['everyone', 'contacts', 'nobody'];
+
+export interface IPrivacySettings {
+  last_seen: Visibility;
+  pfp_url: Visibility;
+  bio: Visibility;
+  online_status: Visibility;
+}
+
+/** The keys the settings screen offers, and the only ones a PATCH may set. */
+export const PRIVACY_KEYS: (keyof IPrivacySettings)[] = [
+  'last_seen',
+  'pfp_url',
+  'bio',
+  'online_status',
+];
+
+const visibilityField = {
+  type: String,
+  enum: VISIBILITIES,
+  default: 'everyone' as Visibility,
+};
 
 const UserSchema = new Schema<IUser>(
   {
@@ -78,6 +109,12 @@ const UserSchema = new Schema<IUser>(
     },
     last_seen: { type: Date, default: Date.now },
     blocked_users: [{ type: Schema.Types.ObjectId, ref: 'User' }],
+    privacy: {
+      last_seen: visibilityField,
+      pfp_url: visibilityField,
+      bio: visibilityField,
+      online_status: visibilityField,
+    },
   },
   { timestamps: true },
 );

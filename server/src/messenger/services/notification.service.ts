@@ -35,6 +35,14 @@ const watermarkOf = (
 const UNREAD_COUNT_CAP = 99;
 
 /**
+ * A message the sender took back should not still be sitting in someone's
+ * badge. Deletion is soft, so the tombstone has to be excluded explicitly —
+ * and by the same clause everywhere the count is derived, or the two paths
+ * disagree and the diagnostic reports drift that is not real.
+ */
+const UNDELETED = { deleted_at: { $exists: false } } as const;
+
+/**
  * Messages in the conversation that this user has not read: not their own, not
  * system info, newer than their watermark. Served by the existing
  * `{conversation, timestamp}` index.
@@ -52,6 +60,7 @@ const deriveUnreadCount = (
       conversation,
       sender: { $ne: user },
       type: { $ne: MessageTypeEnum.INFO },
+      ...UNDELETED,
       ...(since ? { timestamp: { $gt: since } } : {}),
     },
     { limit: UNREAD_COUNT_CAP },
@@ -86,6 +95,7 @@ const deriveUnreadCounts = async (
       $match: {
         sender: { $ne: user },
         type: { $ne: MessageTypeEnum.INFO },
+        ...UNDELETED,
         $or: targets.map(({ conversation, since }) => ({
           conversation,
           ...(since ? { timestamp: { $gt: since } } : {}),

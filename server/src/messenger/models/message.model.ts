@@ -30,6 +30,14 @@ export interface IMessage extends Document {
   attachments: IAttachment[];
   timestamp: Date;
   edited_at?: Date;
+  /**
+   * Soft delete. The document has to survive: read receipts point at message
+   * ids and the unread count is derived from the referenced message's
+   * timestamp, so removing the row a receipt names would leave that user with
+   * no watermark and mark the whole conversation unread. `last_message` on the
+   * conversation points here too.
+   */
+  deleted_at?: Date;
 }
 
 const AttachmentSchema = new Schema<IAttachment>(
@@ -75,6 +83,7 @@ const MessageSchema = new Schema<IMessage>({
   attachments: { type: [AttachmentSchema], default: [] },
   timestamp: { type: Date, default: Date.now },
   edited_at: { type: Date },
+  deleted_at: { type: Date },
 });
 
 // every message read is scoped to a conversation and sorted by timestamp
@@ -83,6 +92,10 @@ MessageSchema.index({ conversation: 1, timestamp: -1 });
 MessageSchema.index({ 'attachments.uploadId': 1 });
 
 MessageSchema.pre('validate', function () {
+  // A deleted message is deliberately empty — it keeps its place in the thread
+  // as a tombstone, so the content requirement does not apply to it.
+  if (this.deleted_at) return;
+
   if (!this.content?.trim() && !this.attachments?.length) {
     throw new Error('Message must have either text content or attachments.');
   }

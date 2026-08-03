@@ -38,6 +38,59 @@
 
   <!-- Form -->
   <div class="w-full max-w-sm">
+    <!--
+      Second factor. Shown instead of the credentials form once the password is
+      accepted on an account that has one — no session exists until this is
+      answered.
+    -->
+    @if (twoFactorRequired()) {
+      <form
+        (ngSubmit)="submitTwoFactorCode()"
+        class="space-y-3"
+        aria-labelledby="two-factor-heading"
+      >
+        <div class="space-y-1">
+          <h2 id="two-factor-heading" class="text-sm font-medium">
+            Two-factor authentication
+          </h2>
+          <p class="text-xs text-muted-foreground">
+            Enter the 6-digit code from your authenticator app, or one of your
+            recovery codes.
+          </p>
+        </div>
+
+        <input
+          hlmInput
+          type="text"
+          inputmode="numeric"
+          autocomplete="one-time-code"
+          aria-label="Authentication code"
+          placeholder="000000"
+          class="w-full font-mono tracking-widest"
+          [value]="twoFactorCode()"
+          (input)="onTwoFactorCodeInput($any($event.target).value)"
+        />
+
+        <button
+          type="submit"
+          hlmBtn
+          class="w-full cursor-pointer rounded-full"
+          [disabled]="isLoading() || !twoFactorCode()"
+        >
+          Verify
+        </button>
+
+        <button
+          type="button"
+          hlmBtn
+          variant="ghost"
+          class="w-full cursor-pointer rounded-full"
+          (click)="cancelTwoFactor()"
+        >
+          Back
+        </button>
+      </form>
+    } @else {
     <form [formGroup]="form" (ngSubmit)="onSubmit()" class="space-y-3">
       <hlm-field>
         <input
@@ -111,5 +164,6 @@
         Register
       </a>
     </p>
+    }
   </div>
 </div>

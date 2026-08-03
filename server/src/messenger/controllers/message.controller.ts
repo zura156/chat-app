@@ -1,7 +1,10 @@
 import { Response, NextFunction } from 'express';
 import { AuthRequest } from '../../auth/middlewares/auth.middleware'; // Your existing type
 import { MessageService } from '../services/message.service';
-import { createCustomError } from '../../error-handling/models/custom-api-error.model'; // Your error handler
+import {
+  createCustomError,
+  CustomAPIError,
+} from '../../error-handling/models/custom-api-error.model'; // Your error handler
 import { Types } from 'mongoose';
 import { Message } from '../models/message.model';
 
@@ -12,6 +15,62 @@ export class MessageController {
   constructor(messageService: MessageService) {
     this.messageService = messageService;
   }
+
+  public editMessage = async (
+    req: AuthRequest,
+    res: Response,
+    next: NextFunction,
+  ): Promise<void> => {
+    try {
+      const senderId = req.user?._id?.toString();
+      const conversationId = req.conversation?._id.toString();
+      const messageId = String(req.params.messageId ?? '');
+      const { content } = req.body ?? {};
+
+      if (!senderId || !conversationId) {
+        next(createCustomError('Conversation not found or access denied.', 403));
+        return;
+      }
+
+      const message = await this.messageService.editMessage(
+        senderId,
+        conversationId,
+        messageId,
+        content,
+      );
+
+      res.status(200).json(message);
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  public deleteMessage = async (
+    req: AuthRequest,
+    res: Response,
+    next: NextFunction,
+  ): Promise<void> => {
+    try {
+      const senderId = req.user?._id?.toString();
+      const conversationId = req.conversation?._id.toString();
+      const messageId = String(req.params.messageId ?? '');
+
+      if (!senderId || !conversationId) {
+        next(createCustomError('Conversation not found or access denied.', 403));
+        return;
+      }
+
+      const result = await this.messageService.deleteMessage(
+        senderId,
+        conversationId,
+        messageId,
+      );
+
+      res.status(200).json(result);
+    } catch (error) {
+      next(error);
+    }
+  };
 
   /**
    * REST API endpoint for sending a message
@@ -50,7 +109,14 @@ export class MessageController {
 
       res.status(201).json(message);
     } catch (error: any) {
-      next(createCustomError(error.message || 'Failed to send message', 500));
+      // An error that already carries a status keeps it. Wrapping everything as
+      // 500 turned a refusal the caller could act on — blocked, or content too
+      // long — into "something went wrong on our end".
+      next(
+        error instanceof CustomAPIError
+          ? error
+          : createCustomError(error.message || 'Failed to send message', 500),
+      );
     }
   };
 

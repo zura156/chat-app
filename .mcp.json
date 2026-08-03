@@ -1,0 +1,23 @@
+{
+  "mcpServers": {
+    "angular": {
+      "type": "stdio",
+      "command": "npx",
+      "args": [
+        "-y",
+        "@angular/cli",
+        "mcp"
+      ],
+      "env": {}
+    },
+    "spartan-ng": {
+      "type": "stdio",
+      "command": "npx",
+      "args": [
+        "-y",
+        "@spartan-ng/mcp"
+      ],
+      "env": {}
+    }
+  }
+}

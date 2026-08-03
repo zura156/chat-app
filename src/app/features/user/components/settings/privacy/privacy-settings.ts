@@ -1,15 +1,26 @@
-import { Component, inject, signal } from '@angular/core';
+import { Component, OnInit, inject } from '@angular/core';
 import { NgIcon, provideIcons } from '@ng-icons/core';
 import { lucideShieldOff } from '@ng-icons/lucide';
-import { HlmButton, HlmButtonImports } from '@spartan-ng/helm/button';
+import { HlmButtonImports } from '@spartan-ng/helm/button';
 import { HlmIconImports } from '@spartan-ng/helm/icon';
 import { HlmSeparatorImports } from '@spartan-ng/helm/separator';
-import { UserI } from '../../../interfaces/user.interface';
-import { UserService } from '../../../services/user.service';
 import { HlmAvatarImports } from '@spartan-ng/helm/avatar';
+import { toast } from '@spartan-ng/brain/sonner';
+import { UserI } from '../../../interfaces/user.interface';
+import {
+  PrivacySettingsI,
+  PrivacySettingsService,
+  Visibility,
+} from '../../../services/privacy-settings.service';
 
-type Visibility = 'everyone' | 'contacts' | 'nobody';
-
+/**
+ * The visibility dropdowns here used to be a hardcoded signal array with no
+ * server model behind them, and `unblock()` was `console.log('Yeah right.')`.
+ * Both are real now.
+ *
+ * "Contacts" means people you share a conversation with — the only
+ * relationship this app models, so it is the only honest reading of the word.
+ */
 @Component({
   templateUrl: './privacy-settings.html',
   imports: [
@@ -21,49 +32,62 @@ type Visibility = 'everyone' | 'contacts' | 'nobody';
   ],
   providers: [provideIcons({ lucideShieldOff })],
 })
-export class PrivacySettings {
-  private userService = inject(UserService);
+export class PrivacySettings implements OnInit {
+  private readonly settings = inject(PrivacySettingsService);
 
-  blockedUsers = signal<UserI[]>(
-    (this.userService.currentUser()?.blocked_users as UserI[]) ?? [],
-  );
+  readonly privacy = this.settings.privacy;
+  readonly blockedUsers = this.settings.blockedUsers;
+  readonly loading = this.settings.loading;
 
-  privacyItems = signal([
+  readonly privacyItems: {
+    key: keyof PrivacySettingsI;
+    label: string;
+    description: string;
+  }[] = [
     {
       key: 'last_seen',
       label: 'Last seen',
       description: 'Who can see when you were last active',
-      value: signal<Visibility>('everyone'),
     },
     {
       key: 'pfp_url',
       label: 'Profile picture',
       description: 'Who can see your profile photo',
-      value: signal<Visibility>('everyone'),
     },
     {
       key: 'bio',
       label: 'Bio',
       description: 'Who can see your bio',
-      value: signal<Visibility>('everyone'),
     },
     {
       key: 'online_status',
       label: 'Online status',
       description: "Who can see when you're online",
-      value: signal<Visibility>('everyone'),
     },
-  ]);
+  ];
 
-  unblock(user: UserI) {
-    console.log('Yeah right.');
-    // TODO
-    // this.userService.unblockUser(user._id).subscribe({
-    //   next: () => {
-    //     this.blockedUsers.update((list) =>
-    //       list.filter((u) => u._id !== user._id),
-    //     );
-    //   },
-    // });
+  ngOnInit(): void {
+    this.settings.load().subscribe();
+  }
+
+  valueOf(key: keyof PrivacySettingsI): Visibility {
+    return this.privacy()[key];
+  }
+
+  isSaving(key: keyof PrivacySettingsI): boolean {
+    return this.settings.isSaving(key);
+  }
+
+  setVisibility(key: keyof PrivacySettingsI, value: string): void {
+    this.settings.setVisibility(key, value as Visibility).subscribe({
+      error: () => toast.error('Could not save that setting'),
+    });
+  }
+
+  unblock(user: UserI): void {
+    this.settings.unblock(user).subscribe({
+      next: () => toast.success(`Unblocked @${user.username}`),
+      error: () => toast.error('Could not unblock that user'),
+    });
   }
 }

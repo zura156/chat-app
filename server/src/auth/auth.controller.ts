@@ -28,7 +28,54 @@ import {
   deleteRefreshToken,
   deleteAllUserRefreshTokens,
   blacklistAccessToken,
+  listSessions,
+  revokeSession,
+  sessionIdForToken,
+  newSessionId,
 } from './services/token.service';
+import { TwoFactorAuthModel } from './models/two-factor.model';
+import { verifyCode } from './services/totp.service';
+
+/**
+ * What the server can actually observe about the client, and nothing more. The
+ * security screen previously showed invented cities; the honest answer is the
+ * user agent and the address the request arrived from.
+ */
+const observedClient = (req: Request): { userAgent?: string; ip?: string } => ({
+  userAgent: req.headers['user-agent']?.slice(0, 300),
+  ip: req.ip,
+});
+
+/** Marks the short-lived token that stands between password and second factor. */
+const TWO_FACTOR_PURPOSE = 'two-factor-challenge';
+
+/**
+ * Issues the session for an authenticated user. Shared by password-only login
+ * and by the second-factor step, so both produce identical session state — the
+ * kind of thing that drifts when it is written twice.
+ */
+const issueSession = async (
+  req: Request,
+  res: Response,
+  user: IUser,
+): Promise<void> => {
+  const sid = newSessionId();
+  const userId = user._id.toString();
+  const { accessToken, refreshToken } = generateTokens(userId, sid);
+
+  await storeRefreshToken(userId, refreshToken, {
+    sid,
+    ...observedClient(req),
+  });
+
+  // a successful sign-in clears the counter and any expired lock
+  await user.updateOne({
+    $set: { last_login: new Date(), login_attempts: 0 },
+    $unset: { lock_until: 1 },
+  });
+
+  setAuthCookies(res, accessToken, refreshToken);
+};
 
 // ─── Cookie helpers ────────────────────────────────────────────────────────────
 
@@ -223,15 +270,28 @@ export const loginUser = async (
 
     await clearRateLimitMiddleware(req, res, () => {});
 
-    const { accessToken, refreshToken } = generateTokens(user.id);
-    await storeRefreshToken(user.id, refreshToken);
-    // a successful sign-in clears the counter and any expired lock
-    await user.updateOne({
-      $set: { last_login: new Date(), login_attempts: 0 },
-      $unset: { lock_until: 1 },
-    });
+    // The password is only the first factor. When a second one is enrolled, no
+    // session is issued here — the caller gets a short-lived challenge and has
+    // to come back with a code.
+    const twoFactor = await TwoFactorAuthModel.findOne({
+      user_id: user._id,
+      two_factor_enabled: true,
+    }).lean();
 
-    setAuthCookies(res, accessToken, refreshToken);
+    if (twoFactor) {
+      res.cookie(
+        'twoFactorChallenge',
+        jwt.sign({ userId: user.id, purpose: TWO_FACTOR_PURPOSE }, config.jwtSecret, {
+          expiresIn: '5m',
+        }),
+        { ...COOKIE_BASE, maxAge: 5 * 60 * 1000 },
+      );
+
+      res.status(200).json({ two_factor_required: true });
+      return;
+    }
+
+    await issueSession(req, res, user);
     res.status(200).json({ message: 'Login successful' });
   } catch (error: any) {
     if (error instanceof CustomAPIError) throw error;
@@ -252,9 +312,22 @@ export const refreshAccessToken = async (
       return;
     }
 
-    const decoded = jwt.verify(token, config.jwtRefreshSecret) as {
-      userId: string;
-    };
+    // An expired or malformed refresh token is a routine end-of-session, not a
+    // server fault. Letting jwt's error reach the generic error middleware
+    // turned every ordinary expiry into a 500 and a console.error, and left the
+    // client's 401 handling — the branch that navigates to the login page —
+    // unreachable from here.
+    let decoded: { userId: string; sid?: string };
+    try {
+      decoded = jwt.verify(token, config.jwtRefreshSecret) as {
+        userId: string;
+        sid?: string;
+      };
+    } catch {
+      clearAuthCookies(res);
+      res.status(401).json({ message: 'Refresh token invalid or expired' });
+      return;
+    }
 
     const isValid = await validateRefreshToken(decoded.userId, token);
     if (!isValid) {
@@ -262,13 +335,20 @@ export const refreshAccessToken = async (
       return;
     }
 
+    // The rotated pair keeps the session it came from. Falling back to the
+    // stored entry covers tokens issued before sessions carried an id.
+    const sid =
+      decoded.sid ?? (await sessionIdForToken(decoded.userId, token)) ?? undefined;
+
     const { accessToken, refreshToken: newRefreshToken } = generateTokens(
       decoded.userId,
+      sid,
     );
     const rotated = await rotateRefreshToken(
       decoded.userId,
       token,
       newRefreshToken,
+      observedClient(req),
     );
 
     if (!rotated) {
@@ -284,6 +364,207 @@ export const refreshAccessToken = async (
     res.json({ message: 'Token refreshed successfully' });
   } catch (error: any) {
     if (error instanceof CustomAPIError) throw error;
+    next(error);
+  }
+};
+
+/**
+ * Second step of a two-factor login: exchanges the challenge plus a valid code
+ * for a real session. Accepts a recovery code too, and burns it — that is the
+ * whole point of one, and leaving it usable twice would make it a standing
+ * bypass.
+ */
+export const loginTwoFactor = async (
+  req: Request,
+  res: Response,
+  next: NextFunction,
+): Promise<void> => {
+  try {
+    const challenge = req.cookies['twoFactorChallenge'] as string | undefined;
+    const { code } = req.body ?? {};
+
+    if (!challenge) {
+      res.status(401).json({ message: 'Start the sign-in again' });
+      return;
+    }
+
+    let decoded: { userId: string; purpose?: string };
+    try {
+      decoded = jwt.verify(challenge, config.jwtSecret) as {
+        userId: string;
+        purpose?: string;
+      };
+    } catch {
+      res.clearCookie('twoFactorChallenge', { ...COOKIE_BASE });
+      res.status(401).json({ message: 'Start the sign-in again' });
+      return;
+    }
+
+    // Without this an ordinary access token would be accepted here, letting a
+    // stolen one skip the factor it is meant to be gated by.
+    if (decoded.purpose !== TWO_FACTOR_PURPOSE) {
+      res.status(401).json({ message: 'Start the sign-in again' });
+      return;
+    }
+
+    const [user, record] = await Promise.all([
+      User.findById(decoded.userId),
+      TwoFactorAuthModel.findOne({
+        user_id: decoded.userId,
+        two_factor_enabled: true,
+      }),
+    ]);
+
+    if (!user || !record) {
+      res.status(401).json({ message: 'Start the sign-in again' });
+      return;
+    }
+
+    const submitted = String(code ?? '').replace(/\s/g, '');
+    const hashedSubmission = crypto
+      .createHash('sha256')
+      .update(submitted.toUpperCase())
+      .digest('hex');
+
+    const byCode = verifyCode(record.secret, submitted);
+    const recoveryIndex = record.recovery_codes.indexOf(hashedSubmission);
+
+    if (!byCode && recoveryIndex === -1) {
+      return loginRateLimitIncrement(req, res, () => {
+        res.status(401).json({ message: 'That code is not correct' });
+      });
+    }
+
+    if (recoveryIndex !== -1) {
+      record.recovery_codes.splice(recoveryIndex, 1);
+      await record.save();
+    }
+
+    res.clearCookie('twoFactorChallenge', { ...COOKIE_BASE });
+    await issueSession(req, res, user);
+
+    res.status(200).json({
+      message: 'Login successful',
+      recovery_codes_remaining: record.recovery_codes.length,
+      used_recovery_code: recoveryIndex !== -1,
+    });
+  } catch (error: any) {
+    if (error instanceof CustomAPIError) throw error;
+    next(error);
+  }
+};
+
+/**
+ * The real answer to "where am I signed in?", replacing a hardcoded list of
+ * invented logins. Reports only what the server observed — user agent, address,
+ * when the session started and when its token was last exchanged.
+ */
+export const getSessions = async (
+  req: AuthRequest,
+  res: Response,
+  next: NextFunction,
+): Promise<void> => {
+  try {
+    const user = req.user;
+    if (!user) {
+      res.status(401).json({ message: 'Unauthorized' });
+      return;
+    }
+
+    const sessions = await listSessions(user._id.toString());
+
+    res.status(200).json({
+      sessions: sessions.map((session) => ({
+        id: session.sid,
+        user_agent: session.userAgent ?? null,
+        ip: session.ip ?? null,
+        created_at: session.createdAt,
+        last_used_at: session.lastUsedAt,
+        current: !!req.sessionId && session.sid === req.sessionId,
+      })),
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const revokeSessionById = async (
+  req: AuthRequest,
+  res: Response,
+  next: NextFunction,
+): Promise<void> => {
+  try {
+    const user = req.user;
+    if (!user) {
+      res.status(401).json({ message: 'Unauthorized' });
+      return;
+    }
+
+    const sid = String(req.params.id ?? '');
+    if (!sid) {
+      res.status(400).json({ message: 'A session id is required' });
+      return;
+    }
+
+    const revoked = await revokeSession(user._id.toString(), sid);
+    if (!revoked) {
+      res.status(404).json({ message: 'Session not found' });
+      return;
+    }
+
+    // Revoking the session you are currently using is a logout: the access
+    // token would otherwise stay valid for its remaining lifetime.
+    if (req.sessionId && sid === req.sessionId) {
+      const accessToken = req.cookies['accessToken'] as string | undefined;
+      if (accessToken) {
+        try {
+          const decoded = jwt.decode(accessToken) as { exp?: number };
+          if (decoded?.exp) await blacklistAccessToken(accessToken, decoded.exp);
+        } catch {
+          // non-critical
+        }
+      }
+      clearAuthCookies(res);
+    }
+
+    res.status(200).json({ message: 'Session revoked' });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * Ends every session including this one. The access token is blacklisted for
+ * its remaining lifetime — dropping the refresh tokens alone would leave the
+ * current device working for up to fifteen more minutes.
+ */
+export const revokeAllSessions = async (
+  req: AuthRequest,
+  res: Response,
+  next: NextFunction,
+): Promise<void> => {
+  try {
+    const user = req.user;
+    if (!user) {
+      res.status(401).json({ message: 'Unauthorized' });
+      return;
+    }
+
+    await deleteAllUserRefreshTokens(user._id.toString());
+
+    const accessToken = req.cookies['accessToken'] as string | undefined;
+    if (accessToken) {
+      try {
+        const decoded = jwt.decode(accessToken) as { exp?: number };
+        if (decoded?.exp) await blacklistAccessToken(accessToken, decoded.exp);
+      } catch {
+        // non-critical
+      }
+    }
+
+    clearAuthCookies(res);
+    res.status(200).json({ message: 'All sessions signed out' });
+  } catch (error) {
     next(error);
   }
 };

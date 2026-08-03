@@ -7,6 +7,34 @@ import { Upload } from '../../upload/upload.model';
 import { signMessage, signMessages } from '../../upload/media-url.service';
 import { createNotification } from './notification.service';
 import { logger } from '../../utils/logger';
+import { blockedAmong } from '../../user/services/blocking.service';
+import { createCustomError } from '../../error-handling/models/custom-api-error.model';
+
+/**
+ * Refuses the send if the sender and any recipient have blocked each other.
+ * Checked here rather than at the route because both entry points — plain text
+ * and attachments — have to be covered, and a block that only stops one of them
+ * is not a block. INFO messages are exempt: they are the system narrating
+ * membership changes, not a user reaching anyone.
+ */
+const assertNotBlocked = async (
+  senderId: string,
+  conversationId: string | Types.ObjectId,
+): Promise<void> => {
+  const conversation = await Conversation.findById(conversationId)
+    .select('participants')
+    .lean();
+
+  if (!conversation) return;
+
+  const blocked = await blockedAmong(senderId, conversation.participants);
+  if (blocked.size > 0) {
+    throw createCustomError(
+      'You can no longer send messages in this conversation',
+      403,
+    );
+  }
+};
 
 export class MessageService {
   private broadcast: BroadcastFunction;
@@ -82,6 +110,125 @@ export class MessageService {
     return { messages: await signMessages(messages), totalCount };
   }
 
+  /**
+   * Loads a message and proves the caller may act on it: it has to exist, be in
+   * the conversation the route validated, and belong to the caller. Editing or
+   * deleting someone else's message is not a thing, and neither is reaching
+   * into another conversation by id.
+   */
+  private async ownMessage(
+    senderId: string,
+    conversationId: string,
+    messageId: string,
+  ) {
+    if (!Types.ObjectId.isValid(messageId)) {
+      throw createCustomError('Invalid message id', 400);
+    }
+
+    const message = await Message.findOne({
+      _id: new Types.ObjectId(messageId),
+      conversation: new Types.ObjectId(conversationId),
+    });
+
+    if (!message) throw createCustomError('Message not found', 404);
+
+    if (message.sender.toString() !== senderId) {
+      throw createCustomError('You can only change your own messages', 403);
+    }
+
+    if (message.deleted_at) {
+      throw createCustomError('This message was deleted', 410);
+    }
+
+    if (message.type === MessageTypeEnum.INFO) {
+      throw createCustomError('System messages cannot be changed', 400);
+    }
+
+    return message;
+  }
+
+  public async editMessage(
+    senderId: string,
+    conversationId: string,
+    messageId: string,
+    content: string,
+  ): Promise<IMessage> {
+    const trimmed = (content ?? '').trim();
+
+    if (!trimmed) {
+      throw createCustomError('Message content cannot be empty', 400);
+    }
+
+    if (trimmed.length > 2000) {
+      throw createCustomError(
+        'Message content exceeds the maximum length of 2000 characters',
+        400,
+      );
+    }
+
+    const message = await this.ownMessage(senderId, conversationId, messageId);
+
+    // Only the text is editable. Swapping the attachments of a message someone
+    // has already seen would change what they were shown after the fact.
+    message.content = trimmed;
+    message.edited_at = new Date();
+    await message.save();
+
+    const populated = await Message.findById(message._id).populate(
+      'sender',
+      'username pfp_url pfp_variants',
+    );
+
+    if (!populated) throw createCustomError('Message not found', 404);
+
+    const signed = await signMessage(populated);
+
+    // Not a MessageTypeEnum, so broadcast passes it through rather than
+    // wrapping it as a new message the clients would append.
+    this.broadcast({
+      type: 'message-edited',
+      conversation: conversationId,
+      message: signed,
+    });
+
+    return signed as IMessage;
+  }
+
+  public async deleteMessage(
+    senderId: string,
+    conversationId: string,
+    messageId: string,
+  ): Promise<{ _id: string; conversation: string; deleted_at: Date }> {
+    const message = await this.ownMessage(senderId, conversationId, messageId);
+
+    const deleted_at = new Date();
+
+    // The row stays, emptied: the content and attachments are what the user
+    // asked to take back, the message itself is load-bearing for read receipts
+    // and for `last_message`.
+    message.content = undefined;
+    message.attachments = [];
+    message.deleted_at = deleted_at;
+    await message.save();
+
+    this.broadcast({
+      type: 'message-deleted',
+      conversation: conversationId,
+      message: { _id: String(message._id), deleted_at },
+    });
+
+    // A message nobody can read should not be sitting in anyone's badge.
+    createNotification(senderId, conversationId).catch((error) =>
+      logger.error('Failed to refresh notifications after delete:', error),
+    );
+
+    return {
+      _id: String(message._id),
+      conversation: conversationId,
+      deleted_at,
+    };
+  }
+
   public async createMessageWithAttachments(
     senderId: string,
     conversationId: string,
@@ -106,6 +253,8 @@ export class MessageService {
     if (attachmentPayloads.length > 10) {
       throw new Error('Maximum 10 attachments per message.');
     }
+
+    await assertNotBlocked(senderId, conversationId);
 
     // verify all uploads exist and belong to sender
     const uploadIds = attachmentPayloads.map((a) => a.uploadId);
@@ -202,6 +351,12 @@ export class MessageService {
       throw new Error(
         'Message content exceeds the maximum length of 2000 characters.',
       );
+    }
+
+    // INFO is the system describing a membership change to everyone present;
+    // it is not one user reaching another, so a block does not silence it.
+    if ((type ?? MessageTypeEnum.TEXT) !== MessageTypeEnum.INFO) {
+      await assertNotBlocked(senderId, conversationObjectId);
     }
 
     const message = new Message({

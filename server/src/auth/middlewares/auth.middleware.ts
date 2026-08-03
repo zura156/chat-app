@@ -8,6 +8,8 @@ import { isAccessTokenBlacklisted } from '../services/token.service';
 export interface AuthRequest extends Request {
   user?: IUser;
   conversation?: IConversation;
+  /** The session this access token belongs to — see TokenPayload.sid. */
+  sessionId?: string;
 }
 
 export const authenticateToken = async (
@@ -23,7 +25,10 @@ export const authenticateToken = async (
   }
 
   try {
-    const decoded = jwt.verify(token, config.jwtSecret) as { userId: string };
+    const decoded = jwt.verify(token, config.jwtSecret) as {
+      userId: string;
+      sid?: string;
+    };
     const blacklisted = await isAccessTokenBlacklisted(token);
 
     if (blacklisted) {
@@ -41,6 +46,7 @@ export const authenticateToken = async (
     }
 
     req.user = user;
+    req.sessionId = decoded.sid;
     next();
   } catch (error) {
     if (error instanceof jwt.TokenExpiredError) {

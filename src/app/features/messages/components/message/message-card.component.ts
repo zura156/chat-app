@@ -1,4 +1,12 @@
-import { Component, input, inject, signal, viewChild } from '@angular/core';
+import {
+  Component,
+  ElementRef,
+  effect,
+  input,
+  inject,
+  signal,
+  viewChild,
+} from '@angular/core';
 import { UserI } from '../../../user/interfaces/user.interface';
 import { AttachmentI, MessageI } from '../../interfaces/message.interface';
 import {
@@ -22,8 +30,12 @@ import { NgIcon, provideIcons } from '@ng-icons/core';
 import {
   lucideCircleStop,
   lucideCirclePause,
+  lucideCopy,
+  lucideEllipsis,
+  lucidePencil,
   lucidePlay,
   lucideCircleX,
+  lucideTrash2,
   lucideVolume,
   lucideVolume2,
   lucideVolume1,
@@ -41,6 +53,10 @@ import {
 } from '../../../../shared/services/media-viewer.service';
 import { FileViewer } from '../../../../shared/components/file-viewer/file-viewer';
 import { RouterLink } from '@angular/router';
+import { HlmDropdownMenuImports } from '@spartan-ng/helm/dropdown-menu';
+import { HlmButton } from '@spartan-ng/helm/button';
+import { LongPressDirective } from '../../../../shared/directives/long-press.directive';
+import { MessageActionsService } from '../../services/message-actions.service';
 
 @Component({
   selector: 'message-card',
@@ -62,13 +78,20 @@ import { RouterLink } from '@angular/router';
     HlmAvatar,
     HlmSkeleton,
     VideoPlayer,
+    HlmDropdownMenuImports,
+    LongPressDirective,
+    HlmButton,
   ],
   providers: [
     provideIcons({
       lucideCircleStop,
       lucideCirclePause,
+      lucideCopy,
+      lucideEllipsis,
+      lucidePencil,
       lucidePlay,
       lucideCircleX,
+      lucideTrash2,
       lucideVolume,
       lucideVolume1,
       lucideVolume2,
@@ -92,15 +115,85 @@ export class MessageCardComponent {
 
   videoPlayerComponent = viewChild<VideoPlayer>('videoPlayerComponent');
 
+  private readonly editInput =
+    viewChild<ElementRef<HTMLTextAreaElement>>('editInput');
+
   isImageLoaded = signal<boolean>(false);
 
   conversationService = inject(ConversationService);
   mediaViewerService = inject(MediaViewerService);
+  /** Edit, copy and delete all live here — see MessageActionsService. */
+  readonly actions = inject(MessageActionsService);
+
+  readonly draft = this.actions.draft;
+  readonly busy = this.actions.busy;
+
+  constructor() {
+    // Put the caret in the message the moment it becomes editable, at the end
+    // of the text rather than the start, and size the box to what is already
+    // there instead of an arbitrary two rows.
+    effect(() => {
+      if (!this.actions.editingId()) return;
+
+      const el = this.editInput()?.nativeElement;
+      if (!el) return;
+
+      el.focus();
+      el.setSelectionRange(el.value.length, el.value.length);
+      this.resize(el);
+    });
+  }
 
   readonly apiUrl = environment.apiUrl;
 
   isCurrentUserMessage(message: MessageI): boolean {
     return (message.sender._id || message.sender) === this.currentUser()?._id;
+  }
+
+  canEdit(message: MessageI): boolean {
+    return this.actions.canEdit(message, this.currentUser()?._id);
+  }
+
+  canDelete(message: MessageI): boolean {
+    return this.actions.canDelete(message, this.currentUser()?._id);
+  }
+
+  canCopy(message: MessageI): boolean {
+    return this.actions.canCopy(message);
+  }
+
+  hasActions(message: MessageI): boolean {
+    return this.actions.hasActions(message, this.currentUser()?._id);
+  }
+
+  isEditing(message: MessageI): boolean {
+    return this.actions.isEditing(message);
+  }
+
+  cancelEdit(): void {
+    this.actions.cancelEdit();
+  }
+
+  saveEdit(message: MessageI): void {
+    this.actions.saveEdit(message);
+  }
+
+  onDraftInput(event: Event): void {
+    const el = event.target as HTMLTextAreaElement;
+    this.draft.set(el.value);
+    this.resize(el);
+  }
+
+  /** Enter saves; Shift+Enter is how you get a line break, as in the composer. */
+  onEditEnter(event: Event, message: MessageI): void {
+    if ((event as KeyboardEvent).shiftKey) return;
+    event.preventDefault();
+    this.saveEdit(message);
+  }
+
+  private resize(el: HTMLTextAreaElement): void {
+    el.style.height = 'auto';
+    el.style.height = `${el.scrollHeight}px`;
   }
 
   getUserCredentials(userId: string): {

@@ -22,6 +22,7 @@ export class UserService {
   private readonly _GET_CURRENT_USER_URL = `${this.apiUrl}/user/profile`;
   private readonly _GET_USERS_URL = `${this.apiUrl}/user`;
   private readonly _SEARCH_USERS_URL = `${this.apiUrl}/user/search`;
+  private readonly _BLOCKED_USERS_URL = `${this.apiUrl}/user/blocked`;
 
   currentUser = this.userStateService.currentUser;
 
@@ -94,5 +95,55 @@ export class UserService {
     return this.http
       .get<UserListI>(url)
       .pipe(tap((res) => this.#users.set(res)));
+  }
+
+  /** People the current user has blocked, populated rather than bare ids. */
+  getBlockedUsers(): Observable<{ users: UserI[] }> {
+    return this.http.get<{ users: UserI[] }>(this._BLOCKED_USERS_URL);
+  }
+
+  blockUser(userId: string): Observable<{ message: string }> {
+    return this.http
+      .post<{ message: string }>(`${this.apiUrl}/user/${userId}/block`, {})
+      .pipe(tap(() => this.applyBlockedIds(userId, true)));
+  }
+
+  unblockUser(userId: string): Observable<{ message: string }> {
+    return this.http
+      .delete<{ message: string }>(`${this.apiUrl}/user/${userId}/block`)
+      .pipe(tap(() => this.applyBlockedIds(userId, false)));
+  }
+
+  isBlocked(userId: string): boolean {
+    return this.blockedIds().has(userId);
+  }
+
+  /**
+   * `blocked_users` arrives on the current user as ids, so keeping it in sync
+   * locally saves a profile round trip after every block — and lets any
+   * component ask the question synchronously.
+   */
+  private readonly blockedIds = computed(() => {
+    const blocked = this.currentUser()?.blocked_users ?? [];
+    return new Set(
+      blocked.map((entry) =>
+        typeof entry === 'string' ? entry : (entry as UserI)._id,
+      ),
+    );
+  });
+
+  private applyBlockedIds(userId: string, blocked: boolean): void {
+    const currentUser = this.currentUser();
+    if (!currentUser) return;
+
+    const ids = [...this.blockedIds()];
+    const next = blocked
+      ? [...new Set([...ids, userId])]
+      : ids.filter((id) => id !== userId);
+
+    this.userStateService.setCurrentUser({
+      ...currentUser,
+      blocked_users: next,
+    });
   }
 }

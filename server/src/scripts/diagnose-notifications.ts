@@ -97,6 +97,8 @@ const diagnose = async (): Promise<void> => {
       conversation: notif.conversation,
       sender: { $ne: notif.user },
       type: { $ne: MessageTypeEnum.INFO },
+      // Matches deriveUnreadCount: soft-deleted messages are not unread.
+      deleted_at: { $exists: false },
     };
 
     // No watermark at all means nothing has been read, so everything counts.

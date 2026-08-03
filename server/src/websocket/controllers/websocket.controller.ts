@@ -12,6 +12,7 @@ import { ObjectId } from 'mongodb';
 import { redisClient } from '../../config/redis';
 import { recomputeNotification } from '../../messenger/services/notification.service';
 import type { AuthenticatedWebSocket } from '../websocket.setup';
+import { broadcastsPresence } from '../../user/services/privacy.service';
 
 const OFFLINE_DELAY_MS = 30_000;
 
@@ -379,10 +380,18 @@ export class WebSocketController {
     lastSeen?: string,
   ): Promise<void> {
     try {
-      await User.findByIdAndUpdate(userId, {
-        status,
-        last_seen: lastSeen || new Date(),
-      });
+      const updated = await User.findByIdAndUpdate(
+        userId,
+        {
+          status,
+          last_seen: lastSeen || new Date(),
+        },
+        { new: true, select: 'privacy' },
+      ).lean();
+
+      // The presence is still recorded — the user's own devices rely on it —
+      // but "nobody" means it is never announced to anyone else.
+      if (!broadcastsPresence(updated?.privacy)) return;
 
       // Only notify users who share a conversation — not ALL connected users
       const sharedConversations = await Conversation.find({

@@ -14,6 +14,8 @@ type WebSocketMessageType =
   | 'conversation-join'
   | 'conversation-leave'
   | 'message-status'
+  | 'message-edited'
+  | 'message-deleted'
   | MessageContentType
   | 'user-status'
   | 'file-upload'
@@ -113,7 +115,21 @@ export interface NotificationMessage extends BaseWebSocketMessage {
   seen: boolean;
 }
 
+export interface MessageEditedMessage extends BaseWebSocketMessage {
+  type: 'message-edited';
+  conversation: string;
+  message: MessageI;
+}
+
+export interface MessageDeletedMessage extends BaseWebSocketMessage {
+  type: 'message-deleted';
+  conversation: string;
+  message: { _id: string; deleted_at: string };
+}
+
 export type WebSocketMessageT =
+  | MessageEditedMessage
+  | MessageDeletedMessage
   | ConversationUpdateMessage
   | AuthenticateMessage
   | ErrorMessage

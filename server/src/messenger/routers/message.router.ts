@@ -26,6 +26,18 @@ router.post('/:id/send', validateConversation, (req, res, next) =>
 router.get('/:id/messages', validateConversation, (req, res, next) =>
   req.messageController.getMessagesByConversationId(req, res, next),
 );
+
+// `:id` is the conversation, which validateConversation proves membership of;
+// ownership of `:messageId` is checked in the service.
+router
+  .route('/:id/messages/:messageId')
+  .all(validateConversation)
+  .patch((req, res, next) =>
+    req.messageController.editMessage(req, res, next),
+  )
+  .delete((req, res, next) =>
+    req.messageController.deleteMessage(req, res, next),
+  );
 router.get('/:id/media', validateConversation, (req, res, next) =>
   req.messageController.getMediaMessages(req, res, next),
 );

@@ -10,7 +10,7 @@ import {
 } from '@angular/core';
 import { environment } from '../../../../environments/environment';
 import { HttpClient, httpResource } from '@angular/common/http';
-import { Observable } from 'rxjs';
+import { Observable, tap } from 'rxjs';
 import {
   AttachmentI,
   MessageI,
@@ -453,6 +453,60 @@ export class MessageService {
     } else if (message?.type === 'file') {
       this.#activeFileMessages.update(prependOnce);
     }
+  }
+
+  editMessage(conversationId: string, messageId: string, content: string) {
+    return this.http
+      .patch<MessageI>(
+        `${this.apiUrl}/${conversationId}/messages/${messageId}`,
+        { content },
+      )
+      .pipe(tap((message) => this.applyEdited(message)));
+  }
+
+  deleteMessage(conversationId: string, messageId: string) {
+    return this.http
+      .delete<{ _id: string; deleted_at: string }>(
+        `${this.apiUrl}/${conversationId}/messages/${messageId}`,
+      )
+      .pipe(tap((res) => this.applyDeleted(res._id, res.deleted_at)));
+  }
+
+  /** Replaces an edited message in place, keeping its position in the thread. */
+  applyEdited(edited: MessageI): void {
+    this.#activeMessages.update((messages) =>
+      messages.map((message) =>
+        message._id === edited._id ? { ...message, ...edited } : message,
+      ),
+    );
+  }
+
+  /**
+   * Empties a message rather than removing it: the bubble stays as a tombstone,
+   * matching the server's soft delete, and removing it would leave a gap where
+   * another user's read receipt still points.
+   */
+  applyDeleted(messageId: string, deletedAt: string): void {
+    const strip = (list: MessageI[]): MessageI[] =>
+      list.map((message) =>
+        message._id === messageId
+          ? {
+              ...message,
+              content: null,
+              attachments: [],
+              deleted_at: deletedAt,
+            }
+          : message,
+      );
+
+    this.#activeMessages.update(strip);
+    // Deleted media must also leave the media and file panels.
+    this.#activeMediaMessages.update((list) =>
+      list.filter((m) => m._id !== messageId),
+    );
+    this.#activeFileMessages.update((list) =>
+      list.filter((m) => m._id !== messageId),
+    );
   }
 
   // Clear active messages (useful when changing conversations)
