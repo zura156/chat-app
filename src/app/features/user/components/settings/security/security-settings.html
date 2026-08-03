@@ -76,13 +76,34 @@
         <div>
           <p class="text-sm font-medium">Add this to your authenticator app</p>
           <p class="text-xs text-muted-foreground">
-            Paste the setup key below, or open the link on the device with your
-            authenticator app.
+            Scan this code with your authenticator app, or enter the setup key
+            by hand.
           </p>
         </div>
 
+        @if (setupQr(); as qr) {
+          <!--
+            Held to dark-on-white whatever the app theme is: that polarity is
+            what the symbol spec assumes, and an inverted one fails to scan on
+            some readers.
+          -->
+          <div class="flex justify-center">
+            <svg
+              [attr.viewBox]="'0 0 ' + qr.extent + ' ' + qr.extent"
+              class="size-52 rounded-lg bg-white"
+              shape-rendering="crispEdges"
+              role="img"
+              aria-label="QR code containing your two-factor setup key"
+            >
+              <path [attr.d]="qr.path" fill="#000" />
+            </svg>
+          </div>
+        }
+
         <div class="space-y-2">
-          <p class="text-xs text-muted-foreground">Setup key</p>
+          <p class="text-xs text-muted-foreground">
+            Setup key — if you can't scan
+          </p>
           <code
             class="block text-sm font-mono break-all bg-muted rounded-lg px-3 py-2 select-all"
             >{{ setupSecret() }}</code
@@ -93,7 +114,7 @@
           <a
             [href]="uri"
             class="text-xs underline text-muted-foreground hover:text-foreground break-all"
-            >Open in authenticator app</a
+            >Open in authenticator app on this device</a
           >
         }
 

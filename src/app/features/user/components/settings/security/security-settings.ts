@@ -1,4 +1,4 @@
-import { Component, OnInit, inject, signal } from '@angular/core';
+import { Component, OnInit, computed, inject, signal } from '@angular/core';
 import { DatePipe } from '@angular/common';
 import { NgIcon, provideIcons } from '@ng-icons/core';
 import {
@@ -16,6 +16,7 @@ import {
   SessionI,
 } from '../../../services/security-settings.service';
 import { AuthService } from '../../../../auth/services/auth.service';
+import { encodeQr } from '../../../../../shared/utils/qr-code';
 
 /**
  * This screen used to render a hardcoded login history — plausible cities,
@@ -64,6 +65,17 @@ export class SecuritySettings implements OnInit {
   readonly code = signal('');
   readonly busy = signal(false);
   readonly disarming = signal(false);
+
+  /**
+   * The enrolment URI as a scannable symbol. Without this the only path onto a
+   * phone is hand-typing a 32-character secret, since the otpauth:// link only
+   * resolves on a device that has the authenticator app installed — which is
+   * rarely the device the settings page is open on.
+   */
+  readonly setupQr = computed(() => {
+    const uri = this.setupUri();
+    return uri ? encodeQr(uri) : null;
+  });
 
   ngOnInit(): void {
     this.security.load().subscribe();
