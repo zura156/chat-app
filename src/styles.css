@@ -389,6 +389,28 @@ body {
   margin: 0;
 }
 
+/* Zoom lockdown. `pan-x pan-y` leaves scrolling alone but drops pinch- and
+   double-tap-zoom, and text-size-adjust stops Android from inflating text on
+   rotate. Deliberately unlayered so it outranks Tailwind's utilities layer. */
+html {
+  touch-action: pan-x pan-y;
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+
+/* iOS auto-zooms a focused control whose text is under 16px, and the viewport
+   meta alone doesn't always stop it. 16px below md matches what hlmInput
+   already does (`text-base md:text-sm`), so this only lifts the handful of
+   controls hard-coded to text-sm. */
+@media (max-width: 47.99rem) {
+  input,
+  select,
+  textarea,
+  [contenteditable] {
+    font-size: 16px;
+  }
+}
+
 .image-pixelated {
   image-rendering: pixelated;
   image-rendering: -moz-crisp-edges;
