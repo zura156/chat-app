@@ -1,46 +1,82 @@
 <main class="max-w-2xl mx-auto px-4 py-8 space-y-8">
-
   <div>
-    <h1 class="text-lg font-semibold tracking-tight">Notifications (MOCK COMPONENT)</h1>
-    <p class="text-sm text-muted-foreground">Control what you get notified about.</p>
+    <h1 class="text-lg font-semibold tracking-tight">Notifications</h1>
+    <p class="text-sm text-muted-foreground">
+      Muted conversations stop badging the conversation list and stop sending
+      you realtime notifications. Messages still arrive as normal.
+    </p>
   </div>
 
   <hlm-separator decorative />
 
-  @for (group of notificationGroups(); track group.label) {
-    <section class="space-y-3">
-      <h3 class="text-sm font-medium">{{ group.label }}</h3>
+  <section class="space-y-3">
+    <div class="flex items-baseline justify-between gap-x-2">
+      <h3 class="text-sm font-medium">Muted conversations</h3>
+      @if (!loading() && conversations().length > 0) {
+        <p class="text-xs text-muted-foreground">
+          {{ mutedCount() }} of {{ conversations().length }} muted
+        </p>
+      }
+    </div>
+
+    @if (loading()) {
       <div class="space-y-1">
-        @for (item of group.items; track item.key) {
-          <div class="flex items-center justify-between px-4 py-3 rounded-xl hover:bg-muted/40 transition-colors">
-            <div>
-              <p class="text-sm">{{ item.label }}</p>
-              @if (item.description) {
-                <p class="text-xs text-muted-foreground">{{ item.description }}</p>
-              }
+        @for (placeholder of [1, 2, 3]; track placeholder) {
+          <div class="flex items-center gap-x-3 px-4 py-3">
+            <div class="size-9 rounded-full bg-muted animate-pulse shrink-0"></div>
+            <div class="h-4 w-40 rounded bg-muted animate-pulse"></div>
+          </div>
+        }
+      </div>
+    } @else if (conversations().length === 0) {
+      <p class="text-sm text-muted-foreground px-4 py-6 text-center">
+        You have no conversations yet.
+      </p>
+    } @else {
+      <div class="space-y-1">
+        @for (conversation of conversations(); track conversation._id) {
+          <div
+            class="flex items-center justify-between gap-x-3 px-4 py-3 rounded-xl hover:bg-muted/40 transition-colors"
+          >
+            <div class="flex items-center gap-x-3 min-w-0">
+              <img
+                [src]="avatarOf(conversation)"
+                alt=""
+                class="size-9 rounded-full object-cover bg-muted shrink-0"
+              />
+              <div class="min-w-0">
+                <p class="text-sm truncate">{{ nameOf(conversation) }}</p>
+                <p class="text-xs text-muted-foreground">
+                  {{ isMuted(conversation._id) ? "Muted" : "Notifications on" }}
+                </p>
+              </div>
             </div>
+
             <button
               type="button"
               role="switch"
-              [attr.aria-checked]="item.enabled()"
+              [attr.aria-checked]="isMuted(conversation._id)"
+              [attr.aria-label]="'Mute ' + nameOf(conversation)"
+              [disabled]="isPending(conversation._id)"
               class="relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2
                      border-transparent transition-colors duration-200 focus-visible:outline-none
-                     focus-visible:ring-2 focus-visible:ring-ring"
-              [class.bg-primary]="item.enabled()"
-              [class.bg-muted]="!item.enabled()"
-              (click)="item.enabled.update(v => !v)">
+                     focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50
+                     disabled:cursor-not-allowed"
+              [class.bg-primary]="isMuted(conversation._id)"
+              [class.bg-muted]="!isMuted(conversation._id)"
+              (click)="toggle(conversation._id)"
+            >
               <span
                 class="pointer-events-none inline-block size-4 rounded-full bg-background shadow
                        transition-transform duration-200"
-                [class.translate-x-4]="item.enabled()"
-                [class.translate-x-0]="!item.enabled()">
+                [class.translate-x-4]="isMuted(conversation._id)"
+                [class.translate-x-0]="!isMuted(conversation._id)"
+              >
               </span>
             </button>
           </div>
         }
       </div>
-    </section>
-    <hlm-separator decorative />
-  }
-
+    }
+  </section>
 </main>

@@ -20,7 +20,12 @@ import { MessageTypeEnum } from '../interfaces/message.interface';
 import { MessageService } from './message.service';
 import { buildDmKey } from '../models/conversation.model';
 import { invalidateParticipantsCache } from '../../utils/conversation-cache';
-import { seedNotificationWatermarks } from './notification.service';
+import {
+  clearNotificationForMute,
+  dropNotificationsForConversation,
+  refreshNotificationForConversation,
+  seedNotificationWatermarks,
+} from './notification.service';
 
 const escapeRegex = (input: string): string =>
   input.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -326,7 +331,27 @@ export class ConversationService {
     await conversation.deleteOne();
     // Delete all messages associated with this conversation here
     await Message.deleteMany({ conversation: conversation._id });
+    // Counters and mutes for a conversation that no longer exists: the former
+    // would be populated back to the client as a null conversation, the latter
+    // would silently apply to a recycled id.
+    await dropNotificationsForConversation(conversation._id);
+    await MutedConversation.deleteMany({ conversation: conversation._id });
     await invalidateParticipantsCache(conversationId);
+  }
+
+  /**
+   * The conversations this user has muted. Ids only — the settings screen
+   * already has the conversations themselves and just needs to know which
+   * toggles are on.
+   */
+  public async getMutedConversationIds(userId: string): Promise<string[]> {
+    const muted = await MutedConversation.find({
+      user: new Types.ObjectId(userId),
+    })
+      .select('conversation')
+      .lean();
+
+    return muted.map((m) => m.conversation.toString());
   }
 
   /**
@@ -346,6 +371,9 @@ export class ConversationService {
       user: userObjectId,
       conversation: conversationObjectId,
     });
+
+    // A mute with a badge still sitting on the card is not a mute.
+    await clearNotificationForMute(userId, conversationId);
   }
 
   /**
@@ -359,6 +387,10 @@ export class ConversationService {
     if (!result) {
       throw createCustomError('Conversation was not muted to begin with', 404);
     }
+
+    // Whatever arrived while muted was never counted. Recompute now rather than
+    // leaving the badge blank until the next message.
+    await refreshNotificationForConversation(userId, conversationId);
   }
 
   public async manageConversationMembers(
@@ -419,10 +451,6 @@ export class ConversationService {
       }
     }
 
-    // Before any info message lands, so the join itself does not become their
-    // first unread — and so the history they were never part of is not counted.
-    await seedNotificationWatermarks(conversation._id, addedParticipantIds);
-
     let populatedConversation = (await conversation.populate([
       {
         path: 'participants',
@@ -476,6 +504,29 @@ export class ConversationService {
     // Membership changed — the cached participant list used by broadcast() is
     // now wrong for both the removed and the added users.
     await invalidateParticipantsCache(conversation._id.toString());
+
+    // Both of these follow the save rather than precede it: until membership is
+    // durable, seeding a watermark or dropping a counter describes a change
+    // that may not have happened.
+
+    // A user added to an existing conversation has not missed its history, and
+    // this runs before the join's info message so the join is not their first
+    // unread either.
+    await seedNotificationWatermarks(conversation._id, addedParticipantIds);
+
+    // A removed user keeps no counter for a conversation they can no longer
+    // read: the count is derived per conversation, so a row left behind goes on
+    // climbing with every message they are no longer sent.
+    if (removeSet.size > 0) {
+      const removedIds = Array.from(removeSet).map(
+        (id) => new Types.ObjectId(String(id)),
+      );
+      await dropNotificationsForConversation(conversation._id, removedIds);
+      await MutedConversation.deleteMany({
+        conversation: conversation._id,
+        user: { $in: removedIds },
+      });
+    }
 
     populatedConversation = (await conversation.populate([
       {

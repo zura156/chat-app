@@ -45,11 +45,28 @@ router.get('/search', (req, res, next) =>
   req.conversationController.searchConversations(req, res, next),
 );
 
+// Declared before '/:id' so the literal wins the match.
+router.get('/muted', (req, res, next) =>
+  req.conversationController.getMutedConversations(req, res, next),
+);
+
 router
   .route('/:id/members')
   .all(validateConversation)
   .patch((req, res, next) =>
     req.conversationController.manageConversationMembers(req, res, next),
+  );
+
+// The service and controller for these existed, but nothing routed to them —
+// so a mute was honoured everywhere and could never actually be set.
+router
+  .route('/:id/mute')
+  .all(validateConversation)
+  .post((req, res, next) =>
+    req.conversationController.muteConversation(req, res, next),
+  )
+  .delete((req, res, next) =>
+    req.conversationController.unmuteConversation(req, res, next),
   );
 
 router

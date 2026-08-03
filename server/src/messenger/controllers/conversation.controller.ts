@@ -175,13 +175,30 @@ export class ConversationController {
     }
   };
 
+  public getMutedConversations = async (
+    req: AuthRequest,
+    res: Response,
+    next: NextFunction,
+  ) => {
+    try {
+      const userId = req.user!._id.toString();
+      const conversationIds =
+        await this.conversationService.getMutedConversationIds(userId);
+      res.status(200).json({ conversationIds });
+    } catch (error) {
+      next(error);
+    }
+  };
+
   public muteConversation = async (
     req: AuthRequest,
     res: Response,
     next: NextFunction,
   ) => {
     try {
-      const { conversationId } = req.params;
+      // `id` to match the rest of this router, whose validateConversation
+      // middleware reads that param and is what proves membership here.
+      const conversationId = req.params['id'];
       if (typeof conversationId !== 'string') {
         next(createCustomError('Conversation ID is missing or invalid!', 400));
         return;
@@ -200,7 +217,7 @@ export class ConversationController {
     next: NextFunction,
   ) => {
     try {
-      const { conversationId } = req.params;
+      const conversationId = req.params['id'];
       if (typeof conversationId !== 'string') {
         next(createCustomError('Conversation ID is missing or invalid!', 400));
         return;

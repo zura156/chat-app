@@ -41,9 +41,20 @@ export const getNotifications = async (
 
     // Recompute before serving: the stored counts are a cache, and this is the
     // point where any drift a race left behind gets corrected.
-    await refreshNotificationsForUser(userId);
+    const { muted } = await refreshNotificationsForUser(userId);
 
-    const notifications = await Notification.find({ user: userId })
+    // A mute suppresses the realtime push, so without this the badge came back
+    // on the next load — the one place the count is read rather than pushed.
+    const notifications = await Notification.find({
+      user: userId,
+      ...(muted.size > 0
+        ? {
+            conversation: {
+              $nin: [...muted].map((id) => new Types.ObjectId(id)),
+            },
+          }
+        : {}),
+    })
       .populate(
         'conversation',
         'group_name group_picture participants is_group',

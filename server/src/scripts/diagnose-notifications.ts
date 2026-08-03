@@ -22,8 +22,11 @@ import { logger } from '../utils/logger';
  * build.
  *
  * Mirrors deriveUnreadCount: messages in the conversation, not sent by this
- * user, not INFO, newer than max(last read message's timestamp, seen_at).
+ * user, not INFO, newer than max(last read message's timestamp, seen_at),
+ * capped the same way.
  */
+const UNREAD_COUNT_CAP = 99;
+
 const diagnose = async (): Promise<void> => {
   await connectDB();
 
@@ -103,7 +106,12 @@ const diagnose = async (): Promise<void> => {
       };
     }
 
-    const actual = await Message.countDocuments(query);
+    // Capped the same way deriveUnreadCount caps it. Counting uncapped here
+    // reported permanent drift on any conversation past 99 unread, where the
+    // service is storing 99 on purpose.
+    const actual = await Message.countDocuments(query, {
+      limit: UNREAD_COUNT_CAP,
+    });
     const stored = notif.seen ? 0 : (notif.unread_count ?? 0);
 
     checked++;

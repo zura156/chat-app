@@ -11,6 +11,7 @@ import { UserDTO } from '../../user/dtos/user.dto';
 import { ObjectId } from 'mongodb';
 import { redisClient } from '../../config/redis';
 import { recomputeNotification } from '../../messenger/services/notification.service';
+import type { AuthenticatedWebSocket } from '../websocket.setup';
 
 const OFFLINE_DELAY_MS = 30_000;
 
@@ -24,6 +25,12 @@ export class WebSocketController {
     ws: WebSocket,
     data: DTO.WebSocketMessage,
   ): void {
+    // Set synchronously in the upgrade handler, before 'connection' is emitted,
+    // so it is always present here. The setup layer already overwrites the
+    // client-supplied ids with it; the handlers below take it directly so the
+    // guarantee does not depend on remembering to stamp a new field.
+    const authenticatedUserId = (ws as AuthenticatedWebSocket).userId;
+
     switch (data.type) {
       case 'authenticate':
         // Auth is handled at WS upgrade — ignore post-connect authenticate messages
@@ -32,7 +39,7 @@ export class WebSocketController {
         );
         break;
       case 'typing':
-        this.handleTyping(data);
+        this.handleTyping(data, authenticatedUserId);
         break;
       case 'conversation-join':
         this.handleConversationJoin(data);
@@ -41,10 +48,10 @@ export class WebSocketController {
         this.handleConversationLeave(data);
         break;
       case 'message-status':
-        this.handleMessageStatus(data);
+        this.handleMessageStatus(data, authenticatedUserId);
         break;
       case 'user-status':
-        this.handleUserStatus(data);
+        this.handleUserStatus(data, authenticatedUserId);
         break;
       default:
         logger.warn('Unknown WebSocket message type:', (data as any).type);
@@ -63,12 +70,18 @@ export class WebSocketController {
         user_id: userId,
         last_seen: new Date().toISOString(),
       };
-      this.handleUserStatus(data);
+      // userId came from the socket bookkeeping in logout(), not from a client.
+      this.handleUserStatus(data, userId);
     }
   }
 
-  private async handleTyping(data: DTO.TypingMessage): Promise<void> {
+  private async handleTyping(
+    data: DTO.TypingMessage,
+    authenticatedUserId: string,
+  ): Promise<void> {
     try {
+      if (!ObjectId.isValid(data.conversation_id)) return;
+
       const conversation = await Conversation.findById(
         new ObjectId(data.conversation_id),
       )
@@ -80,7 +93,17 @@ export class WebSocketController {
         return;
       }
 
-      const senderId = String(data.sender._id);
+      const senderId = String(data.sender?._id);
+
+      // The whole sender object is forwarded for display, so a mismatch is
+      // rejected rather than re-attributed: otherwise any client can make
+      // anyone appear to be typing, under any name.
+      if (senderId !== authenticatedUserId) {
+        logger.warn(
+          `Rejected typing event: socket ${authenticatedUserId} claimed to be ${senderId}`,
+        );
+        return;
+      }
 
       const isParticipant = conversation.participants.some(
         (participantId) => String(participantId) === senderId,
@@ -176,6 +199,7 @@ export class WebSocketController {
 
   private async handleMessageStatus(
     data: DTO.MessageStatusMessage,
+    authenticatedUserId: string,
   ): Promise<void> {
     const { read_receipt, conversation_id } = data;
     try {
@@ -187,6 +211,16 @@ export class WebSocketController {
         !lastReadId ||
         !ObjectId.isValid(lastReadId)
       ) {
+        return;
+      }
+
+      // A receipt only ever speaks for the connection that sent it. Checking
+      // participation alone let any member of a conversation clear another
+      // member's badge and mark their messages read.
+      if (String(read_receipt.user_id) !== authenticatedUserId) {
+        logger.warn(
+          `Rejected read receipt: socket ${authenticatedUserId} claimed to be ${read_receipt.user_id}`,
+        );
         return;
       }
 
@@ -203,13 +237,26 @@ export class WebSocketController {
         return;
       }
 
-      Message.findOneAndUpdate(
+      // The receipt becomes this user's unread watermark, and the watermark is
+      // the message's timestamp — so a message from another conversation, or
+      // one that does not exist, would silently move the count. Awaited and
+      // checked rather than fired off, which is what let that through before.
+      const readMessage = await Message.findOneAndUpdate(
         {
-          _id: read_receipt.last_message_read_id,
+          _id: new ObjectId(lastReadId),
           conversation: new ObjectId(conversation_id),
         },
         { status: MessageStatusEnum.READ },
-      ).catch((err) => logger.error('Failed to update message status:', err));
+      )
+        .select('_id')
+        .lean();
+
+      if (!readMessage) {
+        logger.warn(
+          `Rejected read receipt: message ${lastReadId} is not in conversation ${conversation_id}`,
+        );
+        return;
+      }
 
       const userIdObj = new ObjectId(read_receipt.user_id);
       const lastReadObj = new ObjectId(read_receipt.last_message_read_id);
@@ -281,8 +328,18 @@ export class WebSocketController {
     }
   }
 
-  private async handleUserStatus(data: DTO.UserStatusMessage): Promise<void> {
-    const { user_id, status, last_seen } = data;
+  /**
+   * `authenticatedUserId` is the identity the presence change is applied to.
+   * It comes from the socket for inbound events and from the disconnect
+   * bookkeeping on the way out — never from the payload, which previously let
+   * any client mark any user online or offline.
+   */
+  private async handleUserStatus(
+    data: DTO.UserStatusMessage,
+    authenticatedUserId: string,
+  ): Promise<void> {
+    const { status, last_seen } = data;
+    const user_id = authenticatedUserId;
 
     if (status === 'online') {
       // Cancel any pending offline — del is a no-op if key doesn't exist

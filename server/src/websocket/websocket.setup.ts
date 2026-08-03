@@ -13,7 +13,7 @@ import { MessageService } from '../messenger/services/message.service';
 import { redisClient } from '../config/redis';
 import config from '../config/config';
 
-interface AuthenticatedWebSocket extends WebSocket {
+export interface AuthenticatedWebSocket extends WebSocket {
   userId: string;
   isAlive: boolean;
 }

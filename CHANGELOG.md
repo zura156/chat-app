@@ -2,11 +2,14 @@
 
 ## Unreleased
 
-49 files changed, 5 added. Server typechecks (`tsc --noEmit`) and the app builds
-in both dev and production configurations. **Nothing here has been run against a
-live stack** — there are no automated tests in the repo, so every item below is
-verified by compilation and code review only. Test steps are noted where the
-behaviour is not obvious.
+Server typechecks (`tsc --noEmit`) and the app builds in both dev and production
+configurations. There are no automated tests in the repo, so unless an item says
+otherwise it is verified by compilation and code review only. Test steps are
+noted where the behaviour is not obvious.
+
+**One exception:** everything under *Fixed — notifications, verified against a
+live stack* was driven against live Mongo and live Redis, and includes a data
+migration that has already been applied to the cluster in `.env`.
 
 ---
 
@@ -334,9 +337,11 @@ stub whose `totalUnread` signal was never written, and the websocket `case
 The service now loads initial counts at login, applies realtime events, and
 clears a conversation's badge when you open it.
 
-**Note:** `NotificationBell` is not mounted in any template — the badge still
-will not appear anywhere until it is placed in a layout. That is a design
-decision, so it was left alone.
+**Superseded:** `NotificationBell` was never mounted in any template. Rather
+than placing it in a layout, per-conversation badges on the conversation cards
+took over the job and the bell has since been deleted — see *Removed*. The
+counts themselves were subsequently reworked from an `$inc` running total into a
+derived value; see *Fixed — notifications, verified against a live stack*.
 
 ### Latent traps and leaks
 
@@ -432,6 +437,94 @@ decision, so it was left alone.
 
 ---
 
+## Fixed — notifications, verified against a live stack
+
+Unlike the rest of this file, everything in this section was exercised against
+live Mongo (Atlas) and live Redis by a scripted harness that stands up its own
+throwaway users and conversations, drives the real HTTP and websocket paths, and
+deletes its fixtures afterwards. 12/12 scenarios pass.
+
+The unread count is now *derived* from the messages collection rather than kept
+as an `$inc` running total, and the number on the notification document is only
+a cache. That change is what the items below either complete or clean up after.
+
+- **Users added to a group inherited its entire history as unread.** The derived
+  count is bounded by the user's watermark — the newer of their last read
+  message and their `seen_at` — and a user added to an existing conversation had
+  neither until `seedNotificationWatermarks` started issuing one at join time.
+  Rows written before that only ever had the old `$inc` value, so the first load
+  after deploy would have replaced a correct count with the conversation's whole
+  history. Observed on real data: a user added nine minutes after a group was
+  created stored 14, which was right, while the derivation returned 21 — the 14
+  since they joined plus 7 they were never there for.
+
+  `scripts/backfill-notification-watermarks.ts` (`npm run backfill:notifications`,
+  dry run unless given `--apply`) repairs those rows by treating the stored value
+  as the truth and fabricating the watermark that reproduces it: `seen_at`
+  becomes the timestamp of the (stored + 1)-th newest message that would
+  otherwise count. Rows whose derivation already agrees are untouched, which is
+  every row written since the refactor. **Run once per environment**; it has been
+  applied to the cluster in `.env` and `npm run diagnose:notifications` now
+  reports no duplicates and zero drift.
+  *server/src/scripts/backfill-notification-watermarks.ts*
+
+- **Muting a conversation did not survive a reload.** `createNotification` skips
+  muted recipients, so no realtime event was ever pushed — but
+  `refreshNotificationsForUser` recomputed *every* row for the user with no mute
+  filter, and `GET /notifications` returned them all. The badge came back on the
+  next page load, which is the one place the count is read rather than pushed.
+  Muted rows are now skipped by the refresh and withheld from the response.
+  Muting also clears and pushes the badge immediately instead of leaving it on
+  screen, and unmuting recomputes rather than waiting for the next message.
+
+  The stored value on a muted row is deliberately left alone rather than zeroed,
+  and `seen_at` is not stamped: muting is not reading, so the watermark has to
+  stay where it is for unmuting to restore what accumulated.
+  *server/src/messenger/services/notification.service.ts, conversation.service.ts*
+
+- **Mute could never be set in the first place.** `muteConversation` and
+  `unmuteConversation` existed on the service and the controller, and every read
+  path honoured a mute, but nothing routed to them — there was no reachable
+  endpoint. Added `POST`/`DELETE /conversations/:id/mute` behind the existing
+  `validateConversation` membership check, plus `GET /conversations/muted` for
+  the settings screen. The handlers now read `req.params.id` to match the rest of
+  that router.
+  *server/src/messenger/routers/conversation.router.ts, controllers/conversation.controller.ts*
+
+- **A removed group member kept a badge that climbed forever.** Nothing deleted
+  notification rows, and the derived count filters by conversation without
+  checking participation, so every subsequent message in a group someone had been
+  removed from still incremented their counter — and `GET /notifications`
+  populated the group's name, picture and participant list back to them. Rows are
+  now dropped when a member is removed and when a conversation is deleted (along
+  with its mutes), and the refresh prunes any row whose conversation is gone or
+  no longer lists the user.
+  *server/src/messenger/services/conversation.service.ts, notification.service.ts*
+
+- **Read receipts were not checked against the conversation they claimed.** The
+  comment said the message had to belong to it; the query that would have proved
+  it discarded its result, so the receipt was written either way. Since the
+  receipt becomes the user's unread watermark and the watermark is that message's
+  timestamp, naming a message from another conversation — or a newer one from
+  anywhere — silently moved the count. The lookup is now awaited and the receipt
+  rejected if it does not match. Identity was never the issue here:
+  `websocket.setup.ts` already re-stamps every client-supplied id with the one
+  proven at the upgrade handshake, and the handlers now take that id directly so
+  the guarantee does not depend on remembering to stamp a new field.
+  *server/src/websocket/controllers/websocket.controller.ts*
+
+- **`diagnose-notifications` reported drift that did not exist.** It counted
+  uncapped while the service caps at 99, so any conversation past 99 unread was
+  permanently flagged against a value the service stores on purpose.
+  *server/src/scripts/diagnose-notifications.ts*
+
+Also fixed while in `manageConversationMembers`: watermark seeding and row
+cleanup ran *before* `conversation.save()`, so a failed save left watermarks and
+deletions describing a membership change that never happened. Both now follow the
+save, and seeding still precedes the join's info message.
+
+---
+
 ## Added
 
 - `dm_key` on conversations — a sorted, joined participant pair used for DM
@@ -444,6 +537,15 @@ decision, so it was left alone.
   the processor clears it once ready, so records referenced by messages are never
   reaped. **Note:** this only reaps database records — orphaned objects in the
   temp bucket still need an S3/SeaweedFS lifecycle rule.
+- The notification settings page now lists your conversations with working mute
+  toggles, applied optimistically and rolled back if the request fails. Muting is
+  the only notification preference the server actually implements, so it is what
+  the screen shows instead of the inert switches it used to. Backed by a
+  root-provided `NotificationSettingsService` rather than the existing
+  `ConversationService`, which is provided on the `messages` route and so is not
+  reachable from `/settings`.
+  *src/app/features/user/components/settings/notifications/*
+- `npm run backfill:notifications` — see the notifications section above.
 
 ### From `attachment-placeholders.patch`
 
@@ -490,6 +592,16 @@ no `medium` variant, so they rendered as broken images (pre-existing).
 - gzip enabled in nginx; `index.html` is served `no-cache` so clients stop booting
   a stale shell that references hashed chunks which no longer exist.
 - One IntersectionObserver per chat instead of a new one on every re-entry.
+- `GET /notifications` derives every conversation in a single aggregation
+  instead of one `countDocuments` per row. Each conversation carries its own
+  watermark, so the match is an `$or` over per-conversation clauses grouped by
+  conversation; `sender` and `type` are constant because the user is, and each
+  branch is served by the same `{ conversation, timestamp }` index. Measured with
+  mongoose query logging: a user with six conversations went from six message
+  queries per load to one. The single-conversation path keeps its capped
+  `countDocuments`, which can still short-circuit at 99 — the aggregation counts
+  in full and caps afterwards, since aggregation has no way to express a
+  per-group limit.
 
 ---
 
@@ -512,6 +624,18 @@ no `medium` variant, so they rendered as broken images (pre-existing).
   endpoint; the link arrives in the lock email).
 - `UpdateConversationI.group_picture` is now a URL string, not `File | Blob` —
   binaries go through `UploadService`.
+- `NotificationBell` — never mounted in any template, and its `totalUnread` had
+  no consumer. Per-conversation badges on the conversation cards replaced it.
+- The browser-notification permission prompt in `app.component.ts`. It called
+  `Notification.requestPermission()` while the project contains no
+  `new Notification(...)`, no service worker and no web-push, so the prompt led
+  nowhere. `AppComponent` no longer needs `OnInit` or `AuthService`. The dead
+  commented-out `NotificationService` wiring in `app.component.ts` and
+  `app.routes.ts` went with it — it referenced `loadNotifications()`, a method
+  that no longer exists under that name.
+- The hardcoded toggle list on the notification settings page — five switches
+  with no GET, no PATCH and no preferences model behind them. Nothing they did
+  was persisted or read.
 
 ---
 
@@ -538,4 +662,25 @@ Deliberately not addressed:
   `stats`, `website`, `location`, `joinedDate`.
 - **There are still no tests.** Karma and Jasmine are configured; there is not a
   single `.spec.ts`. The auth flow, the read-receipt path and the upload state
-  machine are where these bugs clustered.
+  machine are where these bugs clustered. The notification work was verified by a
+  throwaway harness driving a live stack, which is not checked in — the 12
+  scenarios it covers are the obvious first specs.
+- **`createNotification` still counts once per recipient.** It runs on every
+  message, so a group of twenty costs twenty counts. Batching it is harder than
+  the read path was: each recipient has a different `sender: { $ne }` filter as
+  well as a different watermark, so one message can match several recipients'
+  clauses and a `$group` by conversation cannot separate them — it wants a
+  `$facet` keyed per recipient.
+- **`createNotification` also publishes one Redis message per recipient.**
+  Batching into a single publish means changing the `ws:notification` subscriber
+  payload in `server/src/index.ts`.
+- **`muted_until` is declared on the mute model and never enforced.** Mutes are
+  permanent and the field is dead; the settings UI has no duration picker for the
+  same reason.
+- **`markMessageAsRead` in the chatbox is not guarded by `isCurrentConversation`.**
+  It is correct today only because `findMessageById` searches the active
+  conversation's messages and so never finds a foreign one. If `activeMessages`
+  ever holds more than one conversation, messages in other chats start marking
+  themselves read.
+- **`handleChatMessage` in the websocket controller is unreachable** — there is
+  no `'message'` case in the dispatcher.

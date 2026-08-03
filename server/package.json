@@ -13,7 +13,8 @@
     "dev": "nodemon src/index.ts",
     "worker": "ts-node src/worker.ts",
     "dedupe:notifications": "ts-node src/scripts/dedupe-notifications.ts",
-    "diagnose:notifications": "ts-node src/scripts/diagnose-notifications.ts"
+    "diagnose:notifications": "ts-node src/scripts/diagnose-notifications.ts",
+    "backfill:notifications": "ts-node src/scripts/backfill-notification-watermarks.ts"
   },
   "devDependencies": {
     "@types/clamscan": "^2.4.1",
