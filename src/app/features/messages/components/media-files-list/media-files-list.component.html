@@ -36,7 +36,7 @@
         ) {
           <button
             class="aspect-square overflow-hidden rounded-md hover:opacity-80 active:scale-95 transition-all cursor-pointer"
-            (click)="openMedia(attachment, $index)"
+            (click)="openMedia(attachment)"
           >
             @switch (attachment.context) {
               @case ("dm-image") {

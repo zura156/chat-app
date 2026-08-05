@@ -1,10 +1,6 @@
 import { createClient, RedisClientType } from 'redis';
 import { logger } from '../utils/logger';
 import config from './config';
-import rateLimit from 'express-rate-limit';
-import RedisStore from 'rate-limit-redis';
-import { Request, Response, NextFunction } from 'express';
-import { AuthRequest } from '../auth/middlewares/auth.middleware';
 
 const redisClient: RedisClientType = createClient({
   socket: {
@@ -32,49 +28,8 @@ export async function connectRedis(): Promise<void> {
   await Promise.all([redisClient.connect(), redisSubscriber.connect()]);
 }
 
-let _limiter: ReturnType<typeof rateLimit> | null = null;
-let _presignLimiter: ReturnType<typeof rateLimit> | null = null;
-
-export function initLimiters(): void {
-  _limiter = rateLimit({
-    windowMs: 5 * 60 * 1000,
-    max: (req: AuthRequest) => (req?.user ? 500 : 100),
-    standardHeaders: true,
-    legacyHeaders: false,
-    store: new RedisStore({
-      prefix: 'rl_general:',
-      sendCommand: (...args: string[]) => redisClient.sendCommand(args),
-    }),
-  });
-
-  _presignLimiter = rateLimit({
-    windowMs: 60_000,
-    max: (req: AuthRequest) => (req?.user ? 100 : 30),
-    standardHeaders: true,
-    legacyHeaders: false,
-    message: { error: 'Too many upload requests' },
-    store: new RedisStore({
-      prefix: 'rl_presign:',
-      sendCommand: (...args: string[]) => redisClient.sendCommand(args),
-    }),
-  });
-}
-
-export const generalLimiter = (
-  req: Request,
-  res: Response,
-  next: NextFunction,
-): void => {
-  if (!_limiter) return next(); // fallback: skip limiting if not yet initialized (shouldn't happen)
-  _limiter(req, res, next);
-};
-export const presignLimiter = (
-  req: Request,
-  res: Response,
-  next: NextFunction,
-): void => {
-  if (!_presignLimiter) return next();
-  _presignLimiter(req, res, next);
-};
+// The general and presign limiters used to live here. They are rate limiters,
+// not Redis plumbing, and keeping them beside the per-identity ones is what
+// makes the whole policy readable in one place: see auth/middlewares/rate-limiter.
 
 export { redisClient, redisSubscriber };

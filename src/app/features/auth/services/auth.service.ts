@@ -7,9 +7,11 @@ import {
   throwError,
   switchMap,
   of,
-  EMPTY,
   shareReplay,
   finalize,
+  retry,
+  timer,
+  map,
 } from 'rxjs';
 import { HttpClient, HttpErrorResponse } from '@angular/common/http';
 import { RegisterCredentialsI } from '../interfaces/register-credentials.interface';
@@ -26,13 +28,40 @@ import { ResetPasswordI } from '../interfaces/reset-password.interface';
 import { AuthResponseI } from '../interfaces/auth-response.interface';
 import { UserI } from '../../user/interfaces/user.interface';
 import { UserService } from '../../user/services/user.service';
-import { Router } from '@angular/router';
+import { ActivatedRoute, Router } from '@angular/router';
 import { UnlockAccountI } from '../interfaces/unlock-account.interface';
+
+/** Keys that belong to a session and must not outlive it. */
+const SESSION_STORAGE_KEYS = ['isAuthenticated', 'prefers-chat-settings-open'];
+
+/**
+ * Whether a failure means the session is genuinely over, as opposed to the
+ * network or the server having a moment.
+ *
+ * Everything here used to sign the user out on *any* error, so a 429 from the
+ * rate limiter dumped them on the login screen — with their cookies still live,
+ * because nothing told the server. Only 401 is the server saying the
+ * credentials are no longer good: `/auth/refresh` answers 401 for every real
+ * end-of-session (missing, expired, revoked, reused), while 429, 0, 408 and 5xx
+ * all describe a session that is still perfectly valid.
+ */
+const isSessionOver = (error: unknown): boolean =>
+  (error as HttpErrorResponse)?.status === 401;
+
+/** Honours the server's Retry-After when there is one, capped so a long
+ *  cooldown does not park a retry for half an hour. */
+const backoffMs = (error: unknown): number => {
+  const retryAfter = (error as HttpErrorResponse)?.error?.retryAfter;
+  return typeof retryAfter === 'number'
+    ? Math.min(retryAfter * 1000, 30_000)
+    : 2_000;
+};
 
 @Injectable({ providedIn: 'root' })
 export class AuthService {
   private http = inject(HttpClient);
   private router = inject(Router);
+  private route = inject(ActivatedRoute);
   private userStateService = inject(UserStateService);
   private userService = inject(UserService);
   private webSocketService = inject(WebSocketService);
@@ -67,7 +96,22 @@ export class AuthService {
 
   init(): void {
     if (this.isAuthenticated()) {
-      this.loadCurrentUser().subscribe();
+      // Boot is the one place a transient failure really costs: give up here
+      // and a signed-in user has no profile for the rest of the session. One
+      // retry, spaced by whatever the server asked for when it was a rate
+      // limit; a dead session (401) has already been handled and must not be
+      // retried.
+      this.loadCurrentUser()
+        .pipe(
+          retry({
+            count: 1,
+            delay: (error) =>
+              isSessionOver(error)
+                ? throwError(() => error)
+                : timer(backoffMs(error)),
+          }),
+        )
+        .subscribe({ error: () => undefined });
     }
     this.setupUnloadListener();
 
@@ -95,7 +139,7 @@ export class AuthService {
         this.connectWS(user._id);
       }),
       catchError((err) => {
-        this.handleAuthFailure();
+        if (isSessionOver(err)) this.handleAuthFailure();
         return throwError(() => err);
       }),
     );
@@ -183,15 +227,85 @@ export class AuthService {
     this.#loading.set(false);
     localStorage.setItem(this.IS_AUTHENTICATED_KEY, 'true');
     this.isAuthenticated.set(true);
+
+    // The guard records where the user was headed; sending everyone to
+    // /messages regardless meant every deep link was silently discarded at the
+    // login screen.
+    const returnUrl =
+      this.route.snapshot.queryParamMap.get('returnUrl') ?? '/messages';
+
     // loadCurrentUser() already connects the socket and announces presence
     return this.loadCurrentUser().pipe(
-      tap(() => this.router.navigateByUrl('/messages')),
+      tap(() => this.router.navigateByUrl(returnUrl)),
     );
   }
 
   verifyEmail(token: string, id: string): Observable<MessageResponseI> {
     return this.http
       .post<MessageResponseI>(this._VERIFY_EMAIL_URL, { token, id })
+      .pipe(catchError(this.handleError));
+  }
+
+  /**
+   * Sends a fresh verification link. Needed because links expire after an hour
+   * and the original mail is easy to lose — without this, an account gated on
+   * verification has no way back in.
+   */
+  resendVerificationEmail(): Observable<MessageResponseI> {
+    return this.http
+      .post<MessageResponseI>(
+        `${environment.apiUrl}/auth/resend-verification`,
+        {},
+      )
+      .pipe(catchError(this.handleError));
+  }
+
+  /** Re-reads the current user, e.g. after verifying in another tab. */
+  refreshCurrentUser(): Observable<UserI> {
+    return this.loadCurrentUser();
+  }
+
+  /**
+   * Requests a move to a new address. Nothing changes until the link mailed to
+   * that address is opened — see `confirmEmailChange`.
+   */
+  changeEmail(newEmail: string, password: string): Observable<MessageResponseI> {
+    return this.http
+      .post<MessageResponseI>(`${environment.apiUrl}/auth/change-email`, {
+        new_email: newEmail,
+        password,
+      })
+      .pipe(
+        // The pending address is part of the user record the account screen
+        // renders, so it has to be re-read for the banner to appear.
+        switchMap((res) => this.loadCurrentUser().pipe(map(() => res))),
+        catchError(this.handleError),
+      );
+  }
+
+  cancelEmailChange(): Observable<MessageResponseI> {
+    return this.http
+      .post<MessageResponseI>(
+        `${environment.apiUrl}/auth/cancel-email-change`,
+        {},
+      )
+      .pipe(
+        switchMap((res) => this.loadCurrentUser().pipe(map(() => res))),
+        catchError(this.handleError),
+      );
+  }
+
+  /**
+   * Redeems the link from the new inbox. Unauthenticated: the mail client
+   * usually opens it in a browser with no session, and the server signs every
+   * device out on success anyway.
+   */
+  confirmEmailChange(token: string, id: string): Observable<MessageResponseI> {
+    return this.http
+      .post<MessageResponseI>(`${environment.apiUrl}/auth/confirm-email`, {
+        token,
+        id,
+      })
       .pipe(catchError(this.handleError));
   }
 
@@ -222,7 +336,11 @@ export class AuthService {
       .post<MessageResponseI>(this._REFRESH_TOKEN_URL, {})
       .pipe(
         catchError((error) => {
-          this.handleAuthFailure();
+          // A refresh that was rate limited or that never reached the server
+          // says nothing about whether the session is still good — the tokens
+          // are untouched and the next attempt will work. Signing out here is
+          // what turned a 429 into a logout.
+          if (isSessionOver(error)) this.handleAuthFailure();
           return throwError(() => error);
         }),
         finalize(() => {
@@ -235,19 +353,48 @@ export class AuthService {
     return this.refreshInFlight$;
   }
 
-  logOut(): Observable<AuthResponseI> {
+  /**
+   * Signing out must always succeed locally.
+   *
+   * The server call was the only thing that cleared client state, so once the
+   * access token expired the request came back 401 — and because /auth/logout
+   * is excluded from the interceptor's refresh-and-retry, nothing recovered.
+   * The user stayed "signed in" in the UI with no way to correct it. The
+   * server now tolerates an expired token; this tolerates the request failing
+   * for any other reason.
+   */
+  logOut(): Observable<AuthResponseI | null> {
     this.#loading.set(true);
-    return this.http.post<AuthResponseI>(this._LOGOUT_URL, {}).pipe(
+    return this.revokeServerSession().pipe(
       tap(() => {
-        this.router.navigateByUrl('');
         this.clearAppState();
+        this.router.navigateByUrl('/auth/login');
       }),
-      catchError(this.handleError.bind(this)),
     );
+  }
+
+  /**
+   * Revokes the refresh token and clears the auth cookies, best effort.
+   *
+   * Never fails the caller: signing out must always succeed locally. The server
+   * call was once the only thing that cleared client state, so an expired access
+   * token came back 401 and — because /auth/logout is excluded from the
+   * interceptor's refresh-and-retry — nothing recovered and the user stayed
+   * "signed in" with no way to correct it.
+   */
+  private revokeServerSession(): Observable<AuthResponseI | null> {
+    return this.http
+      .post<AuthResponseI>(this._LOGOUT_URL, {})
+      .pipe(catchError(() => of(null)));
   }
 
   // Public so authInterceptor can call it on reuse detection
   handleAuthFailure(): void {
+    // The server holds the other half of a sign-out. Clearing local state alone
+    // left the accessToken, refreshToken and csrfToken cookies in the browser,
+    // so the app said "logged out" while the session it was hiding was still
+    // live — and the next visit started from that half-dead state.
+    this.revokeServerSession().subscribe();
     this.clearAppState();
     this.router.navigateByUrl('/auth/login');
   }
@@ -273,7 +420,13 @@ export class AuthService {
     this.userStateService.setCurrentUser(null);
     this.notificationService.reset();
     this.webSocketService.close();
-    localStorage.clear();
+
+    // Only session keys. `localStorage.clear()` also wiped the user's theme and
+    // accent colour, so signing out silently reset their appearance settings —
+    // which are a device preference, not part of the session.
+    for (const key of SESSION_STORAGE_KEYS) localStorage.removeItem(key);
+    sessionStorage.removeItem('selectedUser');
+
     localStorage.setItem(this.IS_AUTHENTICATED_KEY, 'false');
     this.isAuthenticated.set(false);
     this.#loading.set(false);

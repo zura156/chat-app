@@ -4,8 +4,7 @@ import { NgIconComponent, provideIcons } from '@ng-icons/core';
 import {
   lucideFileQuestion,
   lucideArrowLeft,
-  lucideMessageCircle,
-} from '@ng-icons/lucide';
+  } from '@ng-icons/lucide';
 import { HlmButton } from '@spartan-ng/helm/button';
 import { HlmIconImports } from '@spartan-ng/helm/icon';
 

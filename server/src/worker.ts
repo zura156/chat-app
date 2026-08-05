@@ -4,7 +4,10 @@ import ffmpegPath from 'ffmpeg-static';
 import { execFile } from 'child_process';
 import { Worker, QueueEvents } from 'bullmq';
 import { bullMQConnection } from './config/queue';
-import { processUpload } from './processors/upload.processor';
+import {
+  discardTempObject,
+  processUpload,
+} from './processors/upload.processor';
 import { logger } from './utils/logger';
 import { connectDB } from './config/db';
 import { connectRedis } from './config/redis';
@@ -65,9 +68,7 @@ async function startWorker() {
       connection: bullMQConnection,
     });
 
-    worker.on('completed', ({ id }) =>
-      logger.info(JSON.stringify({ jobId: id }), 'Job completed'),
-    );
+    worker.on('completed', ({ id }) => logger.info('Job completed', { jobId: id }));
     worker.on('failed', async (job, err) => {
       const id = job?.id;
       // NOTE: the Upload document is keyed by uploadId, not by the BullMQ job id
@@ -91,6 +92,11 @@ async function startWorker() {
         await Upload.findByIdAndUpdate(uploadId, { status: 'failed' }).exec();
         await markAttachmentStatus(uploadId, 'failed');
 
+        // Nothing will retry this job, so nothing else will ever remove the
+        // original it left in the temp bucket.
+        const fileKey = job?.data?.fileKey;
+        if (fileKey) await discardTempObject(fileKey);
+
         // notify the client that the upload failed, so it can update its UI
         await notifyAttachmentOutcome(uploadId, {
           type: 'upload-failed',
@@ -103,30 +109,25 @@ async function startWorker() {
     });
 
     worker.on('error', (err) => {
-      console.error('Job failed, Raw error:', err);
-
       logger.error('Worker error', {
         err: { message: err.message, stack: err.stack },
       });
     });
-    events.on('stalled', ({ jobId }) =>
-      logger.warn(JSON.stringify({ jobId }), 'Job stalled'),
-    );
+    events.on('stalled', ({ jobId }) => logger.warn('Job stalled', { jobId }));
 
     // Graceful shutdown — Coolify sends SIGTERM on redeploy
     async function shutdown() {
       logger.info('Shutting down worker...');
-      await worker.close();
+      await Promise.allSettled([worker.close(), events.close()]);
       process.exit(0);
     }
 
     process.on('SIGTERM', shutdown);
     process.on('SIGINT', shutdown);
 
-    logger.info(JSON.stringify({ concurrency: CONCURRENCY }), 'Worker started');
+    logger.info('Worker started', { concurrency: CONCURRENCY });
   } catch (error) {
     logger.error('Worker failed to start', error);
-    console.error('Worker failed to start, Raw error:', error);
     process.exit(1);
   }
 }

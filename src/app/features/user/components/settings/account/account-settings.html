@@ -1,117 +1,249 @@
-@if(user) {
-<main class="max-w-2xl mx-auto px-4 py-8 space-y-8">
-  <div>
-    <h1 class="text-lg font-semibold tracking-tight">
-      Account (MOCK COMPONENT)
-    </h1>
-    <p class="text-sm text-muted-foreground">
-      Manage your account details and linked services.
-    </p>
-  </div>
-
-  <hlm-separator decorative />
-
-  <!-- Email -->
-  <section class="space-y-4">
+@if (user(); as user) {
+  <main class="max-w-2xl mx-auto px-4 py-8 space-y-8">
     <div>
-      <h3 class="text-sm font-medium">Email address</h3>
-      <p class="text-xs text-muted-foreground">Your login email</p>
+      <h1 class="text-lg font-semibold tracking-tight">Account</h1>
+      <p class="text-sm text-muted-foreground">
+        The address your account is reachable and recoverable through.
+      </p>
     </div>
-    <div
-      class="flex items-center justify-between gap-x-4 p-4 rounded-xl bg-muted/40 border border-border"
-    >
+
+    <hlm-separator decorative />
+
+    <!-- ── EMAIL ──────────────────────────────────────────────────────── -->
+    <section class="space-y-4">
       <div>
-        <p class="text-sm font-medium">{{ user.email }}</p>
-        <p class="text-xs text-muted-foreground">Primary email</p>
+        <h3 class="text-sm font-medium">Email address</h3>
+        <p class="text-xs text-muted-foreground">
+          Used to sign in and to recover your account
+        </p>
       </div>
-      <button
+
+      <div
+        class="flex items-center justify-between gap-x-4 p-4 rounded-xl bg-muted/40 border border-border"
+      >
+        <div class="min-w-0">
+          <p class="text-sm font-medium truncate">{{ user.email }}</p>
+          @if (user.is_email_verified) {
+            <p
+              class="text-xs text-green-600 font-medium flex items-center gap-x-1"
+            >
+              <ng-icon hlm name="lucideCircleCheck" size="xs" />
+              Verified
+            </p>
+          } @else {
+            <p class="text-xs text-amber-600 flex items-center gap-x-1">
+              <ng-icon hlm name="lucideTriangleAlert" size="xs" />
+              Not verified
+            </p>
+          }
+        </div>
+
+        @if (!changingEmail()) {
+          <button
+            hlmBtn
+            variant="outline"
+            size="sm"
+            class="rounded-full cursor-pointer shrink-0"
+            (click)="beginEmailChange()"
+          >
+            Change
+          </button>
+        }
+      </div>
+
+      <!--
+        Verification is a separate concern from changing the address: an
+        unverified account needs a way to ask for a fresh link, since they
+        expire after an hour and the original is easy to lose.
+      -->
+      @if (!user.is_email_verified) {
+        <button
+          hlmBtn
+          variant="ghost"
+          size="sm"
+          class="rounded-full cursor-pointer text-xs"
+          [disabled]="resendingVerification()"
+          (click)="resendVerification()"
+        >
+          <ng-icon hlm name="lucideMail" size="xs" class="mr-1.5" />
+          {{ resendingVerification() ? "Sending…" : "Resend verification link" }}
+        </button>
+      }
+
+      @if (pendingEmail(); as pending) {
+        <div
+          class="flex items-start justify-between gap-x-4 p-4 rounded-xl border border-amber-500/40 bg-amber-500/5"
+        >
+          <div class="min-w-0">
+            <p class="text-sm">
+              Waiting for you to confirm
+              <span class="font-medium">{{ pending }}</span>
+            </p>
+            <p class="text-xs text-muted-foreground">
+              Your address stays as it is until you open the link we sent there.
+            </p>
+          </div>
+          <button
+            hlmBtn
+            variant="ghost"
+            size="sm"
+            class="rounded-full cursor-pointer text-xs shrink-0"
+            [disabled]="savingEmail()"
+            (click)="abandonPendingChange()"
+          >
+            Cancel
+          </button>
+        </div>
+      }
+
+      @if (changingEmail()) {
+        <form
+          class="flex flex-col gap-y-3 p-4 rounded-xl border border-border"
+          (submit)="$event.preventDefault(); submitEmailChange()"
+        >
+          <label class="flex flex-col gap-y-1">
+            <span class="text-xs text-muted-foreground">New email address</span>
+            <input
+              type="email"
+              autocomplete="email"
+              class="w-full text-sm bg-background border border-border rounded-lg px-3 py-2 focus:outline-none focus:ring-1 focus:ring-ring"
+              [value]="newEmail()"
+              (input)="newEmail.set($any($event.target).value)"
+            />
+          </label>
+
+          <!--
+            Whoever controls the address controls password recovery, so this
+            re-checks the password rather than trusting the session alone.
+          -->
+          <label class="flex flex-col gap-y-1">
+            <span class="text-xs text-muted-foreground">Your password</span>
+            <input
+              type="password"
+              autocomplete="current-password"
+              class="w-full text-sm bg-background border border-border rounded-lg px-3 py-2 focus:outline-none focus:ring-1 focus:ring-ring"
+              [value]="emailPassword()"
+              (input)="emailPassword.set($any($event.target).value)"
+            />
+          </label>
+
+          <p class="text-xs text-muted-foreground">
+            We'll send a confirmation link to the new address. Nothing changes
+            until you open it.
+          </p>
+
+          <div class="flex items-center gap-x-2 pt-1">
+            <button
+              hlmBtn
+              size="sm"
+              type="submit"
+              class="rounded-full cursor-pointer text-xs"
+              [disabled]="savingEmail() || !newEmail() || !emailPassword()"
+            >
+              {{ savingEmail() ? "Sending…" : "Send confirmation" }}
+            </button>
+            <button
+              hlmBtn
+              variant="ghost"
+              size="sm"
+              type="button"
+              class="rounded-full cursor-pointer text-xs"
+              [disabled]="savingEmail()"
+              (click)="cancelEmailChange()"
+            >
+              Cancel
+            </button>
+          </div>
+        </form>
+      }
+    </section>
+
+    <hlm-separator decorative />
+
+    <!--
+      Password and signed-in devices live on the Security screen. They used to
+      be duplicated here as static markup with no behaviour behind them.
+    -->
+    <section class="space-y-4">
+      <div>
+        <h3 class="text-sm font-medium">Password and devices</h3>
+        <p class="text-xs text-muted-foreground">
+          Change your password, manage two-factor authentication and see where
+          you're signed in
+        </p>
+      </div>
+      <a
         hlmBtn
         variant="outline"
         size="sm"
-        class="rounded-full cursor-pointer shrink-0"
+        class="rounded-full cursor-pointer"
+        routerLink="/settings/security"
       >
-        Change
-      </button>
-    </div>
-  </section>
+        <ng-icon hlm name="lucideShieldCheck" size="sm" class="mr-1.5" />
+        Go to Security
+      </a>
+    </section>
 
-  <hlm-separator decorative />
+    <hlm-separator decorative />
 
-  <!-- Password -->
-  <section class="space-y-4">
-    <div>
-      <h3 class="text-sm font-medium">Password</h3>
-      <p class="text-xs text-muted-foreground">
-        Update your password regularly to keep your account secure
-      </p>
-    </div>
-    <button
-      hlmBtn
-      variant="outline"
-      class="rounded-full cursor-pointer"
-      [routerLink]="'/auth/forgot-password'"
-    >
-      <ng-icon hlm name="lucideLockKeyhole" size="sm" class="mr-1.5" />
-      Change password
-    </button>
-  </section>
+    <!-- ── DANGER ZONE ────────────────────────────────────────────────── -->
+    <section class="space-y-4">
+      <div>
+        <h3 class="text-sm font-medium text-destructive">Danger zone</h3>
+        <p class="text-xs text-muted-foreground">Irreversible actions</p>
+      </div>
+      @if (!confirmingDelete()) {
+        <button
+          hlmBtn
+          variant="outline"
+          class="rounded-full cursor-pointer text-destructive hover:bg-destructive/10 hover:border-destructive/50"
+          (click)="beginDelete()"
+        >
+          <ng-icon hlm name="lucideTrash2" size="sm" class="mr-1.5" />
+          Delete account
+        </button>
+      } @else {
+        <div class="flex flex-col gap-y-3 max-w-sm">
+          <p class="text-xs text-muted-foreground">
+            This permanently deletes your account, your messages and everything
+            you have uploaded. It cannot be undone. Enter your password to
+            confirm.
+          </p>
 
-  <hlm-separator decorative />
-
-  <!-- Sessions -->
-  <section class="space-y-4">
-    <div>
-      <h3 class="text-sm font-medium">Active sessions</h3>
-      <p class="text-xs text-muted-foreground">
-        Devices currently logged into your account
-      </p>
-    </div>
-    <div class="space-y-2">
-      <div
-        class="flex items-center justify-between p-4 rounded-xl bg-muted/40 border border-border"
-      >
-        <div class="flex items-center gap-x-3">
-          <ng-icon
-            hlm
-            name="lucideMonitor"
-            class="text-muted-foreground"
-            size="sm"
+          <input
+            type="password"
+            autocomplete="current-password"
+            placeholder="Your password"
+            aria-label="Your password"
+            class="w-full text-sm bg-background border border-border rounded-lg px-3 py-2 focus:outline-none focus:ring-1 focus:ring-ring"
+            [value]="password()"
+            (input)="password.set($any($event.target).value)"
           />
-          <div>
-            <p class="text-sm font-medium">This device</p>
-            <p class="text-xs text-muted-foreground">Active now</p>
+
+          <div class="flex items-center gap-x-2">
+            <button
+              hlmBtn
+              variant="destructive"
+              size="sm"
+              class="rounded-full cursor-pointer text-xs"
+              [disabled]="deleting() || !password()"
+              (click)="confirmDelete()"
+            >
+              Delete my account
+            </button>
+            <button
+              hlmBtn
+              variant="ghost"
+              size="sm"
+              class="rounded-full cursor-pointer text-xs"
+              [disabled]="deleting()"
+              (click)="cancelDelete()"
+            >
+              Cancel
+            </button>
           </div>
         </div>
-        <span class="text-xs text-green-500 font-medium">Current</span>
-      </div>
-    </div>
-    <button
-      hlmBtn
-      variant="outline"
-      size="sm"
-      class="rounded-full cursor-pointer text-destructive hover:bg-destructive/10 hover:border-destructive/50"
-    >
-      <ng-icon hlm name="lucideLogOut" size="sm" class="mr-1.5" />
-      Sign out all other devices
-    </button>
-  </section>
-
-  <hlm-separator decorative />
-
-  <!-- Danger zone -->
-  <section class="space-y-4">
-    <div>
-      <h3 class="text-sm font-medium text-destructive">Danger zone</h3>
-      <p class="text-xs text-muted-foreground">Irreversible actions</p>
-    </div>
-    <button
-      hlmBtn
-      variant="outline"
-      class="rounded-full cursor-pointer text-destructive hover:bg-destructive/10 hover:border-destructive/50"
-    >
-      <ng-icon hlm name="lucideTrash2" size="sm" class="mr-1.5" />
-      Delete account
-    </button>
-  </section>
-</main>
+      }
+    </section>
+  </main>
 }

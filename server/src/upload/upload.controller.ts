@@ -24,6 +24,45 @@ const PRIVATE_CONTEXTS = ['dm-image', 'dm-video', 'dm-file', 'dm-audio'];
 /** How long an unconfirmed upload record is kept before the TTL index reaps it. */
 const PENDING_UPLOAD_TTL_MS = 24 * 60 * 60 * 1000;
 
+/**
+ * File extension for a stored object. Deriving it from the mime subtype gave
+ * keys like `original.vnd.openxmlformats-officedocument.wordprocessingml.document`
+ * for anything but plain image and video types.
+ */
+const EXTENSIONS: Record<string, string> = {
+  'image/jpeg': 'jpg',
+  'image/png': 'png',
+  'image/webp': 'webp',
+  'image/gif': 'gif',
+  'image/heic': 'heic',
+  'image/heif': 'heif',
+  'video/mp4': 'mp4',
+  'video/quicktime': 'mov',
+  'video/webm': 'webm',
+  'video/x-msvideo': 'avi',
+  'video/x-matroska': 'mkv',
+  'audio/webm': 'weba',
+  'audio/ogg': 'ogg',
+  'audio/mp4': 'm4a',
+  'audio/mpeg': 'mp3',
+  'audio/wav': 'wav',
+  'application/pdf': 'pdf',
+  'application/msword': 'doc',
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document': 'docx',
+  'application/vnd.ms-excel': 'xls',
+  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': 'xlsx',
+  'application/vnd.ms-powerpoint': 'ppt',
+  'application/vnd.openxmlformats-officedocument.presentationml.presentation': 'pptx',
+  'text/plain': 'txt',
+  'text/csv': 'csv',
+  'application/zip': 'zip',
+  'application/x-7z-compressed': '7z',
+  'application/x-rar-compressed': 'rar',
+};
+
+const extensionFor = (mimeType: string): string =>
+  EXTENSIONS[mimeType] ?? 'bin';
+
 const validateResourceAccess = async (
   context: string,
   resourceId: string | undefined | null,
@@ -90,8 +129,7 @@ export const presign = async (req: AuthRequest, res: Response) => {
 
   // 4. Generate unique file key — never use original filename
   const uploadId = randomUUID();
-  const ext = mimeType.split('/')[1].replace('jpeg', 'jpg');
-  const fileKey = `${context}/${userId}/${uploadId}/original.${ext}`;
+  const fileKey = `${context}/${userId}/${uploadId}/original.${extensionFor(mimeType)}`;
 
   // 5. Generate presigned PUT URL
   const command = new PutObjectCommand({
@@ -204,9 +242,13 @@ export const getSignedDownloadUrl = async (req: AuthRequest, res: Response) => {
   if (upload.status !== 'ready')
     return res.status(400).json({ error: 'Upload not ready' });
 
-  // only private bucket needs signed URLs
-  // public bucket files are served directly via CDN
+  // Public-bucket objects are served straight from the CDN and need no
+  // signature — but they are still someone's upload, so the record has to
+  // belong to the caller. This branch previously answered for any upload id.
   if (!PRIVATE_CONTEXTS.includes(upload.context)) {
+    if (upload.userId?.toString() !== userId.toString()) {
+      return res.status(403).json({ error: 'Access denied' });
+    }
     return res.json({ variants: upload.variants });
   }
 
@@ -235,11 +277,12 @@ export const getSignedDownloadUrl = async (req: AuthRequest, res: Response) => {
   for (const [name, url] of Object.entries(
     upload.variants as Record<string, string>,
   )) {
-    // extract the key from the stored URL
-    const key = url.replace(
-      `${appConfig.s3Url}/${appConfig.s3PrivateBucket}/`,
-      '',
-    );
+    // Prefix-stripping, not substring replacement: `String.replace` with a
+    // string removes the first occurrence *anywhere*, so a URL that merely
+    // contained the prefix would be mangled rather than skipped.
+    const prefix = `${appConfig.s3Url}/${appConfig.s3PrivateBucket}/`;
+    if (!url.startsWith(prefix)) continue;
+    const key = url.slice(prefix.length);
 
     const command = new GetObjectCommand({
       Bucket: appConfig.s3PrivateBucket,

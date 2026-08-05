@@ -15,7 +15,8 @@ export type WebSocketMessageType =
   | 'message-status'
   | 'user-status'
   | 'upload-ready'
-  | 'upload-infected';
+  | 'upload-infected'
+  | 'rate-limited';
 
 export interface BaseWebSocketMessage {
   type: WebSocketMessageType;
@@ -95,6 +96,19 @@ export interface UserStatusMessage extends BaseWebSocketMessage {
   last_seen?: string;
 }
 
+/**
+ * Server → client only: "that frame was dropped, try again in `retry_after`".
+ * Outbound-only by design, like the upload events — the controller's inbound
+ * allowlist rejects it if a client ever sends one back.
+ */
+export interface RateLimitedMessage extends BaseWebSocketMessage {
+  type: 'rate-limited';
+  /** The type that was dropped, so the client knows what to replay. */
+  message_type: string;
+  /** Seconds until the budget for that type refills. */
+  retry_after: number;
+}
+
 export type WebSocketMessage =
   | AuthenticateMessage
   | TypingMessage
@@ -103,4 +117,5 @@ export type WebSocketMessage =
   | MessageStatusMessage
   | UserStatusMessage
   | UploadReadyMessage
-  | UploadInfectedMessage;
+  | UploadInfectedMessage
+  | RateLimitedMessage;

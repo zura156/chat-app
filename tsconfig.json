@@ -6,6 +6,8 @@
     "noImplicitOverride": true,
     "noPropertyAccessFromIndexSignature": true,
     "noImplicitReturns": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
     "noFallthroughCasesInSwitch": true,
     "skipLibCheck": true,
     "isolatedModules": true,
@@ -16,12 +18,6 @@
     "target": "ES2022",
     "module": "ES2022",
     "paths": {
-      "@spartan-ng/helm/menu": [
-        "./libs/ui/ui-menu-helm/src/index.ts"
-      ],
-      "@spartan-ng/helm/form-field": [
-        "./libs/ui/form-field/src/index.ts"
-      ],
       "@spartan-ng/helm/icon": [
         "./libs/ui/icon/src/index.ts"
       ],

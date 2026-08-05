@@ -1,17 +1,37 @@
-@let file = audio();
+<!--
+  Everything here is drawn in `currentColor`.
 
+  A voice message now sits in the same bubble as a text message, which means
+  two different backgrounds: `bg-primary` for your own messages and `bg-muted`
+  for everyone else's. Fixed colours could only ever suit one of them — the
+  play button was `bg-primary`, invisible against a primary bubble, and the
+  bars were `bg-muted-foreground/30`, nearly invisible against a muted one.
+  Inheriting the bubble's text colour makes the player correct on both without
+  the parent having to tell it which it is in.
+-->
 <div class="w-full flex items-center gap-2">
+  <!--
+    `play`/`pause`/`ended` drive a per-frame sampling loop; `timeupdate` only
+    covers what that loop cannot see (a seek while paused). See the component
+    for why `timeupdate` alone was not enough.
+  -->
   <audio
     #audioPlayer
-    [src]="file.variants?.original"
+    [src]="src()"
+    (play)="onPlay(audioPlayer)"
+    (pause)="onPause(audioPlayer)"
+    (ended)="onEnded()"
+    (loadedmetadata)="onLoadedMetadata(audioPlayer)"
     (timeupdate)="onTimeUpdate(audioPlayer)"
   ></audio>
 
   <button
     hlmBtn
     variant="ghost"
+    type="button"
+    [attr.aria-label]="audioPlayer.paused ? 'Play' : 'Pause'"
+    class="cursor-pointer shrink-0 size-8 p-0 flex items-center justify-center rounded-full bg-current/15 text-current hover:bg-current/25 transition-colors"
     (click)="audioPlayer.paused ? audioPlayer.play() : audioPlayer.pause()"
-    class="cursor-pointer shrink-0 size-8 p-0 flex items-center justify-center rounded-full bg-primary text-primary-foreground hover:opacity-90 transition-opacity"
   >
     <ng-icon
       hlm
@@ -25,17 +45,21 @@
     (click)="seek($event, audioPlayer)"
   >
     @for (bar of bars(); track $index) {
+      <!--
+        Opacity rather than a colour swap, so the played/unplayed distinction
+        survives on either bubble. Separate `[class.x]` bindings because a
+        single `[class]` string would replace the static classes beside it.
+      -->
       <span
-        class="flex-1 rounded-full min-w-px transition-colors"
-        [class]="$index < playedBars() ? 'bg-primary' : 'bg-muted-foreground/30'"
+        class="flex-1 rounded-full min-w-px bg-current transition-opacity"
+        [class.opacity-100]="$index < playedBars()"
+        [class.opacity-30]="$index >= playedBars()"
         [style.height.%]="bar * 100"
       ></span>
     }
   </div>
 
-  <span
-    class="text-xs text-muted-foreground tabular-nums select-none shrink-0"
-  >
+  <span class="text-xs tabular-nums select-none shrink-0 opacity-70">
     {{
       (audioPlayer.paused && currentTime() === 0 ? duration() : currentTime())
         | formatTime

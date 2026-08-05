@@ -1,4 +1,4 @@
-import { Component, inject, OnInit } from '@angular/core';
+import { Component, inject } from '@angular/core';
 import { HlmToasterImports } from '@spartan-ng/helm/sonner';
 import { ThemeService } from './shared/services/theme.service';
 import { RouterOutlet } from '@angular/router';

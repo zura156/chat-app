@@ -11,7 +11,17 @@ export default {
         throw new Error('COOKIE_SECRET not set');
       return 'dev_secret';
     })(),
-  cookieDomain: process.env.COOKIE_DOMAIN ?? 'localhost',
+  // Defaulting this to 'localhost' in production is not a degraded mode, it is
+  // an outage: the CSRF cookie is set with a domain, the browser silently drops
+  // one scoped to a host it is not on, and every mutating request then 403s
+  // with nothing in the logs to say why. Fail at boot like the secrets do.
+  cookieDomain:
+    process.env.COOKIE_DOMAIN ||
+    (() => {
+      if (process.env.NODE_ENV === 'production')
+        throw new Error('COOKIE_DOMAIN not set');
+      return 'localhost';
+    })(),
   sessionSecret:
     process.env.SESSION_SECRET ||
     (() => {
@@ -37,6 +47,21 @@ export default {
   // it is what users read when picking between accounts, so it belongs in
   // config rather than hardcoded at the call site.
   twoFactorIssuer: process.env.TWO_FACTOR_ISSUER ?? 'chat-app',
+  /*
+   * Whether an unverified address is blocked from the messaging surface.
+   *
+   * Off by default, deliberately. The verification flow shipped long before
+   * anything read its result, so every account that already exists has
+   * `is_email_verified: false` — turning the gate on unconditionally locks out
+   * the entire existing user base at once, which is what happened when it was
+   * first enforced.
+   *
+   * To enable it safely: run `npm run backfill:verified` to grandfather
+   * accounts that predate enforcement, then set REQUIRE_EMAIL_VERIFICATION=true.
+   * New registrations are gated from that point on.
+   */
+  requireEmailVerification:
+    process.env.REQUIRE_EMAIL_VERIFICATION === 'true',
   jwtExpiresIn: process.env.JWT_EXPIRES_IN ?? '1h',
   jwtRefreshTokenExpiresIn: process.env.JWT_REFRESH_EXPIRES_IN ?? '7d',
   clientUrl: process.env.CLIENT_URL ?? 'http://localhost:4200',

@@ -23,10 +23,24 @@ import { MessageStatusMessage } from '../interfaces/web-socket-message.interface
 import { UserStateService } from '../../user/services/user-state.service';
 import { AuthService } from '../../auth/services/auth.service';
 
+/** Newest first — the order the thread is rendered and paginated in. */
+const byNewestFirst = (a: MessageI, b: MessageI): number =>
+  new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime();
+
 /**
  * Merge a freshly fetched page into what is already on screen.
+ *
  * Keyed by `_id`, falling back to `tempId` so optimistic messages that have no
  * server id yet survive a page load instead of silently disappearing.
+ *
+ * The result is sorted rather than left in insertion order. It used to rely on
+ * pages arriving strictly oldest-last and new messages always being prepended,
+ * which happens to hold on the common path and silently does not the moment
+ * anything arrives out of order — a websocket redelivery after a reconnect, or
+ * a message landing while an older page is in flight. The thread would then
+ * stay scrambled for the rest of the session, and `groupedMessages` (which
+ * assumes descending order to find time gaps) would draw its dividers in the
+ * wrong places.
  */
 function mergeMessagePage(
   previous: MessageI[],
@@ -37,7 +51,95 @@ function mergeMessagePage(
     const key = msg._id ?? msg.tempId;
     if (key) byKey.set(key, msg);
   }
-  return Array.from(byKey.values());
+  return Array.from(byKey.values()).sort(byNewestFirst);
+}
+
+/** The paging inputs a list reads, declared before the resource that uses them. */
+interface Paging {
+  offset: WritableSignal<number>;
+  limit: WritableSignal<number>;
+}
+
+const paging = (limit = 20): Paging => ({
+  offset: signal(0),
+  limit: signal(limit),
+});
+
+/**
+ * One conversation-scoped, paginated message list.
+ *
+ * The service held three of these — all messages, media only, files only — as
+ * three verbatim copies of the same six declarations: an offset, a limit, a
+ * `hasMore` linkedSignal, a `linkedSignal` with an identical 25-line merge
+ * computation, a total count, and a readonly projection. Around two hundred
+ * lines that had to be kept in step by hand.
+ */
+class MessageList {
+  readonly offset: WritableSignal<number>;
+  readonly limit: WritableSignal<number>;
+
+  private readonly items: WritableSignal<MessageI[]>;
+  private readonly total: WritableSignal<number>;
+
+  readonly value: Signal<MessageI[]>;
+  readonly totalCount: Signal<number>;
+  readonly hasMore: Signal<boolean>;
+
+  constructor(
+    page: Paging,
+    private readonly resource: { value: () => MessageListI | undefined },
+    private readonly activeConversationId: () => string | undefined,
+  ) {
+    this.offset = page.offset;
+    this.limit = page.limit;
+
+    this.items = linkedSignal<MessageListI, MessageI[]>({
+      source: () => this.resource.value() ?? { messages: [], totalCount: 0 },
+      computation: (fetched, previous) => {
+        const conversationId = this.activeConversationId();
+        const previousMessages = previous?.value ?? [];
+
+        if (!conversationId || !fetched) return [];
+
+        const isInitialLoad = previousMessages.length === 0;
+        const isDifferentConversation =
+          !isInitialLoad &&
+          previousMessages[0]?.conversation !== conversationId;
+
+        if (isInitialLoad || isDifferentConversation) {
+          return [...fetched.messages].sort(byNewestFirst);
+        }
+
+        return mergeMessagePage(previousMessages, fetched.messages);
+      },
+    });
+
+    this.total = linkedSignal(() => this.resource.value()?.totalCount ?? 0);
+
+    this.value = this.items.asReadonly();
+    this.totalCount = this.total.asReadonly();
+    this.hasMore = computed(
+      () => this.offset() + this.limit() < this.totalCount(),
+    );
+  }
+
+  update(fn: (messages: MessageI[]) => MessageI[]): void {
+    this.items.update(fn);
+  }
+
+  set(messages: MessageI[]): void {
+    this.items.set(messages);
+  }
+
+  loadMore(): void {
+    if (this.hasMore()) this.offset.update((o) => o + this.limit());
+  }
+
+  reset(): void {
+    this.items.set([]);
+    this.total.set(0);
+    this.offset.set(0);
+  }
 }
 
 @Injectable()
@@ -50,174 +152,42 @@ export class MessageService {
 
   private apiUrl = `${environment.apiUrl}/messages`;
 
+  /**
+   * Which conversation the media/file panels were last loaded for. Owned here
+   * because the resources below read it; the chatbox writes it when a
+   * conversation change has been fully applied.
+   */
   previousConversationId = signal<string | null>(null);
 
-  // state management for all messages
-  messageOffset = signal<number>(0);
-  messageLimit = signal<number>(20);
-  hasMoreMessages = linkedSignal<boolean>(() => {
-    const totalCount = this.totalMessagesCount();
-    if (totalCount === undefined) {
-      return false;
-    }
-    return this.messageOffset() + this.messageLimit() < totalCount;
-  });
-
-  // state management for media messages
-  mediaMessageOffset = signal<number>(0);
-  mediaMessageLimit = signal<number>(20);
-  hasMoreMediaMessages = linkedSignal<boolean>(() => {
-    const totalCount = this.activeMediaMessagesResource.value()?.totalCount;
-    if (totalCount === undefined) {
-      return false;
-    }
-
-    return this.mediaMessageOffset() + this.mediaMessageLimit() < totalCount;
-  });
-
-  // state management for file messages
-  fileMessageOffset = signal<number>(0);
-  fileMessageLimit = signal<number>(20);
-  hasMoreFileMessages = linkedSignal<boolean>(() => {
-    const totalCount = this.activeFileMessagesResource.value()?.totalCount;
-    if (totalCount === undefined) {
-      return false;
-    }
-
-    return this.fileMessageOffset() + this.fileMessageLimit() < totalCount;
-  });
-
-  // signals for message management
-  #activeMessages = linkedSignal<MessageListI, MessageI[]>({
-    source: () =>
-      this.activeMessagesResource.value() || { messages: [], totalCount: 0 },
-    computation: (newResource, previous) => {
-      const conversation = this.conversationService.activeConversation();
-      const previousMessages = previous?.value ?? [];
-
-      if (!conversation || !conversation._id || !newResource) {
-        return [];
-      }
-
-      const isInitialLoad = previousMessages.length === 0;
-      const isDifferentConversation =
-        !isInitialLoad &&
-        previousMessages[0]?.conversation !== conversation._id;
-
-      if (isInitialLoad || isDifferentConversation) {
-        return newResource.messages;
-      }
-
-      return mergeMessagePage(previousMessages, newResource.messages);
-    },
-  });
-
-  activeMessages: Signal<MessageI[]> = computed<MessageI[]>(() => {
-    return this.#activeMessages();
-  });
-
-  #totalMessagesCount: WritableSignal<number> = linkedSignal<number>(() => {
-    const totalCount = this.activeMessagesResource.value()?.totalCount;
-
-    return totalCount || 0;
-  });
-  totalMessagesCount: Signal<number> = computed<number>(
-    this.#totalMessagesCount,
-  );
-
-  #activeMediaMessages = linkedSignal<MessageListI, MessageI[]>({
-    source: () =>
-      this.activeMediaMessagesResource.value() || {
-        messages: [],
-        totalCount: 0,
-      },
-    computation: (newResource, previous) => {
-      const conversation = this.conversationService.activeConversation();
-      const previousMessages = previous?.value ?? [];
-
-      if (!conversation || !conversation._id || !newResource) {
-        return [];
-      }
-
-      const isInitialLoad = previousMessages.length === 0;
-      const isDifferentConversation =
-        !isInitialLoad &&
-        previousMessages[0]?.conversation !== conversation._id;
-
-      if (isInitialLoad || isDifferentConversation) {
-        return newResource.messages;
-      }
-
-      return mergeMessagePage(previousMessages, newResource.messages);
-    },
-  });
-
-  activeMediaMessages: Signal<MessageI[]> = computed<MessageI[]>(
-    this.#activeMediaMessages,
-  );
-
-  #totalMediaMessagesCount: WritableSignal<number> = linkedSignal<number>(
-    () => {
-      const totalCount = this.activeMediaMessagesResource.value()?.totalCount;
-
-      return totalCount || 0;
-    },
-  );
-  totalMediaMessagesCount: Signal<number> = computed<number>(
-    this.#totalMediaMessagesCount,
-  );
-
-  #activeFileMessages = linkedSignal<MessageListI, MessageI[]>({
-    source: () =>
-      this.activeFileMessagesResource.value() || {
-        messages: [],
-        totalCount: 0,
-      },
-    computation: (newResource, previous) => {
-      const conversation = this.conversationService.activeConversation();
-      const previousMessages = previous?.value ?? [];
-
-      if (!conversation || !conversation._id || !newResource) {
-        return [];
-      }
-
-      const isInitialLoad = previousMessages.length === 0;
-      const isDifferentConversation =
-        !isInitialLoad &&
-        previousMessages[0]?.conversation !== conversation._id;
-
-      if (isInitialLoad || isDifferentConversation) {
-        return newResource.messages;
-      }
-
-      return mergeMessagePage(previousMessages, newResource.messages);
-    },
-  });
-
-  activeFileMessages: Signal<MessageI[]> = computed<MessageI[]>(
-    this.#activeFileMessages,
-  );
-
-  #totalFileMessagesCount: WritableSignal<number> = linkedSignal<number>(() => {
-    const totalCount = this.activeFileMessagesResource.value()?.totalCount;
-
-    return totalCount || 0;
-  });
-  totalFileMessagesCount: Signal<number> = computed<number>(
-    this.#totalFileMessagesCount,
-  );
-
   // Control signals for on-demand fetching
+
   private shouldFetchMediaMessages = signal<boolean>(false);
   private shouldFetchFileMessages = signal<boolean>(false);
 
+  /*
+   * Paging is declared ahead of the resources because the resource URLs read
+   * it. (Field initialisers run in order, so a list that owned its own paging
+   * could not be constructed before the resource that depends on it.)
+   */
+  private readonly messagePaging = paging();
+  private readonly mediaPaging = paging();
+  private readonly filePaging = paging();
+
+  readonly messageOffset = this.messagePaging.offset;
+  readonly messageLimit = this.messagePaging.limit;
+  readonly mediaMessageOffset = this.mediaPaging.offset;
+  readonly mediaMessageLimit = this.mediaPaging.limit;
+  readonly fileMessageOffset = this.filePaging.offset;
+  readonly fileMessageLimit = this.filePaging.limit;
+
   constructor() {
+    // Signing out must not leave another account's thread in memory.
     effect(() => {
-      !this.authService.isAuthenticated() && this.reset();
+      if (!this.authService.isAuthenticated()) this.reset();
     });
   }
 
-  activeMessagesResource = httpResource<MessageListI>(() => {
+  activeMessagesResource = httpResource<MessageListI>((): string | undefined => {
     const conversationId = this.conversationService.selectedConversationId();
 
     if (
@@ -227,13 +197,10 @@ export class MessageService {
       return;
     }
 
-    const url = `${
-      this.apiUrl
-    }/${conversationId}/messages?offset=${this.messageOffset()}&limit=${this.messageLimit()}`;
-    return url;
+    return `${this.apiUrl}/${conversationId}/messages?offset=${this.messageOffset()}&limit=${this.messageLimit()}`;
   });
 
-  activeMediaMessagesResource = httpResource<MessageListI>(() => {
+  activeMediaMessagesResource = httpResource<MessageListI>((): string | undefined => {
     const conversationId = this.conversationService.selectedConversationId();
     const shouldFetch = this.shouldFetchMediaMessages();
 
@@ -246,13 +213,10 @@ export class MessageService {
       return;
     }
 
-    const url = `${
-      this.apiUrl
-    }/${conversationId}/media?offset=${this.mediaMessageOffset()}&limit=${this.mediaMessageLimit()}`;
-    return url;
+    return `${this.apiUrl}/${conversationId}/media?offset=${this.mediaMessageOffset()}&limit=${this.mediaMessageLimit()}`;
   });
 
-  activeFileMessagesResource = httpResource<MessageListI>(() => {
+  activeFileMessagesResource = httpResource<MessageListI>((): string | undefined => {
     const conversationId = this.conversationService.selectedConversationId();
     const shouldFetch = this.shouldFetchFileMessages();
 
@@ -265,11 +229,45 @@ export class MessageService {
       return;
     }
 
-    const url = `${
-      this.apiUrl
-    }/${conversationId}/files?offset=${this.fileMessageOffset()}&limit=${this.fileMessageLimit()}`;
-    return url;
+    return `${this.apiUrl}/${conversationId}/files?offset=${this.fileMessageOffset()}&limit=${this.fileMessageLimit()}`;
   });
+
+  /*
+   * Three instances of the same thing, instead of three hand-maintained copies
+   * of it. See MessageList above.
+   */
+  private readonly conversationId = (): string | undefined =>
+    this.conversationService.activeConversation()?._id;
+
+  private readonly messages = new MessageList(
+    this.messagePaging,
+    this.activeMessagesResource,
+    this.conversationId,
+  );
+  private readonly media = new MessageList(
+    this.mediaPaging,
+    this.activeMediaMessagesResource,
+    this.conversationId,
+  );
+  private readonly files = new MessageList(
+    this.filePaging,
+    this.activeFileMessagesResource,
+    this.conversationId,
+  );
+
+  // ── Public surface (unchanged shape, single implementation behind it) ───────
+
+  readonly activeMessages = this.messages.value;
+  readonly totalMessagesCount = this.messages.totalCount;
+  readonly hasMoreMessages = this.messages.hasMore;
+
+  readonly activeMediaMessages = this.media.value;
+  readonly totalMediaMessagesCount = this.media.totalCount;
+  readonly hasMoreMediaMessages = this.media.hasMore;
+
+  readonly activeFileMessages = this.files.value;
+  readonly totalFileMessagesCount = this.files.totalCount;
+  readonly hasMoreFileMessages = this.files.hasMore;
 
   // Public methods to trigger media/file message fetching from components
   fetchMediaMessages(): void {
@@ -280,35 +278,23 @@ export class MessageService {
     this.shouldFetchFileMessages.set(true);
   }
 
-  // Method to load more media messages
   loadMoreMediaMessages(): void {
-    if (this.hasMoreMediaMessages()) {
-      this.mediaMessageOffset.update(
-        (offset) => offset + this.mediaMessageLimit(),
-      );
-    }
+    this.media.loadMore();
   }
 
-  // Method to load more file messages
   loadMoreFileMessages(): void {
-    if (this.hasMoreFileMessages()) {
-      this.fileMessageOffset.update(
-        (offset) => offset + this.fileMessageLimit(),
-      );
-    }
+    this.files.loadMore();
   }
 
   // Methods to reset fetching state (useful when changing conversations)
   resetMediaMessagesFetch(): void {
     this.shouldFetchMediaMessages.set(false);
-    this.mediaMessageOffset.set(0);
-    this.#activeMediaMessages.set([]);
+    this.media.reset();
   }
 
   resetFileMessagesFetch(): void {
     this.shouldFetchFileMessages.set(false);
-    this.fileMessageOffset.set(0);
-    this.#activeFileMessages.set([]);
+    this.files.reset();
   }
 
   sendMessage(
@@ -336,7 +322,7 @@ export class MessageService {
     variants: Record<string, string>,
     duration?: number,
   ): void {
-    this.#activeMessages.update((messages) =>
+    this.messages.update((messages) =>
       messages.map((msg) => {
         const idx =
           msg.attachments?.findIndex((a) => a.uploadId === uploadId) ?? -1;
@@ -365,7 +351,7 @@ export class MessageService {
     uploadId: string,
     status: AttachmentI['status'],
   ): void {
-    this.#activeMessages.update((messages) =>
+    this.messages.update((messages) =>
       messages.map((msg) => {
         const idx =
           msg.attachments?.findIndex((a) => a.uploadId === uploadId) ?? -1;
@@ -413,7 +399,7 @@ export class MessageService {
   }
 
   updateMessageStatus(messageId: string, status: MessageStatus): void {
-    this.#activeMessages.update((messages) => {
+    this.messages.update((messages) => {
       const messageIndex = messages.findIndex((msg) => msg._id === messageId);
 
       if (messageIndex === -1) {
@@ -432,7 +418,7 @@ export class MessageService {
 
   // Add a single message to the active messages (useful for real-time updates)
   addMessage(message: MessageI): void {
-    this.#activeMessages.update((currentMessages) => {
+    this.messages.update((currentMessages) => {
       // guard against the same message being pushed twice (e.g. a websocket
       // redelivery after a reconnect)
       const exists = currentMessages.some(
@@ -440,18 +426,24 @@ export class MessageService {
           (!!message._id && m._id === message._id) ||
           (!!message.tempId && m.tempId === message.tempId),
       );
-      return exists ? currentMessages : [message, ...currentMessages];
+      // Sorted rather than blindly prepended: a message that arrives late (a
+      // websocket redelivery, or one that raced a page load) is not necessarily
+      // the newest, and inserting it at the front would leave the thread out of
+      // order for the rest of the session.
+      return exists
+        ? currentMessages
+        : [message, ...currentMessages].sort(byNewestFirst);
     });
 
     const prependOnce = (list: MessageI[]): MessageI[] =>
       list.some((m) => !!message._id && m._id === message._id)
         ? list
-        : [message, ...list];
+        : [message, ...list].sort(byNewestFirst);
 
     if (message?.type === 'image' || message?.type === 'video') {
-      this.#activeMediaMessages.update(prependOnce);
+      this.media.update(prependOnce);
     } else if (message?.type === 'file') {
-      this.#activeFileMessages.update(prependOnce);
+      this.files.update(prependOnce);
     }
   }
 
@@ -474,7 +466,7 @@ export class MessageService {
 
   /** Replaces an edited message in place, keeping its position in the thread. */
   applyEdited(edited: MessageI): void {
-    this.#activeMessages.update((messages) =>
+    this.messages.update((messages) =>
       messages.map((message) =>
         message._id === edited._id ? { ...message, ...edited } : message,
       ),
@@ -499,19 +491,19 @@ export class MessageService {
           : message,
       );
 
-    this.#activeMessages.update(strip);
+    this.messages.update(strip);
     // Deleted media must also leave the media and file panels.
-    this.#activeMediaMessages.update((list) =>
+    this.media.update((list) =>
       list.filter((m) => m._id !== messageId),
     );
-    this.#activeFileMessages.update((list) =>
+    this.files.update((list) =>
       list.filter((m) => m._id !== messageId),
     );
   }
 
   // Clear active messages (useful when changing conversations)
   clearActiveMessages(): void {
-    this.#activeMessages.set([]);
+    this.messages.set([]);
   }
 
   /**
@@ -525,7 +517,7 @@ export class MessageService {
    * operation is idempotent no matter the arrival order.
    */
   fillInMessageDetails(message: MessageI): void {
-    this.#activeMessages.update((messages) => {
+    this.messages.update((messages) => {
       const isSame = (m: MessageI): boolean =>
         (!!message.tempId && m.tempId === message.tempId) ||
         (!!message._id && m._id === message._id);
@@ -556,7 +548,7 @@ export class MessageService {
       // actually belongs to the thread on screen, otherwise a message sent to
       // conversation B shows up inside conversation A.
       return this.belongsToActiveConversation(message)
-        ? [message, ...messages]
+        ? [message, ...messages].sort(byNewestFirst)
         : messages;
     });
   }
@@ -575,7 +567,7 @@ export class MessageService {
 
   /** Optimistic message could not be delivered — surface it instead of hanging. */
   markMessageFailed(tempId: string): void {
-    this.#activeMessages.update((messages) =>
+    this.messages.update((messages) =>
       messages.map((m) =>
         m.tempId === tempId ? { ...m, status: MessageStatus.FAILED } : m,
       ),
@@ -592,15 +584,9 @@ export class MessageService {
   }
 
   reset(): void {
-    this.#activeMessages.set([]);
-    this.#activeMediaMessages.set([]);
-    this.#activeFileMessages.set([]);
-    this.#totalMessagesCount.set(0);
-    this.#totalMediaMessagesCount.set(0);
-    this.#totalFileMessagesCount.set(0);
-    this.messageOffset.set(0);
-    this.mediaMessageOffset.set(0);
-    this.fileMessageOffset.set(0);
+    this.messages.reset();
+    this.media.reset();
+    this.files.reset();
     this.shouldFetchMediaMessages.set(false);
     this.shouldFetchFileMessages.set(false);
     this.previousConversationId.set(null);

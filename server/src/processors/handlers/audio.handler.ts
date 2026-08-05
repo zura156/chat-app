@@ -10,6 +10,7 @@ import { JobPayload, ProcessResult } from './types';
 import { tmpdir } from 'os';
 import { join } from 'path';
 import { writeFile, readFile, rm, mkdir } from 'fs/promises';
+import { logger } from '../../utils/logger';
 
 /**
  * Uses fluent-ffmpeg rather than shelling out to `ffprobe` directly, so it
@@ -20,7 +21,7 @@ const getDuration = (filePath: string): Promise<number> =>
   new Promise((resolve) => {
     ffmpeg.ffprobe(filePath, (err, metadata) => {
       if (err) {
-        console.error('ffprobe failed for audio duration:', err);
+        logger.error('ffprobe failed for audio duration', err);
         return resolve(0);
       }
 

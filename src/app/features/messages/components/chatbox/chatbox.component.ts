@@ -35,6 +35,7 @@ import {
 } from '@spartan-ng/helm/avatar';
 import { HlmSeparator } from '@spartan-ng/helm/separator';
 import {
+  AttachmentI,
   GroupedMessages,
   MessageI,
   MessageStatus,
@@ -95,6 +96,33 @@ import {
   MediaViewerService,
 } from '../../../../shared/services/media-viewer.service';
 
+/**
+ * The type the server will give this message, worked out up front.
+ *
+ * Mirrors `MessageService.createMessage`, which classifies by the *first*
+ * attachment's context. Guessing differently here would make the optimistic
+ * bubble render as one kind of message and then switch to another the moment
+ * the server replied.
+ */
+const optimisticMessageType = (
+  recording: File | null,
+  attachments: AttachmentI[],
+): MessageType => {
+  if (recording) return MessageType.AUDIO;
+  if (!attachments.length) return MessageType.TEXT;
+
+  switch (attachments[0].context) {
+    case 'dm-image':
+      return MessageType.IMAGE;
+    case 'dm-video':
+      return MessageType.VIDEO;
+    case 'dm-audio':
+      return MessageType.AUDIO;
+    default:
+      return MessageType.FILE;
+  }
+};
+
 const AUDIO_EXTENSIONS: Record<string, string> = {
   'audio/webm': 'webm',
   'audio/ogg': 'ogg',
@@ -105,6 +133,17 @@ const AUDIO_EXTENSIONS: Record<string, string> = {
 
 const audioExtension = (mimeType: string): string =>
   AUDIO_EXTENSIONS[mimeType] ?? 'webm';
+
+/** The user a not-yet-created conversation is being started with, if any. */
+const readSelectedUser = (): UserI | null => {
+  try {
+    const raw = sessionStorage.getItem('selectedUser');
+    return raw ? (JSON.parse(raw) as UserI) : null;
+  } catch {
+    sessionStorage.removeItem('selectedUser');
+    return null;
+  }
+};
 
 @Component({
   selector: 'app-chatbox',
@@ -265,7 +304,14 @@ export class ChatboxComponent implements OnInit {
     const activeConversation = this.conversation();
     if (!activeConversation) return null;
     if (activeConversation.is_group)
-      return activeConversation.group_picture ?? null;
+      // The optimistic picture wins while an upload is outstanding, so the
+      // header changes at the same moment the settings avatar does rather than
+      // several seconds later when the worker finishes.
+      return (
+        this.conversationService.pendingGroupPictureFor(activeConversation._id) ??
+        activeConversation.group_picture ??
+        null
+      );
     return (
       activeConversation.participants.find(
         (p) => p._id !== this.currentUser()?._id,
@@ -413,14 +459,14 @@ export class ChatboxComponent implements OnInit {
 
           this.conversationService.selectedConversationId.set(id);
 
-          const selectedUser: UserI | null = JSON.parse(
-            sessionStorage.getItem('selectedUser') ?? 'null',
-          );
+          // Corrupt or hand-edited storage should not take the route down with
+          // it — an unparseable value simply means "no pre-selected user".
+          const selectedUser = readSelectedUser();
 
           if (selectedUser) {
             if (selectedUser._id !== id) {
               sessionStorage.removeItem('selectedUser');
-              toast.error('Sanitized and neutralized. Thanks for playing!');
+              toast.error('That conversation could not be opened.');
               return EMPTY;
             }
             this.conversationService.selectUserForConversation(selectedUser);
@@ -455,12 +501,18 @@ export class ChatboxComponent implements OnInit {
     return `${group.timeframe}-${group.messages.length}-${group.messages[0]?._id || index}`;
   }
 
+  /**
+   * `tempId` is the identity of an optimistic message; `_id` is the identity of
+   * a persisted one, and the same message has both once the server answers.
+   *
+   * The previous key fell back to `timestamp-sender-index`, which changed the
+   * moment the real `_id` arrived — so Angular destroyed and recreated the DOM
+   * node for every message the user sent, instead of updating it in place. (The
+   * `temp-${index}` third branch was also unreachable: the template literal
+   * before it is always a non-empty string.)
+   */
   trackMessage(index: number, message: MessageI): string {
-    return (
-      message._id ||
-      `${message.timestamp}-${message.sender._id}-${index}` ||
-      `temp-${index}`
-    );
+    return message._id ?? message.tempId ?? `index-${index}`;
   }
 
   // ── Recording ───────────────────────────────────────────────────────────────
@@ -472,9 +524,31 @@ export class ChatboxComponent implements OnInit {
   deleteRecording(): void {
     this.isRecording.set(false);
     this.recordingResult.set(undefined);
+    // Dismissing the failed recorder is also how the user retries: the reason
+    // may have been fixed in the meantime (permission granted, device plugged
+    // in), and refusing to try again would be wrong.
+    this.micUnavailable.set(false);
   }
   onStopRecording(result: RecordingResult): void {
     this.recordingResult.set(result);
+  }
+
+  /**
+   * Whether the microphone is usable, as reported by the recorder.
+   *
+   * `isMicAllowed` was declared as an output and bound to nothing, so a failure
+   * to open the device was silent: the recorder rendered an empty bar and the
+   * user was left with a composer that appeared broken.
+   *
+   * The recorder states the specific reason inline and offers a dismiss button,
+   * so this does not close it — that would take the explanation away with it.
+   * It only remembers the outcome, so the button cannot keep reopening a
+   * recorder that has already failed.
+   */
+  readonly micUnavailable = signal(false);
+
+  onMicPermission(allowed: boolean): void {
+    this.micUnavailable.set(!allowed);
   }
 
   // ── File / message sending ──────────────────────────────────────────────────
@@ -498,11 +572,8 @@ export class ChatboxComponent implements OnInit {
     if (!files.length) return;
     event.preventDefault();
 
-    if (this.pendingAttachments().length + files.length > 10) {
-      toast.error('Maximum 10 attachments per message.');
-      return;
-    }
-
+    // The slice above already caps this at the remaining allowance, so a
+    // further length check here could never fire.
     files.forEach((file) => this.filePicker().processFile(file));
   }
 
@@ -642,164 +713,150 @@ export class ChatboxComponent implements OnInit {
     this.lastMessageSentAt = now;
 
     const recordingResult = this.recordingResult();
+    const tempId = crypto.randomUUID();
 
-    if (recordingResult) {
-      const tempId = crypto.randomUUID();
-      const blob = recordingResult.blob;
-      // Derive from the blob: the recorder falls back to other containers when
-      // webm is unsupported (Safari), and the codec parameter must be stripped
-      // because the server matches the mime type against an exact whitelist.
-      const mimeType = (blob.type || 'audio/webm').split(';')[0];
-      const file = new File([blob], `recording.${audioExtension(mimeType)}`, {
-        type: mimeType,
-      });
-
-      // optimistic
-      const optimisticMessage: MessageI = {
-        sender,
-        conversation: activeConversation._id,
-        tempId,
-        type: MessageType.AUDIO,
-        status: MessageStatus.SENDING,
-        timestamp: new Date().toISOString(),
-        attachments: [],
-      };
-
-      this.clearPendingAttachments();
-
-      // first message to a not-yet-created conversation — activeConversation._id
-      // is a mock id (the other user's userId, see createMockConversation()).
-      // Create the real conversation first, same as the text-message path.
-      if (!activeConversation.createdAt) {
-        this.conversationService
-          .createConversation([sender._id, this.selectedUser()!._id])
-          .pipe(
-            catchError((err) => this.handleSendError(err, tempId)),
-            switchMap((conversation) => {
-              this.messageService.addMessage({
-                ...optimisticMessage,
-                conversation: conversation._id,
-              });
-              this.router.navigateByUrl(`/messages/${conversation._id}`);
-              return this.sendRecordedAudio(conversation._id, tempId, file);
-            }),
-          )
-          .subscribe();
-
-        return;
-      }
-
-      this.messageService.addMessage(optimisticMessage);
-      this.sendRecordedAudio(activeConversation._id, tempId, file).subscribe();
-
+    if (!recordingResult && !content && !this.pendingAttachments().length) {
       return;
     }
 
-    if (!content && !this.pendingAttachments().length) return;
+    /*
+     * One send path.
+     *
+     * There were four: {voice note, text-or-attachments} × {conversation
+     * exists, conversation must be created first}, each repeating the
+     * optimistic insert, the input reset, the upload mapping, the error
+     * handling and the reconciliation. Whether the conversation already exists
+     * is the only real variable, so it is resolved up front and the rest of the
+     * flow is written once.
+     */
+    const recording = recordingResult
+      ? this.recordingFile(recordingResult)
+      : null;
 
-    const tempId = crypto.randomUUID();
-    const conversationId = activeConversation._id;
+    // Captured before the inputs are cleared below.
+    const attachments = recording
+      ? []
+      : this.pendingAttachments()
+          .filter((a) => !a.uploading && a.fileKey)
+          .map((a) => ({
+            uploadId: a.fileKey as string,
+            context: a.context as string,
+            mimeType: a.file.type,
+            fileSize: a.file.size,
+            originalName: a.file.name,
+          }));
 
-    // optimistic: add pending message immediately
+    /*
+     * The optimistic message carries its attachments, marked `processing`.
+     *
+     * It used to be created with `attachments: []` and `type: TEXT` regardless
+     * of what was being sent, so a photo or a voice note showed *nothing* in
+     * the thread between hitting send and the server answering — the media
+     * branches all key off the attachment list, found it empty, and rendered
+     * an empty bubble. Describing the message accurately from the start means
+     * the same processing placeholders that already exist do the right thing
+     * for a message that is still in flight, with no special "sending" cases.
+     */
+    const optimisticAttachments: AttachmentI[] = recording
+      ? [
+          {
+            // The real id arrives with the upload; until then this only has to
+            // be stable and unique so `track` does not churn.
+            uploadId: tempId,
+            context: 'dm-audio',
+            mimeType: recording.type,
+            fileSize: recording.size,
+            status: 'processing',
+            variants: null,
+            duration: recordingResult?.duration,
+          },
+        ]
+      : attachments.map((a) => ({
+          ...a,
+          context: a.context as AttachmentI['context'],
+          status: 'processing' as const,
+          variants: null,
+        }));
+
     const optimisticMessage: MessageI = {
       sender,
-      conversation: conversationId,
-      content,
+      conversation: activeConversation._id,
+      content: recording ? undefined : (content ?? undefined),
       tempId,
-      type: MessageType.TEXT,
+      type: optimisticMessageType(recording, optimisticAttachments),
       status: MessageStatus.SENDING,
       timestamp: new Date().toISOString(),
-      attachments: [],
+      attachments: optimisticAttachments,
     };
 
+    this.resetComposer(!recording);
     this.isMessageLoading.set(true);
 
-    if (!activeConversation.createdAt) {
-      this.conversationService
-        .createConversation([sender._id, this.selectedUser()!._id])
-        .pipe(
-          catchError((err) => this.handleSendError(err, tempId)),
-          switchMap((conversation) => {
-            const attachments = this.pendingAttachments().filter(
-              (a) => !a.uploading && a.fileKey,
-            );
-            this.clearPendingAttachments();
-
-            this.messageControl.reset();
-            const textarea = this.sendInput().nativeElement;
-
-            if (textarea) {
-              textarea.style.height = 'auto';
-            }
-            this.messageService.addMessage({
-              ...optimisticMessage,
-              conversation: conversation._id,
-            });
-            this.router.navigateByUrl(`/messages/${conversation._id}`);
-
-            return this.messageService
-              .sendMessage(
-                conversation._id,
-                content ?? null,
-                attachments
-                  .filter((a) => a.fileKey)
-                  .map((a) => ({
-                    uploadId: a.fileKey as string,
-                    context: a.context as string,
-                    mimeType: a.file.type,
-                    fileSize: a.file.size,
-                    originalName: a.file.name,
-                  })),
-                tempId,
-              )
-              .pipe(
-                takeUntilDestroyed(this.destroyRef),
-                catchError((err) => this.handleSendError(err, tempId)),
-                tap((res) => {
-                  this.isMessageLoading.set(false);
-                  this.messageService.fillInMessageDetails(res);
-                }),
-              );
-          }),
-        )
-        .subscribe();
-      return;
-    }
-
-    this.messageControl.reset();
-    const textarea = this.sendInput().nativeElement;
-    if (textarea) {
-      textarea.style.height = 'auto';
-    }
-    this.messageService.addMessage(optimisticMessage);
-
-    const attachments = this.pendingAttachments().filter(
-      (a) => !a.uploading && a.fileKey,
-    );
-    this.clearPendingAttachments();
-
-    this.messageService
-      .sendMessage(
-        conversationId,
-        content,
-        attachments.map((a) => ({
-          uploadId: a.fileKey as string,
-          context: a.context,
-          mimeType: a.file.type,
-          fileSize: a.file.size,
-          originalName: a.file.name,
-        })),
-        tempId,
-      )
+    this.ensureConversation(activeConversation, sender)
       .pipe(
+        tap((conversationId) => {
+          this.messageService.addMessage({
+            ...optimisticMessage,
+            conversation: conversationId,
+          });
+          if (conversationId !== activeConversation._id) {
+            this.router.navigateByUrl(`/messages/${conversationId}`);
+          }
+        }),
+        switchMap((conversationId) =>
+          recording
+            ? this.sendRecordedAudio(conversationId, tempId, recording)
+            : this.messageService
+                .sendMessage(conversationId, content ?? null, attachments, tempId)
+                .pipe(
+                  tap((res) => {
+                    this.isMessageLoading.set(false);
+                    this.messageService.fillInMessageDetails(res);
+                  }),
+                ),
+        ),
         takeUntilDestroyed(this.destroyRef),
         catchError((err) => this.handleSendError(err, tempId)),
-        tap((res) => {
-          this.isMessageLoading.set(false);
-          this.messageService.fillInMessageDetails(res);
-        }),
       )
       .subscribe();
+  }
+
+  /**
+   * The id to send into, creating the conversation first if this is the opening
+   * message of one. A mock conversation carries the other user's id in place of
+   * a real one and has no `createdAt` — see `createMockConversation()`.
+   */
+  private ensureConversation(
+    conversation: ConversationI,
+    sender: UserI,
+  ): Observable<string> {
+    if (conversation.createdAt) return of(conversation._id);
+
+    return this.conversationService
+      .createConversation([sender._id, this.selectedUser()!._id])
+      .pipe(map((created) => created._id));
+  }
+
+  /** A recording as a file the upload pipeline will accept. */
+  private recordingFile(result: RecordingResult): File {
+    const blob = result.blob;
+    // Derive from the blob: the recorder falls back to other containers when
+    // webm is unsupported (Safari), and the codec parameter must be stripped
+    // because the server matches the mime type against an exact whitelist.
+    const mimeType = (blob.type || 'audio/webm').split(';')[0];
+    return new File([blob], `recording.${audioExtension(mimeType)}`, {
+      type: mimeType,
+    });
+  }
+
+  /** Clears the composer once its contents have been captured for sending. */
+  private resetComposer(clearTextAndAttachments: boolean): void {
+    if (clearTextAndAttachments) {
+      this.messageControl.reset();
+      const textarea = this.sendInput().nativeElement;
+      if (textarea) textarea.style.height = 'auto';
+    }
+    this.clearPendingAttachments();
   }
 
   private sendRecordedAudio(
@@ -994,6 +1051,23 @@ export class ChatboxComponent implements OnInit {
             break;
           }
           case 'upload-ready': {
+            /*
+             * The uploader's own confirmation that a group picture is live.
+             *
+             * Other members learn about it through `conversation-update`, which
+             * the worker broadcasts separately. Handling it here as well means
+             * the person who made the change does not depend on that second
+             * event arriving to see their own picture — the case that made the
+             * update look like it required a reload.
+             */
+            if (res.context === 'group-avatar' && res.resourceId) {
+              this.conversationService.applyGroupPicture(
+                res.resourceId,
+                res.variants?.['medium'] ?? '',
+              );
+              break;
+            }
+
             this.messageService.updateAttachmentVariants(
               res.uploadId,
               res.variants,

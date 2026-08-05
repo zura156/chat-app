@@ -24,8 +24,7 @@ import {
   switchMap,
   takeUntil,
   tap,
-  throwError,
-} from 'rxjs';
+  } from 'rxjs';
 import { FormControl, ReactiveFormsModule } from '@angular/forms';
 import { UserI } from '../../../user/interfaces/user.interface';
 import { HlmTabsImports } from '@spartan-ng/helm/tabs';

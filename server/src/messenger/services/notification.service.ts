@@ -209,6 +209,19 @@ export const createNotification = async (
     existing.map((notif) => [notif.user.toString(), notif.seen_at]),
   );
 
+  /*
+   * One count per recipient, issued together.
+   *
+   * This is deliberately not folded into `deriveUnreadCounts`: that batches one
+   * user across many conversations, whereas this is many users in one
+   * conversation, and the two do not reduce to the same query. Each recipient's
+   * count excludes their *own* messages, so two recipients cannot share a
+   * result even when they share a watermark.
+   *
+   * What keeps it acceptable on the hot path: the count is capped at
+   * UNREAD_COUNT_CAP, served entirely by the {conversation, timestamp} index,
+   * and bounded by the conversation's member limit.
+   */
   const counts = await Promise.all(
     recipients.map(async (user) => {
       const key = user.toString();

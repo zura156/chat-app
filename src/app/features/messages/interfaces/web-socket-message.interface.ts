@@ -16,6 +16,7 @@ type WebSocketMessageType =
   | 'message-status'
   | 'message-edited'
   | 'message-deleted'
+  | 'rate-limited'
   | MessageContentType
   | 'user-status'
   | 'file-upload'
@@ -93,6 +94,8 @@ export interface UploadReadyMessage extends BaseWebSocketMessage {
   type: 'upload-ready';
   uploadId: string;
   context?: string;
+  /** What the upload was for — a conversation id for `group-avatar`. */
+  resourceId?: string | null;
   variants: Record<string, string>;
   duration?: number; // for audio/video length in seconds
 }
@@ -127,7 +130,20 @@ export interface MessageDeletedMessage extends BaseWebSocketMessage {
   message: { _id: string; deleted_at: string };
 }
 
+/**
+ * The server dropped a frame for exceeding its per-type budget. Inbound only —
+ * previously such frames were dropped in silence, which is indistinguishable
+ * from a broken server.
+ */
+export interface RateLimitedMessage extends BaseWebSocketMessage {
+  type: 'rate-limited';
+  message_type: string;
+  /** Seconds until that type's budget refills. */
+  retry_after: number;
+}
+
 export type WebSocketMessageT =
+  | RateLimitedMessage
   | MessageEditedMessage
   | MessageDeletedMessage
   | ConversationUpdateMessage

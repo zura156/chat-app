@@ -18,6 +18,9 @@ import {
   redactForViewer,
   withPrivacyDefaults,
 } from '../services/privacy.service';
+import { deleteAccount } from '../services/account-deletion.service';
+import { clampLimit, clampOffset } from '../../utils/pagination';
+import { clearAuthCookies } from '../../auth/auth.controller';
 
 /**
  * Everything another user is allowed to see. Do not widen this: `-password`
@@ -34,7 +37,9 @@ const PUBLIC_USER_FIELDS =
 const PUBLIC_USER_FIELDS_WITH_PRIVACY = `${PUBLIC_USER_FIELDS} privacy`;
 
 /** The caller's own record — includes account-level fields, still no password. */
-const SELF_USER_FIELDS = `${PUBLIC_USER_FIELDS} email is_email_verified last_login blocked_users privacy`;
+// `pending_email` is included so the account screen can show an outstanding
+// address change and offer to cancel it. Self-only, like `email` itself.
+const SELF_USER_FIELDS = `${PUBLIC_USER_FIELDS} email pending_email is_email_verified last_login blocked_users privacy`;
 
 export const getPrivacySettings = async (
   req: AuthRequest,
@@ -207,8 +212,10 @@ export const getUserById = async (
       return;
     }
 
-    if (!id) {
-      next(createCustomError('User ID was not provided.', 400));
+    if (!id || !Types.ObjectId.isValid(id)) {
+      // Unvalidated, this reached Mongoose as a CastError and surfaced as a
+      // 500 — every other id-taking route here already checked.
+      next(createCustomError('A valid user id is required', 400));
       return;
     }
 
@@ -235,8 +242,7 @@ export const getUserById = async (
 
     res.status(200).json(redactForViewer(user, viewerId, contacts));
   } catch (error) {
-    console.error('Get user by id error:', error);
-    res.status(500).json({ message: 'Server error' });
+    next(error);
   }
 };
 
@@ -262,70 +268,133 @@ export const getCurrentUser = async (
 
     res.status(200).json(user);
   } catch (error) {
-    console.error('Get current user error:', error);
-    res.status(500).json({ message: 'Server error' });
+    next(error);
   }
 };
+
+/** Length ceilings for the free-text profile fields. */
+const FIELD_LIMITS = {
+  username: { min: 3, max: 32 },
+  first_name: { min: 1, max: 64 },
+  last_name: { min: 1, max: 64 },
+  bio: { min: 0, max: 500 },
+} as const;
+
+const USERNAME_PATTERN = /^[a-zA-Z0-9._-]+$/;
 
 export const updateUserDetails = async (
   req: AuthRequest,
   res: Response,
+  next: NextFunction,
 ): Promise<void> => {
   try {
-    const updateDetails = req.body as Partial<UserDTO>;
-
-    if (!updateDetails || Object.keys(updateDetails).length === 0) {
-      res.status(400).json({ message: 'No update data provided' });
-      return;
-    }
-
-    // Validate non-empty strings
-    const requiredFields = ['first_name', 'last_name', 'username'] as const;
-    for (const field of requiredFields) {
-      if (updateDetails[field] === '') {
-        res
-          .status(400)
-          .json({ message: `${field.replace('_', ' ')} cannot be empty` });
-        return;
-      }
-    }
-
     if (!req.user) {
       res.status(401).json({ message: 'Not authenticated' });
       return;
     }
 
-    const user = await User.findById(req.user._id.toString()).select(
-      'username first_name last_name bio',
-    );
+    const body = (req.body ?? {}) as Partial<UserDTO>;
+    const allowedFields = Object.keys(
+      FIELD_LIMITS,
+    ) as (keyof typeof FIELD_LIMITS)[];
 
-    if (!user) {
-      res.status(404).json({ message: 'User not found' });
+    const updates: Partial<Record<keyof typeof FIELD_LIMITS, string>> = {};
+
+    for (const field of allowedFields) {
+      const value = body[field];
+      if (value === undefined) continue;
+
+      if (typeof value !== 'string') {
+        next(createCustomError(`${field.replace('_', ' ')} must be text`, 400));
+        return;
+      }
+
+      // Unbounded before: `bio` in particular had no ceiling at any layer, so
+      // the only limit on what a user could store was the 1 MB body parser.
+      const trimmed = value.trim();
+      const { min, max } = FIELD_LIMITS[field];
+
+      if (trimmed.length < min) {
+        next(
+          createCustomError(`${field.replace('_', ' ')} cannot be empty`, 400),
+        );
+        return;
+      }
+
+      if (trimmed.length > max) {
+        next(
+          createCustomError(
+            `${field.replace('_', ' ')} must be at most ${max} characters`,
+            400,
+          ),
+        );
+        return;
+      }
+
+      if (field === 'username' && !USERNAME_PATTERN.test(trimmed)) {
+        next(
+          createCustomError(
+            'Username may only contain letters, numbers, dots, underscores and hyphens',
+            400,
+          ),
+        );
+        return;
+      }
+
+      updates[field] = trimmed;
+    }
+
+    if (Object.keys(updates).length === 0) {
+      next(createCustomError('No update data provided', 400));
       return;
     }
 
-    const allowedFields = [
-      'username',
-      'first_name',
-      'last_name',
-      'bio',
-    ] as const;
+    // Checked up front so a taken name comes back as a 409 the form can show,
+    // rather than as a save-time E11000 that the old catch turned into a 500
+    // with the raw Mongo error attached to the response.
+    if (updates.username) {
+      const taken = await User.exists({
+        username: updates.username,
+        _id: { $ne: req.user._id },
+      });
 
-    allowedFields.forEach((field) => {
-      if (req.body[field] !== undefined) {
-        (user as any)[field] = req.body[field];
+      if (taken) {
+        next(createCustomError('That username is already taken', 409));
+        return;
       }
-    });
+    }
 
-    await user.save();
+    const user = await User.findByIdAndUpdate(
+      req.user._id.toString(),
+      { $set: updates },
+      { returnDocument: 'after', runValidators: true },
+    ).select(SELF_USER_FIELDS);
 
-    res.status(200).json({ message: 'User updated' });
+    if (!user) {
+      next(createCustomError('User not found', 404));
+      return;
+    }
+
+    // Returning the updated record saves the client a refetch it was
+    // previously forced into by a bare success message.
+    res.status(200).json(user);
   } catch (error) {
-    console.error('Update user error:', error);
-    res.status(500).json({ message: 'Server error', error });
+    next(error);
   }
 };
 
+/**
+ * Closes the account for good.
+ *
+ * Two things were wrong here. The lookup passed `req.body` as the second
+ * argument to `findById`, which is the *projection* — so the shape of the
+ * document being loaded was whatever JSON the caller sent. And the deletion
+ * removed only the user row, leaving their messages, uploads, stored objects,
+ * notifications, mutes, tokens and every other user's block list intact.
+ *
+ * It also cost nothing but a session cookie. An irreversible destructive action
+ * on the caller's own account is exactly the case for re-entering the password.
+ */
 export const deleteUser = async (
   req: AuthRequest,
   res: Response,
@@ -337,19 +406,36 @@ export const deleteUser = async (
       return;
     }
 
-    const user = await User.findById(req.user._id.toString(), req.body);
+    const { password } = (req.body ?? {}) as { password?: unknown };
+
+    if (typeof password !== 'string' || !password) {
+      next(
+        createCustomError(
+          'Your password is required to delete your account',
+          400,
+        ),
+      );
+      return;
+    }
+
+    const user = await User.findById(req.user._id.toString());
 
     if (!user) {
       next(createCustomError('User not found', 404));
       return;
     }
 
-    await user.deleteOne();
+    if (!(await user.comparePassword(password))) {
+      next(createCustomError('That password is not correct', 401));
+      return;
+    }
 
+    await deleteAccount(user._id as Types.ObjectId);
+
+    clearAuthCookies(res);
     res.status(200).json({ message: 'User deleted successfully!' });
   } catch (error) {
-    console.error('Update user error:', error);
-    res.status(500).json({ message: 'Server error' });
+    next(error);
   }
 };
 
@@ -360,8 +446,8 @@ export const getUsers = async (
 ) => {
   try {
     const user = req.user;
-    const limit = parseInt(req.query.limit as string) || 20;
-    const offset = parseInt(req.query.offset as string) || 0;
+    const limit = clampLimit(req.query.limit);
+    const offset = clampOffset(req.query.offset);
 
     if (!user) {
       next(createCustomError('User must be authorized!', 401));
@@ -380,7 +466,8 @@ export const getUsers = async (
       User.find(filter)
         .sort({ updatedAt: -1 })
         .skip(offset)
-        .limit(Math.min(limit, 100))
+        .limit(limit)
+        .skip(offset)
         .select(PUBLIC_USER_FIELDS_WITH_PRIVACY)
         .lean(),
       // was counting a non-existent `participants` field, so it was always 0
@@ -398,8 +485,7 @@ export const getUsers = async (
       totalCount,
     });
   } catch (err) {
-    console.error('Error getting users:', err);
-    res.status(500).json({ message: 'Server error getting users' });
+    next(err);
   }
 };
 
@@ -450,7 +536,6 @@ export const searchUsers = async (
       users: users.map((u) => redactForViewer(u, viewerId, contacts)),
     });
   } catch (err) {
-    console.error('Error getting users:', err);
-    res.status(500).json({ message: 'Server error getting users' });
+    next(err);
   }
 };

@@ -1,30 +1,27 @@
 import { Router } from 'express';
 import { MessageController } from '../controllers/message.controller';
-import { MessageService } from '../services/message.service';
 import { validateConversation } from '../middlewares/validate-conversation.middleware';
+import { getMessageController } from '../messenger.container';
 
 const router = Router();
 
-// Dependency Injection
-router.use((req, res, next) => {
-  const broadcastMessage = req.app.get('broadcastMessage');
-  if (!req.messageService) {
-    req.messageService = new MessageService(broadcastMessage);
-  }
-  if (!req.messageController) {
-    req.messageController = new MessageController(req.messageService);
-  }
-  next();
-});
+/*
+ * The controller and service are resolved once, lazily, rather than
+ * reconstructed on every request. They hold no per-request state — only the
+ * broadcast function — so a new pair per request was pure allocation, and the
+ * `if (!req.messageService)` guards that wrapped it could never be true: each
+ * request starts with a fresh `req`.
+ */
+const controller = (): MessageController => getMessageController();
 
 // --- Routes ---
 
 router.post('/:id/send', validateConversation, (req, res, next) =>
-  req.messageController.sendMessage(req, res, next),
+  controller().sendMessage(req, res, next),
 );
 
 router.get('/:id/messages', validateConversation, (req, res, next) =>
-  req.messageController.getMessagesByConversationId(req, res, next),
+  controller().getMessagesByConversationId(req, res, next),
 );
 
 // `:id` is the conversation, which validateConversation proves membership of;
@@ -32,18 +29,15 @@ router.get('/:id/messages', validateConversation, (req, res, next) =>
 router
   .route('/:id/messages/:messageId')
   .all(validateConversation)
-  .patch((req, res, next) =>
-    req.messageController.editMessage(req, res, next),
-  )
-  .delete((req, res, next) =>
-    req.messageController.deleteMessage(req, res, next),
-  );
+  .patch((req, res, next) => controller().editMessage(req, res, next))
+  .delete((req, res, next) => controller().deleteMessage(req, res, next));
+
 router.get('/:id/media', validateConversation, (req, res, next) =>
-  req.messageController.getMediaMessages(req, res, next),
+  controller().getMediaMessages(req, res, next),
 );
 
 router.get('/:id/files', validateConversation, (req, res, next) =>
-  req.messageController.getFileMessages(req, res, next),
+  controller().getFileMessages(req, res, next),
 );
 
 export default router;

@@ -20,6 +20,8 @@ import { MessageTypeEnum } from '../interfaces/message.interface';
 import { MessageService } from './message.service';
 import { buildDmKey } from '../models/conversation.model';
 import { invalidateParticipantsCache } from '../../utils/conversation-cache';
+import appConfig from '../../config/config';
+import { purgeConversationUploads } from '../../upload/upload-cleanup.service';
 import {
   clearNotificationForMute,
   dropNotificationsForConversation,
@@ -35,6 +37,66 @@ const escapeRegex = (input: string): string =>
   input.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
 const MAX_PARTICIPANTS = 100;
+
+/**
+ * Conversation search was unbounded — every match, fully populated, in one
+ * response. A user in many conversations searching for a common substring could
+ * pull their entire history in a single request.
+ */
+const SEARCH_RESULT_LIMIT = 50;
+
+/**
+ * Whether a URL points at media this server stored. Client-supplied image URLs
+ * are otherwise a way to render arbitrary remote content — and to have every
+ * viewer's browser make a request to a host of the sender's choosing.
+ */
+const isOwnMediaUrl = (value: unknown): value is string =>
+  typeof value === 'string' &&
+  (value.startsWith(`${appConfig.s3Url}/`) || value.startsWith('/'));
+
+/**
+ * How `last_message` is loaded for a conversation card, in one place.
+ *
+ * Every copy of this selected a `file` field that stopped existing when
+ * attachments became an array — so a conversation whose newest message was an
+ * image or a document rendered with a blank preview in the list. One of the
+ * five copies had already been corrected, which is exactly how the other four
+ * went unnoticed.
+ */
+const LAST_MESSAGE_POPULATE = {
+  path: 'last_message',
+  select: 'content sender timestamp type attachments deleted_at',
+  populate: { path: 'sender', select: 'username pfp_url pfp_variants' },
+} as const;
+
+/**
+ * Who may reshape a group.
+ *
+ * There was no answer to this before: `validateConversation` proves membership
+ * and nothing checked anything further, so any member could remove every other
+ * member — including the creator — or delete the conversation and its entire
+ * history for everyone. The creator is the group's admin; everyone else may act
+ * on themselves and nothing more.
+ *
+ * DMs have no creator and two equal parties, so they are excluded here and
+ * handled by their own rules at each call site.
+ */
+const isGroupAdmin = (
+  conversation: IConversation,
+  userId: string,
+): boolean => conversation.created_by?.toString() === userId;
+
+const assertGroupAdmin = (
+  conversation: IConversation,
+  userId: string,
+): void => {
+  if (!isGroupAdmin(conversation, userId)) {
+    throw createCustomError(
+      'Only the person who created this conversation can do that',
+      403,
+    );
+  }
+};
 
 export class ConversationService {
   private broadcast: BroadcastFunction;
@@ -58,11 +120,7 @@ export class ConversationService {
         .skip(offset)
         .limit(limit)
         .populate('participants', 'username pfp_url pfp_variants')
-        .populate({
-          path: 'last_message',
-          select: 'content sender timestamp type file', // Include file/type for display
-          populate: { path: 'sender', select: 'username pfp_url pfp_variants' },
-        }),
+        .populate(LAST_MESSAGE_POPULATE),
       Conversation.countDocuments({ participants: userId }),
     ]);
     return { conversations, totalCount };
@@ -73,9 +131,11 @@ export class ConversationService {
    */
   public async searchConversations(userId: string, query: string) {
     const userObjectId = new Types.ObjectId(userId);
-    // Escape the user input: unescaped it is both a ReDoS vector and a way to
-    // match every document (e.g. ".*")
-    const safeQuery = escapeRegex((query ?? '').trim()).slice(0, 100);
+
+    // Truncate first, then escape. Escaping first and slicing after could cut
+    // through a backslash the escaping had just inserted, leaving a trailing
+    // `\` — an invalid regex, which Mongo rejects and the caller sees as a 500.
+    const safeQuery = escapeRegex((query ?? '').trim().slice(0, 100));
 
     if (!safeQuery) {
       return [];
@@ -99,12 +159,9 @@ export class ConversationService {
       ],
     })
       .populate('participants', 'username pfp_url pfp_variants')
-      .populate({
-        path: 'last_message',
-        select: 'content sender timestamp type file',
-        populate: { path: 'sender', select: 'username pfp_url pfp_variants' },
-      })
-      .sort({ updatedAt: -1 });
+      .populate(LAST_MESSAGE_POPULATE)
+      .sort({ updatedAt: -1 })
+      .limit(SEARCH_RESULT_LIMIT);
 
     return conversations;
   }
@@ -210,6 +267,18 @@ export class ConversationService {
       );
     }
 
+    /*
+     * `group_name` was capped on update but not on create, and `group_picture`
+     * was never checked at all — an arbitrary client string written straight to
+     * the document and later rendered as an image source. Only keys this
+     * server's own upload pipeline produced are accepted.
+     */
+    const name = typeof group_name === 'string' ? group_name.trim().slice(0, 100) : undefined;
+
+    if (group_picture !== undefined && !isOwnMediaUrl(group_picture)) {
+      throw createCustomError('Invalid group picture', 400);
+    }
+
     const isDm = !is_group && participantIds.length === 2;
     const dm_key = isDm ? buildDmKey(participantIds) : undefined;
 
@@ -230,7 +299,7 @@ export class ConversationService {
         participants: participantIds,
         is_group,
         dm_key,
-        group_name,
+        group_name: name,
         group_picture,
         created_by,
       });
@@ -340,6 +409,15 @@ export class ConversationService {
         403,
       );
     }
+
+    // This destroys every message for every member. In a group that is the
+    // admin's call alone — any member could previously wipe the whole thread.
+    // A member who simply wants out leaves instead (manageConversationMembers
+    // with themselves in `remove`).
+    if (conversation.is_group) {
+      assertGroupAdmin(conversation, userId);
+    }
+
     const conversationId = conversation._id.toString();
 
     const leaveMessage: ConversationLeaveMessage = {
@@ -349,6 +427,11 @@ export class ConversationService {
       removed_by: userId,
     };
     await this.broadcast(leaveMessage);
+
+    // Stored objects before the messages that reference them: once the messages
+    // are gone nothing knows which uploads belonged to this conversation, and
+    // the bytes stay in the bucket for good.
+    await purgeConversationUploads(conversation._id as Types.ObjectId);
 
     await conversation.deleteOne();
     // Delete all messages associated with this conversation here
@@ -420,8 +503,8 @@ export class ConversationService {
     userId: string,
     memberChanges: MemberChangesI,
   ): Promise<IConversation> {
-    const removeSet = new Set(memberChanges.remove ?? []);
-    const addSet = new Set(memberChanges.add ?? []);
+    const removeSet = new Set((memberChanges.remove ?? []).map(String));
+    const addSet = new Set((memberChanges.add ?? []).map(String));
 
     // Membership changes only make sense for groups: silently mutating a DM
     // would turn it into a group the other party never agreed to.
@@ -438,6 +521,24 @@ export class ConversationService {
       )
     ) {
       throw createCustomError('Invalid member id', 400);
+    }
+
+    /*
+     * Two permitted shapes, and nothing in between:
+     *
+     *   - the admin adding or removing anyone, or
+     *   - any member removing exactly themselves, which is "leave".
+     *
+     * Without this any participant could kick every other participant, the
+     * creator included. Leaving is carved out explicitly because refusing it
+     * would trap members in a group they cannot exit — the only other way out
+     * being to delete the conversation for everybody.
+     */
+    const isLeaving =
+      addSet.size === 0 && removeSet.size === 1 && removeSet.has(userId);
+
+    if (!isLeaving) {
+      assertGroupAdmin(conversation, userId);
     }
 
     // Counted against the members that actually change, not against the sizes
@@ -513,16 +614,23 @@ export class ConversationService {
       }
     }
 
+    /*
+     * Everything below the save is a consequence of it, so nothing above the
+     * save may be observable. The leave event used to be broadcast — and its
+     * INFO message written — *before* `conversation.save()`, so a failed write
+     * left every client believing in a membership change that never happened.
+     */
+    await conversation.save();
+    // Membership changed — the cached participant list used by broadcast() is
+    // now wrong for both the removed and the added users.
+    await invalidateParticipantsCache(conversation._id.toString());
+
     let populatedConversation = (await conversation.populate([
       {
         path: 'participants',
         select: 'first_name last_name username pfp_url pfp_variants',
       },
-      {
-        path: 'last_message',
-        select: 'content sender timestamp type file',
-        populate: { path: 'sender', select: 'username pfp_url pfp_variants' },
-      },
+      LAST_MESSAGE_POPULATE,
     ])) as ConversationI;
 
     let message: ConversationLeaveMessage | ConversationJoinMessage | undefined;
@@ -544,11 +652,13 @@ export class ConversationService {
       const infoMessage = {
         sender: currentUser?._id || userId,
         conversation: String(populatedConversation._id),
-        content: `${removedUsers
-          .map((p) => p.username)
-          .join(', ')} have been removed from the conversation by ${
-          currentUser?.username || 'an admin'
-        }`,
+        content: isLeaving
+          ? `${currentUser?.username ?? 'A member'} left the conversation`
+          : `${removedUsers
+              .map((p) => p.username)
+              .join(', ')} have been removed from the conversation by ${
+              currentUser?.username || 'an admin'
+            }`,
         type: MessageTypeEnum.INFO,
       };
 
@@ -559,13 +669,14 @@ export class ConversationService {
         infoMessage.type,
       );
 
-      this.broadcast(message);
+      // Recipients are named explicitly: the removed users are no longer
+      // members, so resolving from the conversation would skip the very people
+      // being told they were removed.
+      await this.broadcast(message, [
+        ...conversation.participants.map((p) => p.toString()),
+        ...removeSet,
+      ]);
     }
-
-    await conversation.save();
-    // Membership changed — the cached participant list used by broadcast() is
-    // now wrong for both the removed and the added users.
-    await invalidateParticipantsCache(conversation._id.toString());
 
     // Both of these follow the save rather than precede it: until membership is
     // durable, seeding a watermark or dropping a counter describes a change
@@ -595,11 +706,7 @@ export class ConversationService {
         path: 'participants',
         select: 'first_name last_name username pfp_url pfp_variants',
       },
-      {
-        path: 'last_message',
-        select: 'content sender timestamp type file',
-        populate: { path: 'sender', select: 'username pfp_url pfp_variants' },
-      },
+      LAST_MESSAGE_POPULATE,
     ])) as ConversationI;
 
     if (addSet.size > 0) {

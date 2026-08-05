@@ -5,8 +5,7 @@ import {
   createCustomError,
   CustomAPIError,
 } from '../../error-handling/models/custom-api-error.model'; // Your error handler
-import { Types } from 'mongoose';
-import { Message } from '../models/message.model';
+import { clampLimit, clampOffset } from '../../utils/pagination';
 
 export class MessageController {
   private messageService: MessageService;
@@ -86,16 +85,16 @@ export class MessageController {
       const { content, attachments, tempId } = req.body;
 
       if (!conversationId) {
-        res
-          .status(403)
-          .json({ error: 'Conversation not found or access denied.' });
+        next(
+          createCustomError('Conversation not found or access denied.', 403),
+        );
         return;
       }
 
       if (!content?.trim() && !attachments?.length) {
-        res
-          .status(400)
-          .json({ error: 'Message must have content or attachments.' });
+        next(
+          createCustomError('Message must have content or attachments.', 400),
+        );
         return;
       }
 
@@ -130,16 +129,17 @@ export class MessageController {
     next: NextFunction,
   ): Promise<void> => {
     try {
-      const limit = parseInt(req.query.limit as string) || 20;
-      const offset = parseInt(req.query.offset as string) || 0;
+      const limit = clampLimit(req.query.limit);
+      const offset = clampOffset(req.query.offset);
 
       const conversationId = req.conversation?._id.toString();
       if (!conversationId) {
-        res
-          .status(403)
-          .json(
-            'Conversation either does not exist, or you do not have the access to this conversation.',
-          );
+        next(
+          createCustomError(
+            'Conversation either does not exist, or you do not have access to it.',
+            403,
+          ),
+        );
         return;
       }
 
@@ -152,8 +152,7 @@ export class MessageController {
 
       res.status(200).json(result);
     } catch (error) {
-      console.error('Error fetching messages:', error);
-      next(createCustomError('Failed to fetch messages', 500));
+      next(error);
     }
   };
 
@@ -162,17 +161,18 @@ export class MessageController {
     res: Response,
     next: NextFunction,
   ): Promise<void> => {
-    const limit = parseInt(req.query.limit as string) || 20;
-    const offset = parseInt(req.query.offset as string) || 0;
+    const limit = clampLimit(req.query.limit);
+    const offset = clampOffset(req.query.offset);
 
     const conversationId = req.conversation?._id.toString();
 
     if (!conversationId) {
-      res
-        .status(403)
-        .json(
-          'Conversation either does not exist, or you do not have the access to this conversation.',
-        );
+      next(
+        createCustomError(
+          'Conversation either does not exist, or you do not have access to it.',
+          403,
+        ),
+      );
       return;
     }
 
@@ -185,8 +185,7 @@ export class MessageController {
 
       res.status(200).json(result);
     } catch (error) {
-      console.error('Error fetching messages:', error);
-      next(createCustomError('Failed to fetch messages', 500));
+      next(error);
     }
   };
   public getFileMessages = async (
@@ -194,17 +193,18 @@ export class MessageController {
     res: Response,
     next: NextFunction,
   ): Promise<void> => {
-    const limit = parseInt(req.query.limit as string) || 20;
-    const offset = parseInt(req.query.offset as string) || 0;
+    const limit = clampLimit(req.query.limit);
+    const offset = clampOffset(req.query.offset);
 
     const conversationId = req.conversation?._id.toString();
 
     if (!conversationId) {
-      res
-        .status(403)
-        .json(
-          'Conversation either does not exist, or you do not have the access to this conversation.',
-        );
+      next(
+        createCustomError(
+          'Conversation either does not exist, or you do not have access to it.',
+          403,
+        ),
+      );
       return;
     }
 
@@ -217,81 +217,18 @@ export class MessageController {
 
       res.status(200).json(result);
     } catch (error) {
-      console.error('Error fetching messages:', error);
-      next(createCustomError('Failed to fetch messages', 500));
+      next(error);
     }
   };
 
-  getMediaFileStats = async (req: AuthRequest, res: Response) => {
-    try {
-      const { userId, conversationId } = req.query;
-
-      const matchStage: any = {
-        file: { $exists: true },
-      };
-
-      if (userId) {
-        matchStage.sender = new Types.ObjectId(userId as string);
-      }
-
-      if (conversationId) {
-        matchStage.conversation = new Types.ObjectId(conversationId as string);
-      }
-
-      const stats = await Message.aggregate([
-        { $match: matchStage },
-        {
-          $group: {
-            _id: {
-              $cond: {
-                if: {
-                  $regexMatch: {
-                    input: '$file.mime_type',
-                    regex: /^(image|video)\//,
-                  },
-                },
-                then: 'media',
-                else: 'files',
-              },
-            },
-            count: { $sum: 1 },
-            totalSize: { $sum: '$file.size_in_bytes' },
-            averageSize: { $avg: '$file.size_in_bytes' },
-          },
-        },
-        { $sort: { _id: 1 } },
-      ]);
-
-      // Format the response
-      const result = {
-        media: { count: 0, totalSize: 0, averageSize: 0 },
-        files: { count: 0, totalSize: 0, averageSize: 0 },
-      };
-
-      stats.forEach((stat) => {
-        if (stat._id === 'media') {
-          result.media = {
-            count: stat.count,
-            totalSize: stat.totalSize,
-            averageSize: Math.round(stat.averageSize),
-          };
-        } else {
-          result.files = {
-            count: stat.count,
-            totalSize: stat.totalSize,
-            averageSize: Math.round(stat.averageSize),
-          };
-        }
-      });
-
-      res.json({ stats: result });
-    } catch (error) {
-      console.error('Error fetching media/file statistics:', error);
-      res.status(500).json({
-        success: false,
-        message: 'Failed to get media/file statistics',
-        error: error instanceof Error ? error.message : 'Unknown error',
-      });
-    }
-  };
 }
+
+/*
+ * `getMediaFileStats` used to live here. It was removed rather than fixed:
+ * nothing routed to it, it aggregated over a `file` field that stopped existing
+ * when attachments became an array (so it could only ever have returned zeroes),
+ * and it read `userId` and `conversationId` straight from the query with no
+ * authorisation check — had anyone mounted it, it would have reported any
+ * user's storage totals to any caller. The storage screen is served by
+ * `GET /user/storage`, which scopes to the authenticated user.
+ */

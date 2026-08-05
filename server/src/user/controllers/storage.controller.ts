@@ -20,7 +20,12 @@ const CATEGORIES: { label: string; contexts: string[] }[] = [
   { label: 'Videos', contexts: ['dm-video'] },
   { label: 'Audio', contexts: ['dm-audio'] },
   { label: 'Documents', contexts: ['dm-file'] },
-  { label: 'Profile media', contexts: ['avatar', 'group-avatar', 'cover'] },
+  // 'cover-photo', not 'cover' — the context name is defined in upload.config
+  // and the mismatch meant cover photos were silently never counted.
+  {
+    label: 'Profile media',
+    contexts: ['avatar', 'group-avatar', 'cover-photo'],
+  },
 ];
 
 export const getStorageUsage = async (

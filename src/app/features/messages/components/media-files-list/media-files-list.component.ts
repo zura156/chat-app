@@ -7,7 +7,7 @@ import {
   MediaItem,
   MediaViewerService,
 } from '../../../../shared/services/media-viewer.service';
-import { AttachmentI, MessageI } from '../../interfaces/message.interface';
+import { AttachmentI } from '../../interfaces/message.interface';
 import { AudioPlayer } from '../../../../shared/components/audio-player/audio-player';
 import { FileViewer } from '../../../../shared/components/file-viewer/file-viewer';
 import { NgIcon, provideIcons } from '@ng-icons/core';
@@ -50,7 +50,13 @@ export class MediaFilesListComponent implements OnInit {
   fetchFiles(): void {
     this.messageService.fetchFileMessages();
   }
-  openMedia(attachment: AttachmentI, index: number) {
+  /**
+   * The clicked item's position is derived from its uploadId against the
+   * flattened gallery, not from the template's `$index` — those index different
+   * things (one attachment within a message, versus the gallery as a whole), so
+   * the parameter was both unused and misleading.
+   */
+  openMedia(attachment: AttachmentI) {
     if (attachment.context === 'dm-file' || attachment.context === 'dm-audio') {
       return;
     }

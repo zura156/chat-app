@@ -27,10 +27,9 @@
         <hlm-avatar
           variant="small"
           class="size-5 shrink-0 mb-1.5 cursor-pointer hover:opacity-80 transition-opacity"
-          [routerLink]="['/', message.sender._id]"
-          matTooltipClass="text-xs rounded-md"
-          matTooltipPosition="left"
-          [matTooltip]="message.sender.username"
+          [routerLink]="['/u', message.sender._id]"
+          [hlmTooltip]="message.sender.username ?? ''"
+          position="left"
         >
           <img
             [src]="imageUrl() || '/icons/avatar.svg'"
@@ -38,7 +37,7 @@
             hlmAvatarImage
           />
           <span hlmAvatarFallback>
-            <img src="/icons/avatar.svg" />
+            <img src="/icons/avatar.svg" alt="" />
           </span>
         </hlm-avatar>
       }
@@ -115,13 +114,9 @@
         <div
           appLongPress
           (longPress)="actions.openSheet(message)"
-          class="overflow-hidden pointer-coarse:select-none pointer-coarse:[-webkit-touch-callout:none]"
+          class="overflow-hidden pointer-coarse:select-none pointer-coarse:[-webkit-touch-callout:none] max-w-2xs"
           [class]="
-            message.type === 'audio' ||
-            message.type === 'video' ||
-            message.type === 'info' ||
-            message.type === 'file' ||
-            isOnlyEmoji(message.content || '')
+            !hasBubble(message)
               ? 'bg-transparent'
               : isCurrentUserMessage
                 ? 'bg-primary text-primary-foreground rounded-2xl '
@@ -133,8 +128,9 @@
             [ngClass]="{
               'items-end': isCurrentUserMessage,
               'items-start': !isCurrentUserMessage,
-              'py-1.5 px-3 max-w-xs':
+              'py-1.5 px-3 max-w-2xs':
                 message.type === 'text' && !isOnlyEmoji(message.content || ''),
+              'py-1.5 px-2': message.type === 'audio',
             }"
           >
             <!--
@@ -220,7 +216,7 @@
                           visible[0].status === "ready" && visible[0].variants
                         ) {
                           <img
-                            class="max-w-72 max-h-80 w-auto h-auto block rounded-xl"
+                            class="max-w-64 max-h-80 w-auto h-auto block rounded-xl"
                             [src]="
                               visible[0].variants.medium ||
                               visible[0].variants.thumbnail
@@ -239,7 +235,14 @@
                             </div>
                           }
                         } @else {
-                          <hlm-skeleton class="w-64 h-64 rounded-xl" />
+                          <app-attachment-placeholder
+                            [attachment]="visible[0]"
+                            [shape]="
+                              visible[0].context === 'dm-video'
+                                ? 'video'
+                                : 'image'
+                            "
+                          />
                         }
                       </div>
                     </div>
@@ -288,7 +291,10 @@
                               </div>
                             }
                           } @else {
-                            <hlm-skeleton class="size-32" />
+                            <app-attachment-placeholder
+                              [attachment]="attachment"
+                              shape="grid"
+                            />
                           }
                         </div>
                       }
@@ -311,7 +317,7 @@
                 @case ("video") {
                   @let attachment = getPrimaryAttachment(message);
                   @if (attachment) {
-                    <div class="max-w-3xs sm:max-w-xs relative">
+                    <div class="max-w-3xs sm:max-w-2xs relative">
                       @if (loadedVideoMessageId() === message._id) {
                         <app-video-player
                           [video]="attachment"
@@ -347,16 +353,11 @@
                       }
                     </div>
                   } @else if (isProcessing(message)) {
-                    <div class="w-full h-full py-2 relative">
-                      <hlm-skeleton class="w-64 h-48 rounded-xl" />
-                      <div
-                        class="absolute inset-0 flex flex-col gap-y-1 items-center justify-center"
-                      >
-                        <ng-icon hlm name="lucidePlay" size="xl" />
-                        <span class="text-xs text-muted-foreground"
-                          >Processing...</span
-                        >
-                      </div>
+                    <div class="py-2">
+                      <app-attachment-placeholder
+                        [attachment]="getPrimaryAttachment(message)"
+                        shape="video"
+                      />
                     </div>
                   } @else if (hasFailedAttachment(message)) {
                     <ng-container
@@ -373,7 +374,13 @@
                       <app-audio-player [audio]="attachment" />
                     </div>
                   } @else if (isProcessing(message)) {
-                    <hlm-skeleton class="w-48 h-10 rounded-full" />
+                    <!-- same wrapper as the player, so the bubble keeps its size -->
+                    <div class="w-3xs sm:w-40 md:w-52">
+                      <app-attachment-placeholder
+                        [attachment]="getPrimaryAttachment(message)"
+                        shape="audio"
+                      />
+                    </div>
                   } @else if (hasFailedAttachment(message)) {
                     <ng-container
                       [ngTemplateOutlet]="attachmentFailed"
@@ -395,32 +402,11 @@
                         attachment.status === "ready" && attachment.variants
                       ) {
                         <app-file-viewer [file]="attachment" />
-                      } @else if (
-                        attachment.status === "infected" ||
-                        attachment.status === "failed"
-                      ) {
-                        <div
-                          class="flex items-center gap-2 px-3 py-2 text-destructive text-xs"
-                        >
-                          <ng-icon hlm name="lucideTriangleAlert" size="sm" />
-                          {{
-                            attachment.status === "infected"
-                              ? "File blocked — failed security scan"
-                              : "Upload failed — this file could not be processed"
-                          }}
-                        </div>
                       } @else {
-                        <div
-                          class="flex items-center gap-2 px-3 py-2 border rounded-md m-1 w-fit"
-                        >
-                          <hlm-skeleton class="size-8 rounded-md shrink-0" />
-                          <div class="flex flex-col gap-1">
-                            <span class="text-xs font-medium">{{
-                              attachment.originalName ?? "File"
-                            }}</span>
-                            <hlm-skeleton class="w-16 h-2.5 rounded" />
-                          </div>
-                        </div>
+                        <app-attachment-placeholder
+                          [attachment]="attachment"
+                          shape="file"
+                        />
                       }
                     }
                   </div>
@@ -428,7 +414,7 @@
                 @default {
                   @if (message.content) {
                     <p
-                      class="whitespace-pre-wrap wrap-anywhere [word-break:break-word]"
+                      class="whitespace-pre-wrap wrap-anywhere [word-break:break-word] py-1.5"
                       [class]="
                         isOnlyEmoji(message.content) ? 'text-3xl' : 'text-sm'
                       "
@@ -462,7 +448,6 @@
             }
           </div>
         </div>
-
       </div>
     </div>
   </div>
@@ -517,11 +502,10 @@
             @let userCredentials = this.getUserCredentials(readReceipt.user_id);
             <button
               type="button"
-              matTooltipClass="text-xs rounded-md"
-              matTooltipPosition="above"
-              matTooltip="Seen by {{ userCredentials.username }} at {{
+              hlmTooltip="Seen by {{ userCredentials.username }} at {{
                 readReceipt.read_at | date: 'short'
               }}"
+              position="top"
               class="w-fit"
             >
               <hlm-avatar class="size-4">
@@ -531,7 +515,7 @@
                   hlmAvatarImage
                 />
                 <span hlmAvatarFallback
-                  ><img src="/icons/avatar.svg" alt="avatar fallback"
+                  ><img src="/icons/avatar.svg" alt=""
                 /></span>
               </hlm-avatar>
             </button>

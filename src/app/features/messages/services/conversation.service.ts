@@ -41,6 +41,74 @@ export class ConversationService {
   #conversationList = signal<ConversationListI | null>(null);
   conversationList = computed<ConversationListI | null>(this.#conversationList);
 
+  /**
+   * A locally-chosen group picture, shown before the server has one.
+   *
+   * Changing a group picture is not a direct write: the image is uploaded,
+   * queued, resized by a worker and only then written to the conversation and
+   * pushed back over the WebSocket. That is several seconds during which the
+   * person who just picked a new picture saw the old one and nothing else —
+   * which reads as "it didn't work", and is why the change appeared not to
+   * happen in real time.
+   *
+   * Holding the cropped image here bridges that gap. It is deliberately kept
+   * out of the conversation objects themselves so a data URL can never be
+   * mistaken for a stored one, and it is dropped as soon as the real URL lands.
+   */
+  #pendingGroupPicture = signal<{ conversationId: string; dataUrl: string } | null>(
+    null,
+  );
+
+  /** The optimistic picture for a conversation, if one is outstanding. */
+  pendingGroupPictureFor(conversationId: string | undefined): string | null {
+    const pending = this.#pendingGroupPicture();
+    return pending && pending.conversationId === conversationId
+      ? pending.dataUrl
+      : null;
+  }
+
+  setPendingGroupPicture(conversationId: string, dataUrl: string): void {
+    this.#pendingGroupPicture.set({ conversationId, dataUrl });
+  }
+
+  clearPendingGroupPicture(conversationId?: string): void {
+    const pending = this.#pendingGroupPicture();
+    if (!pending) return;
+    if (conversationId && pending.conversationId !== conversationId) return;
+    this.#pendingGroupPicture.set(null);
+  }
+
+  /**
+   * Applies a finished group picture directly.
+   *
+   * The uploader's own `upload-ready` event carries the processed URL and the
+   * conversation it belongs to, so their view no longer depends on the separate
+   * `conversation-update` broadcast arriving — one missed event used to mean
+   * the picture only showed up after a reload.
+   */
+  applyGroupPicture(conversationId: string, pictureUrl: string): void {
+    if (!conversationId || !pictureUrl) return;
+
+    this.clearPendingGroupPicture(conversationId);
+
+    this.#activeConversation.update((c) =>
+      c && c._id === conversationId ? { ...c, group_picture: pictureUrl } : c,
+    );
+
+    this.#conversationList.update((prev) =>
+      prev
+        ? {
+            ...prev,
+            conversations: prev.conversations.map((c) =>
+              c._id === conversationId
+                ? { ...c, group_picture: pictureUrl }
+                : c,
+            ),
+          }
+        : prev,
+    );
+  }
+
   constructor() {
     effect(() => {
       !this.authService.isAuthenticated() && this.reset();
@@ -57,6 +125,14 @@ export class ConversationService {
       toast.error('Invalid conversation data received.');
       return;
     }
+
+    // The authoritative picture has arrived, so the optimistic one has done its
+    // job. Left in place it would win over the real URL for the rest of the
+    // session.
+    if (conversation.group_picture) {
+      this.clearPendingGroupPicture(conversation._id);
+    }
+
     if (this.selectedConversationId() === conversation._id) {
       this.#activeConversation.update(() => conversation);
     }

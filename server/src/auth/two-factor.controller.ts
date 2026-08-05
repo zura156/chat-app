@@ -5,11 +5,36 @@ import { TwoFactorAuthModel } from './models/two-factor.model';
 import {
   buildOtpAuthUri,
   generateSecret,
-  verifyCode,
+  verifyAndConsumeCode,
 } from './services/totp.service';
 import { deleteAllUserRefreshTokens } from './services/token.service';
 import { createCustomError } from '../error-handling/models/custom-api-error.model';
+import { resetRateLimit } from './middlewares/rate-limiter';
 import config from '../config/config';
+import { User } from '../user/models/user.model';
+
+/**
+ * Re-checks the caller's password before a change to their second factor.
+ *
+ * A live session was previously the only thing standing between an attacker and
+ * enrolling *their* authenticator on the account — which locks the real owner
+ * out while looking, to every subsequent check, exactly like a properly secured
+ * account. Anything that alters the factors must cost the password.
+ */
+const assertPassword = async (
+  userId: string,
+  password: unknown,
+): Promise<void> => {
+  if (typeof password !== 'string' || !password) {
+    throw createCustomError('Your password is required', 400);
+  }
+
+  // req.user comes from a projection that excludes the hash.
+  const user = await User.findById(userId).select('+password');
+  if (!user || !(await user.comparePassword(password))) {
+    throw createCustomError('That password is not correct', 401);
+  }
+};
 
 /** How long an unconfirmed enrolment stays valid. */
 const SETUP_WINDOW_MS = 10 * 60 * 1000;
@@ -81,6 +106,8 @@ export const beginTwoFactorSetup = async (
       return;
     }
 
+    await assertPassword(user._id.toString(), req.body?.password);
+
     const secret = generateSecret();
     const expires_at = new Date(Date.now() + SETUP_WINDOW_MS);
 
@@ -148,10 +175,18 @@ export const confirmTwoFactorSetup = async (
       return;
     }
 
-    if (!verifyCode(record.secret, String(code ?? ''))) {
+    if (
+      !(await verifyAndConsumeCode(
+        user._id.toString(),
+        record.secret,
+        String(code ?? ''),
+      ))
+    ) {
       next(createCustomError('That code is not correct', 400));
       return;
     }
+
+    await resetRateLimit(req);
 
     // Shown once, stored hashed: a recovery code is a password-equivalent, and
     // keeping the plaintext would make the database a bypass for the factor it
@@ -200,8 +235,16 @@ export const disableTwoFactor = async (
       return;
     }
 
+    // Removing a factor is as sensitive as adding one, so it costs the password
+    // as well as a code.
+    await assertPassword(user._id.toString(), req.body?.password);
+
     const submitted = String(code ?? '');
-    const byCode = verifyCode(record.secret, submitted);
+    const byCode = await verifyAndConsumeCode(
+      user._id.toString(),
+      record.secret,
+      submitted,
+    );
     const byRecovery = record.recovery_codes.includes(
       hashRecoveryCode(submitted.replace(/\s/g, '')),
     );
@@ -211,6 +254,7 @@ export const disableTwoFactor = async (
       return;
     }
 
+    await resetRateLimit(req);
     await record.deleteOne();
 
     // Removing a factor invalidates every session but this one: if it was

@@ -1,4 +1,5 @@
 import crypto from 'crypto';
+import { redisClient } from '../../config/redis';
 
 /*
  * RFC 6238 TOTP over RFC 4226 HOTP, on node's crypto. Implemented here rather
@@ -89,17 +90,20 @@ export const generateCode = (secret: string, atMs = Date.now()): string =>
   hotp(base32Decode(secret), Math.floor(atMs / 1000 / PERIOD_SECONDS));
 
 /**
- * Whether a submitted code is valid now, allowing for clock drift. The
- * comparison is constant-time so a failure does not leak how much of the code
- * was right.
+ * The counter step a submitted code is valid for, or null. Returning the step
+ * rather than a boolean is what makes single-use enforcement possible: the step
+ * is the thing that has to be burned.
+ *
+ * The comparison is constant-time so a failure does not leak how much of the
+ * code was right.
  */
-export const verifyCode = (
+export const matchCodeStep = (
   secret: string,
   code: string,
   atMs = Date.now(),
-): boolean => {
+): number | null => {
   const submitted = (code ?? '').replace(/\s/g, '');
-  if (!/^\d{6}$/.test(submitted)) return false;
+  if (!/^\d{6}$/.test(submitted)) return null;
 
   const key = base32Decode(secret);
   const step = Math.floor(atMs / 1000 / PERIOD_SECONDS);
@@ -112,10 +116,55 @@ export const verifyCode = (
     const expected = hotp(key, step + offset);
     const a = Buffer.from(expected);
     const b = Buffer.from(submitted);
-    if (a.length === b.length && crypto.timingSafeEqual(a, b)) return true;
+    if (a.length === b.length && crypto.timingSafeEqual(a, b)) {
+      return step + offset;
+    }
   }
 
-  return false;
+  return null;
+};
+
+/** Whether a submitted code is valid now, allowing for clock drift. */
+export const verifyCode = (
+  secret: string,
+  code: string,
+  atMs = Date.now(),
+): boolean => matchCodeStep(secret, code, atMs) !== null;
+
+/**
+ * How long a burned step is remembered. A step is only ever accepted within
+ * ALLOWED_DRIFT_STEPS of now, so remembering it for the width of that window
+ * plus one period is enough — after that the code is rejected on its own merits.
+ */
+const BURN_TTL_SECONDS = PERIOD_SECONDS * (ALLOWED_DRIFT_STEPS * 2 + 2);
+
+/**
+ * Verifies a code and consumes it, so the same code cannot be presented twice.
+ *
+ * RFC 6238 §5.2 requires this: a code is valid for its whole period and, with
+ * drift tolerance, for ninety seconds in total. Without a burn, anyone who
+ * observes one — shoulder-surfing, a proxy, a screenshot in a support ticket —
+ * can replay it for the rest of that window.
+ *
+ * The claim is a single SET NX, so two requests racing with the same code
+ * cannot both win.
+ */
+export const verifyAndConsumeCode = async (
+  userId: string,
+  secret: string,
+  code: string,
+  atMs = Date.now(),
+): Promise<boolean> => {
+  const step = matchCodeStep(secret, code, atMs);
+  if (step === null) return false;
+
+  const claimed = await redisClient.set(
+    `totp:used:${userId}:${step}`,
+    '1',
+    { NX: true, EX: BURN_TTL_SECONDS },
+  );
+
+  return claimed === 'OK';
 };
 
 /** The otpauth:// URI an authenticator app scans or accepts pasted. */

@@ -1,60 +1,37 @@
 import { Router } from 'express';
-import { AuthRequest } from '../../auth/middlewares/auth.middleware';
 import { ConversationController } from '../controllers/conversation.controller';
-import { ConversationService } from '../services/conversation.service';
 import { validateConversation } from '../middlewares/validate-conversation.middleware';
-import { MessageService } from '../services/message.service';
+import { getConversationController } from '../messenger.container';
 
 const router = Router();
 
-// Dependency Injection
-router.use((req, res, next) => {
-  const broadcastMessage = req.app.get('broadcastMessage');
-  if (!req.messageService) {
-    req.messageService = new MessageService(broadcastMessage);
-  }
-  if (!req.conversationService) {
-    req.conversationService = new ConversationService(
-      broadcastMessage,
-      req.messageService,
-    );
-  }
-  if (!req.conversationController) {
-    req.conversationController = new ConversationController(
-      req.conversationService,
-    );
-  }
-  next();
-});
+// Resolved once — see messenger.container for why this is not per-request.
+const controller = (): ConversationController => getConversationController();
 
 // --- Routes ---
 router
   .route('/')
-  .get((req, res, next) =>
-    req.conversationController.getConversations(req, res, next),
-  )
-  .post((req, res, next) =>
-    req.conversationController.createConversation(req, res, next),
-  );
+  .get((req, res, next) => controller().getConversations(req, res, next))
+  .post((req, res, next) => controller().createConversation(req, res, next));
 
 router.get('/find/:participantId', (req, res, next) =>
-  req.conversationController.findConversationIdByUserId(req, res, next),
+  controller().findConversationIdByUserId(req, res, next),
 );
 
 router.get('/search', (req, res, next) =>
-  req.conversationController.searchConversations(req, res, next),
+  controller().searchConversations(req, res, next),
 );
 
 // Declared before '/:id' so the literal wins the match.
 router.get('/muted', (req, res, next) =>
-  req.conversationController.getMutedConversations(req, res, next),
+  controller().getMutedConversations(req, res, next),
 );
 
 router
   .route('/:id/members')
   .all(validateConversation)
   .patch((req, res, next) =>
-    req.conversationController.manageConversationMembers(req, res, next),
+    controller().manageConversationMembers(req, res, next),
   );
 
 // The service and controller for these existed, but nothing routed to them —
@@ -62,12 +39,8 @@ router
 router
   .route('/:id/mute')
   .all(validateConversation)
-  .post((req, res, next) =>
-    req.conversationController.muteConversation(req, res, next),
-  )
-  .delete((req, res, next) =>
-    req.conversationController.unmuteConversation(req, res, next),
-  );
+  .post((req, res, next) => controller().muteConversation(req, res, next))
+  .delete((req, res, next) => controller().unmuteConversation(req, res, next));
 
 router
   .route('/:id')
@@ -75,14 +48,8 @@ router
   // Was an inline handler duplicating ConversationController.getConversationById,
   // which had no route and so was dead. Same populate, same self-filter, same
   // shape — the controller just also guards the conversation being absent.
-  .get((req, res, next) =>
-    req.conversationController.getConversationById(req, res, next),
-  )
-  .patch((req, res, next) =>
-    req.conversationController.updateConversation(req, res, next),
-  )
-  .delete((req, res, next) =>
-    req.conversationController.deleteConversation(req, res, next),
-  );
+  .get((req, res, next) => controller().getConversationById(req, res, next))
+  .patch((req, res, next) => controller().updateConversation(req, res, next))
+  .delete((req, res, next) => controller().deleteConversation(req, res, next));
 
 export default router;

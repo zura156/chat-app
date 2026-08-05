@@ -8,14 +8,18 @@ import {
   viewChild,
 } from '@angular/core';
 import { UserI } from '../../../user/interfaces/user.interface';
-import { AttachmentI, MessageI } from '../../interfaces/message.interface';
+import {
+  AttachmentI,
+  MessageI,
+  MessageType,
+} from '../../interfaces/message.interface';
 import {
   DatePipe,
   NgClass,
   NgTemplateOutlet,
   TitleCasePipe,
 } from '@angular/common';
-import { MatTooltipModule } from '@angular/material/tooltip';
+import { HlmTooltip } from '@spartan-ng/helm/tooltip';
 import {
   HlmAvatar,
   HlmAvatarFallback,
@@ -47,6 +51,7 @@ import { VideoPlayer } from '../../../../shared/components/video-player/video-pl
 
 import { AudioPlayer } from '../../../../shared/components/audio-player/audio-player';
 import { HlmSkeleton } from '@spartan-ng/helm/skeleton';
+import { AttachmentPlaceholder } from '../../../../shared/components/attachment-placeholder/attachment-placeholder';
 import {
   MediaItem,
   MediaViewerService,
@@ -72,11 +77,12 @@ import { MessageActionsService } from '../../services/message-actions.service';
     FileViewer,
     AudioPlayer,
     HlmIcon,
-    MatTooltipModule,
+    HlmTooltip,
     HlmAvatarFallback,
     HlmAvatarImage,
     HlmAvatar,
     HlmSkeleton,
+    AttachmentPlaceholder,
     VideoPlayer,
     HlmDropdownMenuImports,
     LongPressDirective,
@@ -275,6 +281,34 @@ export class MessageCardComponent {
         (a) => a.status === 'failed' || a.status === 'infected',
       ) ?? false
     );
+  }
+
+  /**
+   * Whether a message is drawn inside a bubble.
+   *
+   * Text, images and voice messages are: they belong to a sender and the bubble
+   * is what says whose they are and which side they are on. Video and files
+   * bring their own card, info messages are centred system notes, and a
+   * standalone emoji is deliberately bare.
+   *
+   * Audio used to be in the bare group, which made a voice message the one kind
+   * that floated in the thread with no bubble and nothing tying it to anyone.
+   *
+   * The exception is a failed audio attachment: it renders a destructive chip,
+   * and red on a `bg-primary` bubble is not legible. Those keep the plain
+   * background the chip was designed against.
+   */
+  hasBubble(message: MessageI): boolean {
+    switch (message.type) {
+      case MessageType.INFO:
+      case MessageType.VIDEO:
+      case MessageType.FILE:
+        return false;
+      case MessageType.AUDIO:
+        return !this.hasFailedAttachment(message);
+      default:
+        return !this.isOnlyEmoji(message.content || '');
+    }
   }
 
   isOnlyEmoji(text: string): boolean {

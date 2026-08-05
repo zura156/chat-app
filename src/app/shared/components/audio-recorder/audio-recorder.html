@@ -1,79 +1,133 @@
 <div class="flex items-center gap-x-2 w-full">
-  <!-- Delete -->
+  <!-- Delete / dismiss -->
   <button
     hlmBtn
     variant="ghost"
+    type="button"
+    aria-label="Discard recording"
     class="shrink-0 size-8 p-0 flex items-center justify-center rounded-full cursor-pointer text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
     (click)="deleteRecording()"
   >
     <ng-icon hlm size="sm" name="lucideTrash2" />
   </button>
 
+  <!--
+    `play`/`pause`/`ended` drive a per-frame sampling loop; `timeupdate` fires
+    only about four times a second, which is slower than the 28 preview bars
+    advance on a short recording. See the component.
+  -->
   <audio
     #audioPlayer
     [src]="audioUrl()"
+    (play)="onPreviewPlay(audioPlayer)"
+    (pause)="onPreviewPause(audioPlayer)"
+    (ended)="onPreviewEnded()"
     (timeupdate)="onPreviewTimeUpdate(audioPlayer)"
   ></audio>
 
-  @if (mediaRecorder?.state === "recording") {
-    <div class="flex-1 h-8 flex items-center gap-x-2">
-      <span
-        class="size-2 rounded-full bg-destructive animate-pulse shrink-0"
-      ></span>
-      <div class="flex-1 h-full flex items-center gap-px">
-        @for (level of liveLevels(); track $index) {
+  @switch (status()) {
+    <!--
+      The microphone could not be opened. This state had no rendering at all:
+      the component emitted `isMicAllowed(false)` — which nothing was bound to —
+      and left an empty grey bar with a delete button, giving the user no idea
+      what had gone wrong or what to do about it.
+    -->
+    @case ("error") {
+      <div class="flex-1 flex items-center gap-x-2 min-w-0">
+        <ng-icon
+          hlm
+          size="sm"
+          name="lucideMicOff"
+          class="shrink-0 text-destructive"
+        />
+        <p class="text-xs text-muted-foreground truncate" [title]="errorMessage()">
+          {{ errorMessage() }}
+        </p>
+      </div>
+    }
+
+    @case ("starting") {
+      <div class="flex-1 flex items-center gap-x-2">
+        <span
+          class="size-2 rounded-full bg-muted-foreground/50 animate-pulse shrink-0"
+        ></span>
+        <p class="text-xs text-muted-foreground">Waiting for the microphone…</p>
+      </div>
+    }
+
+    @case ("recording") {
+      <div class="flex-1 h-8 flex items-center gap-x-2">
+        <span
+          class="size-2 rounded-full bg-destructive animate-pulse shrink-0"
+        ></span>
+        <!--
+          Rendered once and then left alone: the bars are a fixed list, and
+          their heights are written directly by the sampling loop each frame.
+          No `transition-[height]` — the strip scrolls, so each bar takes over
+          its neighbour's value every tick, and easing between two unrelated
+          samples is what made it judder.
+        -->
+        <div #meter class="flex-1 h-full flex items-center gap-px">
+          @for (slot of barSlots; track slot) {
+            <span
+              class="flex-1 rounded-full bg-destructive/70 min-w-px"
+              style="height: 10%"
+            ></span>
+          }
+        </div>
+        <span class="text-xs text-muted-foreground tabular-nums shrink-0">
+          {{ recordingTime() | formatTime }}
+        </span>
+      </div>
+    }
+
+    @case ("stopped") {
+      <div
+        class="flex-1 h-8 flex items-center gap-px cursor-pointer"
+        (click)="seekPreview($event, audioPlayer)"
+      >
+        @for (bar of previewBars(); track $index) {
           <span
-            class="flex-1 rounded-full bg-destructive/70 min-w-px transition-[height] duration-75"
-            [style.height.%]="level * 100"
+            class="flex-1 rounded-full min-w-px transition-colors"
+            [class]="
+              $index < previewPlayedBars()
+                ? 'bg-primary'
+                : 'bg-muted-foreground/30'
+            "
+            [style.height.%]="bar * 100"
           ></span>
         }
       </div>
       <span class="text-xs text-muted-foreground tabular-nums shrink-0">
-        {{ recordingTime() | formatTime }}
+        {{
+          (audioPlayer.paused && previewProgress() === 0
+            ? previewDuration()
+            : previewCurrentTime()
+          ) | formatTime
+        }}
       </span>
-    </div>
-  } @else if (mediaRecorder?.state === "inactive" && audioUrl()) {
-    <div
-      class="flex-1 h-8 flex items-center gap-px cursor-pointer"
-      (click)="seekPreview($event, audioPlayer)"
-    >
-      @for (bar of previewBars(); track $index) {
-        <span
-          class="flex-1 rounded-full min-w-px transition-colors"
-          [class]="
-            $index < previewPlayedBars()
-              ? 'bg-primary'
-              : 'bg-muted-foreground/30'
-          "
-          [style.height.%]="bar * 100"
-        ></span>
-      }
-    </div>
-    <span class="text-xs text-muted-foreground tabular-nums shrink-0">
-      {{
-        (audioPlayer.paused && previewProgress() === 0
-          ? previewDuration()
-          : previewCurrentTime()
-        ) | formatTime
-      }}
-    </span>
+    }
   }
 
   <!-- Right action button -->
-  @if (mediaRecorder?.state === "recording") {
+  @if (status() === "recording") {
     <button
       hlmBtn
       variant="ghost"
+      type="button"
+      aria-label="Stop recording"
       class="shrink-0 size-8 p-0 flex items-center justify-center rounded-full cursor-pointer text-muted-foreground hover:text-foreground transition-colors"
       (click)="stopRecording()"
     >
       <ng-icon hlm size="sm" name="lucideSquare" />
     </button>
-  } @else if (mediaRecorder?.state === "inactive" && audioUrl()) {
+  } @else if (hasPreview()) {
     @if (audioPlayer.paused) {
       <button
         hlmBtn
         variant="ghost"
+        type="button"
+        aria-label="Play recording"
         class="shrink-0 size-8 p-0 flex items-center justify-center rounded-full cursor-pointer text-muted-foreground hover:text-foreground transition-colors"
         (click)="audioPlayer.play()"
       >
@@ -83,6 +137,8 @@
       <button
         hlmBtn
         variant="ghost"
+        type="button"
+        aria-label="Pause recording"
         class="shrink-0 size-8 p-0 flex items-center justify-center rounded-full cursor-pointer text-muted-foreground hover:text-foreground transition-colors"
         (click)="audioPlayer.pause()"
       >

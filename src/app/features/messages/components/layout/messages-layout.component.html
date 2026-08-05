@@ -1,5 +1,12 @@
 <main class="overflow-hidden h-full w-full flex">
-  @if (!isMobile()) {
+  <!--
+    An unverified account can sign in but cannot use the messaging surface, so
+    the chat UI would render as permanently empty with no explanation. Replace
+    it with something that says why and offers a way out.
+  -->
+  @if (needsEmailVerification()) {
+    <app-verify-email-required />
+  } @else if (!isMobile()) {
     <section
       class="sm:w-1/2 md:w-1/3 h-dvh overflow-hidden shadow-[2px_0_8px_0_rgba(0,0,0,0.04)] dark:shadow-[2px_0_8px_0_rgba(0,0,0,0.2)]"
     >

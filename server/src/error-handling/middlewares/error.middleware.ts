@@ -1,5 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
 import { CustomAPIError } from '../models/custom-api-error.model';
+import { logger } from '../../utils/logger';
 
 export const errorMiddleware = (
   err: Error,
@@ -27,7 +28,13 @@ export const errorMiddleware = (
     return res.status(409).json({ message: `${field} already exists` });
   }
 
-  console.error(err); // log full error server-side only
+  // logger, not console: the console transport is not the one that persists,
+  // so unexpected 500s were the only errors never reaching the error log.
+  logger.error('Unhandled request error', {
+    method: req.method,
+    path: req.originalUrl,
+    error: err,
+  });
 
   return res.status(500).json({
     message: 'Something went wrong! Please try again later...',

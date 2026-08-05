@@ -11,21 +11,27 @@ import { blockedAmong } from '../../user/services/blocking.service';
 import { createCustomError } from '../../error-handling/models/custom-api-error.model';
 
 /**
- * Refuses the send if the sender and any recipient have blocked each other.
- * Checked here rather than at the route because both entry points — plain text
- * and attachments — have to be covered, and a block that only stops one of them
- * is not a block. INFO messages are exempt: they are the system narrating
- * membership changes, not a user reaching anyone.
+ * Refuses the send if the sender and the person they are reaching have blocked
+ * each other. Checked here rather than at the route because both entry points —
+ * plain text and attachments — have to be covered, and a block that only stops
+ * one of them is not a block. INFO messages are exempt: they are the system
+ * narrating membership changes, not a user reaching anyone.
+ *
+ * A block only refuses the send in a one-to-one conversation, where the blocked
+ * party *is* the audience. In a group it does not: refusing there let a single
+ * member silence the sender for everyone else in the room, which is a block
+ * acting on people who never asked for it. Delivery is filtered instead — see
+ * `deliverableParticipants`.
  */
 const assertNotBlocked = async (
   senderId: string,
   conversationId: string | Types.ObjectId,
 ): Promise<void> => {
   const conversation = await Conversation.findById(conversationId)
-    .select('participants')
+    .select('participants is_group')
     .lean();
 
-  if (!conversation) return;
+  if (!conversation || conversation.is_group) return;
 
   const blocked = await blockedAmong(senderId, conversation.participants);
   if (blocked.size > 0) {
@@ -35,6 +41,35 @@ const assertNotBlocked = async (
     );
   }
 };
+
+/**
+ * Who in a conversation should actually receive a message from this sender.
+ *
+ * In a group, a member who has blocked the sender (or whom the sender has
+ * blocked) stays in the conversation but stops seeing that sender's messages.
+ * That is what a block means between two people who share a room with others.
+ */
+const deliverableParticipants = async (
+  senderId: string,
+  conversationId: string | Types.ObjectId,
+): Promise<string[] | undefined> => {
+  const conversation = await Conversation.findById(conversationId)
+    .select('participants is_group')
+    .lean();
+
+  if (!conversation?.is_group) return undefined;
+
+  const blocked = await blockedAmong(senderId, conversation.participants);
+  if (blocked.size === 0) return undefined;
+
+  return conversation.participants
+    .map((p) => p.toString())
+    .filter((id) => !blocked.has(id));
+};
+
+/** Mirrored by the schema and by the client's own check. */
+export const MAX_MESSAGE_LENGTH = 2000;
+export const MAX_ATTACHMENTS = 10;
 
 export class MessageService {
   private broadcast: BroadcastFunction;
@@ -159,9 +194,9 @@ export class MessageService {
       throw createCustomError('Message content cannot be empty', 400);
     }
 
-    if (trimmed.length > 2000) {
+    if (trimmed.length > MAX_MESSAGE_LENGTH) {
       throw createCustomError(
-        'Message content exceeds the maximum length of 2000 characters',
+        `Message content exceeds the maximum length of ${MAX_MESSAGE_LENGTH} characters`,
         400,
       );
     }
@@ -242,16 +277,25 @@ export class MessageService {
     }[],
     tempId?: string,
   ): Promise<Record<string, any>> {
+    // These are refusals the caller can act on, so they carry a status. Thrown
+    // as plain Errors they reached the client as "something went wrong on our
+    // end", which is both wrong and unactionable.
     if (!content?.trim() && !attachmentPayloads?.length) {
-      throw new Error('Message must have content or attachments.');
+      throw createCustomError('Message must have content or attachments.', 400);
     }
 
-    if (content && content.length > 2000) {
-      throw new Error('Message content exceeds 2000 characters.');
+    if (content && content.length > MAX_MESSAGE_LENGTH) {
+      throw createCustomError(
+        `Message content exceeds ${MAX_MESSAGE_LENGTH} characters.`,
+        400,
+      );
     }
 
-    if (attachmentPayloads.length > 10) {
-      throw new Error('Maximum 10 attachments per message.');
+    if (attachmentPayloads.length > MAX_ATTACHMENTS) {
+      throw createCustomError(
+        `Maximum ${MAX_ATTACHMENTS} attachments per message.`,
+        400,
+      );
     }
 
     await assertNotBlocked(senderId, conversationId);
@@ -264,7 +308,10 @@ export class MessageService {
     });
 
     if (uploads.length !== uploadIds.length) {
-      throw new Error('One or more uploads not found or unauthorized.');
+      throw createCustomError(
+        'One or more uploads not found or unauthorized.',
+        400,
+      );
     }
 
     // build attachments from upload records — mimeType/fileSize come from the
@@ -312,12 +359,15 @@ export class MessageService {
       'username pfp_url pfp_variants',
     );
 
-    if (!populated) throw new Error('Failed to populate message.');
+    if (!populated) throw createCustomError('Failed to populate message.', 500);
 
     const signed = await signMessage(populated);
     const broadcastPayload = tempId ? { ...signed, tempId } : signed;
 
-    this.broadcast(broadcastPayload);
+    await this.broadcast(
+      broadcastPayload,
+      await deliverableParticipants(senderId, conversationId),
+    );
 
     createNotification(senderId, conversationId).catch((error) =>
       logger.error('Failed to create notification:', error),
@@ -344,12 +394,13 @@ export class MessageService {
     const conversationObjectId = new Types.ObjectId(conversationId);
 
     if (!content || content.trim() === '') {
-      throw new Error('Message content cannot be empty.');
+      throw createCustomError('Message content cannot be empty.', 400);
     }
 
-    if (content.length > 2000) {
-      throw new Error(
-        'Message content exceeds the maximum length of 2000 characters.',
+    if (content.length > MAX_MESSAGE_LENGTH) {
+      throw createCustomError(
+        `Message content exceeds the maximum length of ${MAX_MESSAGE_LENGTH} characters.`,
+        400,
       );
     }
 
@@ -379,7 +430,7 @@ export class MessageService {
     );
 
     if (!populatedMessage) {
-      throw new Error('Failed to create and populate message.');
+      throw createCustomError('Failed to create and populate message.', 500);
     }
 
     const broadcastPayload = tempId
@@ -387,7 +438,12 @@ export class MessageService {
       : populatedMessage;
 
     // Broadcast the new message to relevant clients
-    this.broadcast(broadcastPayload);
+    await this.broadcast(
+      broadcastPayload,
+      (type ?? MessageTypeEnum.TEXT) === MessageTypeEnum.INFO
+        ? undefined
+        : await deliverableParticipants(senderId, conversationObjectId),
+    );
 
     // system/INFO messages are not something anyone needs a badge for
     if ((type ?? MessageTypeEnum.TEXT) !== MessageTypeEnum.INFO) {

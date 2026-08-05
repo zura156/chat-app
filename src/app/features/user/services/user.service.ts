@@ -33,6 +33,19 @@ export class UserService {
 
   constructor() {}
 
+  /**
+   * Closes the account permanently. The password is re-checked server-side:
+   * this is irreversible and cascades across messages, uploads and stored
+   * objects, so a session cookie alone is not enough to trigger it.
+   */
+  deleteAccount(password: string): Observable<{ message: string }> {
+    return this.http.request<{ message: string }>(
+      'delete',
+      `${this.apiUrl}/user/profile`,
+      { body: { password } },
+    );
+  }
+
   updateProfile(body: UpdateProfileDataI): Observable<UserI> {
     return this.http.patch<UserI>(`${this.apiUrl}/user/profile`, body).pipe(
       tap(() => {

@@ -5,6 +5,8 @@ export interface UserDTO {
   username: string;
   bio: string;
   email: string;
+  /** Set while an address change is awaiting confirmation. Self-only. */
+  pending_email?: string;
   password: string;
   is_email_verified: boolean;
   login_attempts: number;

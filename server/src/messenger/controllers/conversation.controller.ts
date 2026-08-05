@@ -2,6 +2,7 @@ import { Response, NextFunction } from 'express';
 import { AuthRequest } from '../../auth/middlewares/auth.middleware';
 import { ConversationService } from '../services/conversation.service';
 import { createCustomError } from '../../error-handling/models/custom-api-error.model';
+import { clampLimit, clampOffset } from '../../utils/pagination';
 
 export class ConversationController {
   private conversationService: ConversationService;
@@ -17,8 +18,8 @@ export class ConversationController {
   ) => {
     try {
       const userId = req.user!._id.toString();
-      const limit = parseInt(req.query.limit as string) || 20;
-      const offset = parseInt(req.query.offset as string) || 0;
+      const limit = clampLimit(req.query.limit);
+      const offset = clampOffset(req.query.offset);
       const result = await this.conversationService.getConversations(
         userId,
         limit,
@@ -108,11 +109,26 @@ export class ConversationController {
   ) => {
     try {
       const userId = req.user!._id.toString();
-      const { participants, is_group, group_name, group_picture } =
-        req.body.conversation;
+
+      // Destructuring this unguarded threw a TypeError — and so a 500 — for any
+      // body without a `conversation` key, which is a client mistake and should
+      // read as one.
+      const payload = req.body?.conversation;
+      if (!payload || typeof payload !== 'object') {
+        next(createCustomError('A conversation payload is required', 400));
+        return;
+      }
+
+      const { participants, is_group, group_name, group_picture } = payload;
+
+      if (!Array.isArray(participants)) {
+        next(createCustomError('participants must be an array', 400));
+        return;
+      }
+
       const conversation = await this.conversationService.createConversation(
         participants,
-        is_group,
+        !!is_group,
         userId,
         group_name,
         group_picture,

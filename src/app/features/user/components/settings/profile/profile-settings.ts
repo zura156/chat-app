@@ -10,7 +10,6 @@ import { NgIcon, provideIcons } from '@ng-icons/core';
 import { HlmAvatarImports } from '@spartan-ng/helm/avatar';
 import {
   lucideCamera,
-  lucideLockKeyhole,
   lucideLogOut,
   lucideUpload,
 } from '@ng-icons/lucide';
@@ -31,7 +30,6 @@ import { FileMetadata } from '../../../../../shared/interfaces/file-metadata.int
 import { catchError, EMPTY, tap } from 'rxjs';
 import { UserService } from '../../../services/user.service';
 import { UpdateProfileDataI } from '../../../interfaces/update-profile-data.interface';
-import { RouterLink } from '@angular/router';
 import { AuthService } from '../../../../auth/services/auth.service';
 import {
   FilePicker,
@@ -42,7 +40,6 @@ import {
   selector: 'user-profile-settings',
   templateUrl: './profile-settings.html',
   imports: [
-    RouterLink,
     HlmCardImports,
     HlmFieldImports,
     HlmAvatarImports,
@@ -65,7 +62,6 @@ import {
       lucideUpload,
       lucideCamera,
       lucideLogOut,
-      lucideLockKeyhole,
     }),
   ],
 })

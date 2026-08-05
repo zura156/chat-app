@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { presignLimiter } from '../config/redis';
+import { presignLimiter } from '../auth/middlewares/rate-limiter';
 import { presign, confirm, getSignedDownloadUrl } from './upload.controller';
 
 const router = Router();

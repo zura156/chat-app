@@ -4,6 +4,7 @@ import config from '../../config/config';
 import { IConversation } from '../../messenger/models/conversation.model';
 import { IUser, User } from '../../user/models/user.model';
 import { isAccessTokenBlacklisted } from '../services/token.service';
+import { verifyAccessToken } from '../services/jwt.service';
 
 export interface AuthRequest extends Request {
   user?: IUser;
@@ -25,10 +26,9 @@ export const authenticateToken = async (
   }
 
   try {
-    const decoded = jwt.verify(token, config.jwtSecret) as {
-      userId: string;
-      sid?: string;
-    };
+    // Type-scoped: a two-factor challenge is signed with the same secret, and
+    // accepting one here was a complete bypass of the second factor.
+    const decoded = verifyAccessToken(token);
     const blacklisted = await isAccessTokenBlacklisted(token);
 
     if (blacklisted) {
@@ -36,8 +36,10 @@ export const authenticateToken = async (
       return;
     }
 
+    // `is_email_verified` is selected because requireVerifiedEmail runs after
+    // this and has nothing else to read it from.
     const user = await User.findById(decoded.userId).select(
-      '-password -refreshTokens -is_email_verified -login_attempts -lock_until -last_login',
+      '-password -refreshTokens -login_attempts -lock_until -last_login',
     );
 
     if (!user) {
@@ -56,4 +58,42 @@ export const authenticateToken = async (
     res.status(403).json({ error: 'Invalid token' });
     return;
   }
+};
+
+/**
+ * Gates the app behind a verified address. The whole verification flow existed
+ * — token model, mail, endpoint, a flag on the user — but nothing ever read the
+ * flag, so the emails were decorative and any address could be used.
+ *
+ * Deliberately not applied to the routes the user needs *in order to* verify,
+ * or to the ones that let them leave: reading their own profile, listing and
+ * revoking sessions, and logging out all stay open, so an unverified account is
+ * inconvenienced rather than trapped.
+ */
+export const requireVerifiedEmail = (
+  req: AuthRequest,
+  res: Response,
+  next: NextFunction,
+): void => {
+  // Opt-in: enforcing this against a user base that predates it locks everyone
+  // out at once. See config.requireEmailVerification.
+  if (!config.requireEmailVerification) {
+    next();
+    return;
+  }
+
+  if (!req.user) {
+    res.status(401).json({ error: 'Access token required' });
+    return;
+  }
+
+  if (!req.user.is_email_verified) {
+    res.status(403).json({
+      error: 'Verify your email address to continue',
+      code: 'EMAIL_NOT_VERIFIED',
+    });
+    return;
+  }
+
+  next();
 };

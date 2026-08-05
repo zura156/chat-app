@@ -109,6 +109,7 @@
           variant="ghost"
           class="rounded-full size-9 p-0 flex items-center justify-center cursor-pointer hover:bg-muted transition-colors"
           type="button"
+          aria-label="Toggle conversation details"
           (click)="toggleSettingsView()"
         >
           <ng-icon hlm size="sm" name="lucideInfo" />
@@ -361,6 +362,7 @@
             @if (!attachment.uploading) {
               <button
                 type="button"
+                [attr.aria-label]="'Remove ' + attachment.file.name"
                 (click)="removeAttachment(attachment.tempId)"
                 class="absolute top-0.5 right-0.5 size-4 rounded-full bg-background/90 border border-border flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
               >
@@ -374,9 +376,15 @@
       @if (isRecording()) {
         <div class="flex items-center gap-x-2">
           <div class="flex-1">
+            <!--
+              `isMicAllowed` was declared as an output and never bound, so a
+              microphone that could not be opened produced no toast, no message
+              and no way out — just an empty bar until the user navigated away.
+            -->
             <app-audio-recorder
               (recordingDone)="onStopRecording($event)"
               (recordingDeleted)="deleteRecording()"
+              (isMicAllowed)="onMicPermission($event)"
             />
           </div>
 
@@ -385,6 +393,7 @@
             <button
               hlmBtn
               variant="outline"
+              aria-label="Send voice message"
               (click)="sendMessage()"
               [disabled]="!canMessage()"
               class="rounded-full px-4 shrink-0 flex items-center justify-center cursor-pointer disabled:opacity-40 transition-colors"
@@ -400,6 +409,7 @@
               hlmBtn
               variant="ghost"
               class="rounded-full size-9 p-0 flex items-center justify-center cursor-pointer hover:bg-muted transition-colors"
+              aria-label="Attach files"
               (click)="fileInput.click()"
               [disabled]="pendingAttachments().length >= 10"
             >
@@ -409,6 +419,13 @@
               hlmBtn
               variant="ghost"
               class="text-info rounded-full size-9 p-0 flex items-center justify-center cursor-pointer hover:bg-muted transition-colors"
+              aria-label="Record a voice message"
+              [disabled]="micUnavailable()"
+              [title]="
+                micUnavailable()
+                  ? 'Your microphone is unavailable'
+                  : 'Record a voice message'
+              "
               (click)="startRecording()"
             >
               <ng-icon hlm size="base" name="lucideMic"></ng-icon>
@@ -431,6 +448,7 @@
           <button
             hlmBtn
             variant="outline"
+            aria-label="Send message"
             [disabled]="!canMessage() || !hasSendableContent() || pendingAttachments().some(a => a.uploading)"
             (click)="sendMessage()"
             class="rounded-full px-4 shrink-0 flex items-center justify-center cursor-pointer disabled:opacity-40 transition-colors"

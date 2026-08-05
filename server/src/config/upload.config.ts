@@ -10,6 +10,15 @@ interface ContextConfig {
   expiresIn: number; // seconds
 }
 
+/*
+ * Only contexts the app can actually attach an upload to.
+ *
+ * `post-image`, `post-video`, `story-image` and `story-video` were listed here
+ * for features that do not exist. `presign` accepts any context present in this
+ * map and validates a target resource only for group avatars, so they were a
+ * standing grant of free storage — up to a gigabyte per call for `post-video` —
+ * with nothing that could ever reference the result.
+ */
 export const CONTEXT_CONFIG: Record<UploadContext, ContextConfig> = {
   avatar: {
     allowedMimes: [
@@ -102,46 +111,5 @@ export const CONTEXT_CONFIG: Record<UploadContext, ContextConfig> = {
     maxBytes: 100 * MB,
     bucket: config.s3TempBucket,
     expiresIn: 600,
-  },
-  'post-image': {
-    allowedMimes: [
-      'image/jpeg',
-      'image/png',
-      'image/webp',
-      'image/heic',
-      'image/heif',
-    ],
-    maxBytes: 50 * MB,
-    bucket: config.s3TempBucket,
-    expiresIn: 600,
-  },
-  'post-video': {
-    allowedMimes: [
-      'video/mp4',
-      'video/quicktime',
-      'video/webm',
-      'video/x-msvideo',
-    ],
-    maxBytes: 1024 * MB,
-    bucket: config.s3TempBucket,
-    expiresIn: 3600,
-  },
-  'story-image': {
-    allowedMimes: [
-      'image/jpeg',
-      'image/png',
-      'image/webp',
-      'image/heic',
-      'image/heif',
-    ],
-    maxBytes: 50 * MB,
-    bucket: config.s3TempBucket!,
-    expiresIn: 600,
-  },
-  'story-video': {
-    allowedMimes: ['video/mp4', 'video/quicktime', 'video/webm'],
-    maxBytes: 200 * MB,
-    bucket: config.s3TempBucket!,
-    expiresIn: 1800,
   },
 };

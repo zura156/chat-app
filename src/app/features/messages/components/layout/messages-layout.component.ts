@@ -1,5 +1,6 @@
 import {
   Component,
+  computed,
   DestroyRef,
   inject,
   OnDestroy,
@@ -21,6 +22,9 @@ import { ConversationListComponent } from '../list/conversation-list.component';
 import { LayoutService } from '../../services/layout.service';
 import { ActiveViewType } from '../../interfaces/active-view.types';
 import { MessagesStartComponent } from '../start/messages-start.component';
+import { VerifyEmailRequiredComponent } from '../../../auth/components/verify-email/verify-email-required.component';
+import { AuthService } from '../../../auth/services/auth.service';
+import { UserStateService } from '../../../user/services/user-state.service';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 
 @Component({
@@ -32,12 +36,31 @@ import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
     HlmSeparatorImports,
     ConversationListComponent,
     MessagesStartComponent,
+    VerifyEmailRequiredComponent,
   ],
   templateUrl: './messages-layout.component.html',
 })
 export class MessagesLayoutComponent implements OnInit, OnDestroy {
   private readonly destroyRef = inject(DestroyRef);
   private readonly layoutService = inject(LayoutService);
+  private readonly authService = inject(AuthService);
+
+  private readonly userState = inject(UserStateService);
+
+  /**
+   * Shown only when the API has actually refused a request for want of a
+   * verified address *and* the loaded user is still unverified.
+   *
+   * Both halves matter: the refusal is what proves the server enforces this at
+   * all (it is a deployment setting), and requiring a loaded user avoids
+   * flashing the wall during the initial load, when nothing is known yet.
+   */
+  readonly needsEmailVerification = computed(
+    () =>
+      this.userState.emailVerificationRequired() &&
+      !!this.authService.user() &&
+      !this.authService.isEmailVerified(),
+  );
   private readonly router = inject(Router);
   private readonly route = inject(ActivatedRoute);
 

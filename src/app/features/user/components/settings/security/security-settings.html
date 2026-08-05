@@ -2,10 +2,145 @@
   <div>
     <h1 class="text-lg font-semibold tracking-tight">Security</h1>
     <p class="text-sm text-muted-foreground">
-      Manage two-factor authentication and the devices signed in to your
-      account.
+      Manage your password, two-factor authentication and the devices signed in
+      to your account.
     </p>
   </div>
+
+  <hlm-separator decorative />
+
+  <!-- ── PASSWORD ───────────────────────────────────────────────────── -->
+  <section class="space-y-3">
+    <h3 class="text-sm font-medium">Password</h3>
+
+    @if (!changingPassword()) {
+      <div
+        class="flex items-start justify-between gap-x-4 px-4 py-3 rounded-xl border border-border"
+      >
+        <div class="flex items-start gap-x-3 min-w-0">
+          <ng-icon
+            hlm
+            size="sm"
+            name="lucideKeyRound"
+            class="mt-0.5 shrink-0 text-muted-foreground"
+          />
+          <div class="min-w-0">
+            <p class="text-sm">Change your password</p>
+            <p class="text-xs text-muted-foreground">
+              Every other device will be signed out.
+            </p>
+          </div>
+        </div>
+
+        <button
+          hlmBtn
+          variant="outline"
+          size="sm"
+          class="rounded-full cursor-pointer text-xs shrink-0"
+          [disabled]="busy()"
+          (click)="beginPasswordChange()"
+        >
+          Change
+        </button>
+      </div>
+    } @else {
+      <!--
+        A real <form> so browsers and password managers recognise this as a
+        credential change. `(submit)` rather than `(ngSubmit)`: this component
+        does not import FormsModule, and without it `ngSubmit` is not a
+        directive output — the binding would attach a listener for a DOM event
+        that is never dispatched and the button would do nothing.
+      -->
+      <form
+        class="flex flex-col gap-y-3 px-4 py-4 rounded-xl border border-border"
+        (submit)="$event.preventDefault(); submitPasswordChange()"
+      >
+        <!--
+          A hidden username field is what lets a password manager attach the
+          new credential to the right account; without it the entry is saved
+          detached, or not offered at all.
+        -->
+        <input
+          type="text"
+          autocomplete="username"
+          class="hidden"
+          [value]="currentUser()?.email ?? ''"
+          readonly
+          tabindex="-1"
+          aria-hidden="true"
+        />
+
+        <label class="flex flex-col gap-y-1">
+          <span class="text-xs text-muted-foreground">Current password</span>
+          <input
+            type="password"
+            autocomplete="current-password"
+            class="w-full text-sm bg-background border border-border rounded-lg px-3 py-2 focus:outline-none focus:ring-1 focus:ring-ring"
+            [value]="currentPassword()"
+            (input)="currentPassword.set($any($event.target).value)"
+          />
+        </label>
+
+        <label class="flex flex-col gap-y-1">
+          <span class="text-xs text-muted-foreground">New password</span>
+          <input
+            type="password"
+            autocomplete="new-password"
+            class="w-full text-sm bg-background border border-border rounded-lg px-3 py-2 focus:outline-none focus:ring-1 focus:ring-ring"
+            [value]="newPassword()"
+            (input)="newPassword.set($any($event.target).value)"
+          />
+        </label>
+
+        <label class="flex flex-col gap-y-1">
+          <span class="text-xs text-muted-foreground">Confirm new password</span>
+          <input
+            type="password"
+            autocomplete="new-password"
+            class="w-full text-sm bg-background border border-border rounded-lg px-3 py-2 focus:outline-none focus:ring-1 focus:ring-ring"
+            [value]="confirmPassword()"
+            (input)="confirmPassword.set($any($event.target).value)"
+          />
+        </label>
+
+        <!--
+          The server enforces this rule too; stating it here means the user is
+          not made to submit before finding out what it is.
+        -->
+        @if (passwordProblem(); as problem) {
+          <p class="text-xs text-destructive">{{ problem }}</p>
+        } @else {
+          <p class="text-xs text-muted-foreground">
+            At least 8 characters, with an uppercase letter, a lowercase letter,
+            a number and a symbol.
+          </p>
+        }
+
+        <div class="flex items-center gap-x-2 pt-1">
+          <button
+            hlmBtn
+            size="sm"
+            type="submit"
+            class="rounded-full cursor-pointer text-xs"
+            [disabled]="busy() || !!passwordProblem()"
+          >
+            {{ busy() ? "Changing…" : "Change password" }}
+          </button>
+          <button
+            hlmBtn
+            variant="ghost"
+            size="sm"
+            type="button"
+            class="rounded-full cursor-pointer text-xs"
+            [disabled]="busy()"
+            (click)="cancelPasswordChange()"
+          >
+            Cancel
+          </button>
+        </div>
+      </form>
+    }
+  </section>
 
   <hlm-separator decorative />
 
@@ -62,7 +197,7 @@
             size="sm"
             class="rounded-full cursor-pointer text-xs shrink-0"
             [disabled]="busy()"
-            (click)="startTwoFactorSetup()"
+            (click)="beginSetup()"
           >
             Set up
           </button>
@@ -71,6 +206,50 @@
     }
 
     <!-- Enrolment: show the secret, then require a code proving it was stored -->
+    @if (setupStage() === "confirming-password") {
+      <div class="flex flex-col gap-y-3 pt-2">
+        <div>
+          <p class="text-sm font-medium">Confirm your password</p>
+          <p class="text-xs text-muted-foreground">
+            Adding a second factor changes how you sign in, so we ask for your
+            password first.
+          </p>
+        </div>
+
+        <input
+          type="password"
+          autocomplete="current-password"
+          placeholder="Your password"
+          aria-label="Your password"
+          class="w-full text-sm bg-background border border-border rounded-lg px-3 py-2 focus:outline-none focus:ring-1 focus:ring-ring"
+          [value]="password()"
+          (input)="password.set($any($event.target).value)"
+        />
+
+        <div class="flex items-center gap-x-2">
+          <button
+            hlmBtn
+            size="sm"
+            class="rounded-full cursor-pointer text-xs"
+            [disabled]="busy() || !password()"
+            (click)="startTwoFactorSetup()"
+          >
+            Continue
+          </button>
+          <button
+            hlmBtn
+            variant="ghost"
+            size="sm"
+            class="rounded-full cursor-pointer text-xs"
+            [disabled]="busy()"
+            (click)="cancelSetup()"
+          >
+            Cancel
+          </button>
+        </div>
+      </div>
+    }
+
     @if (setupStage() === "scanning") {
       <div class="px-4 py-4 rounded-xl border border-border space-y-4">
         <div>
@@ -220,13 +399,23 @@
           (input)="onCodeInput($any($event.target).value)"
         />
 
+        <input
+          type="password"
+          autocomplete="current-password"
+          placeholder="Your password"
+          aria-label="Your password"
+          class="w-full text-sm bg-background border border-border rounded-lg px-3 py-2 focus:outline-none focus:ring-1 focus:ring-ring"
+          [value]="password()"
+          (input)="password.set($any($event.target).value)"
+        />
+
         <div class="flex items-center gap-x-2">
           <button
             hlmBtn
             variant="destructive"
             size="sm"
             class="rounded-full cursor-pointer text-xs"
-            [disabled]="busy() || !code()"
+            [disabled]="busy() || !code() || !password()"
             (click)="confirmDisable()"
           >
             Turn off

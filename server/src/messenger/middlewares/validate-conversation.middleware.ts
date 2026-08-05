@@ -2,6 +2,7 @@ import { Response, NextFunction } from 'express';
 import { Conversation } from '../models/conversation.model';
 import { AuthRequest } from '../../auth/middlewares/auth.middleware';
 import { ObjectId } from 'mongodb';
+import { logger } from '../../utils/logger';
 
 export async function validateConversation(
   req: AuthRequest,
@@ -36,7 +37,7 @@ export async function validateConversation(
     req.conversation = conversation;
     next();
   } catch (error) {
-    console.error('Error validating conversation:', error);
-    res.status(500).json({ error: 'Error validating conversation' });
+    logger.error('Error validating conversation', error);
+    next(error);
   }
 }

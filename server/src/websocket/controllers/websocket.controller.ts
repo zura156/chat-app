@@ -3,7 +3,11 @@ import { logger } from '../../utils/logger';
 import { WebSocketService } from '../services/websocket.service';
 import * as DTO from '../dtos/websocket.dto';
 import { MessageService } from '../../messenger/services/message.service';
-import { Conversation } from '../../messenger/models/conversation.model';
+import {
+  Conversation,
+  upsertReadReceipt,
+} from '../../messenger/models/conversation.model';
+import type { Types } from 'mongoose';
 import { User } from '../../user/models/user.model';
 import { Message } from '../../messenger/models/message.model';
 import { MessageStatusEnum } from '../../messenger/interfaces/message.interface';
@@ -15,6 +19,14 @@ import type { AuthenticatedWebSocket } from '../websocket.setup';
 import { broadcastsPresence } from '../../user/services/privacy.service';
 
 const OFFLINE_DELAY_MS = 30_000;
+
+/**
+ * How much longer the pending-offline key lives than the timer that reads it.
+ * The two were equal, which meant the key was always gone before the timer
+ * checked it. Any positive slack fixes that; this much also covers a process
+ * that is briefly busy when the timer comes due.
+ */
+const OFFLINE_PENDING_TTL_GRACE_MS = 30_000;
 
 export class WebSocketController {
   constructor(
@@ -32,6 +44,20 @@ export class WebSocketController {
     // guarantee does not depend on remembering to stamp a new field.
     const authenticatedUserId = (ws as AuthenticatedWebSocket).userId;
 
+    /*
+     * An allowlist, not a dispatch table with a default. Membership events
+     * (`conversation-join`, `conversation-leave`, `conversation-update`) are
+     * things the *server* tells clients after it has changed the database via
+     * the REST routes; no client has ever sent one. They were nevertheless
+     * accepted here, and `handleConversationLeave` forwarded the payload
+     * verbatim — no database lookup, no membership check — to whatever user ids
+     * the sender listed. That let any authenticated user inject a fabricated
+     * conversation into any other user's client, or tell them they had been
+     * removed from a group.
+     *
+     * The fix is to stop treating an outbound event shape as an inbound
+     * command. Anything not listed here is dropped.
+     */
     switch (data.type) {
       case 'authenticate':
         // Auth is handled at WS upgrade — ignore post-connect authenticate messages
@@ -42,12 +68,6 @@ export class WebSocketController {
       case 'typing':
         this.handleTyping(data, authenticatedUserId);
         break;
-      case 'conversation-join':
-        this.handleConversationJoin(data);
-        break;
-      case 'conversation-leave':
-        this.handleConversationLeave(data);
-        break;
       case 'message-status':
         this.handleMessageStatus(data, authenticatedUserId);
         break;
@@ -55,25 +75,24 @@ export class WebSocketController {
         this.handleUserStatus(data, authenticatedUserId);
         break;
       default:
-        logger.warn('Unknown WebSocket message type:', (data as any).type);
+        logger.warn(
+          `Rejected inbound WebSocket message of type "${(data as any).type}" from user ${authenticatedUserId}: not a client-sendable type.`,
+        );
     }
   }
 
   public async handleDisconnect(ws: WebSocket): Promise<void> {
-    const userId = await this.websocketService.logout(ws);
-    if (
-      userId &&
-      (await this.websocketService.isUserFullyDisconnected(userId))
-    ) {
-      const data: DTO.UserStatusMessage = {
-        type: 'user-status',
-        status: 'offline',
-        user_id: userId,
-        last_seen: new Date().toISOString(),
-      };
-      // userId came from the socket bookkeeping in logout(), not from a client.
-      this.handleUserStatus(data, userId);
-    }
+    const closed = await this.websocketService.logout(ws);
+    if (!closed?.fullyDisconnected) return;
+
+    const data: DTO.UserStatusMessage = {
+      type: 'user-status',
+      status: 'offline',
+      user_id: closed.userId,
+      last_seen: new Date().toISOString(),
+    };
+    // userId came from the socket bookkeeping in logout(), not from a client.
+    await this.handleUserStatus(data, closed.userId);
   }
 
   private async handleTyping(
@@ -129,72 +148,6 @@ export class WebSocketController {
       }
     } catch (error) {
       logger.error('Failed to handle typing notification:', error);
-    }
-  }
-
-  private async handleChatMessage(data: DTO.ChatMessage): Promise<void> {
-    try {
-      const { sender, conversation, content, tempId } = data.message;
-      await this.messageService.createTextMessage(
-        (sender as Partial<UserDTO>)?._id!.toString() ?? sender.toString(),
-        conversation.toString(),
-        content as string,
-        undefined,
-        tempId,
-      );
-    } catch (error) {
-      logger.error('Failed to handle incoming chat message:', error);
-    }
-  }
-
-  private async handleConversationJoin(
-    data: DTO.ConversationJoinMessage,
-  ): Promise<void> {
-    try {
-      const fullConversation = await Conversation.findById(
-        data.conversation._id,
-      ).populate('participants');
-      if (!fullConversation) return;
-
-      const payload = {
-        type: 'conversation-join',
-        conversation: fullConversation,
-        added_by: data.added_by,
-      };
-
-      for (const participant of fullConversation.participants as any[]) {
-        this.websocketService.sendToUser(participant._id.toString(), payload);
-      }
-    } catch (error) {
-      logger.error('Error handling conversation-join:', error);
-    }
-  }
-
-  private async handleConversationLeave(
-    data: DTO.ConversationLeaveMessage,
-  ): Promise<void> {
-    try {
-      const removedIds = new Set(
-        (data.removed_users ?? []).map((u) =>
-          String(typeof u === 'string' ? u : u._id),
-        ),
-      );
-
-      // Remaining participants — still in the conversation, just update it
-      for (const participant of data.conversation.participants as any[]) {
-        const id = String(participant._id ?? participant);
-        this.websocketService.sendToUser(id, {
-          type: 'conversation-update',
-          conversation: data.conversation,
-        });
-      }
-
-      // Removed users — they leave
-      for (const userId of removedIds) {
-        this.websocketService.sendToUser(userId, data);
-      }
-    } catch (error) {
-      logger.error('Error handling conversation-leave:', error);
     }
   }
 
@@ -261,46 +214,17 @@ export class WebSocketController {
 
       const userIdObj = new ObjectId(read_receipt.user_id);
       const lastReadObj = new ObjectId(read_receipt.last_message_read_id);
-      const readAt = new Date(read_receipt.read_at);
 
-      const setExisting = () =>
-        Conversation.findOneAndUpdate(
-          { _id: conversation_id, 'read_receipts.user_id': userIdObj },
-          {
-            $set: {
-              'read_receipts.$.last_message_read_id': lastReadObj,
-              'read_receipts.$.read_at': readAt,
-            },
-          },
-          { returnDocument: 'after', select: 'participants' },
-        );
+      // Server clock, not the sender's: `read_at` arrives off a client machine
+      // and is the watermark two other derivations depend on.
+      const readAt = new Date();
 
-      let conversation = await setExisting();
-
-      if (!conversation) {
-        try {
-          conversation = await Conversation.findByIdAndUpdate(
-            conversation_id,
-            {
-              $push: {
-                read_receipts: {
-                  user_id: userIdObj,
-                  last_message_read_id: lastReadObj,
-                  read_at: readAt,
-                },
-              },
-            },
-            { returnDocument: 'after', select: 'participants' },
-          );
-        } catch (err: any) {
-          if (err?.code === 11000) {
-            // lost the race — another concurrent read event pushed first, update it instead
-            conversation = await setExisting();
-          } else {
-            throw err;
-          }
-        }
-      }
+      const conversation = await upsertReadReceipt(
+        conversation_id,
+        userIdObj as unknown as Types.ObjectId,
+        lastReadObj as unknown as Types.ObjectId,
+        readAt,
+      );
 
       if (!conversation) return;
 
@@ -342,36 +266,54 @@ export class WebSocketController {
     const { status, last_seen } = data;
     const user_id = authenticatedUserId;
 
+    const pendingKey = `offline_pending:${user_id}`;
+
     if (status === 'online') {
       // Cancel any pending offline — del is a no-op if key doesn't exist
-      await redisClient.del(`offline_pending:${user_id}`);
+      await redisClient.del(pendingKey);
       await this.finalizeUserStatusUpdate(user_id, 'online', last_seen);
       return;
     }
 
-    // Offline: use Redis TTL instead of in-memory setTimeout
-    // Safe across instances and server restarts
-    const alreadyPending = await redisClient.exists(
-      `offline_pending:${user_id}`,
-    );
+    // The key is the cancellation token: a reconnect deletes it, and the timer
+    // below checks it before committing. It must therefore outlive the timer.
+    // It previously had exactly OFFLINE_DELAY_MS of TTL, so by the time the
+    // timer fired the key had already expired and the check read it as
+    // "cancelled" — meaning users were essentially never marked offline.
+    const alreadyPending = await redisClient.exists(pendingKey);
     if (alreadyPending) return;
 
     await redisClient.setEx(
-      `offline_pending:${user_id}`,
-      OFFLINE_DELAY_MS / 1000,
+      pendingKey,
+      Math.ceil((OFFLINE_DELAY_MS + OFFLINE_PENDING_TTL_GRACE_MS) / 1000),
       '1',
     );
 
-    setTimeout(async () => {
-      // Only finalize if key still exists (wasn't cancelled by reconnect)
-      const stillPending = await redisClient.exists(
-        `offline_pending:${user_id}`,
-      );
-      if (stillPending) {
-        await redisClient.del(`offline_pending:${user_id}`);
-        await this.finalizeUserStatusUpdate(user_id, 'offline', last_seen);
-      }
-    }, OFFLINE_DELAY_MS);
+    setTimeout(() => {
+      void (async () => {
+        try {
+          // Only finalize if we still own the key. DEL returns the number of
+          // keys removed, so claiming it and checking are one atomic step —
+          // EXISTS-then-DEL let a reconnect slip between the two and get
+          // marked offline anyway.
+          const claimed = await redisClient.del(pendingKey);
+          if (claimed === 0) return;
+
+          // The user may have reconnected to a different instance, in which
+          // case they are still online and this transition is stale.
+          const stillGone =
+            await this.websocketService.isUserFullyDisconnected(user_id);
+          if (!stillGone) return;
+
+          await this.finalizeUserStatusUpdate(user_id, 'offline', last_seen);
+        } catch (error) {
+          logger.error(
+            `Failed to finalize pending offline for ${user_id}:`,
+            error,
+          );
+        }
+      })();
+    }, OFFLINE_DELAY_MS).unref?.();
   }
 
   private async finalizeUserStatusUpdate(
@@ -386,7 +328,7 @@ export class WebSocketController {
           status,
           last_seen: lastSeen || new Date(),
         },
-        { new: true, select: 'privacy' },
+        { returnDocument: 'after', select: 'privacy' },
       ).lean();
 
       // The presence is still recorded — the user's own devices rely on it —

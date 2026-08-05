@@ -106,6 +106,7 @@ export class ChatboxSettingsComponent {
   #submitSub?: OutputRefSubscription;
 
   initialChatImageSrc = signal<string | null>(null);
+  readonly uploadingPicture = signal(false);
 
   toggleDropdown(menu: string): void {
     this.dropdownMenuStates[menu] = !this.dropdownMenuStates[menu];
@@ -163,20 +164,49 @@ export class ChatboxSettingsComponent {
     const conversationId = this.conversation()?._id;
     if (!conversationId) return;
 
+    /*
+     * Show the new picture at once.
+     *
+     * The upload only *starts* a pipeline — presign, PUT, confirm, a queued
+     * worker that resizes it, a database write and finally a WebSocket event —
+     * so there were several seconds where the user had confirmed a crop and the
+     * avatar was still the old one. The optimistic image is replaced by the
+     * processed URL the moment the server reports one.
+     */
+    this.conversationService.setPendingGroupPicture(conversationId, imageSrc);
+    this.uploadingPicture.set(true);
+
     this.settingsService
       .updateChatPicture(
         conversationId,
         base64ToFile(imageSrc, 'chat-image.png'),
       )
       ?.pipe(
-        tap(() => toast.success('Conversation picture changed.')),
+        tap(() => {
+          this.uploadingPicture.set(false);
+          toast.success('Conversation picture changed.');
+        }),
         catchError((err) => {
+          // The optimistic picture is a promise the upload just broke; leaving
+          // it would show a change that never happened.
+          this.conversationService.clearPendingGroupPicture(conversationId);
+          this.uploadingPicture.set(false);
           toast.error('Failed to update picture', { description: err.message });
           return throwError(() => err);
         }),
         takeUntilDestroyed(this.destroyRef),
       )
       .subscribe();
+  }
+
+  /** The picture to show: the optimistic one while it is outstanding. */
+  chatImageUrl(): string | null {
+    const conversation = this.conversation();
+    return (
+      this.conversationService.pendingGroupPictureFor(conversation?._id) ??
+      conversation?.group_picture ??
+      null
+    );
   }
 
   onChatNameChange(): void {

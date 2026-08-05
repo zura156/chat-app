@@ -8,6 +8,8 @@ export interface IUser extends Document {
   username: string;
   bio?: string;
   email: string;
+  /** Requested address, awaiting proof of control. See the schema field. */
+  pending_email?: string;
   password: string;
   is_email_verified: boolean;
   login_attempts: number;
@@ -78,6 +80,15 @@ const UserSchema = new Schema<IUser>(
       validate: [validator.isEmail, 'Invalid email'],
     },
     is_email_verified: { type: Boolean, default: false },
+    /**
+     * An address the user has asked to move to but has not yet proved they
+     * control. Kept apart from `email` so a typo — or someone else's address
+     * entered by mistake — cannot lock the account out of its own inbox before
+     * the link is clicked. Deliberately not `unique`: two accounts may both
+     * have an unconfirmed claim on the same address, and only the one that
+     * redeems its token first gets it.
+     */
+    pending_email: { type: String },
     login_attempts: { type: Number, default: 0 },
     lock_until: { type: Date },
     last_login: { type: Date },

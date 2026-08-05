@@ -5,8 +5,15 @@ const REFRESH_TTL = 7 * 24 * 60 * 60;
 const hashToken = (token: string) =>
   crypto.createHash('sha256').update(token).digest('hex');
 
-const userSetKey = (userId: string) => `refresh:set:${userId}`;
-const tokenKey = (userId: string, hash: string) => `refresh:${userId}:${hash}`;
+/*
+ * `{userId}` is a Redis Cluster hash tag: only the text inside the braces is
+ * hashed, so every key for one user lands in the same slot. That is what makes
+ * the multi-key MULTI blocks and the rotate script below valid under Cluster —
+ * without it they would be cross-slot operations and simply fail there.
+ */
+const userSetKey = (userId: string) => `refresh:set:{${userId}}`;
+const tokenKey = (userId: string, hash: string) =>
+  `refresh:{${userId}}:${hash}`;
 
 /*
  * Each refresh token entry used to hold the string '1' — enough to answer "is
@@ -133,11 +140,56 @@ export const revokeSession = async (
   return true;
 };
 
+/**
+ * Ends every session except the one named, and reports how many it ended.
+ *
+ * A password change has to invalidate the other devices — that is most of the
+ * point of changing it — but signing the user out of the device they are
+ * standing at as well turns a routine action into a re-login, which is exactly
+ * the friction that stops people rotating a password they think is exposed.
+ * `deleteAllUserRefreshTokens` cannot express "all but one", so this walks the
+ * set and keeps the caller's own entry.
+ */
+export const revokeOtherSessions = async (
+  userId: string,
+  keepSid: string | null,
+): Promise<number> => {
+  const hashes = await redisClient.sMembers(userSetKey(userId));
+  if (!hashes.length) return 0;
+
+  const values = await redisClient.mGet(hashes.map((h) => tokenKey(userId, h)));
+
+  const doomed = hashes.filter((_, index) => {
+    const meta = readMeta(values[index]);
+    // A member whose value has expired is already dead; dropping it here keeps
+    // the set from accumulating tombstones.
+    if (!meta) return true;
+    return !keepSid || meta.sid !== keepSid;
+  });
+
+  if (doomed.length === 0) return 0;
+
+  await redisClient
+    .multi()
+    .del(doomed.map((h) => tokenKey(userId, h)))
+    .sRem(userSetKey(userId), doomed)
+    .exec();
+
+  return doomed.length;
+};
+
 // Atomic rotate via Lua: if old token exists → delete it + store new one
 // If old token does NOT exist (reuse detected) → delete entire family
 // The rotated entry inherits the old one's session metadata with lastUsedAt
 // advanced, so a session survives token rotation as the same session. ARGV[5]
 // is the fallback for entries that predate sessions and hold '1'.
+/*
+ * All keys this script touches share the `{userId}` hash tag, so Redis Cluster
+ * routes them to one slot and the script is legal there. The family-wipe branch
+ * builds key names at runtime — unavoidable, since the set's members are only
+ * known once it is read — and that is only safe because the tag guarantees
+ * every one of them hashes to the slot the declared KEYS already pinned.
+ */
 const ROTATE_SCRIPT = `
 local old = KEYS[1]
 local new = KEYS[2]
@@ -151,7 +203,7 @@ if not existing then
   -- Reuse detected: wipe entire token family
   local members = redis.call('SMEMBERS', set)
   for _, h in ipairs(members) do
-    redis.call('DEL', 'refresh:' .. ARGV[4] .. ':' .. h)
+    redis.call('DEL', 'refresh:{' .. ARGV[4] .. '}:' .. h)
   end
   redis.call('DEL', set)
   return 0

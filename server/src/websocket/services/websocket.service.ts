@@ -6,7 +6,18 @@ import { redisClient } from '../../config/redis';
 import { randomUUID } from 'crypto';
 import { participantsCacheKey } from '../../utils/conversation-cache';
 
-export type BroadcastFunction = (message: any) => Promise<void>;
+/**
+ * `recipientIds` overrides the conversation's current membership.
+ *
+ * Needed because a membership change has to be announced to the people it
+ * removed, and by the time it is durable they are no longer participants — so
+ * resolving recipients from the conversation, as the default path does, would
+ * silently skip exactly the users the event is about.
+ */
+export type BroadcastFunction = (
+  message: any,
+  recipientIds?: string[],
+) => Promise<void>;
 
 /**
  * Unique per running process. `process.pid` is NOT usable here: every container
@@ -52,24 +63,43 @@ export class WebSocketService {
     );
   }
 
-  public async logout(ws: WebSocket): Promise<string | null> {
-    for (const [userId, sockets] of this.clients.entries()) {
-      if (sockets.has(ws)) {
-        sockets.delete(ws);
+  /**
+   * Detaches a socket and reports what that meant for the user's presence.
+   *
+   * `fullyDisconnected` is answered here rather than by a second call from the
+   * caller because establishing it requires scanning every instance's presence
+   * key — doing that twice per disconnect is the kind of thing that only shows
+   * up under load.
+   */
+  public async logout(
+    ws: WebSocket,
+  ): Promise<{ userId: string; fullyDisconnected: boolean } | null> {
+    // The socket already knows who it belongs to — it is stamped at the
+    // upgrade. Scanning every connected user to rediscover it made each
+    // disconnect O(users online).
+    const userId = (ws as { userId?: string }).userId;
+    if (!userId) return null;
 
-        if (sockets.size === 0) {
-          this.clients.delete(userId);
-          // Remove from both keys — global membership reflects actual state
-          await Promise.all([
-            redisClient.sRem('online_users', userId),
-            redisClient.sRem(INSTANCE_KEY, userId),
-          ]);
-        }
+    const sockets = this.clients.get(userId);
+    if (!sockets?.delete(ws)) return null;
 
-        return userId;
-      }
+    if (sockets.size > 0) return { userId, fullyDisconnected: false };
+
+    this.clients.delete(userId);
+
+    // This instance no longer holds a socket for them — but another one may.
+    // Dropping them from the global set unconditionally reported users as
+    // offline while they were still connected elsewhere, because the global
+    // set is the union of all instances and only this instance's membership
+    // has actually changed.
+    await redisClient.sRem(INSTANCE_KEY, userId);
+
+    const fullyDisconnected = await this.isUserFullyDisconnected(userId);
+    if (fullyDisconnected) {
+      await redisClient.sRem('online_users', userId);
     }
-    return null;
+
+    return { userId, fullyDisconnected };
   }
 
   public async isUserFullyDisconnected(userId: string): Promise<boolean> {
@@ -121,7 +151,10 @@ export class WebSocketService {
     return redisClient.sMembers('online_users');
   }
 
-  public broadcast: BroadcastFunction = async (message: any): Promise<void> => {
+  public broadcast: BroadcastFunction = async (
+    message: any,
+    recipientIds?: string[],
+  ): Promise<void> => {
     if (!message || !message.conversation) {
       logger.warn('Broadcast ignored: missing conversation.');
       return;
@@ -130,10 +163,17 @@ export class WebSocketService {
     try {
       const conversationId = message.conversation._id || message.conversation;
 
-      let participantIds: string[] | null = null;
-      const cached = await redisClient.get(participantsCacheKey(conversationId));
+      let participantIds: string[] | null = recipientIds
+        ? [...new Set(recipientIds.map(String))]
+        : null;
 
-      if (cached) {
+      const cached = participantIds
+        ? null
+        : await redisClient.get(participantsCacheKey(conversationId));
+
+      if (participantIds) {
+        // Caller named the recipients explicitly — do not consult membership.
+      } else if (cached) {
         participantIds = JSON.parse(cached);
       } else {
         const conversation = await Conversation.findById(conversationId)

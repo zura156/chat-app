@@ -1,3 +1,8 @@
+/**
+ * Must match CONTEXT_CONFIG on the server (config/upload.config.ts). The
+ * post-* and story-* contexts were dropped from both: they described features
+ * that do not exist, and the server accepted presign requests for them.
+ */
 export type UploadContext =
   | 'avatar'
   | 'group-avatar'
@@ -5,11 +10,7 @@ export type UploadContext =
   | 'dm-image'
   | 'dm-video'
   | 'dm-file'
-  | 'dm-audio'
-  | 'post-image'
-  | 'post-video'
-  | 'story-image'
-  | 'story-video';
+  | 'dm-audio';
 
 export interface PresignResponse {
   uploadId: string;

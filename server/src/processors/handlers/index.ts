@@ -8,7 +8,6 @@ import {
   onGroupAvatarComplete,
   onCoverPhotoComplete,
   onDmAttachmentComplete,
-  onPostMediaComplete,
 } from './side-effects';
 import { audioHandler } from './audio.handler';
 
@@ -23,14 +22,6 @@ export const contextHandlers: Record<string, ContextHandlerConfig> = {
   },
   'dm-audio': { handler: audioHandler, onComplete: onDmAttachmentComplete },
   'dm-file': { handler: fileHandler, onComplete: onDmAttachmentComplete },
-  'post-image': { handler: imageHandler, onComplete: onPostMediaComplete },
-  'post-video': {
-    handler: (p) => videoHandler(p, true),
-    onComplete: onPostMediaComplete,
-  },
-  'story-image': { handler: imageHandler, onComplete: onPostMediaComplete },
-  'story-video': {
-    handler: (p) => videoHandler(p, true),
-    onComplete: onPostMediaComplete,
-  },
+  // post-* and story-* handlers were dropped along with their upload contexts:
+  // there is no posts or stories feature for them to complete into.
 };

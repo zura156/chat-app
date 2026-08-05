@@ -8,7 +8,7 @@ import {
   output,
   signal,
 } from '@angular/core';
-import { Subject, Subscription, takeUntil } from 'rxjs';
+import { Subject, takeUntil } from 'rxjs';
 import {
   UploadContext,
   UploadState,
@@ -216,10 +216,6 @@ const MAX_SIZE_MB: Partial<Record<UploadContext, number>> = {
   'dm-video': 500,
   'dm-audio': 25,
   'dm-file': 100,
-  'post-image': 50,
-  'post-video': 1024,
-  'story-image': 50,
-  'story-video': 200,
 };
 
 function defaultAllowed(ctx: UploadContext): string[] | null {
@@ -227,8 +223,6 @@ function defaultAllowed(ctx: UploadContext): string[] | null {
     case 'avatar':
     case 'group-avatar':
     case 'cover-photo':
-    case 'post-image':
-    case 'story-image':
       return [
         'image/jpeg',
         'image/png',
@@ -253,10 +247,6 @@ function defaultAllowed(ctx: UploadContext): string[] | null {
         'video/x-msvideo',
         'video/x-matroska',
       ];
-    case 'post-video':
-      return ['video/mp4', 'video/quicktime', 'video/webm', 'video/x-msvideo'];
-    case 'story-video':
-      return ['video/mp4', 'video/quicktime', 'video/webm'];
     case 'dm-audio':
       return [
         'audio/webm',

@@ -8,6 +8,19 @@ import {
 } from '@angular/core';
 
 export type Theme = 'light' | 'dark' | 'system';
+
+/**
+ * localStorage throws in some privacy modes. `theme` already guarded for this
+ * and `colorTheme` did not, which is the kind of asymmetry that turns into a
+ * blank screen on exactly one browser configuration.
+ */
+const readStored = (key: string): string | null => {
+  try {
+    return localStorage.getItem(key);
+  } catch {
+    return null;
+  }
+};
 @Injectable({ providedIn: 'root' })
 export class ThemeService {
   private renderer: Renderer2;
@@ -15,7 +28,7 @@ export class ThemeService {
   private mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
 
   theme = signal<Theme>(this.getSavedTheme());
-  colorTheme = signal<string>(localStorage.getItem('colorTheme') ?? 'mono');
+  colorTheme = signal<string>(readStored('colorTheme') ?? 'mono');
 
   private systemPrefersDark = signal<boolean>(this.mediaQuery.matches);
 
@@ -45,45 +58,34 @@ export class ThemeService {
     this.setColorTheme(this.colorTheme());
   }
 
+  /*
+   * Only the signal is written. The `effect` in the constructor is what puts the
+   * `dark` class on the document, so `applyTheme`/`toggleDark` existed purely to
+   * do the same job a second time by hand — two mechanisms for one piece of
+   * state, either of which could be updated without the other.
+   */
   setTheme(theme: Theme, colorTheme?: string): void {
-    if (!document.startViewTransition) {
+    const apply = () => {
       this.theme.set(theme);
       localStorage.setItem('theme', theme);
-      this.applyTheme(theme);
+      if (colorTheme) this.setColorTheme(colorTheme);
+    };
+
+    if (!document.startViewTransition) {
+      apply();
       return;
     }
 
     document.startViewTransition(async () => {
-      this.theme.set(theme);
-      localStorage.setItem('theme', theme);
-
-      this.applyTheme(theme);
-      if (colorTheme) this.setColorTheme(colorTheme);
+      apply();
+      // Yields so the effect has flushed and the transition captures the new
+      // appearance rather than the old one.
       await new Promise((resolve) => setTimeout(resolve, 0));
     });
   }
 
   toggle(): void {
     this.setTheme(this.theme() === 'dark' ? 'light' : 'dark');
-  }
-
-  private applyTheme(theme: Theme): void {
-    if (theme === 'dark') {
-      this.toggleDark(true);
-    } else if (theme === 'light') {
-      this.toggleDark(false);
-    } else {
-      const prefersDark = this.mediaQuery.matches;
-      this.toggleDark(prefersDark);
-    }
-  }
-
-  private toggleDark(dark: boolean): void {
-    if (dark) {
-      this.renderer.addClass(document.documentElement, 'dark');
-    } else {
-      this.renderer.removeClass(document.documentElement, 'dark');
-    }
   }
 
   setColorTheme(colorTheme: string): void {
@@ -97,10 +99,6 @@ export class ThemeService {
   }
 
   private getSavedTheme(): Theme {
-    try {
-      return (localStorage.getItem('theme') as Theme) ?? 'system';
-    } catch {
-      return 'system';
-    }
+    return (readStored('theme') as Theme) ?? 'system';
   }
 }

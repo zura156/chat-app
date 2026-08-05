@@ -1,8 +1,15 @@
 import { NextFunction, Request, Response } from 'express';
 import { IUser, User } from '../user/models/user.model';
 import { getSecurityAlertEmailHTML } from '../templates/security-alert-email';
+import { getPasswordChangedEmailHTML } from '../templates/password-changed-email';
+import { getEmailChangeEmailHTML } from '../templates/email-change-email';
 import { logger } from '../utils/logger';
-import { generateTokens } from './services/jwt.service';
+import {
+  generateTokens,
+  generateTwoFactorChallenge,
+  verifyRefreshToken,
+  verifyTwoFactorChallenge,
+} from './services/jwt.service';
 import { CustomAPIError } from '../error-handling/models/custom-api-error.model';
 import config from '../config/config';
 import { LoginDto } from './dtos/login.dto';
@@ -14,13 +21,9 @@ import {
 import sendEmail from '../utils/mailer';
 import jwt from 'jsonwebtoken';
 import { AuthRequest } from './middlewares/auth.middleware';
-import { generateLink } from './services/auth.service';
+import { generateLink, normalizeEmail } from './services/auth.service';
 import crypto from 'crypto';
-import {
-  clearRateLimitMiddleware,
-  forgotPasswordRateLimitIncrement,
-  loginRateLimitIncrement,
-} from './middlewares/rate-limiter';
+import { resetRateLimit } from './middlewares/rate-limiter';
 import {
   storeRefreshToken,
   validateRefreshToken,
@@ -30,11 +33,12 @@ import {
   blacklistAccessToken,
   listSessions,
   revokeSession,
+  revokeOtherSessions,
   sessionIdForToken,
   newSessionId,
 } from './services/token.service';
 import { TwoFactorAuthModel } from './models/two-factor.model';
-import { verifyCode } from './services/totp.service';
+import { verifyAndConsumeCode } from './services/totp.service';
 
 /**
  * What the server can actually observe about the client, and nothing more. The
@@ -45,9 +49,6 @@ const observedClient = (req: Request): { userAgent?: string; ip?: string } => ({
   userAgent: req.headers['user-agent']?.slice(0, 300),
   ip: req.ip,
 });
-
-/** Marks the short-lived token that stands between password and second factor. */
-const TWO_FACTOR_PURPOSE = 'two-factor-challenge';
 
 /**
  * Issues the session for an authenticated user. Shared by password-only login
@@ -87,16 +88,31 @@ const COOKIE_BASE = {
     | 'lax',
 };
 
+/**
+ * The cookie must not outlive the token inside it, and the token must not
+ * outlive the cookie. These were 15 minutes and `JWT_EXPIRES_IN` (1h by
+ * default) respectively, so a captured access token stayed cryptographically
+ * valid for 45 minutes after the browser had already dropped it — and the
+ * blacklist TTL, derived from the token's own `exp`, was sized for a window
+ * nothing else agreed with.
+ */
+const accessTokenMaxAgeMs = (accessToken: string): number => {
+  const decoded = jwt.decode(accessToken) as { exp?: number } | null;
+  if (!decoded?.exp) return 15 * 60 * 1000;
+  return Math.max(0, decoded.exp * 1000 - Date.now());
+};
+
 const setAuthCookies = (
   res: Response,
   accessToken: string,
   refreshToken: string,
 ) => {
   const csrfToken = crypto.randomBytes(32).toString('hex');
+  const accessMaxAge = accessTokenMaxAgeMs(accessToken);
 
   res.cookie('accessToken', accessToken, {
     ...COOKIE_BASE,
-    maxAge: 15 * 60 * 1000, // 15 mins
+    maxAge: accessMaxAge,
   });
   res.cookie('refreshToken', refreshToken, {
     ...COOKIE_BASE,
@@ -104,6 +120,9 @@ const setAuthCookies = (
     maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
   });
 
+  // Read by JS to echo back as a header, so not httpOnly. Its lifetime tracks
+  // the access token's: a CSRF cookie outliving the session it protects just
+  // produces 403s on the next request.
   res.cookie('csrfToken', csrfToken, {
     httpOnly: false,
     secure: config.nodeEnv === 'production',
@@ -111,11 +130,11 @@ const setAuthCookies = (
       | 'none'
       | 'lax',
     domain: config.cookieDomain,
-    maxAge: 15 * 60 * 1000, // 15 mins
+    maxAge: accessMaxAge,
   });
 };
 
-const clearAuthCookies = (res: Response) => {
+export const clearAuthCookies = (res: Response) => {
   // A cookie is only overwritten when name + domain + path match how it was
   // set — csrfToken is set with a domain, so it must be cleared with one too.
   res.clearCookie('accessToken', { ...COOKIE_BASE });
@@ -191,13 +210,23 @@ export const registerUser = async (
     const { first_name, last_name, username, email, password }: RegisterDto =
       req.body;
 
-    const existingUser = await User.findOne({ $or: [{ email }, { username }] });
+    const normalizedEmail = normalizeEmail(email);
+
+    const existingUser = await User.findOne({
+      $or: [{ email: normalizedEmail }, { username }],
+    });
     if (existingUser) {
       res.status(409).json({ message: 'User already exists' });
       return;
     }
 
-    const user = new User({ first_name, last_name, username, email, password });
+    const user = new User({
+      first_name,
+      last_name,
+      username,
+      email: normalizedEmail,
+      password,
+    });
     await user.save();
 
     const verifyLink = await generateLink(
@@ -242,13 +271,13 @@ export const loginUser = async (
       return;
     }
 
-    const sanitizedEmail = email.trim().toLowerCase();
-    const user = await User.findOne({ email: sanitizedEmail });
+    const user = await User.findOne({ email: normalizeEmail(email) });
 
     if (!user) {
-      return loginRateLimitIncrement(req, res, () => {
-        res.status(404).json({ message: 'User not found!' });
-      });
+      // Deliberately the same answer as a wrong password. Returning "user not
+      // found" here told an attacker which addresses are registered.
+      res.status(401).json({ message: 'Invalid credentials' });
+      return;
     }
 
     if (user.lock_until && user.lock_until.getTime() > Date.now()) {
@@ -263,12 +292,13 @@ export const loginUser = async (
     const isValidPassword = await user.comparePassword(password);
     if (!isValidPassword) {
       await registerFailedLogin(user, req);
-      return loginRateLimitIncrement(req, res, () => {
-        res.status(401).json({ message: 'Invalid credentials' });
-      });
+      res.status(401).json({ message: 'Invalid credentials' });
+      return;
     }
 
-    await clearRateLimitMiddleware(req, res, () => {});
+    // The limiter counts on the way in; a correct password clears the tally, so
+    // only failures accumulate.
+    await resetRateLimit(req);
 
     // The password is only the first factor. When a second one is enrolled, no
     // session is issued here — the caller gets a short-lived challenge and has
@@ -279,13 +309,10 @@ export const loginUser = async (
     }).lean();
 
     if (twoFactor) {
-      res.cookie(
-        'twoFactorChallenge',
-        jwt.sign({ userId: user.id, purpose: TWO_FACTOR_PURPOSE }, config.jwtSecret, {
-          expiresIn: '5m',
-        }),
-        { ...COOKIE_BASE, maxAge: 5 * 60 * 1000 },
-      );
+      res.cookie('twoFactorChallenge', generateTwoFactorChallenge(user.id), {
+        ...COOKIE_BASE,
+        maxAge: 5 * 60 * 1000,
+      });
 
       res.status(200).json({ two_factor_required: true });
       return;
@@ -319,10 +346,7 @@ export const refreshAccessToken = async (
     // unreachable from here.
     let decoded: { userId: string; sid?: string };
     try {
-      decoded = jwt.verify(token, config.jwtRefreshSecret) as {
-        userId: string;
-        sid?: string;
-      };
+      decoded = verifyRefreshToken(token);
     } catch {
       clearAuthCookies(res);
       res.status(401).json({ message: 'Refresh token invalid or expired' });
@@ -388,21 +412,13 @@ export const loginTwoFactor = async (
       return;
     }
 
-    let decoded: { userId: string; purpose?: string };
+    // Type-scoped both ways: an access token is not accepted here, and this
+    // token is not accepted as an access token (see jwt.service).
+    let decoded: { userId: string };
     try {
-      decoded = jwt.verify(challenge, config.jwtSecret) as {
-        userId: string;
-        purpose?: string;
-      };
+      decoded = verifyTwoFactorChallenge(challenge);
     } catch {
       res.clearCookie('twoFactorChallenge', { ...COOKIE_BASE });
-      res.status(401).json({ message: 'Start the sign-in again' });
-      return;
-    }
-
-    // Without this an ordinary access token would be accepted here, letting a
-    // stolen one skip the factor it is meant to be gated by.
-    if (decoded.purpose !== TWO_FACTOR_PURPOSE) {
       res.status(401).json({ message: 'Start the sign-in again' });
       return;
     }
@@ -426,14 +442,22 @@ export const loginTwoFactor = async (
       .update(submitted.toUpperCase())
       .digest('hex');
 
-    const byCode = verifyCode(record.secret, submitted);
+    // Consuming rather than merely checking: a TOTP code is valid for its whole
+    // period plus the drift window, so an observed one is otherwise replayable
+    // for up to ninety seconds.
+    const byCode = await verifyAndConsumeCode(
+      String(user._id),
+      record.secret,
+      submitted,
+    );
     const recoveryIndex = record.recovery_codes.indexOf(hashedSubmission);
 
     if (!byCode && recoveryIndex === -1) {
-      return loginRateLimitIncrement(req, res, () => {
-        res.status(401).json({ message: 'That code is not correct' });
-      });
+      res.status(401).json({ message: 'That code is not correct' });
+      return;
     }
+
+    await resetRateLimit(req);
 
     if (recoveryIndex !== -1) {
       record.recovery_codes.splice(recoveryIndex, 1);
@@ -569,20 +593,33 @@ export const revokeAllSessions = async (
   }
 };
 
+/**
+ * Ends the session. Deliberately tolerant: logging out is the one thing that
+ * must never fail, and the previous version required a live access token to do
+ * anything at all — so once the token expired the client got a 401, never
+ * cleared its cookies, and sat there believing it was still signed in with no
+ * way to correct itself.
+ *
+ * The user id is recovered from whichever token is still readable, and the
+ * cookies are cleared regardless.
+ */
 export const logOut = async (
   req: AuthRequest,
   res: Response,
   next: NextFunction,
 ): Promise<void> => {
   try {
-    const user = req.user;
-    if (!user) {
-      res.status(401).json({ message: 'Unauthorized' });
-      return;
-    }
+    const refreshToken = req.cookies?.refreshToken as string | undefined;
+    const accessToken = req.cookies?.accessToken as string | undefined;
 
-    const refreshToken = req.cookies.refreshToken as string | undefined;
-    const accessToken = req.cookies.accessToken as string | undefined;
+    // req.user is absent when the access token has expired; fall back to what
+    // the tokens themselves say. Signature is not re-checked here because
+    // nothing is authorised on the strength of it — the only actions are
+    // revoking the caller's own credentials.
+    const userId =
+      req.user?._id?.toString() ??
+      (jwt.decode(refreshToken ?? accessToken ?? '') as { userId?: string })
+        ?.userId;
 
     // Blacklist the access token for remainder of its TTL
     if (accessToken) {
@@ -594,12 +631,55 @@ export const logOut = async (
       }
     }
 
-    if (refreshToken) {
-      await deleteRefreshToken(user._id.toString(), refreshToken);
+    if (refreshToken && userId) {
+      await deleteRefreshToken(userId, refreshToken);
     }
 
     clearAuthCookies(res);
     res.json({ message: 'Logout successful' });
+  } catch (error: any) {
+    if (error instanceof CustomAPIError) throw error;
+    next(error);
+  }
+};
+
+/**
+ * Re-sends the verification mail. The verification flow existed end to end but
+ * nothing enforced it, so there was never a reason to resend; now that an
+ * unverified account is gated, a lost or expired link needs a way back.
+ */
+export const resendVerificationEmail = async (
+  req: AuthRequest,
+  res: Response,
+  next: NextFunction,
+): Promise<void> => {
+  try {
+    const user = req.user;
+    if (!user) {
+      res.status(401).json({ message: 'Unauthorized' });
+      return;
+    }
+
+    if (user.is_email_verified) {
+      res.status(409).json({ message: 'Email already verified.' });
+      return;
+    }
+
+    const verifyLink = await generateLink(
+      AccountTokenEnum.EMAIL_VERIFICATION,
+      user._id.toString(),
+    );
+
+    await sendEmail(
+      user.email,
+      'Please Verify Your Email',
+      `<h2>Verify Email</h2>
+       <p>Click the link below to verify your email:</p>
+       <a href="${verifyLink}">Verify</a>
+       <p>This link will expire in 1 hour.</p>`,
+    );
+
+    res.status(200).json({ message: 'Verification email sent.' });
   } catch (error: any) {
     if (error instanceof CustomAPIError) throw error;
     next(error);
@@ -619,15 +699,16 @@ export const forgotPassword = async (
   }
 
   try {
-    const sanitizedEmail = email.trim().toLowerCase();
-    const user = await User.findOne({ email: sanitizedEmail });
+    const user = await User.findOne({ email: normalizeEmail(email) });
 
     if (!user) {
-      return forgotPasswordRateLimitIncrement(req, res, () => {
-        res
-          .status(200)
-          .json({ message: 'Password reset link sent if email exists.' });
-      });
+      // No reset here, and none on the success path either: what this endpoint
+      // rations is mail sent to an address the caller picked, so a request that
+      // "worked" is exactly the one worth counting.
+      res
+        .status(200)
+        .json({ message: 'Password reset link sent if email exists.' });
+      return;
     }
 
     const resetLink = await generateLink(
@@ -706,10 +787,331 @@ export const resetPassword = async (
     // Force logout from all devices after password reset
     await deleteAllUserRefreshTokens(user._id.toString());
 
+    // A valid token proves this was not a guessing run.
+    await resetRateLimit(req);
+
     clearAuthCookies(res);
     res.status(200).json({ message: 'Password reset successful.' });
   } catch (error: any) {
     if (error instanceof CustomAPIError) throw error;
+    next(error);
+  }
+};
+
+/**
+ * Changes the password of the account that is already signed in.
+ *
+ * This did not exist. The two "Change password" buttons in settings both linked
+ * to `/auth/forgot-password`, which is behind the unauthenticated guard — so
+ * for the only people who could ever see those buttons, they redirected back to
+ * the app and nothing happened. Recovering an account you have lost access to
+ * and rotating a password you still know are different operations, and only the
+ * first one was built.
+ *
+ * Knowing the current password is what authorises this: a session cookie alone
+ * would let anyone with a borrowed logged-in browser lock the owner out.
+ */
+export const changePassword = async (
+  req: AuthRequest,
+  res: Response,
+  next: NextFunction,
+): Promise<void> => {
+  try {
+    const authUser = req.user;
+    if (!authUser) {
+      res.status(401).json({ message: 'Unauthorized' });
+      return;
+    }
+
+    const { current_password, new_password } = req.body ?? {};
+    if (!current_password || !new_password) {
+      res
+        .status(400)
+        .json({ message: 'Both the current and new password are required.' });
+      return;
+    }
+
+    // Re-read as a full document: req.user may be a lean projection, and
+    // comparePassword/the hashing pre-save hook are document methods.
+    const user = await User.findById(authUser._id);
+    if (!user) {
+      res.status(404).json({ message: 'User not found.' });
+      return;
+    }
+
+    if (!(await user.comparePassword(current_password))) {
+      res.status(401).json({ message: 'Your current password is incorrect.' });
+      return;
+    }
+
+    if (await user.comparePassword(new_password)) {
+      res.status(400).json({
+        message: 'Your new password must be different from the current one.',
+      });
+      return;
+    }
+
+    user.password = new_password; // hashed by the pre-save hook
+    user.login_attempts = 0;
+    user.lock_until = undefined;
+    await user.save();
+
+    // The correct current password proves this was not a guessing run.
+    await resetRateLimit(req);
+
+    // Every other device keeps working off a refresh token that was minted
+    // against the old password, so leaving them alone would make the change
+    // cosmetic. This one stays signed in — see revokeOtherSessions.
+    const revoked = await revokeOtherSessions(
+      user._id.toString(),
+      req.sessionId ?? null,
+    );
+
+    // Best-effort: the password is already changed, and failing to send mail
+    // must not turn a successful change into an error the client retries.
+    try {
+      const observed = observedClient(req);
+      const resetLink = await generateLink(
+        AccountTokenEnum.PASSWORD_RESET,
+        user._id.toString(),
+      );
+      await sendEmail(
+        user.email,
+        'Your password was changed',
+        getPasswordChangedEmailHTML(
+          user.username,
+          new Date().toUTCString(),
+          observed.ip ?? 'unknown',
+          observed.userAgent ?? 'Unknown device',
+          resetLink,
+        ),
+      );
+    } catch (error) {
+      logger.error('Failed to send password-change notification:', error);
+    }
+
+    res.status(200).json({
+      message: 'Password changed.',
+      signed_out_sessions: revoked,
+    });
+  } catch (error) {
+    if (error instanceof CustomAPIError) throw error;
+    next(error);
+  }
+};
+
+/**
+ * Starts a move to a new address.
+ *
+ * Nothing changes on the account yet: the request only records the claim and
+ * mails a link to the address being claimed. Proof of control has to come from
+ * the new inbox, otherwise a mistyped address — or a stolen session — could
+ * move an account somewhere its owner cannot reach.
+ *
+ * The current password is required for the same reason it is on a password
+ * change: whoever controls the address controls password recovery, so this is
+ * an account takeover in one step if a live cookie were sufficient.
+ */
+export const changeEmail = async (
+  req: AuthRequest,
+  res: Response,
+  next: NextFunction,
+): Promise<void> => {
+  try {
+    const authUser = req.user;
+    if (!authUser) {
+      res.status(401).json({ message: 'Unauthorized' });
+      return;
+    }
+
+    const { new_email, password } = req.body ?? {};
+    if (!new_email || !password) {
+      res
+        .status(400)
+        .json({ message: 'A new email address and your password are required.' });
+      return;
+    }
+
+    const nextEmail = normalizeEmail(new_email);
+
+    const user = await User.findById(authUser._id);
+    if (!user) {
+      res.status(404).json({ message: 'User not found.' });
+      return;
+    }
+
+    if (!(await user.comparePassword(password))) {
+      res.status(401).json({ message: 'Your password is incorrect.' });
+      return;
+    }
+
+    if (nextEmail === normalizeEmail(user.email)) {
+      res
+        .status(400)
+        .json({ message: 'That is already your email address.' });
+      return;
+    }
+
+    // Checked here for a clear message, and again at confirmation — the address
+    // can be taken by someone else in between.
+    const taken = await User.exists({ email: nextEmail });
+    if (taken) {
+      res.status(409).json({ message: 'That email address is already in use.' });
+      return;
+    }
+
+    user.pending_email = nextEmail;
+    await user.save();
+
+    const confirmLink = await generateLink(
+      AccountTokenEnum.EMAIL_CHANGE,
+      user._id.toString(),
+    );
+
+    await sendEmail(
+      nextEmail,
+      'Confirm your new email address',
+      getEmailChangeEmailHTML(user.username, nextEmail, confirmLink),
+    );
+
+    // The old address is told as well, because it is the only channel that
+    // still reaches the owner if this request was not theirs.
+    try {
+      const observed = observedClient(req);
+      const resetLink = await generateLink(
+        AccountTokenEnum.PASSWORD_RESET,
+        user._id.toString(),
+      );
+      await sendEmail(
+        user.email,
+        'An email change was requested',
+        getPasswordChangedEmailHTML(
+          user.username,
+          new Date().toUTCString(),
+          observed.ip ?? 'unknown',
+          observed.userAgent ?? 'Unknown device',
+          resetLink,
+        ),
+      );
+    } catch (error) {
+      logger.error('Failed to notify the previous address:', error);
+    }
+
+    res.status(200).json({
+      message: `Check ${nextEmail} for a confirmation link.`,
+      pending_email: nextEmail,
+    });
+  } catch (error) {
+    if (error instanceof CustomAPIError) throw error;
+    next(error);
+  }
+};
+
+/**
+ * Completes the move, from the link sent to the new address.
+ *
+ * Unauthenticated on purpose: the link is opened in whatever browser the mail
+ * client hands it to, which is routinely not the one holding the session.
+ */
+export const confirmEmailChange = async (
+  req: Request,
+  res: Response,
+  next: NextFunction,
+): Promise<void> => {
+  const { token, id } = req.body ?? {};
+
+  if (!token || !id) {
+    res.status(400).json({ message: 'Not all details were provided!' });
+    return;
+  }
+
+  try {
+    const hashedToken = crypto.createHash('sha256').update(token).digest('hex');
+
+    const changeToken = await AccountTokensModel.findOne({
+      user_id: id,
+      token: hashedToken,
+      type: AccountTokenEnum.EMAIL_CHANGE,
+      expires_at: { $gt: new Date() },
+    });
+
+    if (!changeToken) {
+      res.status(400).json({ message: 'Invalid or expired link.' });
+      return;
+    }
+
+    const user = await User.findById(changeToken.user_id);
+    if (!user?.pending_email) {
+      res
+        .status(400)
+        .json({ message: 'There is no pending email change on this account.' });
+      return;
+    }
+
+    const nextEmail = normalizeEmail(user.pending_email);
+
+    // Re-checked at redemption: the address was free when the link was sent,
+    // which says nothing about now. `pending_email` is not unique precisely so
+    // that this is the point where the race is settled.
+    const taken = await User.exists({
+      email: nextEmail,
+      _id: { $ne: user._id },
+    });
+    if (taken) {
+      user.pending_email = undefined;
+      await user.save();
+      res.status(409).json({
+        message: 'That email address has since been taken by another account.',
+      });
+      return;
+    }
+
+    user.email = nextEmail;
+    user.pending_email = undefined;
+    // Redeeming this link is itself proof of control of the new address.
+    user.is_email_verified = true;
+    await user.save();
+
+    await AccountTokensModel.deleteMany({
+      user_id: user._id,
+      type: AccountTokenEnum.EMAIL_CHANGE,
+    });
+
+    // The address is how the account is recovered, so every other device is
+    // signed out — as on a password change.
+    await deleteAllUserRefreshTokens(user._id.toString());
+    clearAuthCookies(res);
+
+    res.status(200).json({ message: 'Email address updated.' });
+  } catch (error) {
+    if (error instanceof CustomAPIError) throw error;
+    next(error);
+  }
+};
+
+/** Withdraws a pending change, so a mistyped address does not sit there. */
+export const cancelEmailChange = async (
+  req: AuthRequest,
+  res: Response,
+  next: NextFunction,
+): Promise<void> => {
+  try {
+    const authUser = req.user;
+    if (!authUser) {
+      res.status(401).json({ message: 'Unauthorized' });
+      return;
+    }
+
+    await User.findByIdAndUpdate(authUser._id, {
+      $unset: { pending_email: 1 },
+    });
+    await AccountTokensModel.deleteMany({
+      user_id: authUser._id,
+      type: AccountTokenEnum.EMAIL_CHANGE,
+    });
+
+    res.status(200).json({ message: 'Email change cancelled.' });
+  } catch (error) {
     next(error);
   }
 };

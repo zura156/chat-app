@@ -8,10 +8,12 @@ import {
   computed,
   inject,
   input,
+  linkedSignal,
   output,
   signal,
   viewChild,
 } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { NgIcon, provideIcons } from '@ng-icons/core';
 import {
   lucideFastForward,
@@ -34,6 +36,10 @@ import { MediaPlayerSizesT } from '../../types/media-player-sizes.type';
 import { FormatTimePipe } from '../../pipes/format-time.pipe';
 import { VideoActionsT } from '../../interfaces/video-actions.interface';
 import { AttachmentI } from '../../../features/messages/interfaces/message.interface';
+import {
+  SignedMediaService,
+  mediaIdentity,
+} from '../../services/signed-media.service';
 
 const OVERLAY_INACTIVITY_MS = 2600;
 const INDICATOR_MS = 600;
@@ -73,6 +79,7 @@ export class VideoPlayer implements AfterViewInit {
 
   private readonly document = inject(DOCUMENT);
   private readonly destroyRef = inject(DestroyRef);
+  private readonly signedMedia = inject(SignedMediaService);
 
   readonly videoPlayer = viewChild<ElementRef<HTMLVideoElement>>('videoPlayer');
   readonly playerContainer =
@@ -108,6 +115,8 @@ export class VideoPlayer implements AfterViewInit {
   private hideIndicatorTimer?: ReturnType<typeof setTimeout>;
   private lastVolumeBeforeMute = 1;
   private warnedAboutRanges = false;
+  /** Bounds the silent re-sign to one attempt per player. See the error handler. */
+  private autoRecoveryAttempted = false;
 
   /** Amount of the last skip, so the indicator matches the step actually used. */
   readonly seekAmount = signal(SEEK_STEP_SECONDS);
@@ -119,10 +128,39 @@ export class VideoPlayer implements AfterViewInit {
 
   readonly iconSize = computed(() => (this.styleSize() === 'lg' ? 'lg' : 'sm'));
 
-  readonly src = computed(() => {
+  /** Whatever the input currently says, signature and all. */
+  private readonly incomingSrc = computed(() => {
     const variants = this.video()?.variants;
     // `original` is the progressive mp4; `hls` only exists on legacy records
     return variants?.original || variants?.hls || '';
+  });
+
+  /**
+   * The URL actually bound to the element, held steady across re-signing.
+   *
+   * Attachment URLs are presigned on the way out of the API against a
+   * timestamp rounded down to the hour, so the same object yields a different
+   * URL either side of an hour boundary. This was a plain `computed`, so any
+   * refetch that crossed one — a page of history loading, an upload-ready
+   * event, a conversation reopening — changed `[src]`, and changing the `src`
+   * of a <video> makes the browser tear down and reload the media **from the
+   * beginning**.
+   *
+   * That is the "some users can't watch the whole video" report: it depends on
+   * how long the video is and when the viewer happened to start it, so it is
+   * invisible on a short test clip and reproducible for someone watching
+   * something long. The fix is to notice that a new signature for the same
+   * object is not new media, and keep the URL the element already has.
+   */
+  readonly src = linkedSignal<string, string>({
+    source: () => this.incomingSrc(),
+    computation: (incoming, previous) => {
+      const held = previous?.value;
+      if (!held) return incoming;
+      // An input that momentarily has no URL must not blank a playing element.
+      if (!incoming) return held;
+      return mediaIdentity(incoming) === mediaIdentity(held) ? held : incoming;
+    },
   });
 
   readonly poster = computed(
@@ -213,10 +251,26 @@ export class VideoPlayer implements AfterViewInit {
       this.persistVolume(el);
     });
     on('error', () => {
-      this.hasError.set(true);
-      this.isBuffering.set(false);
       // otherwise a host waiting on `loaded` spins forever
       this.loaded.emit();
+
+      /*
+       * Try once to recover silently before showing a failure.
+       *
+       * By far the most common cause of a mid-playback error is a presigned URL
+       * that expired while the tab was open, and the fix for that is a fresh
+       * signature — something the user cannot supply and should not have to
+       * think about. Bounded to a single attempt so a genuinely broken object
+       * surfaces as an error instead of looping.
+       */
+      if (!this.autoRecoveryAttempted && this.video()?.uploadId) {
+        this.autoRecoveryAttempted = true;
+        this.retry();
+        return;
+      }
+
+      this.hasError.set(true);
+      this.isBuffering.set(false);
     });
 
     // iOS enters fullscreen through the video element itself, which does not
@@ -285,11 +339,63 @@ export class VideoPlayer implements AfterViewInit {
     this.togglePlayback();
   }
 
+  /**
+   * Recovers from a playback failure.
+   *
+   * This used to be `el.load()` on the same URL, which is precisely the thing
+   * that had just failed. The overwhelmingly common cause is an expired
+   * signature — the URL was minted when the message was fetched and has a fixed
+   * lifetime — so the first thing to try is a fresh one. Only if that is
+   * unavailable do we fall back to reloading what we have, which still helps
+   * for a transient network failure.
+   */
   retry(): void {
     const el = this.videoPlayer()?.nativeElement;
     if (!el) return;
+
     this.hasError.set(false);
+    this.isBuffering.set(true);
+
+    const uploadId = this.video()?.uploadId;
+    if (!uploadId) {
+      this.reload(el, this.incomingSrc() || this.src());
+      return;
+    }
+
+    this.signedMedia.invalidate(uploadId);
+    this.signedMedia
+      .refresh(uploadId)
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe((variants) => {
+        const fresh = variants?.['original'] || variants?.['hls'];
+        this.reload(el, fresh || this.incomingSrc() || this.src());
+      });
+  }
+
+  /**
+   * Points the element at a URL and restores the playhead.
+   *
+   * Assigning `src` resets `currentTime` to zero, so the position is captured
+   * first and put back once the new source has enough metadata to accept a
+   * seek — otherwise recovering from a failure would silently cost the viewer
+   * their place, which is the same complaint this fix exists to answer.
+   */
+  private reload(el: HTMLVideoElement, url: string): void {
+    const resumeAt = el.currentTime;
+    const wasPlaying = !el.paused;
+
+    this.src.set(url);
+    el.src = url;
     el.load();
+
+    const onLoaded = () => {
+      el.removeEventListener('loadedmetadata', onLoaded);
+      if (resumeAt > 0 && Number.isFinite(el.duration)) {
+        el.currentTime = Math.min(resumeAt, el.duration);
+      }
+      if (wasPlaying) el.play()?.catch(() => {});
+    };
+    el.addEventListener('loadedmetadata', onLoaded);
   }
 
   seekBy(seconds: number): void {

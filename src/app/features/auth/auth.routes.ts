@@ -2,6 +2,7 @@ import { Routes } from '@angular/router';
 import { RegisterComponent } from './components/register/register.component';
 import { LoginComponent } from './components/login/login.component';
 import { ForgotPasswordComponent } from './components/forgot-password/forgot-password.component';
+import { unauthenticatedGuard } from './guards/unauthenticated.guard';
 
 export const authRoutes: Routes = [
   {
@@ -9,13 +10,16 @@ export const authRoutes: Routes = [
     redirectTo: 'login',
     pathMatch: 'full',
   },
+  // The only two pages that are meaningless with a live session.
   {
     path: 'login',
     component: LoginComponent,
+    canActivate: [unauthenticatedGuard],
   },
   {
     path: 'register',
     component: RegisterComponent,
+    canActivate: [unauthenticatedGuard],
   },
   {
     path: 'forgot-password',
@@ -40,6 +44,14 @@ export const authRoutes: Routes = [
     loadComponent: () =>
       import('./components/verify-email/verify-email.component').then(
         (m) => m.VerifyEmailComponent,
+      ),
+  },
+  {
+    // Must match the link built by generateLink(EMAIL_CHANGE) on the server.
+    path: 'confirm-email',
+    loadComponent: () =>
+      import('./components/verify-email/confirm-email-change.component').then(
+        (m) => m.ConfirmEmailChangeComponent,
       ),
   },
 ];

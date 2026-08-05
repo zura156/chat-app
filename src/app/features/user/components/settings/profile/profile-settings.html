@@ -168,16 +168,14 @@
         <p class="text-xs text-muted-foreground">Manage your account</p>
       </div>
       <div class="flex flex-col sm:flex-row gap-2">
-        <button
-          type="button"
-          hlmBtn
-          variant="outline"
-          class="rounded-full cursor-pointer text-sm"
-          [routerLink]="'/auth/forgot-password'"
-        >
-          <ng-icon hlm name="lucideLockKeyhole" size="sm" class="mr-1.5" />
-          Change password
-        </button>
+        <!--
+          The "Change password" button that used to sit here has moved to
+          Settings → Security, next to two-factor and the session list, which is
+          where the rest of the credential controls live. It was one of two
+          buttons pointing at /auth/forgot-password — a route behind the
+          unauthenticated guard, so for a signed-in user it only ever redirected
+          back to /messages.
+        -->
         <button
           (click)="logOut()"
           type="button"

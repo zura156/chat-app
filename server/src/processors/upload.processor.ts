@@ -14,8 +14,28 @@ import { signVariants } from '../upload/media-url.service';
 import config from '../config/config';
 import { Readable } from 'stream';
 import { emitToUser } from '../utils/ws-emit';
+import { logger } from '../utils/logger';
 
 const SCAN_CONTEXTS = ['dm-file'];
+
+/**
+ * Removes the original from the temp bucket. Best-effort and idempotent: it
+ * runs on the success path and, via the worker's `failed` handler, once retries
+ * are exhausted. Previously it ran only on success, so every upload that failed
+ * permanently left its bytes in the bucket with no record pointing at them.
+ */
+export const discardTempObject = async (fileKey: string): Promise<void> => {
+  try {
+    await s3App.send(
+      new DeleteObjectCommand({
+        Bucket: config.s3TempBucket,
+        Key: fileKey,
+      }),
+    );
+  } catch (error) {
+    logger.error(`Failed to delete temp object ${fileKey}`, error);
+  }
+};
 
 export const processUpload = async (job: Job<JobPayload>) => {
   const payload = job.data;
@@ -49,6 +69,10 @@ export const processUpload = async (job: Job<JobPayload>) => {
         infectedEvent,
         payload.userId,
       );
+
+      // The object has been copied to quarantine; the temp copy is no longer
+      // needed and would otherwise sit in the bucket forever.
+      await discardTempObject(payload.fileKey);
       return;
     }
   }
@@ -73,14 +97,15 @@ export const processUpload = async (job: Job<JobPayload>) => {
     type: 'upload-ready',
     uploadId: payload.uploadId,
     context: payload.context,
+    // What the upload was *for*. Without it a client receiving this event knows
+    // an image finished but not which conversation's avatar it became, so the
+    // uploader's own view had to wait on the separate conversation-update event
+    // to catch up — and if that one was missed, the picture only appeared after
+    // a reload.
+    resourceId: payload.resourceId ?? null,
     duration: result.duration,
     variants: await signVariants(result.variants),
   });
 
-  await s3App.send(
-    new DeleteObjectCommand({
-      Bucket: config.s3TempBucket,
-      Key: payload.fileKey,
-    }),
-  );
+  await discardTempObject(payload.fileKey);
 };
