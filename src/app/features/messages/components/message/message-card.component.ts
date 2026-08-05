@@ -50,7 +50,6 @@ import { HlmIcon } from '@spartan-ng/helm/icon';
 import { VideoPlayer } from '../../../../shared/components/video-player/video-player';
 
 import { AudioPlayer } from '../../../../shared/components/audio-player/audio-player';
-import { HlmSkeleton } from '@spartan-ng/helm/skeleton';
 import { AttachmentPlaceholder } from '../../../../shared/components/attachment-placeholder/attachment-placeholder';
 import {
   MediaItem,
@@ -81,7 +80,6 @@ import { MessageActionsService } from '../../services/message-actions.service';
     HlmAvatarFallback,
     HlmAvatarImage,
     HlmAvatar,
-    HlmSkeleton,
     AttachmentPlaceholder,
     VideoPlayer,
     HlmDropdownMenuImports,

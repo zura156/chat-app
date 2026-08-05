@@ -23,6 +23,7 @@ import { FileVisualPipe } from '../../pipes/file-visual.pipe';
 export type AttachmentPlaceholderShape =
   | 'image' // single large image/video bubble
   | 'grid' // one cell of a 2-column media grid
+  | 'tile' // fills whatever square its parent gives it
   | 'video'
   | 'audio'
   | 'file';
@@ -138,15 +139,24 @@ export type AttachmentPlaceholderShape =
               <ng-icon
                 hlm
                 [name]="mediaIcon()"
-                size="lg"
+                [size]="isCompact() ? 'sm' : 'lg'"
                 class="text-muted-foreground"
               />
-              <span
-                class="flex items-center gap-x-1.5 text-xs text-muted-foreground"
-              >
-                <hlm-spinner class="size-3" />
-                Processing
-              </span>
+              <!--
+                A grid cell is 128px and already carries the media icon; adding
+                a word to it just crowds the tile. The spinner alone is enough
+                to say "working" at that size.
+              -->
+              @if (isCompact()) {
+                <hlm-spinner class="size-3 text-muted-foreground" />
+              } @else {
+                <span
+                  class="flex items-center gap-x-1.5 text-xs text-muted-foreground"
+                >
+                  <hlm-spinner class="size-3" />
+                  Processing
+                </span>
+              }
             </div>
           </div>
         }
@@ -158,10 +168,10 @@ export type AttachmentPlaceholderShape =
       -->
       <div
         class="flex items-center gap-2 rounded-xl border border-destructive/30 bg-destructive/5 px-3 py-2 text-xs text-destructive"
-        [class]="shape() === 'grid' || shape() === 'image' ? boxClass() : ''"
-        [class.flex-col]="shape() === 'grid' || shape() === 'image'"
-        [class.justify-center]="shape() === 'grid' || shape() === 'image'"
-        [class.text-center]="shape() === 'grid' || shape() === 'image'"
+        [class]="isBoxed() ? boxClass() : ''"
+        [class.flex-col]="isBoxed()"
+        [class.justify-center]="isBoxed()"
+        [class.text-center]="isBoxed()"
       >
         <ng-icon
           hlm
@@ -215,10 +225,25 @@ export class AttachmentPlaceholder {
     this.shape() === 'video' ? 'lucideVideo' : 'lucideImage',
   );
 
+  /** Small square cells — no room for a caption beside the icon. */
+  readonly isCompact = computed(
+    () => this.shape() === 'grid' || this.shape() === 'tile',
+  );
+
+  /**
+   * Shapes that occupy a fixed box, so the failure state has to fill the same
+   * space rather than collapse to a text row and shift everything around it.
+   */
+  readonly isBoxed = computed(() => this.isCompact() || this.shape() === 'image');
+
   readonly boxClass = computed(() => {
     switch (this.shape()) {
       case 'grid':
         return 'size-32';
+      // The media grid in conversation details sizes its own cells, so this
+      // takes whatever it is given rather than imposing a width.
+      case 'tile':
+        return 'size-full';
       case 'video':
         return 'w-64 h-48';
       default:

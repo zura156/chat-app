@@ -34,37 +34,55 @@
         @if (
           attachment.context === "dm-image" || attachment.context === "dm-video"
         ) {
+          <!--
+            Disabled until there is something to open. The click handler used
+            to be live regardless, so tapping a still-processing item opened the
+            viewer on an attachment with no URL.
+          -->
           <button
-            class="aspect-square overflow-hidden rounded-md hover:opacity-80 active:scale-95 transition-all cursor-pointer"
+            class="aspect-square overflow-hidden rounded-md transition-all cursor-pointer enabled:hover:opacity-80 enabled:active:scale-95 disabled:cursor-default"
+            [disabled]="attachment.status !== 'ready' || !attachment.variants"
             (click)="openMedia(attachment)"
           >
-            @switch (attachment.context) {
-              @case ("dm-image") {
-                <img
-                  class="w-full h-full object-cover image-pixelated"
-                  loading="lazy"
-                  [src]="attachment.variants?.medium"
-                  [alt]="message.content"
-                />
-              }
-              @case ("dm-video") {
-                <div class="relative w-full h-full">
+            @if (attachment.status === "ready" && attachment.variants) {
+              @switch (attachment.context) {
+                @case ("dm-image") {
                   <img
-                    class="w-full h-full object-cover pointer-events-none"
-                    [src]="attachment.variants?.thumbnail"
+                    class="w-full h-full object-cover image-pixelated"
+                    loading="lazy"
+                    [src]="attachment.variants.medium"
+                    [alt]="message.content"
                   />
-                  <div
-                    class="absolute inset-0 flex items-center justify-center bg-black/20"
-                  >
-                    <ng-icon
-                      hlm
-                      name="lucideCirclePlay"
-                      size="sm"
-                      class="text-white"
+                }
+                @case ("dm-video") {
+                  <div class="relative w-full h-full">
+                    <img
+                      class="w-full h-full object-cover pointer-events-none"
+                      [src]="attachment.variants.thumbnail"
                     />
+                    <div
+                      class="absolute inset-0 flex items-center justify-center bg-black/20"
+                    >
+                      <ng-icon
+                        hlm
+                        name="lucideCirclePlay"
+                        size="sm"
+                        class="text-white"
+                      />
+                    </div>
                   </div>
-                </div>
+                }
               }
+            } @else {
+              <!--
+                `variants` is null until the worker finishes, so binding the
+                src unconditionally rendered a broken-image icon for anything
+                still processing — and kept doing so for anything that failed.
+              -->
+              <app-attachment-placeholder
+                [attachment]="attachment"
+                shape="tile"
+              />
             }
           </button>
         }
@@ -86,17 +104,27 @@
         <button
           class="w-full py-1.5 px-1 text-start hover:bg-muted active:scale-[0.99] transition-all cursor-pointer rounded-lg flex"
         >
-          @switch (attachment.context) {
-            @case ("dm-audio") {
-              @if (attachment) {
-                <div class="p-1">
+          <!--
+            `@if (attachment)` was always true — it is the loop variable. The
+            question worth asking is whether it has finished processing, which
+            is what decides between a player and a placeholder.
+          -->
+          @if (attachment.status === "ready" && attachment.variants) {
+            @switch (attachment.context) {
+              @case ("dm-audio") {
+                <div class="w-full p-1">
                   <app-audio-player [audio]="attachment" />
                 </div>
               }
+              @default {
+                <app-file-viewer [file]="attachment" />
+              }
             }
-            @default {
-              <app-file-viewer [file]="attachment" />
-            }
+          } @else {
+            <app-attachment-placeholder
+              [attachment]="attachment"
+              [shape]="attachment.context === 'dm-audio' ? 'audio' : 'file'"
+            />
           }
         </button>
       }

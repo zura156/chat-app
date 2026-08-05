@@ -8,6 +8,7 @@ import {
   MediaViewerService,
 } from '../../../../shared/services/media-viewer.service';
 import { AttachmentI } from '../../interfaces/message.interface';
+import { AttachmentPlaceholder } from '../../../../shared/components/attachment-placeholder/attachment-placeholder';
 import { AudioPlayer } from '../../../../shared/components/audio-player/audio-player';
 import { FileViewer } from '../../../../shared/components/file-viewer/file-viewer';
 import { NgIcon, provideIcons } from '@ng-icons/core';
@@ -21,6 +22,7 @@ import { lucideCirclePlay } from '@ng-icons/lucide';
     HlmTabsImports,
     HlmSpinner,
     AudioPlayer,
+    AttachmentPlaceholder,
     FileViewer,
     NgIcon,
     HlmIcon,

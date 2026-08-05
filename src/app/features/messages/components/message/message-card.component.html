@@ -355,7 +355,7 @@
                   } @else if (isProcessing(message)) {
                     <div class="py-2">
                       <app-attachment-placeholder
-                        [attachment]="getPrimaryAttachment(message)"
+                        [attachment]="message.attachments?.[0]"
                         shape="video"
                       />
                     </div>
@@ -377,7 +377,7 @@
                     <!-- same wrapper as the player, so the bubble keeps its size -->
                     <div class="w-3xs sm:w-40 md:w-52">
                       <app-attachment-placeholder
-                        [attachment]="getPrimaryAttachment(message)"
+                        [attachment]="message.attachments?.[0]"
                         shape="audio"
                       />
                     </div>
@@ -422,8 +422,22 @@
                       {{ message.content }}
                     </p>
                   } @else {
-                    <div class="py-1.5 px-3">
-                      <hlm-skeleton class="h-3.5 w-32 rounded" />
+                    <!--
+                      A text message with nothing in it: an attachment-only
+                      message that has not been classified yet, or one whose
+                      body failed to arrive. Two uneven lines in currentColor
+                      read as text loading, where the single fixed-width grey
+                      bar this replaced read as a broken element — and it was
+                      `hlm-skeleton`, whose own background is invisible against
+                      a primary bubble.
+                    -->
+                    <div class="flex animate-pulse flex-col gap-1.5 py-1.5">
+                      <span
+                        class="block h-2.5 w-32 rounded-full bg-current opacity-25"
+                      ></span>
+                      <span
+                        class="block h-2.5 w-20 rounded-full bg-current opacity-25"
+                      ></span>
                     </div>
                   }
                 }
