@@ -1,5 +1,18 @@
 {
   "compileOnSave": false,
+  /*
+   * Without this, the base config has no `include` and TypeScript defaults to
+   * every .ts file under the workspace root — which here means `server/`, judged
+   * by the Angular app's rules rather than its own `server/tsconfig.json`. The
+   * build never did that (`tsconfig.app.json` lists its own files), so the only
+   * things affected were `tsc -p tsconfig.json` and whatever the editor reports:
+   * server code failing on `noPropertyAccessFromIndexSignature` and
+   * `noUnusedLocals`, neither of which applies to it.
+   *
+   * Safe to inherit: `tsconfig.app.json` and `tsconfig.spec.json` both declare
+   * their own `files`/`include`, which this cannot widen or narrow.
+   */
+  "exclude": ["server", "dist", "out-tsc"],
   "compilerOptions": {
     "outDir": "./dist/out-tsc",
     "strict": true,

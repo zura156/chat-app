@@ -13,7 +13,11 @@
     "dedupe:notifications": "ts-node src/scripts/dedupe-notifications.ts",
     "dev": "nodemon src/index.ts",
     "diagnose:notifications": "ts-node src/scripts/diagnose-notifications.ts",
+    "smoke": "bash scripts/smoke.sh",
     "start": "node dist/src/index.js",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "typecheck": "tsc --noEmit -p tsconfig.spec.json",
     "worker": "ts-node src/worker.ts",
     "worker:prod": "node dist/src/worker.js"
   },
@@ -40,7 +44,8 @@
     "eslint": "^10.2.0",
     "nodemon": "^3.1.14",
     "ts-node": "^10.9.2",
-    "typescript": "^6.0.3"
+    "typescript": "^6.0.3",
+    "vitest": "^4.1.10"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1041.0",

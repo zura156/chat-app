@@ -42,3 +42,6 @@ src/environments/environment.ts
 # System files
 .DS_Store
 Thumbs.db
+
+# Runtime logs written by the server when started from the repo root.
+logs/

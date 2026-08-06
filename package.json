@@ -46,6 +46,7 @@
     "@angular/compiler-cli": "^22.0.7",
     "@spartan-ng/brain": "^1.1.1",
     "@spartan-ng/cli": "^1.1.1",
+    "jsdom": "^30.0.1",
     "typescript": "~6.0.3",
     "vitest": "^4.0.8"
   }

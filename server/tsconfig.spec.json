@@ -1,0 +1,15 @@
+{
+  /*
+   * Type-checks the tests, which `tsconfig.json` deliberately excludes so they
+   * do not end up in `dist/`. Run by `npm run typecheck`; vitest itself
+   * transpiles without checking types, so without this a spec can drift from
+   * the code it tests and still go green.
+   */
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "noEmit": true,
+    "types": ["node", "vitest/globals"]
+  },
+  "include": ["./**/*.ts"],
+  "exclude": ["node_modules", "dist"]
+}

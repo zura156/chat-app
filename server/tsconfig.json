@@ -9,5 +9,13 @@
     "strict": true,
     "skipLibCheck": true
   },
-  "include": ["./**/*.ts"]
+  "include": ["./**/*.ts"],
+  /*
+   * Tests are not part of the deployed artifact. Without this they are compiled
+   * into `dist/` alongside the server — shipping the fixtures, and making
+   * `npm run build` depend on vitest's types being installed in production.
+   *
+   * They are still type-checked, by `tsconfig.spec.json`.
+   */
+  "exclude": ["node_modules", "dist", "**/*.spec.ts", "src/test/**"]
 }
