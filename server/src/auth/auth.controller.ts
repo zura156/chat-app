@@ -38,8 +38,16 @@ import {
   sessionIdForToken,
   newSessionId,
 } from './services/token.service';
-import { TwoFactorAuthModel } from './models/two-factor.model';
+import {
+  TwoFactorAuthModel,
+  TwoFactorMethod,
+  enrolledMethods,
+  hasSecondFactor,
+} from './models/two-factor.model';
 import { verifyAndConsumeCode } from './services/totp.service';
+import { verifyAndConsumeEmailCode } from './services/email-otp.service';
+import { findRecoveryCodeIndex } from './services/recovery-code.service';
+import { sendLoginEmailCode } from './two-factor.controller';
 import { checkPassword, PasswordContext } from './services/password-policy';
 import { isBreachedPassword } from './services/breached-password.service';
 
@@ -118,6 +126,17 @@ const COOKIE_BASE = {
     | 'none'
     | 'lax',
 };
+
+/**
+ * How long the gap between a correct password and a second factor may stay
+ * open.
+ *
+ * Long enough to fetch a code from an inbox — email delivery is not instant,
+ * and a window that expires mid-flight sends the user back to the password
+ * step with no explanation. Short enough that a challenge left behind on a
+ * shared machine is not a standing invitation.
+ */
+const TWO_FACTOR_CHALLENGE_MS = 10 * 60 * 1000;
 
 /**
  * The cookie must not outlive the token inside it, and the token must not
@@ -368,16 +387,37 @@ export const loginUser = async (
     // to come back with a code.
     const twoFactor = await TwoFactorAuthModel.findOne({
       user_id: user._id,
-      two_factor_enabled: true,
     }).lean();
 
-    if (twoFactor) {
+    if (hasSecondFactor(twoFactor)) {
+      const methods = enrolledMethods(twoFactor);
+
       res.cookie('twoFactorChallenge', generateTwoFactorChallenge(user.id), {
         ...COOKIE_BASE,
-        maxAge: 5 * 60 * 1000,
+        maxAge: TWO_FACTOR_CHALLENGE_MS,
       });
 
-      res.status(200).json({ two_factor_required: true });
+      /*
+       * With only the email factor there is nothing for the user to read a code
+       * off, so the code is sent as part of answering this request — otherwise
+       * the sign-in screen would open on a code entry field with no code on its
+       * way and no obvious way to summon one.
+       *
+       * With an authenticator enrolled the send waits for the user to ask,
+       * since they usually have their app to hand and mailing a code to
+       * everyone who signs in is both noise and needless exposure.
+       */
+      if (methods.length === 1 && methods[0] === 'email' && user.email) {
+        await sendLoginEmailCode(user._id.toString(), user.email);
+      }
+
+      res.status(200).json({
+        two_factor_required: true,
+        methods,
+        // Which one the client should open on. The authenticator is instant and
+        // offline, so it leads whenever it is available.
+        default_method: methods.includes('totp') ? 'totp' : 'email',
+      });
       return;
     }
 
@@ -456,10 +496,78 @@ export const refreshAccessToken = async (
 };
 
 /**
+ * Resolves the account behind a two-factor challenge cookie, or null.
+ *
+ * Shared by the two routes that sit between a password and a session, so they
+ * cannot disagree about what a valid challenge is.
+ */
+const resolveChallenge = async (req: Request, res: Response) => {
+  const challenge = req.cookies['twoFactorChallenge'] as string | undefined;
+  if (!challenge) return null;
+
+  // Type-scoped both ways: an access token is not accepted here, and this
+  // token is not accepted as an access token (see jwt.service).
+  let decoded: { userId: string };
+  try {
+    decoded = verifyTwoFactorChallenge(challenge);
+  } catch {
+    res.clearCookie('twoFactorChallenge', { ...COOKIE_BASE });
+    return null;
+  }
+
+  const [user, record] = await Promise.all([
+    User.findById(decoded.userId),
+    TwoFactorAuthModel.findOne({ user_id: decoded.userId }),
+  ]);
+
+  if (!user || !hasSecondFactor(record)) return null;
+  return { user, record: record! };
+};
+
+/**
+ * Sends a login code to the address on the account midway through a sign-in.
+ *
+ * Reachable only with a valid challenge, so the password has already been
+ * proved — this is not an endpoint that will mail an arbitrary address, and the
+ * address itself is never taken from the request.
+ */
+export const requestTwoFactorEmailCode = async (
+  req: Request,
+  res: Response,
+  next: NextFunction,
+): Promise<void> => {
+  try {
+    const resolved = await resolveChallenge(req, res);
+    if (!resolved) {
+      res.status(401).json({ message: 'Start the sign-in again' });
+      return;
+    }
+
+    const { user, record } = resolved;
+    if (!record.email_enabled) {
+      res.status(400).json({ message: 'Email codes are not set up' });
+      return;
+    }
+
+    if (user.email) {
+      await sendLoginEmailCode(user._id.toString(), user.email);
+    }
+
+    // Deliberately does not report whether this particular call sent anything:
+    // the throttle is not the caller's business, and the answer is the same
+    // from where they stand.
+    res.status(200).json({ message: 'A code is on its way' });
+  } catch (error: any) {
+    if (error instanceof CustomAPIError) throw error;
+    next(error);
+  }
+};
+
+/**
  * Second step of a two-factor login: exchanges the challenge plus a valid code
- * for a real session. Accepts a recovery code too, and burns it — that is the
- * whole point of one, and leaving it usable twice would make it a standing
- * bypass.
+ * for a real session. Accepts a code from any enrolled factor, and a recovery
+ * code — which it burns, that being the whole point of one, and leaving it
+ * usable twice would make it a standing bypass.
  */
 export const loginTwoFactor = async (
   req: Request,
@@ -467,55 +575,55 @@ export const loginTwoFactor = async (
   next: NextFunction,
 ): Promise<void> => {
   try {
-    const challenge = req.cookies['twoFactorChallenge'] as string | undefined;
-    const { code } = req.body ?? {};
-
-    if (!challenge) {
+    const resolved = await resolveChallenge(req, res);
+    if (!resolved) {
       res.status(401).json({ message: 'Start the sign-in again' });
       return;
     }
 
-    // Type-scoped both ways: an access token is not accepted here, and this
-    // token is not accepted as an access token (see jwt.service).
-    let decoded: { userId: string };
-    try {
-      decoded = verifyTwoFactorChallenge(challenge);
-    } catch {
-      res.clearCookie('twoFactorChallenge', { ...COOKIE_BASE });
-      res.status(401).json({ message: 'Start the sign-in again' });
-      return;
-    }
-
-    const [user, record] = await Promise.all([
-      User.findById(decoded.userId),
-      TwoFactorAuthModel.findOne({
-        user_id: decoded.userId,
-        two_factor_enabled: true,
-      }),
-    ]);
-
-    if (!user || !record) {
-      res.status(401).json({ message: 'Start the sign-in again' });
-      return;
-    }
-
+    const { user, record } = resolved;
+    const { code, method } = req.body ?? {};
+    const userId = String(user._id);
     const submitted = String(code ?? '').replace(/\s/g, '');
-    const hashedSubmission = crypto
-      .createHash('sha256')
-      .update(submitted.toUpperCase())
-      .digest('hex');
+    const methods = enrolledMethods(record);
+
+    /*
+     * `method` narrows what the code is checked against when the client knows
+     * which one the user picked. Without it every enrolled factor is tried,
+     * which is what keeps a recovery code — and a client that never sends the
+     * field — working.
+     *
+     * Narrowing matters for more than tidiness: with both factors on, running
+     * an emailed code through the TOTP check first is a wasted comparison, and
+     * running a TOTP code through the email check consumes an attempt against
+     * the delivered code that the user has not actually got wrong.
+     */
+    const requested = method as TwoFactorMethod | undefined;
+    const tryTotp =
+      record.two_factor_enabled &&
+      !!record.secret &&
+      (requested === undefined || requested === 'totp');
+    const tryEmail =
+      record.email_enabled &&
+      (requested === undefined || requested === 'email');
 
     // Consuming rather than merely checking: a TOTP code is valid for its whole
     // period plus the drift window, so an observed one is otherwise replayable
     // for up to ninety seconds.
-    const byCode = await verifyAndConsumeCode(
-      String(user._id),
-      record.secret,
-      submitted,
-    );
-    const recoveryIndex = record.recovery_codes.indexOf(hashedSubmission);
+    let accepted =
+      tryTotp && (await verifyAndConsumeCode(userId, record.secret!, submitted));
 
-    if (!byCode && recoveryIndex === -1) {
+    if (!accepted && tryEmail) {
+      accepted = await verifyAndConsumeEmailCode(userId, 'login', submitted);
+    }
+
+    // Always available, whichever factor was chosen: a recovery code is what
+    // the user reaches for precisely when the chosen one is unavailable.
+    const recoveryIndex = accepted
+      ? -1
+      : findRecoveryCodeIndex(record.recovery_codes, submitted);
+
+    if (!accepted && recoveryIndex === -1) {
       res.status(401).json({ message: 'That code is not correct' });
       return;
     }
@@ -532,6 +640,7 @@ export const loginTwoFactor = async (
 
     res.status(200).json({
       message: 'Login successful',
+      methods,
       recovery_codes_remaining: record.recovery_codes.length,
       used_recovery_code: recoveryIndex !== -1,
     });

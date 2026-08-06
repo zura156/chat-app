@@ -241,8 +241,24 @@ export class MessageService {
     // The row stays, emptied: the content and attachments are what the user
     // asked to take back, the message itself is load-bearing for read receipts
     // and for `last_message`.
+    //
+    // Everything else describing what the message *was* goes with them. `type`
+    // outlived the content it described, and kept narrating it: the
+    // conversation list captioned a deleted photo "📷 Photo" indefinitely, and
+    // in the thread a deleted video or file was drawn with no bubble while a
+    // deleted text got one — so a tombstone still announced which kind of
+    // message it stood in for. TEXT is what a tombstone actually is: one line
+    // of text. Normalising rather than unsetting keeps every `switch (type)` on
+    // both sides of the wire defined over a value it already handles.
+    //
+    // What survives is only what the thread needs to keep working: `sender`,
+    // `conversation`, `timestamp` and `status`. The first three are named by
+    // read receipts, unread counts and `last_message` (see the model); status
+    // is delivery state, not a description of the content.
     message.content = undefined;
     message.attachments = [];
+    message.edited_at = undefined;
+    message.type = MessageTypeEnum.TEXT;
     message.deleted_at = deleted_at;
     await message.save();
 

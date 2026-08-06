@@ -135,6 +135,18 @@ check "sign in on a second device" "$code" "200"
 code=$(req "$JAR_A2" GET /user/profile)
 check "second device works" "$code" "200"
 
+# A second has to tick over between that sign-in and this revocation, or the
+# assertion below is a coin toss.
+#
+# The cut-off is recorded in whole seconds because `iat` is — see the note on
+# `Revocation` in token.service. A token minted in the same second as a
+# revocation cannot be ordered against it, and the tie is deliberately resolved
+# in the token's favour so that signing in again immediately after "sign out
+# everywhere" is never refused. On localhost these three requests land inside
+# one second often enough that the test failed for that reason alone, which
+# reads as a revocation bug and is not one.
+sleep 1
+
 code=$(req "$JAR_A" DELETE /auth/sessions)
 check "sign out everywhere from the first" "$code" "200"
 
@@ -160,6 +172,9 @@ rm -f "$JAR_A2"; prime "$JAR_A2"
 code=$(req "$JAR_A2" POST /auth/login "{\"email\":\"ada$STAMP@example.test\",\"password\":\"$PASS_A\"}")
 check "sign in on a second device again" "$code" "200"
 
+# Same second-boundary reason as the revocation section above.
+sleep 1
+
 code=$(req "$JAR_A" POST /auth/change-password \
   "{\"current_password\":\"$PASS_A\",\"new_password\":\"$PASS_A_NEW\",\"confirm_password\":\"$PASS_A_NEW\"}")
 check "change password" "$code" "200"
@@ -177,6 +192,64 @@ check "log in with the new password" "$code" "200"
 rm -f "$JAR_A"; prime "$JAR_A"
 code=$(req "$JAR_A" POST /auth/login "{\"email\":\"ada$STAMP@example.test\",\"password\":\"$PASS_A\"}")
 check "old password no longer works" "$code" "401"
+
+echo
+echo "── two-factor sign-in ─────────────────────────────────────────────────"
+# The authenticator path over HTTP. The email factor needs an SMTP sink to read
+# the code back out, so it is covered by the integration suite instead
+# (email-otp.service.int.spec.ts); everything below is reachable with nothing
+# but curl and the TOTP generator the server already ships.
+totp() {
+  npx ts-node -e "import {generateCode} from './src/auth/services/totp.service';console.log(generateCode('$1'));" 2>&1 | tail -1
+}
+
+# The section above ends on a deliberately failed login, so this jar holds no
+# session. Enrolment is behind one.
+rm -f "$JAR_A"; prime "$JAR_A"
+code=$(req "$JAR_A" POST /auth/login "{\"email\":\"ada$STAMP@example.test\",\"password\":\"$PASS_A_NEW\"}")
+check "sign in before enrolling" "$code" "200"
+
+code=$(req "$JAR_A" POST /auth/2fa/setup "{\"password\":\"$PASS_A_NEW\"}")
+check "begin authenticator enrolment" "$code" "200"
+SECRET=$(python3 -c "import json;print(json.load(open('$SP/body.json')).get('secret',''))" 2>/dev/null)
+
+code=$(req "$JAR_A" POST /auth/2fa/confirm "{\"code\":\"$(totp "$SECRET")\"}")
+check "confirm enrolment" "$code" "200"
+RECOVERY=$(python3 -c "import json;print(json.load(open('$SP/body.json')).get('recovery_codes',[''])[0])" 2>/dev/null)
+
+req "$JAR_A" POST /auth/logout >/dev/null
+rm -f "$JAR_A"; prime "$JAR_A"
+code=$(req "$JAR_A" POST /auth/login "{\"email\":\"ada$STAMP@example.test\",\"password\":\"$PASS_A_NEW\"}")
+check "password alone no longer opens a session" "$code" "200"
+required=$(python3 -c "import json;print(json.load(open('$SP/body.json')).get('two_factor_required',''))" 2>/dev/null)
+check "  and says a second factor is needed" "$required" "True"
+
+code=$(req "$JAR_A" GET /user/profile)
+check "no session before the code" "$code" "401"
+
+# A fresh step: the code spent confirming enrolment is burned, and RFC 6238
+# §5.2 requires that it stay burned.
+sleep 31
+code=$(req "$JAR_A" POST /auth/login/2fa "{\"code\":\"$(totp "$SECRET")\",\"method\":\"totp\"}")
+check "authenticator code completes the sign-in" "$code" "200"
+
+code=$(req "$JAR_A" GET /user/profile)
+check "session works after the code" "$code" "200"
+
+# The regression this section exists for. Recovery codes are shown as
+# `XXXXX-XXXXX` but were hashed exactly as typed, so entering one without the
+# dash — which is how it reads off a printout — was refused, and five refusals
+# locked the account for fifteen minutes. That lands precisely when the user has
+# already lost their authenticator and has no other way in.
+req "$JAR_A" POST /auth/logout >/dev/null
+rm -f "$JAR_A"; prime "$JAR_A"
+req "$JAR_A" POST /auth/login "{\"email\":\"ada$STAMP@example.test\",\"password\":\"$PASS_A_NEW\"}" >/dev/null
+code=$(req "$JAR_A" POST /auth/login/2fa "{\"code\":\"$(echo "$RECOVERY" | tr -d '-')\"}")
+check "a recovery code typed without its dash works" "$code" "200"
+
+sleep 31
+code=$(req "$JAR_A" DELETE /auth/2fa "{\"code\":\"$(totp "$SECRET")\",\"password\":\"$PASS_A_NEW\"}")
+check "turn two-factor back off" "$code" "200"
 
 echo
 echo "──────────────────────────────────────────────────────────────────────"

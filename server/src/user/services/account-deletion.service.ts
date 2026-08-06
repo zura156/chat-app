@@ -7,6 +7,7 @@ import { Notification } from '../../messenger/models/notifications.model';
 import { TwoFactorAuthModel } from '../../auth/models/two-factor.model';
 import { AccountTokensModel } from '../../auth/models/account-tokens.model';
 import { deleteAllUserRefreshTokens } from '../../auth/services/token.service';
+import { clearEmailCode } from '../../auth/services/email-otp.service';
 import { purgeUploads } from '../../upload/upload-cleanup.service';
 import { invalidateParticipantsCache } from '../../utils/conversation-cache';
 import { logger } from '../../utils/logger';
@@ -133,6 +134,19 @@ export const deleteAccount = async (userId: Types.ObjectId): Promise<void> => {
   ]);
 
   await deleteAllUserRefreshTokens(userId.toString());
+
+  /*
+   * The 2FA document is gone above, but an emailed code lives in Redis and
+   * outlives it by up to ten minutes. Nothing can be done with one once the
+   * account is deleted — every route that checks a code loads the user first —
+   * so this is tidiness rather than a hole. It belongs here all the same:
+   * "delete the account" should not leave credentials of any kind behind for
+   * someone to find later and have to reason about.
+   */
+  await Promise.all([
+    clearEmailCode(userId.toString(), 'login'),
+    clearEmailCode(userId.toString(), 'enroll'),
+  ]);
 
   await User.deleteOne({ _id: userId });
 

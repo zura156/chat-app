@@ -44,8 +44,25 @@
       answered.
     -->
     @if (twoFactorRequired()) {
+      <!--
+        `(submit)` with an explicit preventDefault, not `(ngSubmit)`.
+
+        `ngSubmit` is an output of `NgForm`, which lives in FormsModule — not
+        imported here — and of `FormGroupDirective`, which only matches a form
+        carrying `[formGroup]`. This form has neither, so nothing bound the
+        output: `(ngSubmit)` was listening for a DOM event of that name which is
+        never dispatched, and the submit button below fell through to the
+        browser's native form submission.
+
+        The symptom was the whole second factor being unusable — entering a
+        correct code reloaded the page back to the sign-in screen, with no error
+        and no session, because the request never left the client. The
+        credentials form above escaped it only by having `[formGroup]`.
+
+        See the same note in security-settings.html, where this was found first.
+      -->
       <form
-        (ngSubmit)="submitTwoFactorCode()"
+        (submit)="$event.preventDefault(); submitTwoFactorCode()"
         class="space-y-3"
         aria-labelledby="two-factor-heading"
       >
@@ -54,10 +71,67 @@
             Two-factor authentication
           </h2>
           <p class="text-xs text-muted-foreground">
-            Enter the 6-digit code from your authenticator app, or one of your
-            recovery codes.
+            @if (twoFactorMethod() === "email") {
+              @if (emailCodeSent()) {
+                Enter the 6-digit code we emailed you, or one of your recovery
+                codes.
+              } @else {
+                Send a 6-digit code to the address on your account.
+              }
+            } @else {
+              Enter the 6-digit code from your authenticator app, or one of your
+              recovery codes.
+            }
           </p>
         </div>
+
+        <!--
+          Only rendered when the account actually holds both factors. A chooser
+          with one option is just a control that cannot do anything.
+        -->
+        @if (canChooseMethod()) {
+          <div
+            class="flex rounded-full border border-border p-1"
+            role="group"
+            aria-label="Choose how to verify"
+          >
+            <button
+              type="button"
+              class="flex-1 rounded-full px-3 py-1.5 text-xs cursor-pointer transition-colors"
+              [class.bg-muted]="twoFactorMethod() === 'totp'"
+              [class.font-medium]="twoFactorMethod() === 'totp'"
+              [class.text-muted-foreground]="twoFactorMethod() !== 'totp'"
+              [attr.aria-pressed]="twoFactorMethod() === 'totp'"
+              (click)="chooseMethod('totp')"
+            >
+              Authenticator app
+            </button>
+            <button
+              type="button"
+              class="flex-1 rounded-full px-3 py-1.5 text-xs cursor-pointer transition-colors"
+              [class.bg-muted]="twoFactorMethod() === 'email'"
+              [class.font-medium]="twoFactorMethod() === 'email'"
+              [class.text-muted-foreground]="twoFactorMethod() !== 'email'"
+              [attr.aria-pressed]="twoFactorMethod() === 'email'"
+              (click)="chooseMethod('email')"
+            >
+              Email
+            </button>
+          </div>
+        }
+
+        @if (twoFactorMethod() === "email") {
+          <button
+            type="button"
+            hlmBtn
+            variant="outline"
+            class="w-full cursor-pointer rounded-full"
+            [disabled]="isLoading()"
+            (click)="sendEmailCode()"
+          >
+            {{ emailCodeSent() ? "Send another code" : "Email me a code" }}
+          </button>
+        }
 
         <input
           hlmInput

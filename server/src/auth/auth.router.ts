@@ -12,6 +12,7 @@ import {
   revokeSessionById,
   revokeAllSessions,
   loginTwoFactor,
+  requestTwoFactorEmailCode,
   resendVerificationEmail,
   changePassword,
   changeEmail,
@@ -19,10 +20,15 @@ import {
   cancelEmailChange,
 } from './auth.controller';
 import {
+  beginEmailTwoFactorSetup,
   beginTwoFactorSetup,
+  confirmEmailTwoFactorSetup,
   confirmTwoFactorSetup,
+  disableEmailTwoFactor,
+  disableTotpTwoFactor,
   disableTwoFactor,
   getTwoFactorStatus,
+  sendEmailTwoFactorChallenge,
 } from './two-factor.controller';
 import { body } from 'express-validator';
 import { authenticateToken } from './middlewares/auth.middleware';
@@ -36,6 +42,7 @@ import {
   resendVerificationLimiter,
   changePasswordLimiter,
   twoFactorCodeLimiter,
+  twoFactorEmailSendLimiter,
   twoFactorSetupLimiter,
 } from './middlewares/rate-limiter';
 import { issueCsrfToken } from './middlewares/csrf.middleware';
@@ -160,6 +167,17 @@ router.post(
 // Second step of a two-factor sign-in. Rate limited like the first: it is a
 // six-digit secret and brute force is the obvious attack.
 router.post('/login/2fa', twoFactorCodeLimiter, loginTwoFactor);
+/*
+ * Asks for an emailed code partway through a sign-in. On the send limiter
+ * rather than the code limiter: this one does not verify anything, so counting
+ * it against the guessing budget would let a user who asked for a second code
+ * spend the attempts they need to use the first one.
+ */
+router.post(
+  '/login/2fa/email',
+  twoFactorEmailSendLimiter,
+  requestTwoFactorEmailCode,
+);
 
 // Enrolment lives behind a session — you must already be signed in to add,
 // confirm or remove a second factor. Every mutating one is rate limited: the
@@ -176,6 +194,52 @@ router.post(
   authenticateToken,
   twoFactorCodeLimiter,
   confirmTwoFactorSetup,
+);
+
+// The email factor, enrolled the same way: prove the password, then prove a
+// delivered code came back. The send is rationed separately from the guesses.
+router.post(
+  '/2fa/email/setup',
+  authenticateToken,
+  twoFactorEmailSendLimiter,
+  beginEmailTwoFactorSetup,
+);
+router.post(
+  '/2fa/email/confirm',
+  authenticateToken,
+  twoFactorCodeLimiter,
+  confirmEmailTwoFactorSetup,
+);
+
+/*
+ * A code for a signed-in user about to change their factors. Without it an
+ * account whose only factor is email had no way to turn it off but to spend a
+ * recovery code.
+ */
+router.post(
+  '/2fa/email/send',
+  authenticateToken,
+  twoFactorEmailSendLimiter,
+  sendEmailTwoFactorChallenge,
+);
+
+/*
+ * Removal, per factor and wholesale. `DELETE /2fa` keeps meaning "turn it all
+ * off" so an older client stays correct; the two specific routes exist because
+ * an account can now hold both, and turning one off must not take the other
+ * with it.
+ */
+router.delete(
+  '/2fa/totp',
+  authenticateToken,
+  twoFactorCodeLimiter,
+  disableTotpTwoFactor,
+);
+router.delete(
+  '/2fa/email',
+  authenticateToken,
+  twoFactorCodeLimiter,
+  disableEmailTwoFactor,
 );
 router.delete('/2fa', authenticateToken, twoFactorCodeLimiter, disableTwoFactor);
 

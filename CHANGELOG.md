@@ -3,13 +3,122 @@
 ## Unreleased
 
 Server typechecks (`tsc --noEmit`) and the app builds in both dev and production
-configurations. There are no automated tests in the repo, so unless an item says
-otherwise it is verified by compilation and code review only. Test steps are
-noted where the behaviour is not obvious.
+configurations.
 
-**One exception:** everything under *Fixed — notifications, verified against a
+There **are** automated tests now — `npm test` runs both suites, and older
+entries below predate them. Unless an item says otherwise, anything above the
+*Fixed — notifications* section is verified by compilation and code review only;
+items added since carry their own coverage and say so.
+
+**Two exceptions:** everything under *Fixed — notifications, verified against a
 live stack* was driven against live Mongo and live Redis, and includes a data
-migration that has already been applied to the cluster in `.env`.
+migration that has already been applied to the cluster in `.env`. Everything
+under *two-factor authentication* was driven end-to-end over HTTP against the
+same, including the mail path.
+
+---
+
+## Fixed — two-factor authentication
+
+- **The second factor could not be completed at all.** The code form was
+  `<form (ngSubmit)="submitTwoFactorCode()">` with no `[formGroup]`, in a
+  component that imports `ReactiveFormsModule` but not `FormsModule`. `ngSubmit`
+  is an output of `NgForm` (FormsModule) and of `FormGroupDirective` (which
+  matches only `[formGroup]`), so neither attached: the binding was listening
+  for a DOM event named `ngSubmit` that nothing dispatches, and the
+  `type="submit"` button fell through to the browser's native form submission.
+  Entering a correct code reloaded the page back to the sign-in screen with no
+  error and no session, because the request never left the client. The
+  credentials form escaped it only by carrying `[formGroup]`. Now `(submit)`
+  with an explicit `preventDefault`, matching the note already in
+  `security-settings.html` where this trap was first hit. Every other
+  `(ngSubmit)` in the app was checked and sits on a form with `[formGroup]`.
+  *Covered by login.component.spec.ts, which dispatches a real submit event —
+  a test that called the method directly would have passed throughout.*
+  *src/app/features/auth/components/login/login.component.html*
+
+- **Recovery codes were rejected unless typed with their dash.** They are shown
+  as `XXXXX-XXXXX` and were hashed exactly as entered, so `J3LT2L3N43` — how the
+  code reads off a printout — did not match the stored hash of `J3LT2-L3N43`.
+  Each miss also spent one of five tries against the shared 2FA limiter, so the
+  sixth answered 429 and locked the account for fifteen minutes, then an hour.
+  That lands precisely when the user has already lost their authenticator and
+  has no other way in. Codes are now hashed in a canonical form (alphanumerics,
+  uppercased) so dash, no dash, spaces and case all match; codes already issued
+  were hashed the old way and cannot be rewritten, so verification tries both
+  and they keep working unchanged.
+  *server/src/auth/services/recovery-code.service.ts*
+
+- **A password with a leading or trailing space could not enrol or remove a
+  factor.** The security screen sent `this.password().trim()`, while the server
+  compares against the hash of the real password — so those accounts were told
+  their own password was wrong, having just signed in with it.
+  *src/app/features/user/components/settings/security/security-settings.ts*
+
+- **Every wrong 2FA code raised an unhandled RxJS error.** `catchError` set the
+  message on screen and then rethrew into a `.subscribe()` with no error
+  callback, so the message the user was meant to read arrived alongside an
+  uncaught error. Same shape on all three streams in the login component.
+  *src/app/features/auth/components/login/login.component.ts*
+
+- **Signing in through the login screen discarded `returnUrl`.** The component
+  navigated to `/messages` on success on top of `AuthService.completeLogin`'s
+  own navigation, overriding the deep link the guard had recorded — the exact
+  bug the `returnUrl` handling exists to prevent. Navigation now belongs to
+  `completeLogin` alone.
+  *src/app/features/auth/components/login/login.component.ts*
+
+## Added — email as a second factor
+
+- **Two-factor authentication now offers an authenticator app, emailed codes,
+  or both**, chosen per account. Enrolling either costs the account password and
+  a delivered code; at sign-in, an account holding both is offered a choice and
+  opens on the authenticator, which is instant and offline. An account holding
+  only email has its code sent as part of answering the password step, since
+  there is otherwise nothing for the user to read one off.
+  *server/src/auth/two-factor.controller.ts, auth.controller.ts, login.component.*,
+  security-settings.**
+
+- **Codes are stored hashed in Redis**, single-use, with a ten-minute expiry, a
+  one-minute gap between sends and a five-guess cap per code. Redis rather than
+  Mongo because all three limits are TTL problems; hashed because the mail is
+  already the weak link and a database dump should not hand over every in-flight
+  code. `login` and `enroll` are separate purposes, so a code mailed to finish a
+  sign-in cannot authorise turning a factor on.
+  *server/src/auth/services/email-otp.service.ts*
+
+- **Recovery codes are minted for the first factor and left alone for the
+  second.** Adding email to an account that already has an authenticator does
+  not reissue — and therefore does not silently invalidate — the codes the user
+  has already written down.
+
+- **Factors can be removed one at a time.** `DELETE /auth/2fa/totp` and
+  `/auth/2fa/email` turn one off; `DELETE /auth/2fa` still turns everything off.
+  Removing one factor while another remains leaves every session alive, since
+  the account is still protected; only dropping all the way back to a bare
+  password revokes them, which is the change worth treating as "this may be how
+  a compromise ends". Any enrolled factor authorises removing any other, so a
+  user whose authenticator is already lost is not stuck with it.
+
+- **`POST /auth/2fa/email/send`** issues a code to a signed-in user about to
+  change their factors. Without it, an account whose only factor was email had
+  no way to turn it off but to spend a recovery code: every other route to an
+  emailed code runs through the sign-in challenge, which someone already signed
+  in does not have.
+
+- **The 2FA record carries both factors additively.** `secret` became optional
+  and `email_enabled` was added rather than restructuring into a `totp: {…}`
+  sub-document, so no migration is needed and existing enrolments are untouched.
+  `enrolledMethods()` is the single answer to "what may this account be asked
+  for", so the login check and the settings screen cannot drift apart.
+  *server/src/auth/models/two-factor.model.ts*
+
+*Verified end-to-end over HTTP against live Mongo, live Redis and a local SMTP
+sink — enrol each factor, sign in with each, choose between them, single-use
+enforcement, per-factor teardown, and an email-only account's full lifecycle.
+Unit and integration coverage in recovery-code.service.spec.ts,
+email-otp.service.int.spec.ts, login.component.spec.ts and
+security-settings.spec.ts; a 2FA section was added to `scripts/smoke.sh`.*
 
 ---
 
@@ -932,6 +1041,16 @@ Deliberately not addressed:
   those are populated by the conversation and message endpoints rather than the
   user ones. Closing that means running redaction over populated senders too.
 - **Recovery codes cannot be regenerated.** You get eight at enrolment; when
-  they run out the only route back is turning 2FA off and on again.
-- **The 2FA setup screen shows the key as text, not a QR code.** Rendering one
-  needs a QR library, and the `otpauth://` link covers the same-device case.
+  they run out the only route back is turning every factor off and on again.
+  Sharper now that a code is spent on ordinary sign-ins whenever the chosen
+  factor is unavailable.
+- **A user cannot change which address their 2FA codes go to from the security
+  screen.** It follows the account address, so the route is `/change-email`,
+  which verifies the new address on its own terms — deliberate, since letting
+  the caller name an address here would point a second factor at an inbox the
+  owner may not control. There is nothing on screen saying so.
+- **The emailed-code factor is only as strong as the inbox.** Anyone who can
+  read the user's mail can complete a sign-in, so it is weaker than the
+  authenticator against a compromised email account — which is also the account
+  password reset flows through. It is offered because it is the factor people
+  actually enrol, not because it is equivalent.

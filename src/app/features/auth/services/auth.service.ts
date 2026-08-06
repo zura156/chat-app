@@ -30,6 +30,7 @@ import { UserI } from '../../user/interfaces/user.interface';
 import { UserService } from '../../user/services/user.service';
 import { ActivatedRoute, Router } from '@angular/router';
 import { UnlockAccountI } from '../interfaces/unlock-account.interface';
+import { TwoFactorMethod } from '../interfaces/two-factor.interface';
 
 /** Keys that belong to a session and must not outlive it. */
 const SESSION_STORAGE_KEYS = ['isAuthenticated', 'prefers-chat-settings-open'];
@@ -181,6 +182,12 @@ export class AuthService {
    */
   readonly twoFactorRequired = signal(false);
 
+  /** Which factors this account can answer with — one entry, or both. */
+  readonly twoFactorMethods = signal<TwoFactorMethod[]>([]);
+
+  /** The one the code field is currently asking for. */
+  readonly twoFactorMethod = signal<TwoFactorMethod>('totp');
+
   login(credentials: LoginCredentialsI): Observable<UserI | null> {
     this.#loading.set(true);
     this.#error.set(null);
@@ -190,8 +197,21 @@ export class AuthService {
       switchMap((response) => {
         // The password was right but it is not sufficient on this account. No
         // session exists yet, so nothing may be marked authenticated here.
-        if ((response as { two_factor_required?: boolean })?.two_factor_required) {
+        const challenge = response as {
+          two_factor_required?: boolean;
+          methods?: TwoFactorMethod[];
+          default_method?: TwoFactorMethod;
+        };
+
+        if (challenge?.two_factor_required) {
           this.#loading.set(false);
+          // Falls back to the authenticator when the server says nothing, so an
+          // older API keeps working rather than rendering an empty chooser.
+          const methods = challenge.methods?.length
+            ? challenge.methods
+            : (['totp'] as TwoFactorMethod[]);
+          this.twoFactorMethods.set(methods);
+          this.twoFactorMethod.set(challenge.default_method ?? methods[0]);
           this.twoFactorRequired.set(true);
           return of(null);
         }
@@ -202,13 +222,25 @@ export class AuthService {
     );
   }
 
-  /** Second step: exchanges an authenticator or recovery code for a session. */
-  submitTwoFactorCode(code: string): Observable<UserI | null> {
+  /**
+   * Second step: exchanges a code for a session.
+   *
+   * `method` tells the server which factor the code came from. A recovery code
+   * is accepted whatever it says — that is the point of one — so the field
+   * narrows the check rather than restricting it.
+   */
+  submitTwoFactorCode(
+    code: string,
+    method = this.twoFactorMethod(),
+  ): Observable<UserI | null> {
     this.#loading.set(true);
     this.#error.set(null);
 
     return this.http
-      .post<AuthResponseI>(`${environment.apiUrl}/auth/login/2fa`, { code })
+      .post<AuthResponseI>(`${environment.apiUrl}/auth/login/2fa`, {
+        code,
+        method,
+      })
       .pipe(
         switchMap(() => {
           this.twoFactorRequired.set(false);
@@ -218,8 +250,28 @@ export class AuthService {
       );
   }
 
+  /**
+   * Asks for a code to be sent to the address on the account. Only reachable
+   * with a live challenge, so it is not a way to mail an arbitrary person.
+   */
+  requestTwoFactorEmailCode(): Observable<{ message: string }> {
+    return this.http
+      .post<{ message: string }>(
+        `${environment.apiUrl}/auth/login/2fa/email`,
+        {},
+      )
+      .pipe(catchError(this.handleError));
+  }
+
+  /** Switches which factor the user is answering, mid-challenge. */
+  chooseTwoFactorMethod(method: TwoFactorMethod): void {
+    this.twoFactorMethod.set(method);
+    this.#error.set(null);
+  }
+
   cancelTwoFactor(): void {
     this.twoFactorRequired.set(false);
+    this.twoFactorMethods.set([]);
     this.#error.set(null);
   }
 

@@ -267,6 +267,16 @@ export class ConversationListComponent {
               );
 
               return;
+            // The sidebar's copy of `last_message` is maintained here, so a
+            // delete has to reach this handler too — the chatbox only owns the
+            // open thread. Arrives for every conversation the user is in, not
+            // just the visible one.
+            case 'message-deleted':
+              this.conversationService.applyDeletedToLastMessage(
+                res.message._id,
+                res.message.deleted_at,
+              );
+              break;
             case 'conversation-update':
               this.conversationService.updateConversationState(
                 res.conversation,

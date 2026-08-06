@@ -443,6 +443,42 @@ const twoFactorCodeLimiter = createRateLimiter({
 });
 
 /**
+ * Asking for a two-factor code to be *sent*, which is a different activity from
+ * guessing one and must not share its budget: a user who requests a second mail
+ * because the first was slow would otherwise be spending the attempts they need
+ * to enter it.
+ *
+ * The service enforces a one-minute gap between sends on its own; this bounds
+ * the total over an hour, so a stuck client cannot sit on that gap all day. It
+ * only ever mails the address already on the account, so unlike
+ * /forgot-password it is not an email-bombing primitive — hence the allowance
+ * is about SMTP quota and inbox noise rather than abuse.
+ *
+ * Keyed the same way as the code routes so the sign-in step, which has no
+ * session yet, is bounded per account rather than per address.
+ */
+const twoFactorEmailSendLimiter = createRateLimiter({
+  keyPrefix: '2fa-email-send',
+  allowance: 10,
+  windowMs: HOUR,
+  cooldownsMs: [15 * MINUTE, HOUR],
+  keyGenerator: (req) => {
+    const userId = (req as AuthRequest).user?._id;
+    if (userId) return `u:${userId.toString()}`;
+
+    const challenge = req.cookies?.twoFactorChallenge as string | undefined;
+    if (challenge) {
+      try {
+        return `u:${verifyTwoFactorChallenge(challenge).userId}`;
+      } catch {
+        // Expired or forged — fall through to the address.
+      }
+    }
+    return ipKey(req);
+  },
+});
+
+/**
  * Enrolment already costs a live session and the account password, so this is
  * looser than the code routes — it exists to stop a compromised session from
  * churning secrets, not to police a user re-scanning a QR code.
@@ -464,5 +500,6 @@ export {
   resendVerificationLimiter,
   changePasswordLimiter,
   twoFactorCodeLimiter,
+  twoFactorEmailSendLimiter,
   twoFactorSetupLimiter,
 };

@@ -2,6 +2,7 @@ import { Service, inject, signal } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { tap } from 'rxjs';
 import { environment } from '../../../../environments/environment';
+import { TwoFactorMethod } from '../../auth/interfaces/two-factor.interface';
 
 export interface SessionI {
   id: string;
@@ -12,9 +13,16 @@ export interface SessionI {
   current: boolean;
 }
 
+export type { TwoFactorMethod };
+
 export interface TwoFactorStatusI {
+  /** Any factor at all — what the screen's on/off summary reads. */
   enabled: boolean;
-  pending: boolean;
+  methods: TwoFactorMethod[];
+  totp_enabled: boolean;
+  email_enabled: boolean;
+  /** An authenticator enrolment that was started and never confirmed. */
+  totp_pending: boolean;
   recovery_codes_remaining: number;
 }
 
@@ -22,6 +30,21 @@ export interface TwoFactorSetupI {
   secret: string;
   otpauth_uri: string;
   expires_at: string;
+}
+
+/**
+ * Confirming either factor returns the new status, plus recovery codes — but
+ * only the first time. Adding a second factor to an account that already has
+ * one leaves the existing codes alone, so the array comes back empty and the
+ * screen must not present that as "here are your codes".
+ */
+export interface TwoFactorConfirmI extends TwoFactorStatusI {
+  recovery_codes: string[];
+}
+
+export interface EmailCodeSentI {
+  sent_to: string;
+  expires_in_seconds: number;
 }
 
 /**
@@ -39,7 +62,10 @@ export class SecuritySettingsService {
 
   private readonly _twoFactor = signal<TwoFactorStatusI>({
     enabled: false,
-    pending: false,
+    methods: [],
+    totp_enabled: false,
+    email_enabled: false,
+    totp_pending: false,
     recovery_codes_remaining: 0,
   });
   readonly twoFactor = this._twoFactor.asReadonly();
@@ -122,37 +148,73 @@ export class SecuritySettingsService {
 
   confirmTwoFactorSetup(code: string) {
     return this.http
-      .post<{ enabled: boolean; recovery_codes: string[] }>(
-        `${this.authUrl}/2fa/confirm`,
-        { code },
-      )
-      .pipe(
-        tap((res) =>
-          this._twoFactor.set({
-            enabled: true,
-            pending: false,
-            recovery_codes_remaining: res.recovery_codes.length,
-          }),
-        ),
-      );
+      .post<TwoFactorConfirmI>(`${this.authUrl}/2fa/confirm`, { code })
+      .pipe(tap((res) => this.absorbStatus(res)));
   }
 
-  disableTwoFactor(code: string, password: string) {
+  /**
+   * Starts the email factor. The address is not a parameter — the server sends
+   * to whatever is on the account, so this cannot be pointed at an inbox the
+   * owner does not control.
+   */
+  beginEmailTwoFactorSetup(password: string) {
+    return this.http.post<EmailCodeSentI>(`${this.authUrl}/2fa/email/setup`, {
+      password,
+    });
+  }
+
+  /**
+   * Sends a code to a signed-in user who is about to change their factors.
+   *
+   * The route that mails a code during sign-in needs a challenge cookie, which
+   * someone already signed in does not have — so without this, an account whose
+   * only factor is email had to spend a recovery code to turn it off.
+   */
+  sendEmailTwoFactorChallenge() {
+    return this.http.post<EmailCodeSentI>(
+      `${this.authUrl}/2fa/email/send`,
+      {},
+    );
+  }
+
+  confirmEmailTwoFactorSetup(code: string) {
     return this.http
-      .request<{ enabled: boolean }>(
-        'delete',
-        `${this.authUrl}/2fa`,
-        { body: { code, password } },
-      )
-      .pipe(
-        tap(() =>
-          this._twoFactor.set({
-            enabled: false,
-            pending: false,
-            recovery_codes_remaining: 0,
-          }),
-        ),
-      );
+      .post<TwoFactorConfirmI>(`${this.authUrl}/2fa/email/confirm`, { code })
+      .pipe(tap((res) => this.absorbStatus(res)));
+  }
+
+  /**
+   * Turns off one factor, or everything when `method` is omitted.
+   *
+   * `signedOut` comes back true only when the account has dropped all the way
+   * to password-only, which is the case the server revokes every session for.
+   * Removing one of two factors leaves this session alive, so the caller must
+   * read the flag rather than assume.
+   */
+  disableTwoFactor(
+    code: string,
+    password: string,
+    method?: TwoFactorMethod,
+  ) {
+    const path = method ? `${this.authUrl}/2fa/${method}` : `${this.authUrl}/2fa`;
+
+    return this.http
+      .request<TwoFactorStatusI & { signedOut: boolean }>('delete', path, {
+        body: { code, password },
+      })
+      .pipe(tap((res) => this.absorbStatus(res)));
+  }
+
+  /** Keeps the local status in step with whatever the server just decided. */
+  private absorbStatus(status: TwoFactorStatusI): void {
+    this._twoFactor.set({
+      enabled: status.enabled,
+      methods: status.methods ?? [],
+      totp_enabled: status.totp_enabled,
+      email_enabled: status.email_enabled,
+      totp_pending: status.totp_pending,
+      recovery_codes_remaining: status.recovery_codes_remaining,
+    });
   }
 
   /**

@@ -1,4 +1,4 @@
-import { Component, inject, signal } from '@angular/core';
+import { Component, computed, inject, signal } from '@angular/core';
 import {
   FormControl,
   FormGroup,
@@ -20,7 +20,7 @@ import {
 
 import { catchError, Subject, takeUntil, tap, throwError } from 'rxjs';
 import { HlmAlertImports } from '@spartan-ng/helm/alert';
-import { Router, RouterLink } from '@angular/router';
+import { RouterLink } from '@angular/router';
 import { ThemeService } from '../../../../shared/services/theme.service';
 
 @Component({
@@ -42,7 +42,6 @@ import { ThemeService } from '../../../../shared/services/theme.service';
 })
 export class LoginComponent {
   private authService = inject(AuthService);
-  private router = inject(Router);
   private themeService = inject(ThemeService);
 
   isDarkMode = this.themeService.isDarkMode;
@@ -53,7 +52,18 @@ export class LoginComponent {
 
   /** Set once the password is accepted on an account with a second factor. */
   twoFactorRequired = this.authService.twoFactorRequired;
+  twoFactorMethods = this.authService.twoFactorMethods;
+  twoFactorMethod = this.authService.twoFactorMethod;
   twoFactorCode = signal<string>('');
+
+  /** Only worth offering a choice when there is one. */
+  canChooseMethod = computed(() => this.twoFactorMethods().length > 1);
+
+  /**
+   * True once a code has been sent in this challenge, so the button can stop
+   * saying "Send" and the hint can stop implying nothing has happened.
+   */
+  emailCodeSent = signal<boolean>(false);
 
   /*
    * `required` and nothing more on the password.
@@ -110,8 +120,26 @@ export class LoginComponent {
         tap(() => {
           this.clearError();
           this.isLoading.set(false);
-          // A pending second factor emits null and keeps the user here.
-          if (!this.twoFactorRequired()) this.router.navigateByUrl('/messages');
+
+          /*
+           * A pending second factor emits null and keeps the user here. When
+           * the only factor is email the server has already sent the code as
+           * part of answering the password step, so the screen must not offer
+           * to send a first one.
+           */
+          this.emailCodeSent.set(
+            this.twoFactorRequired() &&
+              this.twoFactorMethods().length === 1 &&
+              this.twoFactorMethod() === 'email',
+          );
+
+          /*
+           * Navigation on success belongs to AuthService.completeLogin, which
+           * honours the `returnUrl` the guard recorded. Sending everyone to
+           * /messages from here as well overrode it, so a deep link that
+           * bounced through the login screen was silently discarded — the exact
+           * bug the returnUrl handling exists to prevent.
+           */
         }),
         catchError((errorMessage) => {
           this.error.set(errorMessage);
@@ -119,12 +147,53 @@ export class LoginComponent {
           return throwError(() => errorMessage);
         }),
       )
-      .subscribe();
+      // `catchError` has already put the message on screen; the rethrow keeps
+      // the stream from emitting a success it did not have. Without an error
+      // callback here RxJS treats that as unhandled and reports it globally, so
+      // every wrong code raised an uncaught error alongside the message the
+      // user was meant to read.
+      .subscribe({ error: () => undefined });
   }
 
   onTwoFactorCodeInput(value: string): void {
-    // Authenticator codes are six digits; recovery codes are XXXXX-XXXXX.
+    // Authenticator and email codes are six digits; recovery codes are
+    // XXXXX-XXXXX, and are accepted whichever factor is selected.
     this.twoFactorCode.set(value.replace(/[^0-9A-Za-z-]/g, '').slice(0, 11));
+  }
+
+  /** Switches which factor is being answered, without restarting the sign-in. */
+  chooseMethod(method: 'totp' | 'email'): void {
+    if (this.twoFactorMethod() === method) return;
+
+    this.authService.chooseTwoFactorMethod(method);
+    this.twoFactorCode.set('');
+    this.clearError();
+  }
+
+  sendEmailCode(): void {
+    this.isLoading.set(true);
+
+    this.authService
+      .requestTwoFactorEmailCode()
+      .pipe(
+        takeUntil(this.destroy$),
+        tap(() => {
+          this.emailCodeSent.set(true);
+          this.isLoading.set(false);
+          this.clearError();
+        }),
+        catchError((errorMessage) => {
+          this.error.set(errorMessage);
+          this.isLoading.set(false);
+          return throwError(() => errorMessage);
+        }),
+      )
+      // `catchError` has already put the message on screen; the rethrow keeps
+      // the stream from emitting a success it did not have. Without an error
+      // callback here RxJS treats that as unhandled and reports it globally, so
+      // every wrong code raised an uncaught error alongside the message the
+      // user was meant to read.
+      .subscribe({ error: () => undefined });
   }
 
   submitTwoFactorCode(): void {
@@ -140,7 +209,7 @@ export class LoginComponent {
         tap(() => {
           this.clearError();
           this.isLoading.set(false);
-          this.router.navigateByUrl('/messages');
+          // completeLogin owns the navigation, and honours returnUrl.
         }),
         catchError((errorMessage) => {
           this.error.set(errorMessage);
@@ -149,12 +218,18 @@ export class LoginComponent {
           return throwError(() => errorMessage);
         }),
       )
-      .subscribe();
+      // `catchError` has already put the message on screen; the rethrow keeps
+      // the stream from emitting a success it did not have. Without an error
+      // callback here RxJS treats that as unhandled and reports it globally, so
+      // every wrong code raised an uncaught error alongside the message the
+      // user was meant to read.
+      .subscribe({ error: () => undefined });
   }
 
   cancelTwoFactor(): void {
     this.authService.cancelTwoFactor();
     this.twoFactorCode.set('');
+    this.emailCodeSent.set(false);
     this.clearError();
   }
 }

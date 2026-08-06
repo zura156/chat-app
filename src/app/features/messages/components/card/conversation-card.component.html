@@ -84,7 +84,16 @@
             >
           }
         }
-        @if (conversation.last_message?.content) {
+        <!--
+          Checked before the content and the attachment caption, not after: a
+          deleted message has neither left, and the preview should say what the
+          thread says rather than fall through to an empty span.
+        -->
+        @if (conversation.last_message?.deleted_at) {
+          <span class="truncate italic text-muted-foreground">
+            This message was deleted
+          </span>
+        } @else if (conversation.last_message?.content) {
           <span
             class="truncate"
             [class]="

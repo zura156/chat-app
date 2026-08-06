@@ -7,6 +7,7 @@ import {
   lucideMonitor,
   lucideSmartphone,
   lucideKeyRound,
+  lucideMail,
 } from '@ng-icons/lucide';
 import { HlmButtonImports } from '@spartan-ng/helm/button';
 import { HlmIconImports } from '@spartan-ng/helm/icon';
@@ -15,6 +16,7 @@ import { toast } from '@spartan-ng/brain/sonner';
 import {
   SecuritySettingsService,
   SessionI,
+  TwoFactorMethod,
 } from '../../../services/security-settings.service';
 import { AuthService } from '../../../../auth/services/auth.service';
 import { encodeQr } from '../../../../../shared/utils/qr-code';
@@ -46,6 +48,7 @@ import { encodeQr } from '../../../../../shared/utils/qr-code';
       lucideMonitor,
       lucideSmartphone,
       lucideKeyRound,
+      lucideMail,
     }),
   ],
 })
@@ -59,18 +62,32 @@ export class SecuritySettings implements OnInit {
 
   readonly revoking = signal<ReadonlySet<string>>(new Set());
 
-  /** Enrolment is a short wizard, so its stage lives here rather than a route. */
   /**
-   * `confirming-password` was added because enrolment now costs the account
-   * password, not just a live session.
+   * Enrolment is a short wizard, so its stage lives here rather than a route.
+   *
+   * `confirming-password` exists because enrolment costs the account password,
+   * not just a live session. `awaiting-email-code` is the email factor's
+   * equivalent of `scanning`: the step where the user goes and fetches the
+   * thing that proves they hold the factor.
    */
   readonly setupStage = signal<
-    'idle' | 'confirming-password' | 'scanning' | 'recovery'
+    | 'idle'
+    | 'confirming-password'
+    | 'scanning'
+    | 'awaiting-email-code'
+    | 'recovery'
   >('idle');
+
+  /** Which factor the wizard is currently enrolling. */
+  readonly setupMethod = signal<TwoFactorMethod>('totp');
+
   readonly setupSecret = signal<string | null>(null);
   readonly setupUri = signal<string | null>(null);
   readonly recoveryCodes = signal<string[]>([]);
   readonly code = signal('');
+
+  /** Where the enrolment code was sent, for the "check your inbox" line. */
+  readonly emailSentTo = signal<string | null>(null);
 
   /**
    * Re-entered to add or remove a second factor. Never persisted — held only
@@ -78,7 +95,10 @@ export class SecuritySettings implements OnInit {
    */
   readonly password = signal('');
   readonly busy = signal(false);
-  readonly disarming = signal(false);
+
+  /** Which factor is being turned off, or null. */
+  readonly disarmingMethod = signal<TwoFactorMethod | 'all' | null>(null);
+  readonly disarming = computed(() => this.disarmingMethod() !== null);
 
   readonly currentUser = this.authService.user;
 
@@ -235,18 +255,47 @@ export class SecuritySettings implements OnInit {
     });
   }
 
-  /** Opens the password prompt that precedes enrolment. */
-  beginSetup(): void {
+  /** Opens the password prompt that precedes enrolling `method`. */
+  beginSetup(method: TwoFactorMethod): void {
+    this.setupMethod.set(method);
     this.setupStage.set('confirming-password');
     this.password.set('');
     this.code.set('');
+    this.emailSentTo.set(null);
   }
 
+  /**
+   * Second step of enrolment, once the password is in hand.
+   *
+   * The password is passed exactly as typed. It used to be `.trim()`ed here,
+   * which silently mangled any password with a leading or trailing space — the
+   * server compares against the hash of the real one, so those accounts got
+   * "That password is not correct" for the password they had just used to sign
+   * in, with nothing on screen to explain it.
+   */
   startTwoFactorSetup(): void {
-    const password = this.password().trim();
+    const password = this.password();
     if (!password) return;
 
     this.busy.set(true);
+
+    if (this.setupMethod() === 'email') {
+      this.security.beginEmailTwoFactorSetup(password).subscribe({
+        next: (sent) => {
+          this.emailSentTo.set(sent.sent_to);
+          this.setupStage.set('awaiting-email-code');
+          this.code.set('');
+          this.password.set('');
+          this.busy.set(false);
+        },
+        error: (err) => {
+          this.busy.set(false);
+          toast.error(err?.error?.message ?? 'Could not send a code');
+        },
+      });
+      return;
+    }
+
     this.security.beginTwoFactorSetup(password).subscribe({
       next: (setup) => {
         this.setupSecret.set(setup.secret);
@@ -267,19 +316,61 @@ export class SecuritySettings implements OnInit {
     const code = this.code().trim();
     if (code.length !== 6) return;
 
+    const method = this.setupMethod();
+    const request$ =
+      method === 'email'
+        ? this.security.confirmEmailTwoFactorSetup(code)
+        : this.security.confirmTwoFactorSetup(code);
+
     this.busy.set(true);
-    this.security.confirmTwoFactorSetup(code).subscribe({
+    request$.subscribe({
       next: (res) => {
-        this.recoveryCodes.set(res.recovery_codes);
-        this.setupStage.set('recovery');
         this.setupSecret.set(null);
         this.setupUri.set(null);
         this.code.set('');
         this.busy.set(false);
+
+        // Codes come back only the first time a factor is confirmed. Adding a
+        // second factor keeps the set the user already wrote down, so there is
+        // nothing to show and the wizard just closes.
+        if (res.recovery_codes.length > 0) {
+          this.recoveryCodes.set(res.recovery_codes);
+          this.setupStage.set('recovery');
+        } else {
+          this.setupStage.set('idle');
+          toast.success(
+            method === 'email'
+              ? 'Email codes turned on'
+              : 'Authenticator app turned on',
+          );
+        }
       },
       error: (err) => {
         this.busy.set(false);
         toast.error(err?.error?.message ?? 'That code is not correct');
+      },
+    });
+  }
+
+  /** Sends another enrolment code, for a mail that never arrived. */
+  resendEmailSetupCode(): void {
+    const password = this.password();
+    if (!password) {
+      toast.error('Re-enter your password to send another code.');
+      this.setupStage.set('confirming-password');
+      return;
+    }
+
+    this.busy.set(true);
+    this.security.beginEmailTwoFactorSetup(password).subscribe({
+      next: (sent) => {
+        this.emailSentTo.set(sent.sent_to);
+        this.busy.set(false);
+        toast.success('Another code is on its way');
+      },
+      error: (err) => {
+        this.busy.set(false);
+        toast.error(err?.error?.message ?? 'Could not send another code');
       },
     });
   }
@@ -293,43 +384,90 @@ export class SecuritySettings implements OnInit {
     this.setupStage.set('idle');
     this.setupSecret.set(null);
     this.setupUri.set(null);
+    this.emailSentTo.set(null);
     this.code.set('');
     this.password.set('');
   }
 
-  beginDisable(): void {
-    this.disarming.set(true);
+  beginDisable(method: TwoFactorMethod | 'all'): void {
+    this.disarmingMethod.set(method);
     this.code.set('');
     this.password.set('');
+    this.emailSentTo.set(null);
   }
 
-  cancelDisable(): void {
-    this.disarming.set(false);
-    this.code.set('');
-    this.password.set('');
-  }
-
-  confirmDisable(): void {
-    const code = this.code().trim();
-    const password = this.password().trim();
-    if (!code || !password) return;
-
+  /**
+   * Mails a code to authorise the removal in progress.
+   *
+   * Offered whenever the email factor is on — and it is the only route for
+   * someone whose *only* factor is email, since they have no authenticator to
+   * read a code from and the sign-in send needs a challenge they do not have.
+   */
+  sendDisableEmailCode(): void {
     this.busy.set(true);
-    this.security.disableTwoFactor(code, password).subscribe({
-      next: () => {
+    this.security.sendEmailTwoFactorChallenge().subscribe({
+      next: (sent) => {
+        this.emailSentTo.set(sent.sent_to);
         this.busy.set(false);
-        this.disarming.set(false);
-        this.code.set('');
-        this.password.set('');
-        toast.success('Two-factor authentication turned off');
-        // Disabling revokes every session, including this one.
-        this.authService.handleAuthFailure();
+        toast.success('A code is on its way');
       },
       error: (err) => {
         this.busy.set(false);
-        toast.error(err?.error?.message ?? 'That code is not correct');
+        toast.error(err?.error?.message ?? 'Could not send a code');
       },
     });
+  }
+
+  cancelDisable(): void {
+    this.disarmingMethod.set(null);
+    this.code.set('');
+    this.password.set('');
+  }
+
+  /** What turning off the currently-selected factor would leave behind. */
+  readonly disarmLeavesAccountBare = computed(() => {
+    const method = this.disarmingMethod();
+    if (method === null) return false;
+    if (method === 'all') return true;
+
+    return this.twoFactor().methods.filter((m) => m !== method).length === 0;
+  });
+
+  confirmDisable(): void {
+    const method = this.disarmingMethod();
+    const code = this.code().trim();
+    // Not trimmed: see startTwoFactorSetup.
+    const password = this.password();
+    if (method === null || !code || !password) return;
+
+    this.busy.set(true);
+    this.security
+      .disableTwoFactor(code, password, method === 'all' ? undefined : method)
+      .subscribe({
+        next: (res) => {
+          this.busy.set(false);
+          this.disarmingMethod.set(null);
+          this.code.set('');
+          this.password.set('');
+
+          toast.success(
+            method === 'email'
+              ? 'Email codes turned off'
+              : method === 'totp'
+                ? 'Authenticator app turned off'
+                : 'Two-factor authentication turned off',
+          );
+
+          // Only dropping to a bare password revokes every session — removing
+          // one of two factors leaves this one signed in, so bouncing to the
+          // login screen unconditionally would be a lie about what happened.
+          if (res.signedOut) this.authService.handleAuthFailure();
+        },
+        error: (err) => {
+          this.busy.set(false);
+          toast.error(err?.error?.message ?? 'That code is not correct');
+        },
+      });
   }
 
   copyRecoveryCodes(): void {

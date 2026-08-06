@@ -55,6 +55,35 @@ const probeRedis = async (): Promise<boolean> => {
   }
 };
 
+/**
+ * Where the integration suites are *expected* to run, an unreachable service is
+ * a broken environment rather than a reason to skip.
+ *
+ * Skipping is the right default: it keeps `npm test` useful on a laptop with
+ * nothing running. But it means a run can drop the integration suites — a fifth
+ * of the tests — and still exit 0, printing a warning that scrolls past above
+ * the green summary. CI discovering that months later, after a real regression
+ * shipped through the gap, is the failure this flag exists to prevent. Set it
+ * anywhere the services are supposed to be up.
+ */
+const integrationRequired = (): boolean =>
+  process.env.REQUIRE_INTEGRATION === '1' ||
+  process.env.REQUIRE_INTEGRATION === 'true';
+
+const startupHint = [
+  'To run them, start the services locally:',
+  '',
+  '  mongod --dbpath /tmp/chat-app-test-db --port 27017 --fork \\',
+  '         --logpath /tmp/chat-app-test-db/mongod.log',
+  '  redis-server --daemonize yes',
+  '',
+  'or point MONGO_TEST_URI / REDIS_TEST_URL at instances you already have.',
+].join('\n');
+
+/** Indents every non-empty line, so the hint sits under the warning's margin. */
+const indent = (text: string, by: string): string =>
+  text.replace(/^(?!$)/gm, by);
+
 export async function setup(): Promise<void> {
   /*
    * The breached-password check is on by default in every other environment,
@@ -72,16 +101,44 @@ export async function setup(): Promise<void> {
   process.env.VITEST_MONGO_AVAILABLE = String(mongo);
   process.env.VITEST_REDIS_AVAILABLE = String(redis);
 
-  if (!mongo) {
-    console.warn(
-      `\n[integration] No MongoDB at ${MONGO_TEST_URI} — those suites will be skipped.` +
-        `\n              Start one, or set MONGO_TEST_URI, to run them.`,
+  const missing = [
+    mongo ? null : `MongoDB at ${MONGO_TEST_URI}`,
+    redis ? null : `Redis at ${REDIS_TEST_URL}`,
+  ].filter((entry): entry is string => entry !== null);
+
+  if (missing.length === 0) return;
+
+  if (integrationRequired()) {
+    // Thrown from globalSetup, so the run stops here rather than reporting a
+    // green summary over a suite that never ran.
+    throw new Error(
+      [
+        '',
+        `REQUIRE_INTEGRATION is set, but ${missing.length === 1 ? 'this service is' : 'these services are'} unreachable:`,
+        ...missing.map((entry) => `  - ${entry}`),
+        '',
+        'The integration suites cannot run, and skipping them here would report',
+        'success for tests that never executed.',
+        '',
+        startupHint,
+        '',
+      ].join('\n'),
     );
   }
-  if (!redis) {
-    console.warn(
-      `\n[integration] No Redis at ${REDIS_TEST_URL} — those suites will be skipped.` +
-        `\n              Start one, or set REDIS_TEST_URL, to run them.`,
-    );
-  }
+
+  console.warn(
+    [
+      '',
+      `[integration] Skipping the integration suites — ${missing.join(' and ')} ${
+        missing.length === 1 ? 'is' : 'are'
+      } unreachable.`,
+      '',
+      '              The run below therefore covers less than the whole suite,',
+      '              and will still report success. Set REQUIRE_INTEGRATION=1 to',
+      '              make this a failure instead.',
+      '',
+      indent(startupHint, '              '),
+      '',
+    ].join('\n'),
+  );
 }

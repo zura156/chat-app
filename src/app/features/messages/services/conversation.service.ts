@@ -12,7 +12,7 @@ import { MemberChangesI } from '../interfaces/member-changes.interface';
 import { ConversationIdResponseI } from '../interfaces/conversation-id-response.interface';
 import { toast } from '@spartan-ng/brain/sonner';
 import { UpdateConversationI } from '../interfaces/update-conversation.interface';
-import { MessageI } from '../interfaces/message.interface';
+import { MessageI, MessageType } from '../interfaces/message.interface';
 import { UserStateService } from '../../user/services/user-state.service';
 import { AuthService } from '../../auth/services/auth.service';
 
@@ -340,6 +340,43 @@ export class ConversationService {
         conversations: val.conversations.map((c) =>
           c._id === conversationId && message
             ? { ...c, last_message: message }
+            : c,
+        ),
+      };
+    });
+  }
+
+  /**
+   * Empties a conversation's `last_message` when that message is the one being
+   * deleted.
+   *
+   * Without this the list never heard about deletes at all: the thread showed
+   * its tombstone while the row in the sidebar went on displaying the text —
+   * or the "📷 Photo" caption — of the message that had just been taken back,
+   * until something else in that conversation happened or the page was
+   * reloaded. Matching on the message id rather than the conversation id is
+   * both narrower and enough; a delete elsewhere in the thread leaves the card
+   * alone.
+   */
+  applyDeletedToLastMessage(messageId: string, deletedAt: string): void {
+    this.#conversationList.update((val) => {
+      if (!val) return null;
+
+      return {
+        ...val,
+        conversations: val.conversations.map((c) =>
+          c.last_message?._id === messageId
+            ? {
+                ...c,
+                last_message: {
+                  ...c.last_message,
+                  content: null,
+                  attachments: [],
+                  edited_at: undefined,
+                  type: MessageType.TEXT,
+                  deleted_at: deletedAt,
+                },
+              }
             : c,
         ),
       };
