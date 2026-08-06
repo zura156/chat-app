@@ -418,7 +418,10 @@ export const deleteUser = async (
       return;
     }
 
-    const user = await User.findById(req.user._id.toString());
+    // `+password`: deleting an account is authorised by re-entering it.
+    const user = await User.findById(req.user._id.toString()).select(
+      '+password',
+    );
 
     if (!user) {
       next(createCustomError('User not found', 404));
@@ -467,7 +470,6 @@ export const getUsers = async (
         .sort({ updatedAt: -1 })
         .skip(offset)
         .limit(limit)
-        .skip(offset)
         .select(PUBLIC_USER_FIELDS_WITH_PRIVACY)
         .lean(),
       // was counting a non-existent `participants` field, so it was always 0

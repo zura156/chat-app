@@ -358,7 +358,33 @@ const resetPasswordLimiter = createRateLimiter({
   allowance: 10,
   windowMs: 15 * MINUTE,
   cooldownsMs: [15 * MINUTE, HOUR],
-  keyGenerator: (req) => `${req.body?.userId ?? 'anon'}|${req.ip ?? 'unknown'}`,
+  // `userId` on /reset-password, `id` on /confirm-email — the two routes share
+  // this limiter but not their field names, so reading only `userId` collapsed
+  // every confirm-email caller behind one address into a single "anon" bucket.
+  keyGenerator: (req) =>
+    `${req.body?.userId ?? req.body?.id ?? 'anon'}|${req.ip ?? 'unknown'}`,
+});
+
+/**
+ * Redeeming a link that arrived by email: verifying an address, unlocking an
+ * account. Both were the only unauthenticated token-taking routes with nothing
+ * but the global backstop in front of them.
+ *
+ * The tokens are random UUIDs, so this is not really about guessing them — it
+ * is about the database lookup and the writes behind it being free and
+ * unlimited to anyone who can name a user id.
+ *
+ * Its own prefix rather than sharing `reset`: the comment there is the reason —
+ * routes that share a key prefix drain each other's budget, and a user who has
+ * just been locked out is quite likely to be using both.
+ */
+const accountTokenLimiter = createRateLimiter({
+  keyPrefix: 'account-token',
+  allowance: 10,
+  windowMs: 15 * MINUTE,
+  cooldownsMs: [15 * MINUTE, HOUR],
+  keyGenerator: (req) =>
+    `${req.body?.userId ?? req.body?.id ?? 'anon'}|${req.ip ?? 'unknown'}`,
 });
 
 /** Sends mail on every call, so it is rationed per account, not per address. */
@@ -434,6 +460,7 @@ export {
   registerLimiter,
   forgotPasswordLimiter,
   resetPasswordLimiter,
+  accountTokenLimiter,
   resendVerificationLimiter,
   changePasswordLimiter,
   twoFactorCodeLimiter,
