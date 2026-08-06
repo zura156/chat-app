@@ -3,7 +3,10 @@ import jwt from 'jsonwebtoken';
 import config from '../../config/config';
 import { IConversation } from '../../messenger/models/conversation.model';
 import { IUser, User } from '../../user/models/user.model';
-import { isAccessTokenBlacklisted } from '../services/token.service';
+import {
+  isAccessTokenBlacklisted,
+  isSessionRevoked,
+} from '../services/token.service';
 import { verifyAccessToken } from '../services/jwt.service';
 
 export interface AuthRequest extends Request {
@@ -33,6 +36,14 @@ export const authenticateToken = async (
 
     if (blacklisted) {
       res.status(401).json({ error: 'Token revoked' });
+      return;
+    }
+
+    // The blacklist above only knows tokens the server has held. "Sign out
+    // everywhere" has to refuse the ones sitting in other browsers, which it
+    // has never seen — so those are refused by age instead.
+    if (await isSessionRevoked(decoded)) {
+      res.status(401).json({ error: 'Session revoked' });
       return;
     }
 

@@ -7,7 +7,10 @@ import {
   generateSecret,
   verifyAndConsumeCode,
 } from './services/totp.service';
-import { deleteAllUserRefreshTokens } from './services/token.service';
+import {
+  deleteAllUserRefreshTokens,
+  revokeSessionsBefore,
+} from './services/token.service';
 import { createCustomError } from '../error-handling/models/custom-api-error.model';
 import { resetRateLimit } from './middlewares/rate-limiter';
 import config from '../config/config';
@@ -261,6 +264,7 @@ export const disableTwoFactor = async (
     // removed because the account is compromised, the attacker's sessions have
     // to go with it.
     await deleteAllUserRefreshTokens(user._id.toString());
+    await revokeSessionsBefore(user._id.toString());
 
     res.status(200).json({ enabled: false });
   } catch (error) {

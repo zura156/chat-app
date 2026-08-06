@@ -4,7 +4,10 @@ import { Socket } from 'net';
 import { parse } from 'cookie';
 import { logger } from '../utils/logger';
 import { verifyAccessToken } from '../auth/services/jwt.service';
-import { isAccessTokenBlacklisted } from '../auth/services/token.service';
+import {
+  isAccessTokenBlacklisted,
+  isSessionRevoked,
+} from '../auth/services/token.service';
 import {
   WebSocketService,
   BroadcastFunction,
@@ -26,6 +29,14 @@ export interface AuthenticatedWebSocket extends WebSocket {
    * that opened it and stays authenticated indefinitely.
    */
   expiresAt: number;
+  /**
+   * When that token was issued (unix seconds), and which session it belongs
+   * to. Both are needed to answer "was this socket opened before the user
+   * signed out everywhere?" — the handshake is the only time it is asked
+   * otherwise, and a revocation arrives long after it.
+   */
+  issuedAt: number;
+  sid?: string;
   /**
    * When this socket was last told a given message type was being dropped.
    * Answering every over-budget frame would double the traffic of exactly the
@@ -76,11 +87,17 @@ function notifyRateLimited(
   );
 }
 
+/** Close code for "the session behind this socket was revoked". */
+const CLOSE_SESSION_REVOKED = 4002;
+
 /** The identity and expiry proven at the handshake. */
 interface UpgradeIdentity {
   userId: string;
   /** Unix seconds. The socket is closed when the token behind it expires. */
   expiresAt: number;
+  /** Unix seconds. Compared against a later revocation. */
+  issuedAt: number;
+  sid?: string;
 }
 
 const rejectUpgrade = (socket: Socket, status: '401' | '403'): null => {
@@ -129,7 +146,20 @@ async function verifyUpgradeRequest(
       return rejectUpgrade(socket, '401');
     }
 
-    return { userId, expiresAt: decoded.exp };
+    // Signing out everywhere refuses tokens by age, because the server never
+    // held the ones in other browsers. Without this a revoked device could
+    // still open a fresh socket with a token the HTTP layer already refuses.
+    if (await isSessionRevoked(decoded)) {
+      logger.warn(`WS upgrade rejected: revoked session for user ${userId}`);
+      return rejectUpgrade(socket, '401');
+    }
+
+    return {
+      userId,
+      expiresAt: decoded.exp,
+      issuedAt: decoded.iat ?? 0,
+      sid: decoded.sid,
+    };
   } catch (err) {
     logger.warn('WS upgrade rejected: invalid token', err);
     return rejectUpgrade(socket, '401');
@@ -177,17 +207,54 @@ export const setupWebSocket = (server: Server): void => {
    */
   webSocketController.startPresenceSweeper();
 
-  // subscribe to upload events published by worker process
+  /**
+   * Closes any socket on this instance that the revocation covers.
+   *
+   * A socket is authorised once, at the handshake, so refusing the *next*
+   * upgrade is not enough — one already open would keep delivering messages to
+   * a device that has been signed out, for as long as its token had left. The
+   * comparison is the same one the HTTP layer makes: opened before the
+   * revocation, and not the session deliberately kept.
+   */
+  const closeRevokedSockets = (
+    userId: string,
+    /** Unix seconds, matching the `iat` the socket was opened with. */
+    at: number,
+    keepSid?: string,
+  ): void => {
+    for (const ws of wss.clients) {
+      const client = ws as AuthenticatedWebSocket;
+      if (client.userId !== userId) continue;
+      if (keepSid && client.sid === keepSid) continue;
+      if (client.issuedAt >= at) continue;
+
+      logger.info(`Closing revoked WS for user ${userId}`);
+      client.close(CLOSE_SESSION_REVOKED, 'Session revoked');
+    }
+  };
+
+  // subscribe to events published by the worker and by the auth layer
   const uploadSubscriber = redisClient.duplicate();
   uploadSubscriber
     .connect()
-    .then(() => {
-      uploadSubscriber.subscribe('ws:upload', (message) => {
+    .then(async () => {
+      await uploadSubscriber.subscribe('ws:upload', (message) => {
         try {
           const { userId, payload } = JSON.parse(message);
           webSocketService.sendToUser(userId, payload);
         } catch (err) {
           logger.error('Failed to handle ws:upload event:', err);
+        }
+      });
+
+      // Every instance acts on this — the socket to close may be on any of
+      // them, and there is nothing to de-duplicate.
+      await uploadSubscriber.subscribe('ws:revoke', (message) => {
+        try {
+          const { userId, at, keepSid } = JSON.parse(message);
+          closeRevokedSockets(userId, at, keepSid);
+        } catch (err) {
+          logger.error('Failed to handle ws:revoke event:', err);
         }
       });
     })
@@ -207,6 +274,8 @@ export const setupWebSocket = (server: Server): void => {
             client.userId = identity.userId;
             client.isAlive = true;
             client.expiresAt = identity.expiresAt;
+            client.issuedAt = identity.issuedAt;
+            client.sid = identity.sid;
             client.rateLimitNoticeAt = new Map();
             wss.emit('connection', client, request);
           });
@@ -296,6 +365,7 @@ export const setupWebSocket = (server: Server): void => {
     }
 
     await uploadSubscriber.unsubscribe('ws:upload').catch(() => {});
+    await uploadSubscriber.unsubscribe('ws:revoke').catch(() => {});
     await uploadSubscriber.quit().catch(() => {});
 
     await new Promise<void>((resolve) => wss.close(() => resolve()));

@@ -1,5 +1,7 @@
 import { redisClient } from '../../config/redis';
 import crypto from 'crypto';
+import config from '../../config/config';
+import { logger } from '../../utils/logger';
 
 const REFRESH_TTL = 7 * 24 * 60 * 60;
 const hashToken = (token: string) =>
@@ -322,4 +324,142 @@ export const isAccessTokenBlacklisted = async (
   token: string,
 ): Promise<boolean> => {
   return (await redisClient.get(`blacklist:${hashToken(token)}`)) === '1';
+};
+
+/* ── Revoking sessions the server cannot name ──────────────────────────────
+ *
+ * Deleting refresh tokens ends the ability to *renew* a session, and
+ * blacklisting an access token ends that one token. Neither reaches the access
+ * tokens already sitting in other browsers: they are self-contained JWTs, the
+ * server never saw them, and they stay cryptographically valid until they
+ * expire. So "sign out everywhere" left every other device with working API
+ * access for up to a full access-token lifetime — an hour by default. On an
+ * account signed out *because* it was compromised, that is the hour that
+ * matters.
+ *
+ * A blacklist cannot fix this, because it is keyed by a token the server does
+ * not have. What it can record is a moment: everything issued to this user
+ * before instant T is no longer honoured. One key per user, compared against
+ * the `iat` every access token already carries.
+ *
+ * `keepSid` exists for the one flow that must not sign the caller out.
+ * Changing a password has to invalidate the other devices — that is most of
+ * the point — but not the one being typed on, and the epoch alone cannot tell
+ * them apart. Exempting by session id also sidesteps a rounding problem: `iat`
+ * has one-second resolution, so a token minted in the same second as the
+ * revocation cannot be ordered against it by timestamp alone.
+ */
+
+const revocationKey = (userId: string) => `revoked:{${userId}}`;
+
+interface Revocation {
+  /**
+   * Unix **seconds**, and deliberately the same resolution as `iat`.
+   *
+   * A JWT's `iat` is whole seconds, so a token minted in the same second as a
+   * revocation cannot be ordered against it. Recording milliseconds and
+   * comparing `iat * 1000` looks more precise and is worse: the token appears
+   * to predate the revocation and is refused, so signing in again immediately
+   * after "sign out everywhere" hands back a session that 401s on its very
+   * first request — the user is told they are logged in and then nothing
+   * works.
+   *
+   * Comparing whole seconds with a strict `<` resolves the tie the safe way.
+   * The cost is that a token issued earlier in the *same second* as the
+   * revocation survives it — under a second of exposure, against an attacker
+   * who would have had to obtain a token inside that second — and the gain is
+   * that a legitimate sign-in is never refused.
+   */
+  at: number;
+  /** The one session allowed to survive, if any. */
+  keepSid?: string;
+}
+
+/**
+ * The `1h` / `30m` / `7d` / `3600` forms jsonwebtoken accepts, as seconds.
+ *
+ * Anything it cannot read falls back rather than throwing, and the fallback is
+ * generous on purpose: this only sizes a TTL, and an over-long record is
+ * harmless where a short one would let a revoked token outlive its revocation.
+ */
+export const durationToSeconds = (value: string, fallback: number): number => {
+  const match = /^(\d+)\s*(s|m|h|d)?$/i.exec(String(value).trim());
+  if (!match) return fallback;
+  const unit = (match[2] ?? 's').toLowerCase() as 's' | 'm' | 'h' | 'd';
+  return Number(match[1]) * { s: 1, m: 60, h: 3600, d: 86400 }[unit];
+};
+
+/*
+ * The record only has to outlive the last access token that predates it —
+ * after that every such token has expired on its own and the comparison is
+ * moot. A minute of slack covers clock skew between the API and Redis.
+ *
+ * Tracks `JWT_EXPIRES_IN`, so shortening the access token shortens this too.
+ */
+export const REVOCATION_TTL =
+  durationToSeconds(config.jwtExpiresIn, 60 * 60) + 60;
+
+/**
+ * Refuses every access token issued to this user before now.
+ *
+ * Call alongside deleting their refresh tokens, not instead of it: this stops
+ * the tokens already in the wild, that stops new ones being minted.
+ */
+export const revokeSessionsBefore = async (
+  userId: string,
+  keepSid?: string | null,
+): Promise<void> => {
+  const record: Revocation = { at: Math.floor(Date.now() / 1000) };
+  if (keepSid) record.keepSid = keepSid;
+
+  await redisClient.setEx(
+    revocationKey(userId),
+    REVOCATION_TTL,
+    JSON.stringify(record),
+  );
+
+  /*
+   * A socket authorises once, at the handshake, so one already open would
+   * otherwise keep delivering messages to a revoked device until its token
+   * expired — the same hour, on the more sensitive channel. The sockets live
+   * in the API processes; this runs anywhere. See `ws:revoke` in
+   * websocket.setup.
+   */
+  await redisClient.publish(
+    'ws:revoke',
+    JSON.stringify({ userId, ...record }),
+  );
+};
+
+/**
+ * Whether this token predates a revocation for its user.
+ *
+ * Fails **open** on a Redis error, deliberately and unlike the checks around
+ * it. Every authenticated request runs this, so failing closed turns a Redis
+ * blip into a total outage that presents as everyone being signed out at once.
+ * The refresh tokens are already gone by then, so an unreachable Redis bounds
+ * the exposure to one access-token lifetime — exactly the state this feature
+ * improves on, rather than a regression from it.
+ */
+export const isSessionRevoked = async (payload: {
+  userId: string;
+  iat?: number;
+  sid?: string;
+}): Promise<boolean> => {
+  // A token with no `iat` cannot be placed in time. jsonwebtoken always sets
+  // one, so this is a malformed token rather than an old one.
+  if (!payload.iat) return false;
+
+  try {
+    const raw = await redisClient.get(revocationKey(payload.userId));
+    if (!raw) return false;
+
+    const record = JSON.parse(raw) as Revocation;
+    if (record.keepSid && payload.sid === record.keepSid) return false;
+
+    return payload.iat < record.at;
+  } catch (error) {
+    logger.error('Revocation check failed, allowing the token:', error);
+    return false;
+  }
 };

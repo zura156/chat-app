@@ -123,10 +123,52 @@ code=$(req "$JAR_B" GET "/messages/$conv/messages?offset=0&limit=20")
 check "a departed member loses access" "$code" "403"
 
 echo
+echo "── signing out everywhere ─────────────────────────────────────────────"
+# A second device for the same account. Its access token is a self-contained
+# JWT the server has never seen, so nothing about revoking the first session
+# reaches it except the recorded cut-off — which is the whole point of this
+# section.
+JAR_A2="$SP/cookies-a2.txt"; rm -f "$JAR_A2"; prime "$JAR_A2"
+code=$(req "$JAR_A2" POST /auth/login "{\"email\":\"ada$STAMP@example.test\",\"password\":\"$PASS_A\"}")
+check "sign in on a second device" "$code" "200"
+
+code=$(req "$JAR_A2" GET /user/profile)
+check "second device works" "$code" "200"
+
+code=$(req "$JAR_A" DELETE /auth/sessions)
+check "sign out everywhere from the first" "$code" "200"
+
+# The token in the second jar has not expired and was never sent to the server
+# to be blacklisted. Before the revocation record existed this still returned
+# 200 for the rest of the access token's lifetime.
+code=$(req "$JAR_A2" GET /user/profile)
+check "the other device is refused immediately" "$code" "401"
+
+# And signing in again has to work at once, or "sign out everywhere" locks the
+# user out of their own account.
+rm -f "$JAR_A"; prime "$JAR_A"
+code=$(req "$JAR_A" POST /auth/login "{\"email\":\"ada$STAMP@example.test\",\"password\":\"$PASS_A\"}")
+check "signing in again still works" "$code" "200"
+
+echo
 echo "── changing a password ────────────────────────────────────────────────"
+# Another device, so the asymmetry below can be seen: a password change signs
+# out everywhere *except* the machine doing the changing. Signing the user out
+# of the one they are typing on turns a routine action into a re-login, which
+# is the friction that stops people rotating a password they think is exposed.
+rm -f "$JAR_A2"; prime "$JAR_A2"
+code=$(req "$JAR_A2" POST /auth/login "{\"email\":\"ada$STAMP@example.test\",\"password\":\"$PASS_A\"}")
+check "sign in on a second device again" "$code" "200"
+
 code=$(req "$JAR_A" POST /auth/change-password \
   "{\"current_password\":\"$PASS_A\",\"new_password\":\"$PASS_A_NEW\",\"confirm_password\":\"$PASS_A_NEW\"}")
 check "change password" "$code" "200"
+
+code=$(req "$JAR_A" GET /user/profile)
+check "the changing device stays signed in" "$code" "200"
+
+code=$(req "$JAR_A2" GET /user/profile)
+check "the other device is signed out" "$code" "401"
 
 rm -f "$JAR_A"; prime "$JAR_A"
 code=$(req "$JAR_A" POST /auth/login "{\"email\":\"ada$STAMP@example.test\",\"password\":\"$PASS_A_NEW\"}")

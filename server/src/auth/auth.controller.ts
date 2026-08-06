@@ -34,6 +34,7 @@ import {
   listSessions,
   revokeSession,
   revokeOtherSessions,
+  revokeSessionsBefore,
   sessionIdForToken,
   newSessionId,
 } from './services/token.service';
@@ -186,12 +187,12 @@ export const clearAuthCookies = (res: Response) => {
   // set — csrfToken is set with a domain, so it must be cleared with one too.
   res.clearCookie('accessToken', { ...COOKIE_BASE });
   res.clearCookie('refreshToken', { ...COOKIE_BASE, path: '/auth/refresh' });
-  res.clearCookie('csrfToken', {
-    httpOnly: false,
-    secure: COOKIE_BASE.secure,
-    sameSite: COOKIE_BASE.sameSite,
-    domain: config.cookieDomain,
-  });
+  // res.clearCookie('csrfToken', {
+  //   httpOnly: false,
+  //   secure: COOKIE_BASE.secure,
+  //   sameSite: COOKIE_BASE.sameSite,
+  //   domain: config.cookieDomain,
+  // });
 };
 
 // ─── Account lockout ───────────────────────────────────────────────────────────
@@ -637,6 +638,10 @@ export const revokeAllSessions = async (
     }
 
     await deleteAllUserRefreshTokens(user._id.toString());
+    // Ends the access tokens in the *other* browsers too. Deleting refresh
+    // tokens only stops them renewing; the ones already issued are self
+    // contained and the server has never seen them.
+    await revokeSessionsBefore(user._id.toString());
 
     const accessToken = req.cookies['accessToken'] as string | undefined;
     if (accessToken) {
@@ -861,6 +866,7 @@ export const resetPassword = async (
 
     // Force logout from all devices after password reset
     await deleteAllUserRefreshTokens(user._id.toString());
+    await revokeSessionsBefore(user._id.toString());
 
     // A valid token proves this was not a guessing run.
     await resetRateLimit(req);
@@ -951,6 +957,10 @@ export const changePassword = async (
       user._id.toString(),
       req.sessionId ?? null,
     );
+    // Same cut-off applied to the access tokens those devices are still
+    // holding, with this session exempted so the caller is not signed out of
+    // the machine they just changed their password on.
+    await revokeSessionsBefore(user._id.toString(), req.sessionId ?? null);
 
     // Best-effort: the password is already changed, and failing to send mail
     // must not turn a successful change into an error the client retries.
@@ -1166,6 +1176,7 @@ export const confirmEmailChange = async (
     // The address is how the account is recovered, so every other device is
     // signed out — as on a password change.
     await deleteAllUserRefreshTokens(user._id.toString());
+    await revokeSessionsBefore(user._id.toString());
     clearAuthCookies(res);
 
     res.status(200).json({ message: 'Email address updated.' });
