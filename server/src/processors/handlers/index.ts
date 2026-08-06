@@ -16,10 +16,7 @@ export const contextHandlers: Record<string, ContextHandlerConfig> = {
   'group-avatar': { handler: imageHandler, onComplete: onGroupAvatarComplete },
   'cover-photo': { handler: imageHandler, onComplete: onCoverPhotoComplete },
   'dm-image': { handler: dmImageHandler, onComplete: onDmAttachmentComplete },
-  'dm-video': {
-    handler: (p) => videoHandler(p, false),
-    onComplete: onDmAttachmentComplete,
-  },
+  'dm-video': { handler: videoHandler, onComplete: onDmAttachmentComplete },
   'dm-audio': { handler: audioHandler, onComplete: onDmAttachmentComplete },
   'dm-file': { handler: fileHandler, onComplete: onDmAttachmentComplete },
   // post-* and story-* handlers were dropped along with their upload contexts:

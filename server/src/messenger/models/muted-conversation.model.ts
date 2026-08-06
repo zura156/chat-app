@@ -1,9 +1,19 @@
 import { Document, model, Schema, Types } from 'mongoose';
 
+/*
+ * A mute lasts until it is undone. There is no timed mute, and nothing in the
+ * UI offers one.
+ *
+ * `muted_until: Date` was declared here — non-optional on the interface, never
+ * set by `muteConversation`, and read by nothing. So it was always `undefined`
+ * while the type promised a Date, and any future code that trusted it would
+ * have compared against nothing. Removed rather than implemented: an
+ * unimplemented field that type-checks is worse than no field, and adding a
+ * timed mute is a product decision with a UI attached.
+ */
 export interface IMutedConversation extends Document {
   user: Types.ObjectId;
   conversation: Types.ObjectId;
-  muted_until: Date;
 }
 
 const MutedConversationSchema = new Schema<IMutedConversation>({
@@ -13,7 +23,6 @@ const MutedConversationSchema = new Schema<IMutedConversation>({
     ref: 'Conversation',
     required: true,
   },
-  muted_until: { type: Date }, // Optional: Auto-unmute after a time
 });
 
 // createNotification looks up mutes by conversation + participant set on every
