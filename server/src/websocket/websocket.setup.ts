@@ -10,9 +10,12 @@ import {
   BroadcastFunction,
 } from './services/websocket.service';
 import { WebSocketController } from './controllers/websocket.controller';
-import { MessageService } from '../messenger/services/message.service';
 import { redisClient } from '../config/redis';
 import config from '../config/config';
+import {
+  WS_RATE_WINDOW_SECONDS,
+  checkRateLimit,
+} from './services/ws-rate-limit';
 
 export interface AuthenticatedWebSocket extends WebSocket {
   userId: string;
@@ -40,62 +43,6 @@ let closeServer: (() => Promise<void>) | undefined;
 
 /** Close code for "the server is going away", distinct from an expired token. */
 const CLOSE_SERVER_SHUTDOWN = 1001;
-
-const WS_RATE_WINDOW_SECONDS = 10;
-
-/**
- * A budget per message type, rather than one shared across all of them.
- *
- * Only three types are client-sendable, and they are not interchangeable: a
- * burst of typing transitions used to spend the same allowance a read receipt
- * needed, and a dropped receipt leaves an unread badge stale until something
- * happens to re-trigger it. Presence gets the smallest share because it should
- * only fire on connect, disconnect and tab focus — more than that is a bug in
- * the client, not a busy user.
- *
- * Anything unlisted (including frames that did not parse) falls to the default,
- * so garbage still meets a limit. The controller's allowlist rejects those on
- * content; this bounds how many it has to reject.
- */
-const WS_RATE_LIMITS: Record<string, number> = {
-  typing: 30,
-  'message-status': 60,
-  'user-status': 10,
-};
-const WS_RATE_LIMIT_DEFAULT = 20;
-
-interface RateLimitVerdict {
-  allowed: boolean;
-  /** Seconds until the bucket refills. Sent to the client so it can wait. */
-  retryAfter: number;
-}
-
-async function checkRateLimit(
-  userId: string,
-  messageType: string,
-): Promise<RateLimitVerdict> {
-  const key = `ws:rate:${messageType}:${userId}`;
-
-  try {
-    const count = await redisClient.incr(key);
-    if (count === 1) await redisClient.expire(key, WS_RATE_WINDOW_SECONDS);
-
-    const limit = WS_RATE_LIMITS[messageType] ?? WS_RATE_LIMIT_DEFAULT;
-    if (count <= limit) return { allowed: true, retryAfter: 0 };
-
-    const ttl = await redisClient.ttl(key);
-    return {
-      allowed: false,
-      retryAfter: ttl > 0 ? ttl : WS_RATE_WINDOW_SECONDS,
-    };
-  } catch (error) {
-    // Fails open, like every HTTP limiter. This used to throw straight into the
-    // message handler's catch, so a Redis blip silently dropped every frame on
-    // every socket and logged each one as "Invalid WebSocket message".
-    logger.error('WS rate limit check failed, allowing message:', error);
-    return { allowed: true, retryAfter: 0 };
-  }
-}
 
 /**
  * Tells the client its frame was dropped, and when to try again.
@@ -219,12 +166,16 @@ export const setupWebSocket = (server: Server): void => {
   const webSocketService = new WebSocketService();
   webSocketServiceInstance = webSocketService;
 
-  const messageService = new MessageService(webSocketService.broadcast);
-  const webSocketController = new WebSocketController(
-    webSocketService,
-    messageService,
-  );
+  const webSocketController = new WebSocketController(webSocketService);
   broadcastFunction = webSocketService.broadcast;
+
+  /*
+   * Presence transitions are held in Redis and finalised by whichever instance
+   * sweeps them first, so this has to be running for anyone to be marked
+   * offline at all — including the transitions left behind by a process that
+   * died before its own would have come due.
+   */
+  webSocketController.startPresenceSweeper();
 
   // subscribe to upload events published by worker process
   const uploadSubscriber = redisClient.duplicate();
@@ -338,6 +289,7 @@ export const setupWebSocket = (server: Server): void => {
    */
   closeServer = async () => {
     clearInterval(heartbeatTimer);
+    webSocketController.stopPresenceSweeper();
 
     for (const client of wss.clients) {
       client.close(CLOSE_SERVER_SHUTDOWN, 'Server shutting down');

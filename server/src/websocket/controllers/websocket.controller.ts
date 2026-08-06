@@ -2,7 +2,6 @@ import { WebSocket } from 'ws';
 import { logger } from '../../utils/logger';
 import { WebSocketService } from '../services/websocket.service';
 import * as DTO from '../dtos/websocket.dto';
-import { MessageService } from '../../messenger/services/message.service';
 import {
   Conversation,
   upsertReadReceipt,
@@ -11,28 +10,97 @@ import type { Types } from 'mongoose';
 import { User } from '../../user/models/user.model';
 import { Message } from '../../messenger/models/message.model';
 import { MessageStatusEnum } from '../../messenger/interfaces/message.interface';
-import { UserDTO } from '../../user/dtos/user.dto';
 import { ObjectId } from 'mongodb';
 import { redisClient } from '../../config/redis';
 import { recomputeNotification } from '../../messenger/services/notification.service';
 import type { AuthenticatedWebSocket } from '../websocket.setup';
 import { broadcastsPresence } from '../../user/services/privacy.service';
 
+/**
+ * How long a disconnect waits before it counts as going offline — long enough
+ * to ride out a refresh, a tunnel change or a backgrounded tab.
+ */
 const OFFLINE_DELAY_MS = 30_000;
 
 /**
- * How much longer the pending-offline key lives than the timer that reads it.
- * The two were equal, which meant the key was always gone before the timer
- * checked it. Any positive slack fixes that; this much also covers a process
- * that is briefly busy when the timer comes due.
+ * Users whose disconnect is waiting out {@link OFFLINE_DELAY_MS}, scored by
+ * when they come due.
+ *
+ * This used to be a per-user key plus an in-process `setTimeout`, which meant
+ * the transition only existed in the memory of the one process that saw the
+ * socket close. A redeploy, a crash or a scale-down inside that 30-second
+ * window dropped the timer on the floor and the user was left marked online
+ * *permanently* — nothing else ever revisits presence, so the only cure was for
+ * them to connect and disconnect again cleanly. Redeploys are exactly when
+ * every socket closes at once, so this went wrong in bulk or not at all.
+ *
+ * As a sorted set the pending transition is durable and ownerless: any instance
+ * can sweep it, and whichever one wins the ZREM is the one that finalises it.
  */
-const OFFLINE_PENDING_TTL_GRACE_MS = 30_000;
+const OFFLINE_PENDING_KEY = 'offline_pending';
+
+/** How often each instance looks for transitions that have come due. */
+const OFFLINE_SWEEP_INTERVAL_MS = 5_000;
+
+/** Ceiling on one sweep, so a large backlog is drained over several passes. */
+const OFFLINE_SWEEP_BATCH = 200;
 
 export class WebSocketController {
-  constructor(
-    private websocketService: WebSocketService,
-    private messageService: MessageService,
-  ) {}
+  private offlineSweeper?: NodeJS.Timeout;
+
+  /*
+   * A `MessageService` was injected here and never used. Messages sent over the
+   * socket do not come through this controller — the client posts them to
+   * `POST /messages/:id/send` and the socket carries the broadcast back — so
+   * there was nothing for it to do. Dropping it also drops the reason this
+   * controller had to know the message layer existed at all.
+   */
+  constructor(private websocketService: WebSocketService) {}
+
+  /**
+   * Begins sweeping due offline transitions. Every instance runs one; the ZREM
+   * claim below is what stops them doing the same work twice.
+   */
+  public startPresenceSweeper(): void {
+    if (this.offlineSweeper) return;
+
+    this.offlineSweeper = setInterval(() => {
+      void this.sweepPendingOffline().catch((error) =>
+        logger.error('Presence sweep failed:', error),
+      );
+    }, OFFLINE_SWEEP_INTERVAL_MS);
+
+    this.offlineSweeper.unref?.();
+  }
+
+  public stopPresenceSweeper(): void {
+    if (this.offlineSweeper) clearInterval(this.offlineSweeper);
+    this.offlineSweeper = undefined;
+  }
+
+  private async sweepPendingOffline(): Promise<void> {
+    const due = await redisClient.zRangeByScore(
+      OFFLINE_PENDING_KEY,
+      '-inf',
+      Date.now(),
+      { LIMIT: { offset: 0, count: OFFLINE_SWEEP_BATCH } },
+    );
+
+    for (const userId of due) {
+      // Claiming and checking are one step: ZREM answers 1 only for the caller
+      // that actually removed the member, so exactly one instance proceeds.
+      const claimed = await redisClient.zRem(OFFLINE_PENDING_KEY, userId);
+      if (claimed === 0) continue;
+
+      // They may have reconnected — possibly to another instance — between the
+      // disconnect and now, in which case this transition is stale.
+      const stillGone =
+        await this.websocketService.isUserFullyDisconnected(userId);
+      if (!stillGone) continue;
+
+      await this.finalizeUserStatusUpdate(userId, 'offline');
+    }
+  }
 
   public handleIncomingMessage(
     ws: WebSocket,
@@ -135,17 +203,17 @@ export class WebSocketController {
         return;
       }
 
-      for (const participantId of conversation.participants) {
-        const participantStr = String(participantId);
-        if (participantStr !== senderId) {
-          this.websocketService.sendToUser(participantStr, {
-            type: 'typing',
-            is_typing: data.is_typing,
-            sender: data.sender,
-            conversation_id: data.conversation_id,
-          });
-        }
-      }
+      await this.websocketService.sendToUsers(
+        conversation.participants
+          .map(String)
+          .filter((participantId) => participantId !== senderId),
+        {
+          type: 'typing',
+          is_typing: data.is_typing,
+          sender: data.sender,
+          conversation_id: data.conversation_id,
+        },
+      );
     } catch (error) {
       logger.error('Failed to handle typing notification:', error);
     }
@@ -238,16 +306,15 @@ export class WebSocketController {
         lastReadId,
       ).catch((err) => logger.error('Failed to recompute notification:', err));
 
-      const payload = {
-        type: 'message-status',
-        status: MessageStatusEnum.READ,
-        read_receipt,
-        conversation_id,
-      };
-
-      for (const participantId of conversation.participants) {
-        this.websocketService.sendToUser(participantId.toString(), payload);
-      }
+      await this.websocketService.sendToUsers(
+        conversation.participants.map(String),
+        {
+          type: 'message-status',
+          status: MessageStatusEnum.READ,
+          read_receipt,
+          conversation_id,
+        },
+      );
     } catch (error) {
       logger.error('Failed to handle message status update:', error);
     }
@@ -263,71 +330,49 @@ export class WebSocketController {
     data: DTO.UserStatusMessage,
     authenticatedUserId: string,
   ): Promise<void> {
-    const { status, last_seen } = data;
+    const { status } = data;
     const user_id = authenticatedUserId;
 
-    const pendingKey = `offline_pending:${user_id}`;
-
     if (status === 'online') {
-      // Cancel any pending offline — del is a no-op if key doesn't exist
-      await redisClient.del(pendingKey);
-      await this.finalizeUserStatusUpdate(user_id, 'online', last_seen);
+      // Reconnecting cancels any transition still waiting out its delay.
+      await redisClient.zRem(OFFLINE_PENDING_KEY, user_id);
+      await this.finalizeUserStatusUpdate(user_id, 'online');
       return;
     }
 
-    // The key is the cancellation token: a reconnect deletes it, and the timer
-    // below checks it before committing. It must therefore outlive the timer.
-    // It previously had exactly OFFLINE_DELAY_MS of TTL, so by the time the
-    // timer fired the key had already expired and the check read it as
-    // "cancelled" — meaning users were essentially never marked offline.
-    const alreadyPending = await redisClient.exists(pendingKey);
-    if (alreadyPending) return;
-
-    await redisClient.setEx(
-      pendingKey,
-      Math.ceil((OFFLINE_DELAY_MS + OFFLINE_PENDING_TTL_GRACE_MS) / 1000),
-      '1',
+    /*
+     * Record when this should take effect and let the sweeper finish the job.
+     *
+     * NX rather than a plain ZADD: a second disconnect while one is already
+     * pending must not push the due time further out, or a client that flaps
+     * could stay "online" indefinitely. It also makes this the whole of the
+     * previous `EXISTS`-then-`SETEX` dance, without the gap between the two.
+     */
+    await redisClient.zAdd(
+      OFFLINE_PENDING_KEY,
+      { score: Date.now() + OFFLINE_DELAY_MS, value: user_id },
+      { NX: true },
     );
-
-    setTimeout(() => {
-      void (async () => {
-        try {
-          // Only finalize if we still own the key. DEL returns the number of
-          // keys removed, so claiming it and checking are one atomic step —
-          // EXISTS-then-DEL let a reconnect slip between the two and get
-          // marked offline anyway.
-          const claimed = await redisClient.del(pendingKey);
-          if (claimed === 0) return;
-
-          // The user may have reconnected to a different instance, in which
-          // case they are still online and this transition is stale.
-          const stillGone =
-            await this.websocketService.isUserFullyDisconnected(user_id);
-          if (!stillGone) return;
-
-          await this.finalizeUserStatusUpdate(user_id, 'offline', last_seen);
-        } catch (error) {
-          logger.error(
-            `Failed to finalize pending offline for ${user_id}:`,
-            error,
-          );
-        }
-      })();
-    }, OFFLINE_DELAY_MS).unref?.();
   }
 
+  /**
+   * `last_seen` is stamped from the server clock, not from the frame.
+   *
+   * The client sends one, and it was written through unvalidated — so any
+   * client could put its contacts' "last seen" wherever it liked, including in
+   * the future, and a device with a wrong clock did the same by accident. It is
+   * the one field here that is purely an observation the server makes.
+   */
   private async finalizeUserStatusUpdate(
     userId: string,
     status: 'online' | 'offline',
-    lastSeen?: string,
   ): Promise<void> {
     try {
+      const lastSeen = new Date();
+
       const updated = await User.findByIdAndUpdate(
         userId,
-        {
-          status,
-          last_seen: lastSeen || new Date(),
-        },
+        { status, last_seen: lastSeen },
         { returnDocument: 'after', select: 'privacy' },
       ).lean();
 
@@ -350,16 +395,12 @@ export class WebSocketController {
         ),
       ];
 
-      const payload = {
+      await this.websocketService.sendToUsers(notifyIds, {
         type: 'user-status',
         user_id: userId,
         status,
-        last_seen: lastSeen,
-      };
-
-      for (const id of notifyIds) {
-        this.websocketService.sendToUser(id, payload);
-      }
+        last_seen: lastSeen.toISOString(),
+      });
     } catch (error) {
       logger.error(`Failed to finalize user status for ${userId}:`, error);
     }

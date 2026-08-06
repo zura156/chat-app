@@ -147,6 +147,43 @@ export class WebSocketService {
     return sent;
   }
 
+  /**
+   * Delivers an already-formed payload to a set of users, on every instance.
+   *
+   * `sendToUser` only reaches sockets held by *this* process. That is fine for
+   * the Redis subscriber (which is the other end of a fan-out that already
+   * happened) but not for an event originating here: typing indicators, read
+   * receipts and presence changes were all pushed with a bare `sendToUser`
+   * loop, so under more than one API replica they only ever reached recipients
+   * who happened to be connected to the same one. Everyone else saw no typing
+   * indicator, no read receipt, and contacts stuck at their last known presence
+   * — intermittently, and in a way that looks like a flaky client.
+   *
+   * `broadcast` is not usable for these: it derives its recipients from a
+   * conversation and re-wraps message-shaped payloads. This is the plain
+   * "these users, this payload, everywhere" primitive.
+   */
+  public sendToUsers = async (
+    userIds: string[],
+    payload: object,
+  ): Promise<void> => {
+    const participantIds = [...new Set(userIds.map(String))].filter(Boolean);
+    if (participantIds.length === 0) return;
+
+    for (const userId of participantIds) this.sendToUser(userId, payload);
+
+    try {
+      // Local delivery already happened, hence fromInstance — the subscriber
+      // skips its own id so nobody is sent the same frame twice.
+      await redisClient.publish(
+        'ws:broadcast',
+        JSON.stringify({ participantIds, payload, fromInstance: INSTANCE_ID }),
+      );
+    } catch (error) {
+      logger.error('Failed to fan out to other instances:', error);
+    }
+  };
+
   public async getAllConnectedUserIds(): Promise<string[]> {
     return redisClient.sMembers('online_users');
   }
