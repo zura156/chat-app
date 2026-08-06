@@ -6,7 +6,57 @@ import { MessageTypeEnum } from '../../messenger/interfaces/message.interface';
 import { JobPayload, ProcessResult } from './types';
 import { broadcastToParticipants, emitToUser } from '../../utils/ws-emit';
 import { signVariants } from '../../upload/media-url.service';
+import { purgeUploads } from '../../upload/upload-cleanup.service';
 import { logger } from '../../utils/logger';
+
+/**
+ * Drops the upload this one replaces, objects and record together.
+ *
+ * Avatars, cover photos and group pictures are single-slot: one is current and
+ * the rest are superseded the moment a new one is ready. Nothing removed them,
+ * so every change left three more objects in the bucket permanently — and
+ * because the storage screen sums `Upload` records by context, a user who
+ * changed their picture ten times was shown ten pictures' worth of "Profile
+ * media" they had no way to reclaim.
+ *
+ * Scoped by whatever owns the slot: the user for their own avatar and cover,
+ * the conversation for a group picture. `$ne` on the current upload is what
+ * keeps this from deleting the one that just landed.
+ *
+ * Best-effort. The picture is already live; failing to tidy up behind it must
+ * not fail the job and trigger a retry that reprocesses the same image.
+ */
+const purgeSupersededUploads = async (
+  payload: JobPayload,
+  scope: Record<string, unknown>,
+): Promise<void> => {
+  try {
+    await purgeUploads({
+      ...scope,
+      context: payload.context,
+      _id: { $ne: payload.uploadId },
+    });
+  } catch (error) {
+    logger.error(
+      `Failed to purge uploads superseded by ${payload.uploadId}:`,
+      error,
+    );
+  }
+};
+
+/**
+ * The three sizes `imageHandler` produces, in the shape the schema declares.
+ *
+ * Every image context generates thumb (64px), medium (400px) and large
+ * (1200px), and every one of them is uploaded and paid for. Storing only one
+ * URL orphans the other two in the bucket and leaves the consumer no choice but
+ * the size it was given.
+ */
+const variantSet = (result: ProcessResult) => ({
+  thumb: result.variants.thumb,
+  medium: result.variants.medium,
+  large: result.variants.large,
+});
 
 export const onAvatarComplete = async (
   payload: JobPayload,
@@ -14,7 +64,19 @@ export const onAvatarComplete = async (
 ) => {
   await User.findByIdAndUpdate(payload.userId, {
     pfp_url: result.variants.medium,
+    /*
+     * `pfp_variants` is declared on the schema, selected by every populate in
+     * the app, exposed on the public user fields and redacted by the privacy
+     * service — and nothing ever wrote it. The chatbox reads
+     * `sender.pfp_variants.thumb` for the avatar beside each message, so every
+     * one of them fell through to the generic placeholder: profile pictures
+     * simply never appeared in a conversation, while the 64px thumb that should
+     * have been there sat unreferenced in the bucket.
+     */
+    pfp_variants: variantSet(result),
   });
+
+  await purgeSupersededUploads(payload, { userId: payload.userId });
 };
 
 export const onGroupAvatarComplete = async (
@@ -32,13 +94,9 @@ export const onGroupAvatarComplete = async (
        * has always produced thumb/medium/large — but only `medium` was ever
        * stored, so the other two were written to the bucket and then orphaned.
        * Recording them is what makes it possible to serve a 64px avatar in a
-       * list instead of a 400px one, the way user avatars already do.
+       * list instead of a 400px one.
        */
-      group_picture_variants: {
-        thumb: result.variants.thumb,
-        medium: result.variants.medium,
-        large: result.variants.large,
-      },
+      group_picture_variants: variantSet(result),
     },
     { returnDocument: 'after' },
   )
@@ -91,6 +149,11 @@ export const onGroupAvatarComplete = async (
   await Promise.all(
     participantIds.map((participantId) => emitToUser(participantId, event)),
   );
+
+  // Scoped to the conversation, not the uploader: a group picture belongs to
+  // the group, and the person replacing it is often not the one who set the
+  // last.
+  await purgeSupersededUploads(payload, { resourceId: payload.resourceId });
 };
 
 /**
@@ -150,7 +213,10 @@ export const onCoverPhotoComplete = async (
 ) => {
   await User.findByIdAndUpdate(payload.userId, {
     cover_url: result.variants.large,
+    cover_variants: variantSet(result),
   });
+
+  await purgeSupersededUploads(payload, { userId: payload.userId });
 };
 
 export const onDmAttachmentComplete = async (
