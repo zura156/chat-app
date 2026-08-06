@@ -20,7 +20,11 @@ import {
 } from '@ng-icons/lucide';
 import { catchError, Subject, takeUntil, tap, throwError } from 'rxjs';
 import { HlmAlertImports } from '@spartan-ng/helm/alert';
-import { passwordValidator } from '../../validators/password.validator';
+import {
+  PASSWORD_MAX_LENGTH,
+  PASSWORD_MIN_LENGTH,
+  passwordValidator,
+} from '../../validators/password.validator';
 import { Router, RouterLink } from '@angular/router';
 import { ThemeService } from '../../../../shared/services/theme.service';
 
@@ -71,13 +75,26 @@ export class RegisterComponent implements OnDestroy {
         Validators.maxLength(32),
       ]),
       email: new FormControl('', [Validators.required, Validators.email]),
-      password: new FormControl('', [Validators.required, passwordValidator()]),
+      // The context is read lazily so the rule against building a password out
+      // of your own username sees what is in those fields *now*, not what they
+      // held when the form was constructed.
+      password: new FormControl('', [
+        Validators.required,
+        passwordValidator(() => ({
+          username: this.form?.get('username')?.value,
+          email: this.form?.get('email')?.value,
+        })),
+      ]),
       repeat_password: new FormControl('', [Validators.required]),
     },
     {
       validators: repeatPasswordValidator('password', 'repeat_password'),
     },
   );
+
+  /** Surfaced so the checklist quotes the policy rather than restating it. */
+  readonly passwordMinLength = PASSWORD_MIN_LENGTH;
+  readonly passwordMaxLength = PASSWORD_MAX_LENGTH;
 
   private destroy$ = new Subject<void>();
 

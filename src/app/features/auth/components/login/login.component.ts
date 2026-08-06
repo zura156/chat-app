@@ -18,7 +18,6 @@ import {
   lucideTriangleAlert,
 } from '@ng-icons/lucide';
 
-import { passwordValidator } from '../../validators/password.validator';
 import { catchError, Subject, takeUntil, tap, throwError } from 'rxjs';
 import { HlmAlertImports } from '@spartan-ng/helm/alert';
 import { Router, RouterLink } from '@angular/router';
@@ -56,9 +55,24 @@ export class LoginComponent {
   twoFactorRequired = this.authService.twoFactorRequired;
   twoFactorCode = signal<string>('');
 
+  /*
+   * `required` and nothing more on the password.
+   *
+   * It carried `passwordValidator()`, which is a rule about what a password may
+   * be *set* to — and `onSubmit` refuses to submit an invalid form. So an
+   * account whose password predates the current rules could not sign in at all:
+   * the form answered "Please fill in all fields correctly" for a password that
+   * was entirely correct, with no way to proceed and nothing to explain it.
+   * (Reachable today: a password set through the old reset flow only had to
+   * satisfy the Mongoose validator, which accepts symbols this form did not.)
+   *
+   * A sign-in field proves you know a secret; it does not get to have opinions
+   * about the secret. The server takes the same view — see the note on
+   * `validateChangePassword` in auth.router.
+   */
   form: FormGroup = new FormGroup({
     email: new FormControl('', [Validators.required, Validators.email]),
-    password: new FormControl('', [Validators.required, passwordValidator()]),
+    password: new FormControl('', [Validators.required]),
   });
 
   private destroy$ = new Subject<void>();

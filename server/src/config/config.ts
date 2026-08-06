@@ -62,6 +62,26 @@ export default {
    */
   requireEmailVerification:
     process.env.REQUIRE_EMAIL_VERIFICATION === 'true',
+  /*
+   * Whether a new password is checked against Have I Been Pwned.
+   *
+   * NIST SP 800-63B rev. 4 §3.1.1.2 SHALL-requires that prospective passwords
+   * be compared against known *compromised* ones — "passwords obtained from
+   * previous breach corpuses" is named explicitly — and no bundled list can do
+   * that. OWASP ASVS 5.0 6.2.12 asks for the same thing. So this is on by
+   * default: shipping it off would mean the default deployment does not meet
+   * the requirement the rest of the policy module is built around.
+   *
+   * Set CHECK_BREACHED_PASSWORDS=false to disable it — worth doing only where
+   * outbound HTTPS is unavailable by policy, and knowing that the local checks
+   * cannot cover the compromised half on their own.
+   *
+   * The password itself never leaves the server: only the first five characters
+   * of its SHA-1 digest are sent. The check fails open, and trips a breaker
+   * after repeated failures so an unreachable HIBP costs one timeout rather
+   * than one per registration. See breached-password.service.
+   */
+  checkBreachedPasswords: process.env.CHECK_BREACHED_PASSWORDS !== 'false',
   jwtExpiresIn: process.env.JWT_EXPIRES_IN ?? '1h',
   jwtRefreshTokenExpiresIn: process.env.JWT_REFRESH_EXPIRES_IN ?? '7d',
   clientUrl: process.env.CLIENT_URL ?? 'http://localhost:4200',
@@ -74,7 +94,6 @@ export default {
   s3Url: process.env.S3_ENDPOINT || '',
   s3PublicBucket: process.env.S3_BUCKET_PUBLIC || '',
   s3PrivateBucket: process.env.S3_BUCKET_PRIVATE || '',
-  s3HlsBucket: process.env.S3_BUCKET_HLS || '',
   s3QuarantineBucket: process.env.S3_BUCKET_QUARANTINE || '',
   s3TempBucket: process.env.S3_BUCKET_TEMP || '',
   s3AccessKey: process.env.S3_APP_ACCESS || '',

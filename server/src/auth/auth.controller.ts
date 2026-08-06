@@ -39,6 +39,36 @@ import {
 } from './services/token.service';
 import { TwoFactorAuthModel } from './models/two-factor.model';
 import { verifyAndConsumeCode } from './services/totp.service';
+import { checkPassword, PasswordContext } from './services/password-policy';
+import { isBreachedPassword } from './services/breached-password.service';
+
+/**
+ * The policy checks that need the account in hand.
+ *
+ * The router validates what it can from the body alone, but `/reset-password`
+ * carries only a user id and `/change-password` carries nothing identifying at
+ * all — so "is this password built out of your own username" can only be
+ * answered here, once the user has been loaded. The breach lookup lives here
+ * too because it is asynchronous and may fail, which an express-validator chain
+ * handles badly.
+ *
+ * Returns a message to refuse with, or null.
+ */
+const passwordRefusal = async (
+  password: string,
+  context: PasswordContext,
+): Promise<string | null> => {
+  const problems = checkPassword(password, context);
+  if (problems.length > 0) {
+    return problems.map((problem) => problem.message).join(' ');
+  }
+
+  if (await isBreachedPassword(password)) {
+    return 'This password has appeared in a known data breach. Choose one you have not used elsewhere.';
+  }
+
+  return null;
+};
 
 /**
  * What the server can actually observe about the client, and nothing more. The
@@ -120,9 +150,26 @@ const setAuthCookies = (
     maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
   });
 
-  // Read by JS to echo back as a header, so not httpOnly. Its lifetime tracks
-  // the access token's: a CSRF cookie outliving the session it protects just
-  // produces 403s on the next request.
+  /*
+   * Read by JS to echo back as a header, so not httpOnly.
+   *
+   * Deliberately outlives the access token, and matches what `issueCsrfToken`
+   * hands out. It used to expire with the access token, on the reasoning that a
+   * CSRF cookie outliving its session only causes 403s — which is backwards.
+   * Double-submit checks the cookie against the header; a stale-but-present
+   * value still matches itself and is harmless, whereas an *absent* one fails
+   * every mutating request.
+   *
+   * That was reachable: after an idle hour both cookies lapsed together, and
+   * `ensureCsrfCookie` only mints a replacement on a safe method. A tab whose
+   * next action was a POST — sending a message, or the interceptor's own
+   * /auth/refresh — got a 403 with code CSRF, which is not a 401 and so is not
+   * retried, not refreshed and not signed out of. The session was stuck until a
+   * reload happened to run a GET first.
+   *
+   * It is still cleared on logout by `clearAuthCookies`, so a token never
+   * outlives the session in the way that would actually matter.
+   */
   res.cookie('csrfToken', csrfToken, {
     httpOnly: false,
     secure: config.nodeEnv === 'production',
@@ -130,7 +177,7 @@ const setAuthCookies = (
       | 'none'
       | 'lax',
     domain: config.cookieDomain,
-    maxAge: accessMaxAge,
+    maxAge: 24 * 60 * 60 * 1000,
   });
 };
 
@@ -220,6 +267,17 @@ export const registerUser = async (
       return;
     }
 
+    // The synchronous half of the policy already ran in the router, which had
+    // the username and address to hand. This is the breach lookup, which is
+    // asynchronous and allowed to fail.
+    if (await isBreachedPassword(password)) {
+      res.status(400).json({
+        message:
+          'This password has appeared in a known data breach. Choose one you have not used elsewhere.',
+      });
+      return;
+    }
+
     const user = new User({
       first_name,
       last_name,
@@ -271,7 +329,11 @@ export const loginUser = async (
       return;
     }
 
-    const user = await User.findOne({ email: normalizeEmail(email) });
+    // `+password`: the hash is select:false on the schema, and this is one of
+    // the few places that has to compare against it.
+    const user = await User.findOne({ email: normalizeEmail(email) }).select(
+      '+password',
+    );
 
     if (!user) {
       // Deliberately the same answer as a wrong password. Returning "user not
@@ -761,7 +823,8 @@ export const resetPassword = async (
       return;
     }
 
-    const user = await User.findById(resetToken.user_id);
+    // `+password`: compared against, then replaced.
+    const user = await User.findById(resetToken.user_id).select('+password');
     if (!user) {
       res.status(404).json({ message: 'User not found.' });
       return;
@@ -771,6 +834,18 @@ export const resetPassword = async (
       res
         .status(400)
         .json({ message: 'New password cannot be the same as the old one!' });
+      return;
+    }
+
+    // The router checked what the body could tell it; only here is the account
+    // known, so this is where "not your own username" and the breach lookup
+    // can run.
+    const refusal = await passwordRefusal(new_password, {
+      username: user.username,
+      email: user.email,
+    });
+    if (refusal) {
+      res.status(400).json({ message: refusal });
       return;
     }
 
@@ -833,7 +908,8 @@ export const changePassword = async (
 
     // Re-read as a full document: req.user may be a lean projection, and
     // comparePassword/the hashing pre-save hook are document methods.
-    const user = await User.findById(authUser._id);
+    // `+password` because the hash is select:false on the schema.
+    const user = await User.findById(authUser._id).select('+password');
     if (!user) {
       res.status(404).json({ message: 'User not found.' });
       return;
@@ -848,6 +924,15 @@ export const changePassword = async (
       res.status(400).json({
         message: 'Your new password must be different from the current one.',
       });
+      return;
+    }
+
+    const refusal = await passwordRefusal(new_password, {
+      username: user.username,
+      email: user.email,
+    });
+    if (refusal) {
+      res.status(400).json({ message: refusal });
       return;
     }
 
@@ -934,7 +1019,8 @@ export const changeEmail = async (
 
     const nextEmail = normalizeEmail(new_email);
 
-    const user = await User.findById(authUser._id);
+    // `+password`: this endpoint is authorised by the current password.
+    const user = await User.findById(authUser._id).select('+password');
     if (!user) {
       res.status(404).json({ message: 'User not found.' });
       return;

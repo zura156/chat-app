@@ -11,7 +11,11 @@ import { HlmButton } from '@spartan-ng/helm/button';
 import { HlmFieldImports } from '@spartan-ng/helm/field';
 import { HlmIcon } from '@spartan-ng/helm/icon';
 import { HlmInput } from '@spartan-ng/helm/input';
-import { passwordValidator } from '../../validators/password.validator';
+import {
+  PASSWORD_MAX_LENGTH,
+  PASSWORD_MIN_LENGTH,
+  passwordValidator,
+} from '../../validators/password.validator';
 import { toast } from '@spartan-ng/brain/sonner';
 import { AuthService } from '../../services/auth.service';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
@@ -54,6 +58,10 @@ export class ResetPasswordComponent {
   form: FormGroup = new FormGroup({
     password: new FormControl('', [Validators.required, passwordValidator()]),
   });
+
+  /** Surfaced so the checklist quotes the policy rather than restating it. */
+  readonly passwordMinLength = PASSWORD_MIN_LENGTH;
+  readonly passwordMaxLength = PASSWORD_MAX_LENGTH;
 
   isLoading = signal<boolean>(false);
   error = signal<string | null>(null);

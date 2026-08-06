@@ -268,6 +268,16 @@ JWT_REFRESH_SECRET=your-refresh-token-secret
 JWT_EXPIRES_IN=1h
 JWT_REFRESH_EXPIRES_IN=7d
 
+# Passwords
+# Checks new passwords against Have I Been Pwned. The password never leaves the
+# server — only the first five characters of its SHA-1 digest are sent, and the
+# comparison happens locally (k-anonymity). On by default: NIST SP 800-63B rev. 4
+# requires comparison against known compromised passwords, which the bundled list
+# cannot do on its own. It fails open, so an HIBP outage cannot block sign-ups or
+# resets, and a breaker stops it retrying a host that is unreachable. Set to
+# false only where outbound HTTPS is unavailable by policy.
+CHECK_BREACHED_PASSWORDS=true
+
 # S3-compatible storage
 S3_ENDPOINT=https://your-s3-endpoint
 S3_APP_ACCESS=your-access-key
@@ -276,7 +286,6 @@ S3_QUARANTINE_ACCESS=quarantine-access-key
 S3_QUARANTINE_SECRET=quarantine-secret-key
 S3_BUCKET_PUBLIC=media-public
 S3_BUCKET_PRIVATE=media-private
-S3_BUCKET_HLS=media-hls
 S3_BUCKET_QUARANTINE=media-quarantine
 S3_BUCKET_TEMP=uploads-temp
 
@@ -356,6 +365,68 @@ the full diagnosis.
 
 **The media worker is not optional.** Attachments stay in `processing` forever if
 no worker is consuming the `media-processing` queue.
+
+**Password policy follows NIST SP 800-63B rev. 4.** There are no composition
+rules — no "must contain an uppercase letter and a symbol". The requirements are
+a 15-character minimum (the standard's floor for a password used as a single
+factor, which is every account here until its owner enrols 2FA), a 128-character
+maximum, all printable characters and Unicode accepted, and a check against
+common, predictable and breached passwords.
+
+**Registration and password changes make an outbound request to
+`api.pwnedpasswords.com`,** unless you set `CHECK_BREACHED_PASSWORDS=false`. The
+password is not sent: only the first five hex characters of its SHA-1 digest,
+which match roughly one in a million entries of the corpus, with the comparison
+done on your server. Disclosed here because it is a third-party request made on
+behalf of your users, and it is on by default.
+
+The rules live in `server/src/auth/services/password-policy.ts` and are mirrored
+by `src/app/features/auth/validators/password.validator.ts`; the Mongoose
+validator delegates to the same module. Change one and you must change the
+other, and update the shared vector table both test suites run.
+
+Existing accounts are unaffected: sign-in never validates the *format* of a
+password, only that it matches. The minimum applies when a password is set —
+registration, reset, change.
+
+## Tests
+
+Both halves of the project run on Vitest.
+
+```bash
+# Backend
+cd server
+npm test           # once
+npm run test:watch # while working
+npm run typecheck  # type-checks the specs, which the build config excludes
+
+# Frontend
+ng test
+```
+
+Backend specs come in two kinds, distinguished by filename:
+
+| Pattern | Needs | What it covers |
+|---|---|---|
+| `*.spec.ts` | nothing | Pure logic — TOTP against the RFC vectors, token typing, CSRF comparison, pagination clamps, privacy redaction |
+| `*.int.spec.ts` | MongoDB, Redis | Things that only exist against a real server — unique indexes, concurrent read receipts, `select: false`, the account-deletion cascade, the pending-offline queue |
+
+The integration specs are **skipped, not failed**, when the services are not
+reachable, so `npm test` is always runnable:
+
+```
+[integration] No MongoDB at mongodb://127.0.0.1:27017/chat_app_test — those suites will be skipped.
+```
+
+Point them elsewhere with `MONGO_TEST_URI` and `REDIS_TEST_URL`. They use a
+separate database and drop every collection between tests, so do not aim them at
+anything you care about.
+
+Some of these are regression tests for bugs that a mock could not have caught —
+the membership broadcast that named its recipients by `toString()`-ing populated
+Mongoose documents, for instance, produces perfectly typed garbage and only
+misbehaves against a real `populate()`. Where a spec exists for that reason, the
+file header says so.
 
 ## Contributing
 

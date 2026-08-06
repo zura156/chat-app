@@ -48,22 +48,36 @@
         <h4 hlmAlertTitle>Weak password</h4>
         <ul hlmAlertDesc class="list-disc pl-4 space-y-0.5 mt-1">
           @if (!form.get("password")?.errors?.["passwordStrength"]?.hasLength) {
-            <li>At least 8 characters</li>
+            <li>
+              At least {{ passwordMinLength }} characters — three or four
+              unrelated words is the easiest way to get there
+            </li>
           }
           @if (
-            !form.get("password")?.errors?.["passwordStrength"]?.hasUppercase
+            !form.get("password")?.errors?.["passwordStrength"]?.withinMaximum
           ) {
-            <li>At least one uppercase letter</li>
+            <li>No more than {{ passwordMaxLength }} characters</li>
           }
           @if (
-            !form.get("password")?.errors?.["passwordStrength"]?.hasNumeric
+            !form.get("password")?.errors?.["passwordStrength"]?.isUnpredictable
           ) {
-            <li>At least one number</li>
+            <li>
+              Too predictable — it repeats, or runs along the keyboard or the
+              alphabet
+            </li>
           }
           @if (
-            !form.get("password")?.errors?.["passwordStrength"]?.hasSpecial
+            !form.get("password")?.errors?.["passwordStrength"]?.isUncommon
           ) {
-            <li>At least one special character</li>
+            <li>This is a well-known password</li>
+          }
+          @if (
+            !form.get("password")?.errors?.["passwordStrength"]?.avoidsIdentity
+          ) {
+            <li>
+              Don't build it out of your username, your email address or the
+              name of this app
+            </li>
           }
         </ul>
       </div>

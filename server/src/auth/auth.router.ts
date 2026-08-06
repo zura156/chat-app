@@ -32,6 +32,7 @@ import {
   forgotPasswordLimiter,
   registerLimiter,
   resetPasswordLimiter,
+  accountTokenLimiter,
   resendVerificationLimiter,
   changePasswordLimiter,
   twoFactorCodeLimiter,
@@ -39,23 +40,39 @@ import {
 } from './middlewares/rate-limiter';
 import { issueCsrfToken } from './middlewares/csrf.middleware';
 import { validateRequest } from './middlewares/validate-request.middleware';
+import { checkPassword } from './services/password-policy';
 
 const router = Router();
 
 /**
- * The password rule, defined once. It was previously inline on registration
- * only, so `/reset-password` — the other way a password gets set — accepted
- * anything the Mongoose validator happened to allow, and surfaced its refusal
- * as a raw ValidationError rather than a structured 400.
+ * The password rule, delegating to the single policy in
+ * `services/password-policy` — which is also what the Mongoose validator and
+ * the Angular form use, so all three finally agree.
+ *
+ * It used to be a composition regex here, a different composition regex in the
+ * Angular validator, and `isStrongPassword` on the model. See the note at the
+ * top of password-policy.ts for what that cost, and why the replacement has no
+ * composition rules at all.
+ *
+ * Identity context is taken from the same body where it exists (registration
+ * carries a username and an address); the routes that set a password for an
+ * already-known user re-run the check in their controller, where the account is
+ * actually in hand.
  */
 const passwordRule = (field: string) =>
-  body(field)
-    .isLength({ min: 8, max: 128 })
-    .withMessage('Password must be between 8 and 128 characters')
-    .matches(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]/)
-    .withMessage(
-      'Password must contain uppercase, lowercase, number and special character',
-    );
+  body(field).custom((value: unknown, { req }) => {
+    const problems = checkPassword(String(value ?? ''), {
+      username: req.body?.username,
+      email: req.body?.email,
+    });
+
+    // express-validator surfaces one message per failed validator, so the
+    // reasons are joined rather than dropped — the client renders the lot.
+    if (problems.length > 0) {
+      throw new Error(problems.map((problem) => problem.message).join(' '));
+    }
+    return true;
+  });
 
 /*
  * Emails are normalised in one place (auth.service `normalizeEmail`) so every
@@ -230,7 +247,7 @@ router.post(
   validateRequest,
   resetPassword,
 );
-router.post('/verify-email', verifyEmail);
+router.post('/verify-email', accountTokenLimiter, verifyEmail);
 // Reachable without a verified address, by definition. Authenticated first, so
 // the limiter can key on the account rather than on a shared address.
 router.post(
@@ -239,7 +256,7 @@ router.post(
   resendVerificationLimiter,
   resendVerificationEmail,
 );
-router.post('/unlock-account', unlockAccount);
+router.post('/unlock-account', accountTokenLimiter, unlockAccount);
 router.post('/refresh', refreshAccessToken);
 
 export default router;
