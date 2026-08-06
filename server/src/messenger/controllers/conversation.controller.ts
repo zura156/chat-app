@@ -253,12 +253,20 @@ export class ConversationController {
   ) => {
     const { conversation } = req;
     const userId = req.user?._id.toString();
-    const { add, remove } = req.body;
 
     if (!userId) {
       res.status(401).json({ message: 'User is not authorized!' });
       return;
     }
+
+    /*
+     * Both keys are optional on the wire. Reading `.length` off whatever the
+     * body happened to contain threw a TypeError for any request that sent only
+     * one of them — a 500 for what is a perfectly ordinary client mistake, and
+     * one that never surfaced because this app's own client always sends both.
+     */
+    const add = Array.isArray(req.body?.add) ? req.body.add : [];
+    const remove = Array.isArray(req.body?.remove) ? req.body.remove : [];
 
     if (!conversation || (!add.length && !remove.length)) {
       res

@@ -84,6 +84,33 @@ export const deleteAccount = async (userId: Types.ObjectId): Promise<void> => {
         },
       },
     );
+
+    /*
+     * A group whose creator is gone has no administrator, and `created_by` is
+     * the *only* thing that grants one (see `isGroupAdmin`). Left pointing at a
+     * deleted account, the group can never again be renamed, have members added
+     * or removed, or be deleted — by anyone. It is not recoverable through the
+     * UI either, because there is no way to transfer ownership.
+     *
+     * Ownership passes to a remaining member. Which one is arbitrary; that it
+     * is somebody is not.
+     */
+    const orphanedGroups = conversations.filter(
+      (conversation) =>
+        conversation.is_group &&
+        conversation.created_by?.equals(userId) &&
+        survivors.some((id) => id.equals(conversation._id)),
+    );
+
+    for (const group of orphanedGroups) {
+      const heir = group.participants.find((p) => !p.equals(userId));
+      if (!heir) continue;
+
+      await Conversation.updateOne(
+        { _id: group._id },
+        { $set: { created_by: heir } },
+      );
+    }
   }
 
   // The cached participant list drives every broadcast; it is now wrong for

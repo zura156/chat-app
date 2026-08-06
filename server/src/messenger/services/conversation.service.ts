@@ -625,6 +625,22 @@ export class ConversationService {
     // now wrong for both the removed and the added users.
     await invalidateParticipantsCache(conversation._id.toString());
 
+    /*
+     * Captured *before* the populate below, while `participants` still holds
+     * ObjectIds.
+     *
+     * `populate()` replaces the array in place with full documents, and
+     * `Document.prototype.toString()` is `util.inspect` output — so reading the
+     * ids off it afterwards produced strings like
+     * "{ username: 'x', _id: new ObjectId('...') }". Those went straight into
+     * the recipient list of the leave broadcast, which meant the members who
+     * *stayed* were never told anyone had left: only the removed users (whose
+     * ids came from `removeSet` and were real) received the event.
+     */
+    const remainingParticipantIds = conversation.participants.map((p) =>
+      String((p as { _id?: unknown })?._id ?? p),
+    );
+
     let populatedConversation = (await conversation.populate([
       {
         path: 'participants',
@@ -637,7 +653,21 @@ export class ConversationService {
 
     const participants =
       populatedConversation.participants as Partial<UserDTO>[];
-    const currentUser = participants.find((p) => p._id?.toString() === userId);
+    /*
+     * The actor, as a user object.
+     *
+     * The remaining participants are the obvious place to look — except when
+     * the actor is *leaving*, in which case they were filtered out of the array
+     * a few lines above and are only findable among the removed users. Looking
+     * solely at the participants is why a member leaving a group produced
+     * "A member left the conversation" instead of their username, and sent
+     * `removed_by` as a bare id string rather than a user.
+     */
+    const currentUser =
+      participants.find((p) => p._id?.toString() === userId) ??
+      (removedUserDocs.find(
+        (u) => u._id?.toString() === userId,
+      ) as Partial<UserDTO> | undefined);
 
     if (removeSet.size > 0) {
       const removedUsers = removedUserDocs;
@@ -673,7 +703,7 @@ export class ConversationService {
       // members, so resolving from the conversation would skip the very people
       // being told they were removed.
       await this.broadcast(message, [
-        ...conversation.participants.map((p) => p.toString()),
+        ...remainingParticipantIds,
         ...removeSet,
       ]);
     }

@@ -1044,10 +1044,36 @@ export class ChatboxComponent implements OnInit {
             break;
           }
           case 'conversation-leave': {
-            const { conversation: left } = res;
-            this.conversationService.removeConversationFromList(
-              left as ConversationI,
+            /*
+             * This event goes to everyone the change concerns — the members who
+             * left or were removed *and* the ones who stayed. Removing the
+             * conversation unconditionally therefore deleted it from the list of
+             * every remaining member as well, which is not what happened to
+             * them: their membership is intact and only the roster changed.
+             *
+             * (It went unnoticed because the server was naming its recipients
+             * from populated documents, so the remaining members never received
+             * this event at all. Fixing that is what made this reachable.)
+             */
+            const { conversation: left, removed_users } = res;
+            const wasRemoved = (removed_users ?? []).some(
+              (u: unknown) =>
+                (typeof u === 'string' ? u : (u as { _id?: string })?._id) ===
+                user?._id,
             );
+
+            if (wasRemoved) {
+              this.conversationService.removeConversationFromList(
+                left as ConversationI,
+              );
+              if (this.conversation()?._id === (left as ConversationI)?._id) {
+                this.router.navigateByUrl('/messages');
+              }
+            } else {
+              this.conversationService.updateConversationState(
+                left as ConversationI,
+              );
+            }
             break;
           }
           case 'upload-ready': {

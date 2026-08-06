@@ -136,7 +136,7 @@ export const upsertReadReceipt = async (
 
   // No entry yet. The filter makes this a no-op if one appeared in between,
   // which is what keeps concurrent first-receipts from both pushing.
-  return Conversation.findOneAndUpdate(
+  const pushed = await Conversation.findOneAndUpdate(
     { _id: conversationId, 'read_receipts.user_id': { $ne: userId } },
     {
       $push: {
@@ -149,4 +149,19 @@ export const upsertReadReceipt = async (
     },
     { returnDocument: 'after', projection: 'participants' },
   );
+
+  if (pushed) return pushed;
+
+  /*
+   * Both writes matched nothing, which means a concurrent first-receipt won:
+   * there was no entry when the update ran and there was one by the time the
+   * push ran. The receipt is recorded — just not by us.
+   *
+   * Returning null here made the caller treat that as a failure and skip the
+   * broadcast entirely, so the *other* participants never saw the read tick
+   * move. The conversation is what the caller actually needs (it only reads
+   * `participants` off it), so hand that back rather than reporting a failure
+   * that did not happen. A genuinely missing conversation still returns null.
+   */
+  return Conversation.findById(conversationId).select('participants');
 };
