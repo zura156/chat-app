@@ -19,7 +19,14 @@ export class FormatTimePipe implements PipeTransform {
 
     let result = `${paddedMinutes}:${paddedSeconds}`;
 
-    if (hours >= 1) {
+    /*
+     * Once there is a days field the hours field has to appear too, even at
+     * zero. Keying it on `hours >= 1` alone dropped the component entirely for
+     * any duration that lands on a whole number of days: 86400s rendered as
+     * "1d 00:00", which reads as a day and no minutes, and 1d 0h 5m rendered
+     * as "1d 05:00" — indistinguishable from five minutes past the day.
+     */
+    if (hours >= 1 || days >= 1) {
       result = `${hours}:${result}`;
     }
 

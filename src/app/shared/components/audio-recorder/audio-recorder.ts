@@ -98,6 +98,21 @@ export class AudioRecorder implements OnInit, OnDestroy {
   private mediaRecorder?: MediaRecorder;
   private destroyed = false;
 
+  /**
+   * Identifies the current take, so a `finalize` already in flight can tell
+   * that it belongs to a recording the user has since discarded.
+   *
+   * Detaching `onstop` closes the gap before `finalize` starts; this closes the
+   * one inside it. Decoding the waveform is asynchronous and takes long enough
+   * on a long clip to press the discard button during, and the emit at the end
+   * would otherwise still hand the blob to the parent.
+   *
+   * A counter rather than a boolean: discarding and immediately starting a new
+   * take would reset a flag back to "live" and let the abandoned finalize
+   * through on the new take's ticket.
+   */
+  private takeId = 0;
+
   /** Container the browser agreed to record in; '' means browser default. */
   private mimeType = '';
 
@@ -212,8 +227,9 @@ export class AudioRecorder implements OnInit, OnDestroy {
         this.teardownCapture();
       };
 
+      const take = ++this.takeId;
       this.mediaRecorder.onstop = () => {
-        void this.finalize(chunks);
+        void this.finalize(chunks, take);
       };
 
       this.mediaRecorder.start();
@@ -230,14 +246,17 @@ export class AudioRecorder implements OnInit, OnDestroy {
    * safe on disk at this point, and failing to decode a waveform for the
    * preview must not cost the user their voice note.
    */
-  private async finalize(chunks: Blob[]): Promise<void> {
+  private async finalize(chunks: Blob[], take: number): Promise<void> {
+    /** True once this take has been discarded, destroyed, or superseded. */
+    const abandoned = () => this.destroyed || this.takeId !== take;
+
     if (this.timerId) clearInterval(this.timerId);
     this.stopLiveLevels();
     // Release the mic first — do not leave the browser's recording indicator
     // on if anything below throws.
     this.releaseStream();
 
-    if (this.destroyed) return;
+    if (abandoned()) return;
 
     const blob = new Blob(chunks, { type: this.mimeType || 'audio/webm' });
 
@@ -257,10 +276,14 @@ export class AudioRecorder implements OnInit, OnDestroy {
       if (!context) throw new Error('No AudioContext');
       const audioBuffer = await context.decodeAudioData(await blob.arrayBuffer());
 
+      // Decoding a long clip is slow enough to discard during.
+      if (abandoned()) return;
+
       this.previewDuration.set(audioBuffer.duration);
       this.previewBars.set(extractPeaks(audioBuffer, BAR_COUNT));
       this.recordingDone.emit({ blob, duration: audioBuffer.duration });
     } catch {
+      if (abandoned()) return;
       // Fall back to the wall-clock timer so the preview shows something
       // sensible instead of 0:00 and a flat line. The recording is still fine.
       this.previewDuration.set(this.recordingTime());
@@ -495,13 +518,26 @@ export class AudioRecorder implements OnInit, OnDestroy {
 
   /** Stops capture and frees the device, without touching the preview. */
   private teardownCapture(): void {
-    if (this.mediaRecorder?.state === 'recording') {
-      // Detached first: this stop is a cancellation, and finalize() would
-      // otherwise publish a recording the user just discarded.
+    /*
+     * Detached unconditionally, and before the state check.
+     *
+     * This used to happen only in the `recording` branch, which misses the
+     * window that matters: `stop()` dispatches its event asynchronously, after
+     * the final `dataavailable`, so between pressing stop and `onstop` firing
+     * the recorder is already `inactive`. The discard button is on screen the
+     * whole time. Discarding in that window left the handler attached, and
+     * `finalize` went on to publish — through `recordingDone` — the voice note
+     * the user had just thrown away, after `recordingDeleted` had been emitted.
+     */
+    if (this.mediaRecorder) {
       this.mediaRecorder.onstop = null;
-      this.mediaRecorder.stop();
+      if (this.mediaRecorder.state === 'recording') this.mediaRecorder.stop();
     }
     this.mediaRecorder = undefined;
+
+    // Retires the current take, so a `finalize` already past its own guards
+    // stops before it emits. The happy path does not come through here.
+    this.takeId++;
 
     if (this.timerId) clearInterval(this.timerId);
     this.timerId = undefined;

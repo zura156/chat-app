@@ -24,7 +24,7 @@ import { UserStateService } from '../../user/services/user-state.service';
 import { AuthService } from '../../auth/services/auth.service';
 
 /** Newest first — the order the thread is rendered and paginated in. */
-const byNewestFirst = (a: MessageI, b: MessageI): number =>
+export const byNewestFirst = (a: MessageI, b: MessageI): number =>
   new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime();
 
 /**
@@ -42,7 +42,7 @@ const byNewestFirst = (a: MessageI, b: MessageI): number =>
  * assumes descending order to find time gaps) would draw its dividers in the
  * wrong places.
  */
-function mergeMessagePage(
+export function mergeMessagePage(
   previous: MessageI[],
   incoming: MessageI[],
 ): MessageI[] {

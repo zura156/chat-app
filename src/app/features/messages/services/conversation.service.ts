@@ -346,17 +346,32 @@ export class ConversationService {
     });
   }
 
+  /**
+   * Idempotent, because it is genuinely called twice for one removal.
+   *
+   * The chatbox and the conversation list both handle `conversation-leave`, and
+   * whenever a conversation is open both are mounted — so a single leave ran
+   * this twice. Filtering is naturally idempotent and hid it; the counter was
+   * not, and dropped by two. `totalCount` only comes back from the server on a
+   * full reload, so the drift accumulated across a session and there was
+   * nothing to correct it.
+   *
+   * Mirrors `addConversationToList`, which already refuses to count a
+   * conversation it can see is present.
+   */
   removeConversationFromList(conversation: ConversationI): void {
     this.#conversationList.update((val) => {
       if (!val) return null;
 
-      const newList = {
-        conversations: val.conversations.filter(
-          (c) => c._id !== conversation._id,
-        ),
-        totalCount: val.totalCount - 1,
+      const conversations = val.conversations.filter(
+        (c) => c._id !== conversation._id,
+      );
+      if (conversations.length === val.conversations.length) return val;
+
+      return {
+        conversations,
+        totalCount: Math.max(0, val.totalCount - 1),
       };
-      return newList;
     });
   }
 
