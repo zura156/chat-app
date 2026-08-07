@@ -5,7 +5,25 @@
       "Bash(git apply *)",
       "Bash(echo \"--- check exit: $? ---\")",
       "Bash(echo \"--- apply exit: $? ---\")",
-      "Bash(npx ng *)"
+      "Bash(npx ng *)",
+      "Bash(npx tsc *)",
+      "Bash(npx vitest run)",
+      "Bash(npx vitest run *)",
+      "Bash(npm run typecheck)",
+      "Bash(npm run test:client)",
+      "Bash(npm run diagnose:notifications)",
+      "Bash(npm view *)",
+      "Bash(npm audit)",
+      "Bash(npm audit *)",
+      "Bash(redis-cli ping)",
+      "Bash(redis-cli ping *)",
+      "Bash(claude mcp list)"
+    ],
+    "deny": [
+      "Bash(git commit)",
+      "Bash(git commit *)",
+      "Bash(git push)",
+      "Bash(git push *)"
     ]
   }
 }
