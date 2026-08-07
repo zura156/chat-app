@@ -1,11 +1,20 @@
+import { escapeHtml } from '../utils/escape-html';
+
 export const getSecurityAlertEmailHTML = (
   passwordResetUrl: string,
   secureAccountUrl: string,
-  timestamp: string,
-  ipAddress: string,
-  location: string,
-  machineName: string,
-) => `
+  rawTimestamp: string,
+  rawIpAddress: string,
+  rawLocation: string,
+  // Accepted for call-site symmetry with the other security mails; this
+  // template deliberately does not name the device.
+  _machineName: string,
+) => {
+  const timestamp = escapeHtml(rawTimestamp);
+  const ipAddress = escapeHtml(rawIpAddress);
+  const location = escapeHtml(rawLocation);
+
+  return `
 <!DOCTYPE html>
 <html>
 <head>
@@ -92,3 +101,4 @@ export const getSecurityAlertEmailHTML = (
 </body>
 </html>
 `;
+};

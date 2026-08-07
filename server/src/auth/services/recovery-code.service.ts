@@ -40,9 +40,25 @@ const sha256 = (value: string) =>
 export const hashRecoveryCode = (code: string): string =>
   sha256(canonicalizeRecoveryCode(code));
 
+/*
+ * `randomInt` rather than `randomBytes(n)[i] % ALPHABET.length`.
+ *
+ * The modulo version happened to be unbiased: the alphabet is exactly 32
+ * characters and 256 divides by 32, so all 32 landed on eight byte values
+ * each. That is a property of the length, not of the code — dropping one
+ * ambiguous character to make codes easier to read off a printout would leave
+ * 31, and the first 8 characters would then come up 9/256 against 8/256 for
+ * the rest. Nothing would fail, no test would catch it, and every code issued
+ * afterwards would be measurably easier to guess.
+ *
+ * `randomInt` rejection-samples, so it is unbiased for any alphabet length and
+ * the invariant no longer has to be remembered.
+ */
 export const generateRecoveryCode = (): string => {
-  const bytes = crypto.randomBytes(10);
-  const chars = [...bytes].map((b) => ALPHABET[b % ALPHABET.length]);
+  const chars = Array.from(
+    { length: 10 },
+    () => ALPHABET[crypto.randomInt(ALPHABET.length)],
+  );
   return `${chars.slice(0, 5).join('')}-${chars.slice(5, 10).join('')}`;
 };
 

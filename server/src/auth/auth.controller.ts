@@ -50,6 +50,20 @@ import { verifyAndConsumeEmailCode } from './services/email-otp.service';
 import { findRecoveryCodeIndex } from './services/recovery-code.service';
 import { sendLoginEmailCode } from './two-factor.controller';
 import { checkPassword, PasswordContext } from './services/password-policy';
+import { Types } from 'mongoose';
+
+/*
+ * The account-token lookups below all filter on an id taken straight from the
+ * request body. `mongoSanitize` removes `$`-prefixed keys before any of this
+ * runs, so operator injection is already blocked at the edge — but these
+ * queries are the password-reset, email-verification, email-change and
+ * account-unlock paths, and a filter built out of unvalidated input is not
+ * something any of the four should depend on a global middleware to keep
+ * well-formed. Rejecting a non-ObjectId up front also turns what was a
+ * Mongoose cast error, surfacing as a 500, into the 400 it always was.
+ */
+const isValidObjectId = (value: unknown): value is string =>
+  typeof value === 'string' && Types.ObjectId.isValid(value);
 import { isBreachedPassword } from './services/breached-password.service';
 
 /**
@@ -944,6 +958,11 @@ export const resetPassword = async (
     return;
   }
 
+  if (!isValidObjectId(userId)) {
+    res.status(400).json({ message: 'Invalid or expired reset token.' });
+    return;
+  }
+
   const hashedToken = crypto.createHash('sha256').update(token).digest('hex');
 
   try {
@@ -1252,6 +1271,11 @@ export const confirmEmailChange = async (
     return;
   }
 
+  if (!isValidObjectId(id)) {
+    res.status(400).json({ message: 'Invalid or expired link.' });
+    return;
+  }
+
   try {
     const hashedToken = crypto.createHash('sha256').update(token).digest('hex');
 
@@ -1356,6 +1380,11 @@ export const verifyEmail = async (
     return;
   }
 
+  if (!isValidObjectId(id)) {
+    res.status(400).json({ message: 'Invalid or expired token.' });
+    return;
+  }
+
   const hashedToken = crypto.createHash('sha256').update(token).digest('hex');
 
   try {
@@ -1407,6 +1436,11 @@ export const unlockAccount = async (
 
   if (!token || !userId) {
     res.status(400).json({ message: 'Not all details were provided!' });
+    return;
+  }
+
+  if (!isValidObjectId(userId)) {
+    res.status(400).json({ message: 'Invalid or expired unlock token.' });
     return;
   }
 

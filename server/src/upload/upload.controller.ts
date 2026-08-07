@@ -217,6 +217,19 @@ export const confirm = async (req: AuthRequest, res: Response) => {
   const { uploadId } = req.body;
   const userId = req.user?._id;
 
+  /*
+   * Checked before it reaches the query, not after. A JSON body can carry an
+   * object where this expects a string, and an unvalidated one is spliced
+   * straight into the filter — `mongoSanitize` strips `$`-prefixed keys, so
+   * the operator forms are already dead, but relying on a middleware two files
+   * away to keep a query well-formed is a thin guarantee to hang a lookup on.
+   * A malformed id also reached Mongoose's cast and came back as a 500, which
+   * is the wrong answer to a bad request.
+   */
+  if (typeof uploadId !== 'string' || !Types.ObjectId.isValid(uploadId)) {
+    return fail(res, 400, 'A valid uploadId is required');
+  }
+
   const upload = await Upload.findOne({ _id: uploadId, userId });
 
   if (!upload) {

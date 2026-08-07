@@ -160,21 +160,60 @@ chat-app/
 
 ## API Endpoints
 
-`/auth` is public apart from logout. Every other router sits behind CSRF
-protection, JWT authentication and a general rate limiter.
+CSRF protection and the general rate limiter are applied to **every** router,
+`/auth` included. `/auth` mixes public and authenticated routes — sign-in,
+recovery and the endpoints redeemed from an email link are public; enrolment,
+session management and anything changing a credential require a session. Every
+other router additionally sits behind JWT authentication, and all but `/user`
+behind a verified email address.
 
 ### Authentication — `/auth`
 
+Sign-in and recovery — public:
+
 | Method | Path | Description |
 |---|---|---|
-| POST | `/auth/register` | Register a new user |
-| POST | `/auth/login` | Log in (rate limited) |
-| POST | `/auth/logout` | Log out (authenticated, CSRF protected) |
+| GET | `/auth/csrf` | Issue a CSRF token (needed before the first mutating request, login included) |
+| POST | `/auth/register` | Register a new user (rate limited) |
+| POST | `/auth/login` | Log in — returns a two-factor challenge when a factor is enrolled (rate limited) |
+| POST | `/auth/login/2fa` | Complete a two-factor sign-in with a code (rate limited) |
+| POST | `/auth/login/2fa/email` | Send an email code partway through sign-in (rate limited) |
+| POST | `/auth/logout` | Log out — deliberately unauthenticated, so it still works once the access token has expired; CSRF protected |
 | POST | `/auth/refresh` | Exchange a refresh token for a new access token |
 | POST | `/auth/forgot-password` | Request a reset email (rate limited) |
-| POST | `/auth/reset-password` | Complete a password reset |
+| POST | `/auth/reset-password` | Complete a password reset (rate limited) |
 | POST | `/auth/verify-email` | Verify an email address |
+| POST | `/auth/confirm-email` | Confirm an email change from the link sent to the new address |
 | POST | `/auth/unlock-account` | Unlock an account locked by failed logins |
+
+Two-factor enrolment — authenticated:
+
+| Method | Path | Description |
+|---|---|---|
+| GET | `/auth/2fa` | Current two-factor status |
+| POST | `/auth/2fa/setup` | Begin TOTP enrolment |
+| POST | `/auth/2fa/confirm` | Confirm TOTP enrolment with a code |
+| POST | `/auth/2fa/email/setup` | Begin email-factor enrolment |
+| POST | `/auth/2fa/email/confirm` | Confirm email-factor enrolment with a code |
+| POST | `/auth/2fa/email/send` | Send a code to a signed-in user about to change their factors |
+| DELETE | `/auth/2fa/totp` | Disable the TOTP factor only |
+| DELETE | `/auth/2fa/email` | Disable the email factor only |
+| DELETE | `/auth/2fa` | Disable two-factor entirely |
+
+An account may hold both factors, which is why removal exists per factor;
+`DELETE /auth/2fa` keeps meaning "turn it all off" so older clients stay correct.
+
+Sessions and credentials — authenticated:
+
+| Method | Path | Description |
+|---|---|---|
+| GET | `/auth/sessions` | List active sessions |
+| DELETE | `/auth/sessions` | Revoke every other session |
+| DELETE | `/auth/sessions/:id` | Revoke one session |
+| POST | `/auth/change-password` | Rotate a password you still know (rate limited) |
+| POST | `/auth/change-email` | Request an email change; confirmed from the new inbox (rate limited) |
+| POST | `/auth/cancel-email-change` | Cancel a pending email change |
+| POST | `/auth/resend-verification` | Resend the verification email (rate limited) |
 
 ### Users — `/user`
 

@@ -1,3 +1,5 @@
+import { escapeHtml } from '../utils/escape-html';
+
 /**
  * Sent to the address a user is trying to move *to*.
  *
@@ -5,10 +7,15 @@
  * typo from moving an account to an inbox its owner cannot reach.
  */
 export const getEmailChangeEmailHTML = (
-  username: string,
-  newEmail: string,
+  rawUsername: string,
+  rawNewEmail: string,
   confirmUrl: string,
-) => `
+) => {
+  // Both are user-supplied and neither is ever meant to carry markup.
+  const username = escapeHtml(rawUsername);
+  const newEmail = escapeHtml(rawNewEmail);
+
+  return `
 <!DOCTYPE html>
 <html>
 <head>
@@ -76,3 +83,4 @@ export const getEmailChangeEmailHTML = (
 </body>
 </html>
 `;
+};

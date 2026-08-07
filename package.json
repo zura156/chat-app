@@ -13,6 +13,29 @@
     "typecheck": "tsc --noEmit -p tsconfig.spec.json && npm --prefix server run typecheck"
   },
   "private": true,
+  "//overrides": [
+    "Transitive advisories with no fix reachable by bumping the direct dependency.",
+    "",
+    "brace-expansion: nx 23.1.1 pins 5.0.8 exactly; GHSA-rgw5-rvv9-x895 is fixed",
+    "in 5.0.9, a patch apart.",
+    "",
+    "esbuild: vite 7.3.5 asks for ^0.27.0 and GHSA-g7r4-m6w7-qqqr has no fix on",
+    "the 0.27 line, so closing it means crossing that range to 0.28.1.",
+    "",
+    "@hono/node-server: reached through @modelcontextprotocol/sdk (^1.19.9) from",
+    "@angular/cli. npm's own answer here is @angular/cli@21.0.4, which is a",
+    "*downgrade* out of the 22 line this workspace is pinned to (@angular/core",
+    "^22.0.7) — the 22.x releases are all inside the advisory range, so there is",
+    "no forward fix to take. The override is the smaller change.",
+    "",
+    "The latter two knowingly cross a declared range; both are dev-only and were",
+    "verified against a full build and the test suites rather than on npm's word."
+  ],
+  "overrides": {
+    "brace-expansion": "^5.0.9",
+    "esbuild": "^0.28.1",
+    "@hono/node-server": "^2.0.5"
+  },
   "dependencies": {
     "@angular/animations": "^22.0.7",
     "@angular/cdk": "^22.0.5",

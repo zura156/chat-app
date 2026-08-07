@@ -1,3 +1,5 @@
+import { escapeHtml } from '../utils/escape-html';
+
 /**
  * Sent after a successful in-app password change.
  *
@@ -7,12 +9,24 @@
  * and offers a recovery route.
  */
 export const getPasswordChangedEmailHTML = (
-  username: string,
-  timestamp: string,
-  ipAddress: string,
-  machineName: string,
+  rawUsername: string,
+  rawTimestamp: string,
+  rawIpAddress: string,
+  rawMachineName: string,
   resetPasswordUrl: string,
-) => `
+) => {
+  /*
+   * `machineName` is the caller's `User-Agent` header, unvalidated the whole
+   * way here, and this mail goes to the account owner rather than to whoever
+   * set that header — so anything spliced in is markup an attacker chose,
+   * shown to the victim inside a security notice. See `escapeHtml`.
+   */
+  const username = escapeHtml(rawUsername);
+  const timestamp = escapeHtml(rawTimestamp);
+  const ipAddress = escapeHtml(rawIpAddress);
+  const machineName = escapeHtml(rawMachineName);
+
+  return `
 <!DOCTYPE html>
 <html>
 <head>
@@ -89,3 +103,4 @@ export const getPasswordChangedEmailHTML = (
 </body>
 </html>
 `;
+};

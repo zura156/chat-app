@@ -494,11 +494,29 @@ export const checkPassword = (
     });
   }
 
+  /*
+   * Returns rather than falling through, which is the difference between a
+   * bounded check and a denial of service.
+   *
+   * The checks below are superlinear in the length of the password:
+   * `isCommon` runs `/\d+$/u` and `/[^\p{L}]+$/u`, both of which backtrack
+   * quadratically over a long run of matching characters, and `looksTrivial`
+   * walks `runCoverage` and `isRepeatedUnit`, which are worse. That is fine at
+   * 128 characters and is not fine at the 1MB the JSON body parser allows: a
+   * single registration request carrying a megabyte of digits is ~10^12
+   * operations on the event loop, which stalls every other request on the
+   * instance for as long as it runs.
+   *
+   * Recording `too_long` and then analysing the password anyway gave the
+   * caller no more information — the password is already rejected — while
+   * doing all of that work on input an attacker chose the length of.
+   */
   if (length > PASSWORD_MAX_LENGTH) {
     problems.push({
       code: 'too_long',
       message: `Use at most ${PASSWORD_MAX_LENGTH} characters.`,
     });
+    return problems;
   }
 
   // Only worth saying once the length is plausible; telling someone their
