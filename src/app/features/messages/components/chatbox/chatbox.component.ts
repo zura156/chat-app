@@ -691,7 +691,21 @@ export class ChatboxComponent implements OnInit {
       return;
     }
 
-    const content = this.messageControl.value;
+    /*
+     * Trimmed, and whitespace-only collapsed to nothing.
+     *
+     * The send button is disabled on `hasSendableContent()`, which trims — but
+     * Enter calls straight through to here, so a composer holding only spaces
+     * was sendable by keyboard and not by mouse. With no attachment the server
+     * refuses it (400, and the optimistic bubble is rolled back); *with* one it
+     * is accepted and stored, so the thread keeps a message whose text is a run
+     * of spaces. Either way the leading and trailing whitespace of an ordinary
+     * message was stored verbatim.
+     *
+     * `|| null` rather than `?? null`: the empty string left by trimming is
+     * exactly the "no text" case the rest of this method already handles.
+     */
+    const content = this.messageControl.value?.trim() || null;
 
     if (content && content.length > 2000) {
       toast.error('Message is too long. Maximum length is 2000 characters.');
@@ -807,7 +821,7 @@ export class ChatboxComponent implements OnInit {
           recording
             ? this.sendRecordedAudio(conversationId, tempId, recording)
             : this.messageService
-                .sendMessage(conversationId, content ?? null, attachments, tempId)
+                .sendMessage(conversationId, content, attachments, tempId)
                 .pipe(
                   tap((res) => {
                     this.isMessageLoading.set(false);

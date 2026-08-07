@@ -135,8 +135,17 @@ export class NewChatComponent implements OnInit, OnDestroy {
         startWith(''),
         debounceTime(300),
         takeUntil(this.destroy$),
+        /*
+         * Trimmed above `distinctUntilChanged`, not below it.
+         *
+         * A box holding only spaces is an empty search, not a search for
+         * spaces — `fetchUsersIfNeeded` branches on exactly that and would
+         * otherwise send the whitespace to the server as a query. Trimming
+         * first also lets the dedupe do its job: "ada" and "ada " are the same
+         * search, and comparing them untrimmed fetched twice for it.
+         */
+        map((q) => q?.toString().trim() ?? ''),
         distinctUntilChanged(),
-        map((q) => q?.toString()),
         tap((q) => this.fetchUsersIfNeeded(q)),
       )
       .subscribe();
@@ -202,7 +211,7 @@ export class NewChatComponent implements OnInit, OnDestroy {
       .createConversation(
         selectedUsersIds,
         isGroup,
-        this.groupNameControl.value ?? '',
+        this.groupNameControl.value?.trim() ?? '',
       )
       .pipe(
         takeUntil(this.destroy$),

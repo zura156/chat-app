@@ -5,6 +5,7 @@ import {
   ReactiveFormsModule,
   Validators,
 } from '@angular/forms';
+import { trimControls } from '../../../../shared/functions/form.utils';
 import { NgIcon, provideIcons } from '@ng-icons/core';
 import { HlmAlertImports } from '@spartan-ng/helm/alert';
 import { HlmButton } from '@spartan-ng/helm/button';
@@ -53,6 +54,10 @@ export class ForgotPasswordComponent {
   error = signal<string | null>(null);
 
   onSubmit(): void {
+    // Before the validity check: `Validators.email` refuses an address with
+    // spaces around it, and a pasted one is the common way to arrive here.
+    trimControls(this.form, ['email']);
+
     if (!this.form.valid) {
       toast.info('Form Invalid!', {
         description:

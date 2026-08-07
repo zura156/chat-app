@@ -5,6 +5,7 @@ import {
   ReactiveFormsModule,
   Validators,
 } from '@angular/forms';
+import { trimControls } from '../../../../shared/functions/form.utils';
 import { AuthService } from '../../services/auth.service';
 import { LoginCredentialsI } from '../../interfaces/login-credentials.interface';
 import { HlmFieldImports } from '@spartan-ng/helm/field';
@@ -101,6 +102,12 @@ export class LoginComponent {
 
   onSubmit(): void {
     this.isLoading.set(true);
+
+    // Before the validity check, not after: `Validators.email` rejects an
+    // address with spaces around it, so a pasted one failed the form and never
+    // reached the server at all. Never the password — trimming one changes the
+    // secret, and the server trims nothing when it hashes.
+    trimControls(this.form, ['email']);
 
     if (this.form.invalid) {
       this.isLoading.set(false);

@@ -114,7 +114,16 @@ export const listSessions = async (
   );
 };
 
-/** Ends one session by its id, leaving the user's other devices signed in. */
+/**
+ * Ends one session by its id, leaving the user's other devices signed in.
+ *
+ * Both halves matter, for the reason set out under "Revoking sessions the
+ * server cannot name" below: deleting the refresh tokens stops the session
+ * renewing, and `markSessionRevoked` refuses the access token already sitting
+ * in that browser — which the server has never seen and cannot enumerate.
+ * Without the second half, evicting a device you do not recognise left it with
+ * working API access, and an open socket, until its token expired.
+ */
 export const revokeSession = async (
   userId: string,
   sid: string,
@@ -132,6 +141,15 @@ export const revokeSession = async (
   });
 
   if (doomed.length === 0) return false;
+
+  /*
+   * Before the delete rather than after. If the process dies between the two,
+   * this order leaves a session that is refused everywhere with a stale
+   * refresh entry behind it; the other order leaves one that looks ended and
+   * still works. A rotated refresh token keeps its `sid`, so even the access
+   * token minted from that stale entry is refused.
+   */
+  await markSessionRevoked(userId, sid);
 
   await redisClient
     .multi()
@@ -352,6 +370,29 @@ export const isAccessTokenBlacklisted = async (
 
 const revocationKey = (userId: string) => `revoked:{${userId}}`;
 
+/*
+ * The other shape this comes in: ending one named session while the user's
+ * other devices stay signed in — evicting a device from the security screen
+ * that you do not recognise, which is the more common way an intruder is
+ * actually thrown out.
+ *
+ * The epoch above cannot express it. It is keyed by user, so reaching for it
+ * here would sign out every device instead of the one chosen. This is keyed by
+ * the session, and needs no timestamp: a `sid` is minted per login and survives
+ * refresh rotation, so every token carrying it belongs to the session being
+ * ended, whenever it was issued.
+ *
+ * That also sidesteps the same-second tie the epoch has to live with. Signing
+ * in again mints a *new* session id, which this key cannot match, so there is
+ * no legitimate token for it to catch by accident and the comparison can be
+ * exact.
+ *
+ * The `{userId}` hash tag is the same one the keys above use, so a revocation
+ * check can read both in one MGET rather than a cross-slot pair.
+ */
+const sessionRevocationKey = (userId: string, sid: string) =>
+  `revoked:sid:{${userId}}:${sid}`;
+
 interface Revocation {
   /**
    * Unix **seconds**, and deliberately the same resolution as `iat`.
@@ -432,7 +473,50 @@ export const revokeSessionsBefore = async (
 };
 
 /**
- * Whether this token predates a revocation for its user.
+ * Refuses every access token belonging to one session, leaving the rest alone.
+ *
+ * Call alongside deleting that session's refresh tokens, for the same reason
+ * `revokeSessionsBefore` exists: dropping the refresh token stops the session
+ * renewing, this stops the token already in that browser.
+ */
+export const markSessionRevoked = async (
+  userId: string,
+  sid: string,
+): Promise<void> => {
+  await redisClient.setEx(
+    sessionRevocationKey(userId, sid),
+    REVOCATION_TTL,
+    '1',
+  );
+
+  /*
+   * As above, a socket authorises once at its handshake and would otherwise
+   * outlive the session it belongs to. This event names a session rather than
+   * a moment, and the subscriber closes by `sid`.
+   */
+  await redisClient.publish('ws:revoke', JSON.stringify({ userId, sid }));
+};
+
+/** Whether this token predates the user's revocation epoch. */
+const predatesRevocation = (
+  raw: string | null,
+  payload: { iat?: number; sid?: string },
+): boolean => {
+  if (!raw) return false;
+
+  const record = JSON.parse(raw) as Revocation;
+  if (record.keepSid && payload.sid === record.keepSid) return false;
+
+  // A token with no `iat` cannot be placed in time. jsonwebtoken always sets
+  // one, so this is a malformed token rather than an old one.
+  if (!payload.iat) return false;
+
+  return payload.iat < record.at;
+};
+
+/**
+ * Whether this token has been revoked — as one of a user's sessions, or as the
+ * particular session it belongs to.
  *
  * Fails **open** on a Redis error, deliberately and unlike the checks around
  * it. Every authenticated request runs this, so failing closed turns a Redis
@@ -446,18 +530,23 @@ export const isSessionRevoked = async (payload: {
   iat?: number;
   sid?: string;
 }): Promise<boolean> => {
-  // A token with no `iat` cannot be placed in time. jsonwebtoken always sets
-  // one, so this is a malformed token rather than an old one.
-  if (!payload.iat) return false;
-
   try {
-    const raw = await redisClient.get(revocationKey(payload.userId));
-    if (!raw) return false;
+    if (!payload.sid) {
+      const raw = await redisClient.get(revocationKey(payload.userId));
+      return predatesRevocation(raw, payload);
+    }
 
-    const record = JSON.parse(raw) as Revocation;
-    if (record.keepSid && payload.sid === record.keepSid) return false;
+    const [epoch, ended] = await redisClient.mGet([
+      revocationKey(payload.userId),
+      sessionRevocationKey(payload.userId, payload.sid),
+    ]);
 
-    return payload.iat < record.at;
+    // Keyed by the session itself, so there is nothing to compare and nothing
+    // to exempt: this session is over whenever the token in front of us was
+    // minted, and `keepSid` belongs to the epoch, not here.
+    if (ended !== null) return true;
+
+    return predatesRevocation(epoch, payload);
   } catch (error) {
     logger.error('Revocation check failed, allowing the token:', error);
     return false;

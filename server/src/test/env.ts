@@ -15,6 +15,7 @@
 import mongoose from 'mongoose';
 import { createClient, type RedisClientType } from 'redis';
 import { afterAll, beforeAll, describe } from 'vitest';
+import { redisClient } from '../config/redis';
 
 export const MONGO_TEST_URI =
   process.env.MONGO_TEST_URI ?? 'mongodb://127.0.0.1:27017/chat_app_test';
@@ -28,6 +29,30 @@ export const hasMongo = (): boolean =>
 
 export const hasRedis = (): boolean =>
   process.env.VITEST_REDIS_AVAILABLE === 'true';
+
+/**
+ * Opens the shared client the services themselves reach for.
+ *
+ * `config/redis` exports a module-level client that nothing connects unless
+ * `connectRedis()` is called, and only two specs called it. Every other
+ * integration suite therefore ran against a *closed* client: cache
+ * invalidation and the notification refresh both failed on every call, were
+ * swallowed by their own try/catch, and logged "The client is closed" — 19
+ * times per run. The suites still passed, because nothing asserted on the
+ * Redis half of what they were exercising.
+ *
+ * Idempotent, and paired with `closeSharedRedis`, because the two suites that
+ * manage the client themselves quit it in their own `afterAll` and files run
+ * serially — so it may arrive here either open or closed.
+ */
+export const openSharedRedis = async (): Promise<void> => {
+  if (!hasRedis() || redisClient.isOpen) return;
+  await redisClient.connect();
+};
+
+export const closeSharedRedis = async (): Promise<void> => {
+  if (redisClient.isOpen) await redisClient.quit();
+};
 
 /**
  * `describe` that connects Mongoose first, and skips the whole suite — naming
@@ -52,10 +77,14 @@ export const describeIntegration = (name: string, suite: () => void): void => {
         bufferCommands: false,
         serverSelectionTimeoutMS: 5_000,
       });
+      // These suites drive services whose Redis side effects are incidental to
+      // what is being asserted, but not optional — see `openSharedRedis`.
+      await openSharedRedis();
     });
 
     afterAll(async () => {
       await mongoose.disconnect();
+      await closeSharedRedis();
     });
 
     suite();

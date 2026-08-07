@@ -82,6 +82,23 @@ export default {
    * than one per registration. See breached-password.service.
    */
   checkBreachedPasswords: process.env.CHECK_BREACHED_PASSWORDS !== 'false',
+  /*
+   * bcrypt work factor. 10 is the default everywhere it is not set, and that is
+   * the number that matters — it is what protects a stolen password table, so
+   * lowering it in any deployed environment is a real weakening.
+   *
+   * It is configurable only so the test setup can drop it. Every integration
+   * fixture creates users, each costing a full hash (~68ms at 10 on a dev
+   * machine, ~2ms at 4), which is several seconds of a run spent proving bcrypt
+   * still works rather than testing anything. Guarded below so a typo cannot
+   * silently weaken production.
+   */
+  bcryptRounds: (() => {
+    const rounds = parseInt(process.env.BCRYPT_ROUNDS || '10', 10);
+    if (Number.isNaN(rounds) || rounds < 4 || rounds > 15) return 10;
+    if (rounds < 10 && process.env.NODE_ENV === 'production') return 10;
+    return rounds;
+  })(),
   jwtExpiresIn: process.env.JWT_EXPIRES_IN ?? '1h',
   jwtRefreshTokenExpiresIn: process.env.JWT_REFRESH_EXPIRES_IN ?? '7d',
   clientUrl: process.env.CLIENT_URL ?? 'http://localhost:4200',

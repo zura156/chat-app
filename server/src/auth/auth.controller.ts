@@ -35,6 +35,7 @@ import {
   revokeSession,
   revokeOtherSessions,
   revokeSessionsBefore,
+  isSessionRevoked,
   sessionIdForToken,
   newSessionId,
 } from './services/token.service';
@@ -447,7 +448,7 @@ export const refreshAccessToken = async (
     // turned every ordinary expiry into a 500 and a console.error, and left the
     // client's 401 handling — the branch that navigates to the login page —
     // unreachable from here.
-    let decoded: { userId: string; sid?: string };
+    let decoded: { userId: string; sid?: string; iat?: number };
     try {
       decoded = verifyRefreshToken(token);
     } catch {
@@ -466,6 +467,26 @@ export const refreshAccessToken = async (
     // stored entry covers tokens issued before sessions carried an id.
     const sid =
       decoded.sid ?? (await sessionIdForToken(decoded.userId, token)) ?? undefined;
+
+    /*
+     * Belt and braces. Every path that revokes a session also deletes its
+     * refresh tokens, so the check above should already have refused this —
+     * this is the case where one of the two halves did not happen, a process
+     * dying between them being the likely way.
+     *
+     * Without it that is a renewable session: the entry is still here, so the
+     * rotation succeeds and mints a *fresh* access token, and the epoch cannot
+     * refuse it because it is newer than the revocation. Cheap to rule out,
+     * and it resolves after the `sid` lookup above so a token predating
+     * sessions is matched by the id its stored entry carries.
+     */
+    if (
+      await isSessionRevoked({ userId: decoded.userId, iat: decoded.iat, sid })
+    ) {
+      clearAuthCookies(res);
+      res.status(401).json({ message: 'Session revoked' });
+      return;
+    }
 
     const { accessToken, refreshToken: newRefreshToken } = generateTokens(
       decoded.userId,
@@ -708,8 +729,9 @@ export const revokeSessionById = async (
       return;
     }
 
-    // Revoking the session you are currently using is a logout: the access
-    // token would otherwise stay valid for its remaining lifetime.
+    // `revokeSession` has already refused every token carrying this sid, on
+    // whichever device holds it. Revoking your own session is additionally a
+    // logout of this one, so the cookies have to go with it.
     if (req.sessionId && sid === req.sessionId) {
       const accessToken = req.cookies['accessToken'] as string | undefined;
       if (accessToken) {

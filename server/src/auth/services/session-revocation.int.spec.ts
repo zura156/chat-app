@@ -7,7 +7,9 @@ import {
   REVOCATION_TTL,
   durationToSeconds,
   isSessionRevoked,
+  revokeSession,
   revokeSessionsBefore,
+  storeRefreshToken,
 } from './token.service';
 
 /*
@@ -213,6 +215,160 @@ describeRedisIntegration('session revocation', () => {
       expect(
         await isSessionRevoked({ userId: USER, iat: secondsAgo(60) }),
       ).toBe(false);
+    });
+  });
+
+  describe('ending one session', () => {
+    /*
+     * The other half of the same problem, and the more common way an intruder
+     * is actually thrown out: you look at the security screen, see a device you
+     * do not recognise, and end that one rather than signing every device out.
+     *
+     * Deleting that session's refresh tokens was all this used to do, which
+     * left the device it was aimed at holding a working access token — and an
+     * open socket — until the token expired. The epoch above cannot help: it is
+     * keyed by the user, so using it here would sign out all of them.
+     */
+
+    const OTHER = 'session-b';
+    const sidKey = (sid: string) => `revoked:sid:{${USER}}:${sid}`;
+
+    /** A live session for `sid`, as a login would leave it. */
+    const signIn = async (sid: string) =>
+      storeRefreshToken(USER, `refresh-token-for-${sid}`, { sid });
+
+    afterEach(async () => {
+      const keys = await redis.keys(`refresh:*{${USER}}*`);
+      await redis.del([
+        ...keys,
+        sidKey('session-a'),
+        sidKey(OTHER),
+        `refresh:set:{${USER}}`,
+      ]);
+    });
+
+    it('refuses the evicted device, and only it', async () => {
+      await signIn('session-a');
+      await signIn(OTHER);
+
+      expect(await revokeSession(USER, 'session-a')).toBe(true);
+
+      const iat = secondsAgo(60);
+      expect(
+        await isSessionRevoked({ userId: USER, iat, sid: 'session-a' }),
+      ).toBe(true);
+      expect(await isSessionRevoked({ userId: USER, iat, sid: OTHER })).toBe(
+        false,
+      );
+    });
+
+    it('refuses a token from that session however new it is', async () => {
+      /*
+       * Where this differs from the epoch, and why it is keyed by session
+       * rather than by time. A `sid` is minted per login and survives refresh
+       * rotation, so a token bearing it belongs to the session being ended no
+       * matter when it was issued — including one rotated a moment ago, which a
+       * timestamp comparison would wave through.
+       */
+      await signIn('session-a');
+      await revokeSession(USER, 'session-a');
+
+      const justIssued = Math.floor(Date.now() / 1000) + 5;
+      expect(
+        await isSessionRevoked({
+          userId: USER,
+          iat: justIssued,
+          sid: 'session-a',
+        }),
+      ).toBe(true);
+    });
+
+    it('lets the same user sign in again', async () => {
+      // The new session gets a new id, so the record left behind cannot match
+      // it. No waiting on a clock, unlike the epoch.
+      await signIn('session-a');
+      await revokeSession(USER, 'session-a');
+
+      expect(
+        await isSessionRevoked({
+          userId: USER,
+          iat: Math.floor(Date.now() / 1000),
+          sid: 'session-fresh',
+        }),
+      ).toBe(false);
+    });
+
+    it('does not touch another user holding the same session id', async () => {
+      await signIn('session-a');
+      await revokeSession(USER, 'session-a');
+
+      expect(
+        await isSessionRevoked({
+          userId: 'someone-else',
+          iat: secondsAgo(60),
+          sid: 'session-a',
+        }),
+      ).toBe(false);
+    });
+
+    it('records nothing for a session that does not exist', async () => {
+      // A 404 at the controller, and no key left behind for a sid that was
+      // never live — otherwise anyone could seed records by guessing ids.
+      expect(await revokeSession(USER, 'session-a')).toBe(false);
+      expect(await redis.exists(sidKey('session-a'))).toBe(0);
+    });
+
+    it('expires on its own', async () => {
+      await signIn('session-a');
+      await revokeSession(USER, 'session-a');
+
+      const ttl = await redis.ttl(sidKey('session-a'));
+      expect(ttl).toBeGreaterThan(REVOCATION_TTL - 5);
+      expect(ttl).toBeLessThanOrEqual(REVOCATION_TTL);
+    });
+
+    it('announces itself so that device’s socket can be closed', async () => {
+      // A socket authorises once, at its handshake. The device being evicted
+      // would otherwise keep receiving messages on it.
+      const listener = redis.duplicate();
+      await listener.connect();
+
+      const received: { userId: string; sid?: string; at?: number }[] = [];
+      await listener.subscribe('ws:revoke', (raw) =>
+        received.push(JSON.parse(raw)),
+      );
+
+      try {
+        await signIn('session-a');
+        await revokeSession(USER, 'session-a');
+        await new Promise((r) => setTimeout(r, 100));
+
+        expect(received).toHaveLength(1);
+        expect(received[0].userId).toBe(USER);
+        // Names the session, so the subscriber closes that socket rather than
+        // comparing timestamps and closing every one the user has.
+        expect(received[0].sid).toBe('session-a');
+        expect(received[0].at).toBeUndefined();
+      } finally {
+        await listener.unsubscribe('ws:revoke');
+        await listener.quit();
+      }
+    });
+
+    it('is not undone by an unrelated sign-out-everywhere', async () => {
+      // The two records are independent: the epoch is replaced wholesale by a
+      // later revocation, and must not carry the per-session ones away with it.
+      await signIn('session-a');
+      await revokeSession(USER, 'session-a');
+      await revokeSessionsBefore(USER, 'session-a');
+
+      expect(
+        await isSessionRevoked({
+          userId: USER,
+          iat: Math.floor(Date.now() / 1000),
+          sid: 'session-a',
+        }),
+      ).toBe(true);
     });
   });
 

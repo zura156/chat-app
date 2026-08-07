@@ -5,6 +5,7 @@ import {
   ReactiveFormsModule,
   Validators,
 } from '@angular/forms';
+import { trimControls } from '../../../../shared/functions/form.utils';
 import { repeatPasswordValidator } from '../../validators/repeat-password.validator';
 import { AuthService } from '../../services/auth.service';
 import { RegisterCredentialsI } from '../../interfaces/register-credentials.interface';
@@ -117,6 +118,19 @@ export class RegisterComponent implements OnDestroy {
 
   onSubmit(): void {
     this.isLoading.set(true);
+
+    /*
+     * Before the validity check. The names carry `minLength(3)`, which counts
+     * spaces — so "  ab  " passed a rule "ab" does not, and the server, which
+     * trims before applying its own, stored a name this form would have
+     * refused. The address has the same problem in reverse: `Validators.email`
+     * rejects one with spaces around it outright.
+     *
+     * The two password fields are deliberately absent: trimming a password
+     * changes it, and the account would be created with a secret its owner
+     * never typed.
+     */
+    trimControls(this.form, ['first_name', 'last_name', 'username', 'email']);
 
     if (this.form.invalid) {
       this.isLoading.set(false);

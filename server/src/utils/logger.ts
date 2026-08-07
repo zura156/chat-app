@@ -70,6 +70,18 @@ const logFormat = winston.format.combine(
 
 export const logger = winston.createLogger({
   level: process.env.LOG_LEVEL ?? 'info',
+  /*
+   * Set by the test setup, which turns it on unless the environment already
+   * says otherwise — so `LOG_SILENT=0 npm test` gets the output back when you
+   * are actually debugging a spec.
+   *
+   * Several specs assert on failure paths, which means calling the code that
+   * logs the failure. Those messages are the test working, but they arrive as a
+   * wall of stack traces indistinguishable from something being wrong, and they
+   * were also being written to `logs/error.log` — tens of kilobytes per run,
+   * against a transport that rotates at 10MB and keeps five files.
+   */
+  silent: process.env.LOG_SILENT === '1',
   format: logFormat,
   transports: [
     new winston.transports.Console(),

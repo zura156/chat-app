@@ -96,6 +96,23 @@ export async function setup(): Promise<void> {
    */
   process.env.CHECK_BREACHED_PASSWORDS ??= 'false';
 
+  /*
+   * Quiet the app logger. The specs that assert on failure paths necessarily
+   * run the code that logs them, so a green run still printed two dozen stack
+   * traces and appended them to `logs/error.log`. `??=` so it stays overridable:
+   * `LOG_SILENT=0 npm test` when you need to see what a spec is doing.
+   */
+  process.env.LOG_SILENT ??= '1';
+
+  /*
+   * The cheapest work factor bcrypt accepts. Every integration fixture creates
+   * users and each one pays a full hash — seconds per run, all of it spent
+   * re-proving bcrypt rather than testing this code. `config.bcryptRounds`
+   * refuses anything below 10 when NODE_ENV is production, so this cannot
+   * escape the suite.
+   */
+  process.env.BCRYPT_ROUNDS ??= '4';
+
   const [mongo, redis] = await Promise.all([probeMongo(), probeRedis()]);
 
   process.env.VITEST_MONGO_AVAILABLE = String(mongo);

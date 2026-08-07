@@ -1,6 +1,7 @@
 import mongoose, { Document, Schema, Types } from 'mongoose';
 import bcrypt from 'bcrypt';
 import validator from 'validator';
+import appConfig from '../../config/config';
 import {
   PASSWORD_MIN_LENGTH,
   isPasswordAcceptable,
@@ -180,7 +181,7 @@ UserSchema.index(
 
 UserSchema.pre('save', async function hashPassword() {
   if (!this.isModified('password')) return;
-  const salt = await bcrypt.genSalt(10);
+  const salt = await bcrypt.genSalt(appConfig.bcryptRounds);
   this.password = await bcrypt.hash(this.password, salt);
 });
 

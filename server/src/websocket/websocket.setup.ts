@@ -233,6 +233,26 @@ export const setupWebSocket = (server: Server): void => {
     }
   };
 
+  /**
+   * Closes the sockets belonging to one named session, leaving the user's
+   * other devices connected.
+   *
+   * The comparison above cannot express this: it is keyed by user and by time,
+   * so evicting one device with it would close every socket the account has.
+   * There is no `issuedAt` comparison here either — a session id is minted per
+   * login, so any socket carrying it belongs to the session being ended.
+   */
+  const closeSessionSockets = (userId: string, sid: string): void => {
+    for (const ws of wss.clients) {
+      const client = ws as AuthenticatedWebSocket;
+      if (client.userId !== userId) continue;
+      if (client.sid !== sid) continue;
+
+      logger.info(`Closing revoked WS for session ${sid}`);
+      client.close(CLOSE_SESSION_REVOKED, 'Session revoked');
+    }
+  };
+
   // subscribe to events published by the worker and by the auth layer
   const uploadSubscriber = redisClient.duplicate();
   uploadSubscriber
@@ -251,8 +271,11 @@ export const setupWebSocket = (server: Server): void => {
       // them, and there is nothing to de-duplicate.
       await uploadSubscriber.subscribe('ws:revoke', (message) => {
         try {
-          const { userId, at, keepSid } = JSON.parse(message);
-          closeRevokedSockets(userId, at, keepSid);
+          // Two shapes, matching the two ways a session ends: one named
+          // session, or everything issued before a moment.
+          const { userId, at, keepSid, sid } = JSON.parse(message);
+          if (sid) closeSessionSockets(userId, sid);
+          else closeRevokedSockets(userId, at, keepSid);
         } catch (err) {
           logger.error('Failed to handle ws:revoke event:', err);
         }

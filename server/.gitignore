@@ -52,5 +52,9 @@ pids
 *.seed
 *.pid.lock
 
+# Redis snapshot. Written into whatever directory redis-server was started
+# from, so running it here for the integration suite drops one in the repo.
+dump.rdb
+
 # Diagnostic reports (https://nodejs.org/api/report.html)
 report.[0-9]*.[0-9]*.[0-9]*.[0-9]*.json

@@ -166,8 +166,17 @@ export class AccountSettings {
   }
 
   confirmDelete(): void {
-    const password = this.password().trim();
-    if (!password) return;
+    /*
+     * Deliberately not trimmed, unlike the address above.
+     *
+     * Trimming a password changes the secret. Nothing on the server trims one
+     * — `passwordRule` hashes what it is given — so a password that ends in a
+     * space is stored with it, and trimming here would send a different string
+     * and refuse a correct password. The `.trim()` that used to be here was the
+     * only place in the app that did this to a password.
+     */
+    const password = this.password();
+    if (!password.trim()) return;
 
     this.deleting.set(true);
     this.userService.deleteAccount(password).subscribe({

@@ -163,6 +163,50 @@ code=$(req "$JAR_A" POST /auth/login "{\"email\":\"ada$STAMP@example.test\",\"pa
 check "signing in again still works" "$code" "200"
 
 echo
+echo "── evicting one device ────────────────────────────────────────────────"
+# The narrower version of the section above, and the more common one: you look
+# at the security screen, see a device you do not recognise and end that session
+# alone. Deleting its refresh tokens was all this used to do, which left the
+# evicted device holding a working access token until it expired.
+#
+# No `sleep` here, unlike the two sections either side. This revocation is
+# recorded against the session id rather than a moment, so there is no
+# second-boundary tie to wait out.
+JAR_A3="$SP/cookies-a3.txt"; rm -f "$JAR_A3"; prime "$JAR_A3"
+code=$(req "$JAR_A3" POST /auth/login "{\"email\":\"ada$STAMP@example.test\",\"password\":\"$PASS_A\"}")
+check "sign in on a device to be evicted" "$code" "200"
+
+code=$(req "$JAR_A" GET /auth/sessions)
+check "list the sessions" "$code" "200"
+# The one that is not the caller's own — the row a user would click "sign out"
+# on. `current` is what the security screen uses to tell them apart.
+other_sid=$(python3 -c "import json;print(next((s['id'] for s in json.load(open('$SP/body.json'))['sessions'] if not s['current']),''))" 2>/dev/null)
+check "  and can name the other one" "$([ -n "$other_sid" ] && echo yes)" "yes"
+
+code=$(req "$JAR_A" DELETE "/auth/sessions/$other_sid")
+check "end that session" "$code" "200"
+
+code=$(req "$JAR_A3" GET /user/profile)
+check "the evicted device is refused immediately" "$code" "401"
+
+code=$(req "$JAR_A" GET /user/profile)
+check "the device that did the evicting stays signed in" "$code" "200"
+
+# Nor can it renew its way back in: its refresh entry is gone, and a rotated
+# token would carry the same session id even if it were not.
+code=$(req "$JAR_A3" POST /auth/refresh)
+check "and cannot refresh its way back" "$code" "401"
+
+# The other side of that check, and the one worth having: renewal is on the
+# path of every session every fifteen minutes, so a revocation check that
+# refused too much here would sign the whole user base out by degrees.
+code=$(req "$JAR_A" POST /auth/refresh)
+check "a live session still renews" "$code" "200"
+
+code=$(req "$JAR_A" GET /user/profile)
+check "  and the rotated token works" "$code" "200"
+
+echo
 echo "── changing a password ────────────────────────────────────────────────"
 # Another device, so the asymmetry below can be seen: a password change signs
 # out everywhere *except* the machine doing the changing. Signing the user out

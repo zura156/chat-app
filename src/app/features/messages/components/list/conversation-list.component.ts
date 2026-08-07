@@ -17,6 +17,7 @@ import {
   debounceTime,
   distinctUntilChanged,
   EMPTY,
+  map,
   Observable,
   of,
   startWith,
@@ -176,6 +177,10 @@ export class ConversationListComponent {
       this.searchControl.valueChanges.pipe(
         startWith(''),
         debounceTime(300),
+        // Trimmed before the dedupe: a box holding only spaces is an empty
+        // search rather than a search for spaces, and "ada" and "ada " are one
+        // query, not two. Both fetches below send this straight to the server.
+        map((query) => query?.trim() ?? ''),
         distinctUntilChanged(),
       ),
       this.activeListView$,

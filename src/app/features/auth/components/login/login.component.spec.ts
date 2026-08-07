@@ -343,4 +343,54 @@ describe('LoginComponent — second factor', () => {
       expect(fixture.componentInstance.twoFactorCode()).toHaveLength(11);
     });
   });
+
+  describe('whitespace in the credentials', () => {
+    /*
+     * The asymmetry that is easy to get backwards, and which nothing else
+     * states: the address is trimmed, the password is not.
+     *
+     * A trailing space on an address is an artefact of copy-paste or a phone
+     * keyboard and never part of the address. A trailing space in a password is
+     * part of the secret — the server hashes exactly what it is sent and trims
+     * nothing — so trimming here would send a different password than the one
+     * the account was created with, and refuse a correct one.
+     */
+
+    const submit = async (email: string, password: string) => {
+      const fixture = await build();
+      fixture.componentInstance.form.setValue({ email, password });
+      fixture.componentInstance.onSubmit();
+      await fixture.whenStable();
+      return fixture;
+    };
+
+    it('trims the address', async () => {
+      await submit('  ada@example.test  ', 'correct-horse');
+
+      expect(authService.login).toHaveBeenCalledWith({
+        email: 'ada@example.test',
+        password: 'correct-horse',
+      });
+    });
+
+    it('leaves a password that ends in a space exactly as typed', async () => {
+      await submit('ada@example.test', 'correct-horse ');
+
+      expect(authService.login).toHaveBeenCalledWith({
+        email: 'ada@example.test',
+        password: 'correct-horse ',
+      });
+    });
+
+    it('leaves a password that is nothing but spaces alone too', async () => {
+      // Refusing it is the validator's job, not the submit handler's. Trimming
+      // it to empty here would send a different credential than was typed.
+      await submit('ada@example.test', '   ');
+
+      expect(authService.login).toHaveBeenCalledWith({
+        email: 'ada@example.test',
+        password: '   ',
+      });
+    });
+  });
 });
