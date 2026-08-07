@@ -56,17 +56,42 @@ export const SHARED_VECTORS: { password: string; acceptable: boolean; why: strin
       acceptable: true,
       why: 'no composition rule, so an all-caps passphrase is fine',
     },
+    {
+      password: 'kite-fog',
+      acceptable: true,
+      why: 'exactly the minimum — short is allowed, predictable is not',
+    },
 
     // ── Refused ───────────────────────────────────────────────────────────
     {
       password: 'P@ssw0rd!',
       acceptable: false,
-      why: 'satisfied every one of the three old policies and is in every cracking dictionary — too short now',
+      why: 'long enough under an 8-character floor, so the blocklist is the only thing refusing it — and it must',
+    },
+    {
+      password: 'password1',
+      acceptable: false,
+      why: 'the suffix people add when a rule bites; strips to a listed base word',
+    },
+    {
+      password: 'M0nkey!!',
+      acceptable: false,
+      why: 'a dictionary word in leetspeak with punctuation bolted on — the whole shape a short floor invites',
+    },
+    {
+      password: 'iloveyou',
+      acceptable: false,
+      why: 'eight characters, no repeat, no walk: nothing but the blocklist sees anything wrong with it',
     },
     {
       password: 'Tr0ub4dor&3',
       acceptable: false,
       why: 'the canonical "complex but short" password',
+    },
+    {
+      password: 'kite-fo',
+      acceptable: false,
+      why: 'one character below the minimum',
     },
     {
       password: 'short',
@@ -126,10 +151,18 @@ export const SHARED_VECTORS: { password: string; acceptable: boolean; why: strin
   ];
 
 describe('password policy', () => {
-  it('is at least the NIST single-factor floor', () => {
-    // SP 800-63B rev. 4 §3.1.1: 15 characters when the password is the only
-    // factor. Two-factor is opt-in here, so this is the applicable number.
-    expect(PASSWORD_MIN_LENGTH).toBeGreaterThanOrEqual(15);
+  it('is the documented floor', () => {
+    /*
+     * Pinned exactly, not as a lower bound, because this number is a deliberate
+     * deviation from SP 800-63B rev. 4 §3.1.1 — which SHALL-requires 15 for a
+     * single-factor password and permits 8 only alongside a required second
+     * factor, and 2FA is opt-in here. It is OWASP ASVS 5.0 6.2.1's L1 bar.
+     *
+     * Changing it is a security decision, not a tuning knob: at 8, the
+     * blocklist and the HIBP check are load-bearing in a way they were not at
+     * 15. Anyone editing this line should read the block on the constant first.
+     */
+    expect(PASSWORD_MIN_LENGTH).toBe(8);
     // "SHOULD permit a maximum password length of at least 64 characters."
     expect(PASSWORD_MAX_LENGTH).toBeGreaterThanOrEqual(64);
   });
@@ -178,11 +211,11 @@ describe('password policy', () => {
     });
 
     it('counts characters, not UTF-16 code units', () => {
-      // Fourteen emoji are 28 code units. Counting those would let a
-      // 14-character password satisfy a 15-character rule.
-      const emoji = '🙂'.repeat(14);
-      expect(emoji.length).toBe(28);
-      expect(passwordLength(emoji)).toBe(14);
+      // Seven emoji are fourteen code units. Counting those would let a
+      // 7-character password satisfy an 8-character rule.
+      const emoji = '🙂'.repeat(7);
+      expect(emoji.length).toBe(14);
+      expect(passwordLength(emoji)).toBe(7);
       expect(checkPassword(emoji).map((p) => p.code)).toContain('too_short');
     });
 
@@ -191,6 +224,64 @@ describe('password policy', () => {
       const padded = '   anvil poppy quartz   ';
       expect(passwordLength(padded)).toBe(padded.length);
       expect(isPasswordAcceptable(padded)).toBe(true);
+    });
+  });
+
+  describe('the short end, which the length floor used to cover', () => {
+    /*
+     * At 15 characters almost every entry in a "top 10,000 passwords" list was
+     * refused on length before any rule here could name it, and the blocklist
+     * was deliberately thin because of it. At 8 they are all length-legal, and
+     * none of them repeats, walks the keyboard or runs along the alphabet — so
+     * `looksTrivial` sees nothing wrong and the list is the only thing left.
+     *
+     * These are the cases that were free before and are not now.
+     */
+
+    it.each([
+      'password',
+      'iloveyou',
+      'princess',
+      'football',
+      'baseball',
+      'superman',
+      'starwars',
+      'computer',
+      'sunshine',
+    ])('refuses the bare dictionary word %s', (password) => {
+      // Each is exactly at or above the floor and structurally unremarkable.
+      expect(passwordLength(password)).toBeGreaterThanOrEqual(
+        PASSWORD_MIN_LENGTH,
+      );
+      expect(checkPassword(password).map((p) => p.code)).toContain('common');
+    });
+
+    it.each([
+      ['a trailing digit', 'monkey12'],
+      ['a longer digit run', 'princess2024'],
+      ['trailing punctuation', 'letmein!!'],
+      ['both, in either order', 'password1!'],
+      ['both, the other way round', 'password!1'],
+      ['leetspeak', 'M0nkey12'],
+      ['leetspeak and punctuation', 'P@ssw0rd!'],
+      ['separators', 'p-a-s-s-w-o-r-d'],
+    ])('sees through %s', (_label, password) => {
+      expect(checkPassword(password).map((p) => p.code)).toContain('common');
+    });
+
+    it('does not refuse a passphrase merely for containing a listed word', () => {
+      // The list is matched by equality, never as a substring — otherwise
+      // `monkey` would reject every passphrase with a monkey in it.
+      expect(isPasswordAcceptable('monkey lantern quartz')).toBe(true);
+      expect(isPasswordAcceptable('purple monkey dishwasher')).toBe(true);
+      expect(isPasswordAcceptable('freedom of the tangerine press')).toBe(true);
+    });
+
+    it('accepts a short password that is simply not predictable', () => {
+      // The point of the lower floor. These must not be collateral damage.
+      for (const password of ['kite-fog', 'vex7harp', 'plumdrift']) {
+        expect(isPasswordAcceptable(password)).toBe(true);
+      }
     });
   });
 

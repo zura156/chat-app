@@ -24,7 +24,14 @@ import { AbstractControl, ValidationErrors, ValidatorFn } from '@angular/forms';
  * an account whose password was perfectly correct.
  */
 
-export const PASSWORD_MIN_LENGTH = 15;
+/**
+ * OWASP ASVS 5.0 6.2.1's L1 floor, chosen over NIST's 15 as a product call —
+ * read the block on the same constant in the server file for what that
+ * deviation costs. The short version: NIST allows 8 only where a second factor
+ * is required and 2FA is opt-in here, so the blocklist below and the breach
+ * check on the server are carrying weight the length rule used to.
+ */
+export const PASSWORD_MIN_LENGTH = 8;
 export const PASSWORD_MAX_LENGTH = 128;
 
 /** Counts characters as a person does; `String.length` counts UTF-16 units. */
@@ -162,18 +169,74 @@ const looksTrivial = (password: string): boolean => {
 };
 
 /*
- * The client-side copy of the blocklist is deliberately the same short list the
+ * The client-side copy of the blocklist is deliberately the same list the
  * server bundles. It is a courtesy — immediate feedback instead of a round trip
  * — and not a control: the server checks this list *and* Have I Been Pwned, and
  * anything that slips past here is refused there.
+ *
+ * Stored normalised (lower case, de-leeted, letters and digits only), so
+ * `P@ssw0rd` is stored as `password`. Most base words are shorter than
+ * PASSWORD_MIN_LENGTH and are only ever reached via the trailing-noise
+ * candidates in `isCommon` — `monkey12` and `M0nkey!` both reduce to `monkey`.
  */
 const COMMON_PASSWORDS = new Set([
+  'password',
+  'passcode',
+  'letmein',
+  'welcome',
+  'iloveyou',
+  'trustno',
+  'qwerty',
+  'monkey',
+  'dragon',
+  'master',
+  'shadow',
+  'sunshine',
+  'princess',
+  'football',
+  'baseball',
+  'superman',
+  'batman',
+  'starwars',
+  'pokemon',
+  'computer',
+  'internet',
+  'whatever',
+  'freedom',
+  'secret',
+  'admin',
+  'administrator',
+  'chocolate',
+  'cookie',
+  'flower',
+  'purple',
+  'orange',
+  'silver',
+  'summer',
+  'winter',
+  'ginger',
+  'pepper',
+  'soccer',
+  'hockey',
+  'hunter',
+  'ranger',
+  'buster',
+  'charlie',
+  'michael',
+  'jessica',
+  'jennifer',
+  'michelle',
+  'samantha',
+  'ashley',
+  'daniel',
+  'thomas',
+  'robert',
+  'jordan',
+  'troubador',
+
   'passwordpassword',
-  'password12345678',
-  'passwordpassword1',
   'iloveyouforever',
   'letmeinletmein',
-  'trustno1trustno1',
   'administratoradmin',
   'qwertyuiopasdfghjkl',
   'welcometothejungle',
@@ -183,9 +246,6 @@ const COMMON_PASSWORDS = new Set([
   'ilovemyfamily',
   'jesuschristislord',
   'godisgoodallthetime',
-  'chatappchatapp',
-  'superman12345678',
-  'princess12345678',
   'mynameisnobody',
   'thisisapassword',
   'thisismypassword',
@@ -193,6 +253,10 @@ const COMMON_PASSWORDS = new Set([
   'idontknowwhattoputhere',
   'iamnotgoingtotellyou',
 ]);
+
+/** Everything trailing that is not a letter — digits, punctuation, or both. */
+const stripTrailingNoise = (value: string): string =>
+  value.replace(/[^\p{L}]+$/u, '');
 
 const isCommon = (password: string): boolean => {
   /*
@@ -206,6 +270,13 @@ const isCommon = (password: string): boolean => {
   const candidates = new Set([
     normalize(password),
     stripSeparators(deLeet(shape.replace(/\d+$/u, ''))),
+    /*
+     * The only one of the three that catches `P@ssw0rd!`: the shape path strips
+     * the `@` as a separator before the leet map can read it as an `a`, and the
+     * word path de-leets the trailing `!` into an `i`. Stripping the suffix off
+     * the raw password first leaves `password`.
+     */
+    normalize(stripTrailingNoise(password)),
   ]);
 
   for (const candidate of candidates) {

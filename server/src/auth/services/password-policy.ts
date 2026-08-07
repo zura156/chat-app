@@ -33,11 +33,11 @@
  *
  * The requirements that replace them, from the same section:
  *
- *   - SHALL be at least 15 characters when the password is the only factor
- *     (8 is permitted only where a second factor is mandatory; here 2FA is
- *     opt-in, so 15 is the applicable floor). See PASSWORD_MIN_LENGTH.
- *     Two-factor enrolment does not lower it: the account existed, with that
- *     password, before the second factor did.
+ *   - SHALL be at least 15 characters when the password is the only factor, or
+ *     8 where a second factor is required. This app sets 8 unconditionally,
+ *     which is a deliberate deviation from that SHALL — see
+ *     PASSWORD_MIN_LENGTH for what it costs and what carries the weight
+ *     instead.
  *   - SHOULD permit at least 64 characters. We allow 128.
  *   - SHALL compare against a blocklist of "commonly used, expected, or
  *     compromised" passwords. See `isCommon` and, for the compromised half,
@@ -52,23 +52,40 @@
  */
 
 /**
- * NIST's floor for a password used as a single factor, and a SHALL rather than
- * a SHOULD:
+ * OWASP ASVS 5.0 6.2.1's L1 floor, chosen over NIST's 15 as a product call: a
+ * 15-character minimum is the single largest source of drop-off on a sign-up
+ * form, and people who cannot get past it reuse a password from elsewhere,
+ * which is the outcome the policy exists to prevent.
+ *
+ * ── Know what this gives up ─────────────────────────────────────────────────
+ *
+ * This is a deliberate deviation from a SHALL, not a reading of it:
  *
  *   "Verifiers and CSPs SHALL require passwords that are used as a
  *    single-factor authentication mechanism to be a minimum of 15 characters
  *    in length."
  *
- * The 8-character allowance in the next sentence is a MAY, and applies only to
- * passwords used *only* alongside a second factor. Two-factor is opt-in here,
- * so an account is single-factor unless its owner has chosen otherwise — and
- * at registration, when this is first enforced, no account has.
+ * SP 800-63B rev. 4 §3.1.1 allows 8 only for a password used *alongside* a
+ * required second factor. Two-factor is opt-in here, so an account is
+ * single-factor unless its owner has chosen otherwise — and at registration,
+ * where this is first enforced, none has. An 8-character password is within
+ * reach of offline cracking in a way a 15-character one is not; bcrypt raises
+ * the cost per guess but does not change that. If 2FA ever becomes mandatory,
+ * or if a tiered rule is added (15 alone, 8 with a second factor), this number
+ * is the only thing that needs to move.
  *
- * OWASP ASVS 5.0 6.2.1 sets its L1 bar lower, at 8, but "strongly recommends"
- * 15. Nothing current argues for a number in between; ASVS 4.0.3's 12 is
- * superseded.
+ * ── What carries the weight instead ─────────────────────────────────────────
+ *
+ * Length was doing most of the blocklist's work: almost every entry in the
+ * usual "top 10,000" lists is under 15 characters and was refused on length
+ * alone, never reaching a rule that names it. At 8 those passwords are
+ * length-legal, so the checks that were a backstop are now the control —
+ * `looksTrivial`, a blocklist that had to grow to cover the short end, and
+ * above all the Have I Been Pwned check in `breached-password.service`, which
+ * covers a corpus no bundled list can. Note that the HIBP check fails open by
+ * design: during an outage, this file is the whole policy.
  */
-export const PASSWORD_MIN_LENGTH = 15;
+export const PASSWORD_MIN_LENGTH = 8;
 
 /** Comfortably above the 64 NIST asks for. Only exists to bound bcrypt work. */
 export const PASSWORD_MAX_LENGTH = 128;
@@ -104,11 +121,19 @@ export const passwordLength = (password: string): number =>
 /*
  * ── Blocklist ───────────────────────────────────────────────────────────────
  *
- * A 15-character floor does most of this work on its own: almost every entry in
- * the usual "top 10,000 passwords" lists is shorter than that and is already
- * refused. What survives the length check is a much smaller and more structural
- * set — keyboard walks, digit runs, a short word repeated, a common phrase —
- * so this leans on shape detection first and a list second.
+ * This used to lean on shape detection first and a list second, because a
+ * 15-character floor already refused almost every entry in the usual "top
+ * 10,000 passwords" lists before any rule here could name it. At 8 that is no
+ * longer true: `password`, `iloveyou` and `princess` are all length-legal, and
+ * none of them repeats, walks the keyboard or runs along the alphabet, so no
+ * structural check sees anything wrong with them. The list has to cover the
+ * short end itself now.
+ *
+ * It is still not, and cannot be, exhaustive — the real defence against
+ * compromised passwords is the Have I Been Pwned check in
+ * `breached-password.service`. What this covers is the part that must keep
+ * working when HIBP is unreachable, and the part the *form* can report without
+ * a round trip.
  */
 
 /** Undo the substitutions that turn `password` into `P@ssw0rd`. */
@@ -277,20 +302,80 @@ export const looksTrivial = (password: string): boolean => {
 };
 
 /**
- * Long-form passwords that survive the length check and the shape checks but
- * are still among the first things any attacker tries.
+ * Passwords that survive the length check and the shape checks but are still
+ * among the first things any attacker tries.
  *
- * Deliberately short. It exists for the handful of cases structure cannot see;
- * the real defence against compromised passwords is the Have I Been Pwned check
- * in `breached-password.service`, which covers hundreds of millions of them.
+ * Stored in the normalised form `isCommon` compares against: lower case,
+ * de-leeted, and stripped of everything that is not a letter or a digit.
+ * `P@ssw0rd` is stored as `password`, not as itself.
+ *
+ * Most of the base words below are shorter than PASSWORD_MIN_LENGTH and are
+ * never matched by a password that *equals* them — anything that normalises to
+ * exactly `monkey` is refused for length long before it reaches here. They earn
+ * their place through the trailing-noise candidates: `monkey12`, `M0nkey!` and
+ * `monkey2024` all reduce to `monkey`, and bolting a suffix onto a dictionary
+ * word is precisely what a short floor invites people to do.
  */
 const COMMON_PASSWORDS = new Set([
+  // Base words. Every published breach list is built out of these.
+  'password',
+  'passcode',
+  'letmein',
+  'welcome',
+  'iloveyou',
+  'trustno',
+  'qwerty',
+  'monkey',
+  'dragon',
+  'master',
+  'shadow',
+  'sunshine',
+  'princess',
+  'football',
+  'baseball',
+  'superman',
+  'batman',
+  'starwars',
+  'pokemon',
+  'computer',
+  'internet',
+  'whatever',
+  'freedom',
+  'secret',
+  'admin',
+  'administrator',
+  'chocolate',
+  'cookie',
+  'flower',
+  'purple',
+  'orange',
+  'silver',
+  'summer',
+  'winter',
+  'ginger',
+  'pepper',
+  'soccer',
+  'hockey',
+  'hunter',
+  'ranger',
+  'buster',
+  'charlie',
+  'michael',
+  'jessica',
+  'jennifer',
+  'michelle',
+  'samantha',
+  'ashley',
+  'daniel',
+  'thomas',
+  'robert',
+  'jordan',
+  'troubador', // as in Tr0ub4dor&3 — the canonical "complex but short" one
+
+  // Longer phrases, which no base word reduces to.
   'passwordpassword',
-  'password12345678',
-  'passwordpassword1',
   'iloveyouforever',
   'letmeinletmein',
-  'trustno1trustno1',
   'administratoradmin',
   'qwertyuiopasdfghjkl',
   'welcometothejungle',
@@ -300,9 +385,6 @@ const COMMON_PASSWORDS = new Set([
   'ilovemyfamily',
   'jesuschristislord',
   'godisgoodallthetime',
-  'chatappchatapp',
-  'superman12345678',
-  'princess12345678',
   'mynameisnobody',
   'thisisapassword',
   'thisismypassword',
@@ -312,10 +394,19 @@ const COMMON_PASSWORDS = new Set([
 ]);
 
 /**
- * Whether the password matches a known-common one once normalised. Trailing
- * digits are stripped for a second attempt so `password12345678` is caught by
- * the entry `password`, which is the shape people actually reach for when a
- * length rule bites.
+ * Everything trailing that is not a letter — digits, punctuation, or both in
+ * any order. `password1!` and `password!1` both reduce to `password`; chaining
+ * a digit strip and a punctuation strip only handles whichever order it is
+ * written in.
+ */
+const stripTrailingNoise = (value: string): string =>
+  value.replace(/[^\p{L}]+$/u, '');
+
+/**
+ * Whether the password matches a known-common one once normalised. The suffix
+ * people add when a rule bites — `password1`, `M0nkey!`, `princess2024` — is
+ * stripped for a second and third attempt, because it buys almost nothing
+ * against a cracker and must not buy anything here.
  */
 export const isCommon = (password: string): boolean => {
   /*
@@ -330,13 +421,23 @@ export const isCommon = (password: string): boolean => {
   const candidates = new Set([
     normalizeForBlocklist(password),
     stripSeparators(deLeet(shape.replace(/\d+$/u, ''))),
+    /*
+     * Stripped *before* normalising, which is the only one of the three that
+     * catches `P@ssw0rd!`. The shape path removes the `@` as a separator before
+     * the leet map can read it as an `a`, giving `pssword`; the word path
+     * de-leets the trailing `!` into an `i`, giving `passwordi`. Neither is
+     * `password`, so the most famous bad password in the world matched nothing
+     * — invisible while the 15-character floor refused it on length anyway, and
+     * a hole the moment that floor came down.
+     */
+    normalizeForBlocklist(stripTrailingNoise(password)),
   ]);
 
   for (const candidate of candidates) {
     if (!candidate) continue;
     if (COMMON_PASSWORDS.has(candidate)) return true;
-    // `password` alone is under the length floor and never reaches here on its
-    // own, but `passwordpassword1` reduces to a repeat of it.
+    // A short word repeated to reach the length floor: `passwordpassword1`
+    // reduces to a repeat of `password`.
     if (candidate.length >= 8 && isRepeatedUnit(candidate)) return true;
   }
 
@@ -389,7 +490,7 @@ export const checkPassword = (
   if (length < PASSWORD_MIN_LENGTH) {
     problems.push({
       code: 'too_short',
-      message: `Use at least ${PASSWORD_MIN_LENGTH} characters. A few unrelated words is the easiest way to get there.`,
+      message: `Use at least ${PASSWORD_MIN_LENGTH} characters. A few unrelated words makes a much stronger one than the minimum.`,
     });
   }
 

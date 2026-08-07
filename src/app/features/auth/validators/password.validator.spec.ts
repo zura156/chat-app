@@ -70,9 +70,11 @@ describe('passwordValidator', () => {
 
   describe('length', () => {
     it('requires the documented minimum', () => {
-      expect(PASSWORD_MIN_LENGTH).toBe(15);
-      expect(failures('blue-coffee-la')).toEqual(['hasLength']);
-      expect(validate('blue-coffee-lam')).toBeNull();
+      // Pinned exactly. This is a deliberate deviation from NIST SP 800-63B
+      // §3.1.1's 15 for a single-factor password — see the constant.
+      expect(PASSWORD_MIN_LENGTH).toBe(8);
+      expect(failures('kite-fo')).toEqual(['hasLength']);
+      expect(validate('kite-fog')).toBeNull();
     });
 
     it('accepts exactly the maximum and refuses one more', () => {
@@ -88,13 +90,13 @@ describe('passwordValidator', () => {
     it('counts characters as a person does, not as UTF-16 units', () => {
       /*
        * `String.length` counts surrogate halves, so an emoji is two. A
-       * password of 14 visible characters containing emoji measures 18 by that
+       * password of 7 visible characters containing emoji measures 9 by that
        * count and would sail past a naive check — while the server, counting
        * the same way this does, refuses it.
        */
-      const password = 'ok🎤'.repeat(4) + 'ab';
-      expect(password.length).toBe(18);
-      expect([...password].length).toBe(14);
+      const password = 'ok🎤'.repeat(2) + 'x';
+      expect(password.length).toBe(9);
+      expect([...password].length).toBe(7);
       expect(failures(password)).toContain('hasLength');
     });
 
@@ -107,7 +109,7 @@ describe('passwordValidator', () => {
        */
       expect(failures('aaa')).toEqual(['hasLength']);
       expect(failures('qwerty')).toEqual(['hasLength']);
-      expect(failures('password')).toEqual(['hasLength']);
+      expect(failures('mon')).toEqual(['hasLength']);
     });
   });
 
@@ -184,12 +186,59 @@ describe('passwordValidator', () => {
 
     it('is a courtesy, not the control', () => {
       /*
-       * Deliberately the same short list the server bundles: this exists to
-       * give immediate feedback instead of a round trip. The server checks
-       * this list *and* Have I Been Pwned, so anything that slips past here is
-       * still refused on submit. That is the safety net for the gap below.
+       * Deliberately the same list the server bundles: this exists to give
+       * immediate feedback instead of a round trip. The server checks this list
+       * *and* Have I Been Pwned, so anything that slips past here is still
+       * refused on submit. That is the safety net for the gap below.
        */
       expect(validate('a-quiet-tuesday-afternoon')).toBeNull();
+    });
+
+    describe('the short end, which the length rule used to cover', () => {
+      /*
+       * At 15 characters these were all refused on length before the list could
+       * name them, and it was thin because of it. At 8 they are length-legal
+       * and structurally unremarkable — no repeat, no walk, no run — so the
+       * list is the only rule standing between them and the form saying yes.
+       *
+       * Mirrors the block of the same name in the server's spec. The two files
+       * are separate builds and nothing enforces the match mechanically.
+       */
+
+      it.each([
+        'password',
+        'iloveyou',
+        'princess',
+        'football',
+        'superman',
+        'sunshine',
+      ])('rejects the bare dictionary word %s', (password) => {
+        expect(failures(password)).toEqual(['isUncommon']);
+      });
+
+      it.each([
+        ['a trailing digit', 'monkey12'],
+        ['a longer digit run', 'princess2024'],
+        ['trailing punctuation', 'letmein!!'],
+        ['both, in either order', 'password1!'],
+        ['both, the other way round', 'password!1'],
+        ['leetspeak', 'M0nkey12'],
+        ['leetspeak and punctuation', 'P@ssw0rd!'],
+      ])('sees through %s', (_label, password) => {
+        expect(failures(password)).toContain('isUncommon');
+      });
+
+      it('matches by equality, never as a substring', () => {
+        // Otherwise `monkey` would reject every passphrase with a monkey in it.
+        expect(validate('monkey lantern quartz')).toBeNull();
+        expect(validate('purple monkey dishwasher')).toBeNull();
+      });
+
+      it('leaves an unpredictable short password alone', () => {
+        // The point of the lower floor; these must not be collateral damage.
+        expect(validate('kite-fog')).toBeNull();
+        expect(validate('vex7harp')).toBeNull();
+      });
     });
   });
 
@@ -352,7 +401,9 @@ describe('passwordValidator', () => {
     });
 
     it('counts non-Latin characters towards the minimum length', () => {
-      expect(failures('გამარჯობა')).toEqual(['hasLength']);
+      // Seven Georgian letters, one below the floor.
+      expect([...'გამარჯო'].length).toBe(7);
+      expect(failures('გამარჯო')).toEqual(['hasLength']);
     });
 
     it('accepts a password made only of symbols', () => {
