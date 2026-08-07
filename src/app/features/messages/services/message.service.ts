@@ -13,9 +13,9 @@ import { HttpClient, httpResource } from '@angular/common/http';
 import { Observable, tap } from 'rxjs';
 import {
   AttachmentI,
+  deletedMessageFields,
   MessageI,
   MessageStatus,
-  MessageType,
 } from '../interfaces/message.interface';
 import { MessageListI } from '../interfaces/message-list.interface';
 import { ConversationService } from './conversation.service';
@@ -479,22 +479,16 @@ export class MessageService {
    * matching the server's soft delete, and removing it would leave a gap where
    * another user's read receipt still points.
    *
-   * Strips exactly what `deleteMessage` strips on the server, `type` and
-   * `edited_at` included — the two have to agree, or the tombstone changes
-   * shape when the page is reloaded and the stored row replaces this one.
+   * Strips exactly what `deleteMessage` strips on the server — see
+   * `deletedMessageFields`, which the conversation list applies too. The two
+   * have to agree, or the tombstone changes shape when the page is reloaded and
+   * the stored row replaces this one.
    */
   applyDeleted(messageId: string, deletedAt: string): void {
     const strip = (list: MessageI[]): MessageI[] =>
       list.map((message) =>
         message._id === messageId
-          ? {
-              ...message,
-              content: null,
-              attachments: [],
-              edited_at: undefined,
-              type: MessageType.TEXT,
-              deleted_at: deletedAt,
-            }
+          ? { ...message, ...deletedMessageFields(deletedAt) }
           : message,
       );
 

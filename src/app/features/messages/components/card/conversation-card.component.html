@@ -90,7 +90,7 @@
           thread says rather than fall through to an empty span.
         -->
         @if (conversation.last_message?.deleted_at) {
-          <span class="truncate italic text-muted-foreground">
+          <span class="pr-1 truncate italic text-muted-foreground">
             This message was deleted
           </span>
         } @else if (conversation.last_message?.content) {

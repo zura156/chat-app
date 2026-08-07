@@ -1,5 +1,9 @@
 import { Types } from 'mongoose';
-import { Conversation, IConversation } from '../models/conversation.model';
+import {
+  Conversation,
+  IConversation,
+  LAST_MESSAGE_POPULATE,
+} from '../models/conversation.model';
 import { MutedConversation } from '../models/muted-conversation.model';
 import { IUser, User } from '../../user/models/user.model';
 import {
@@ -53,21 +57,6 @@ const SEARCH_RESULT_LIMIT = 50;
 const isOwnMediaUrl = (value: unknown): value is string =>
   typeof value === 'string' &&
   (value.startsWith(`${appConfig.s3Url}/`) || value.startsWith('/'));
-
-/**
- * How `last_message` is loaded for a conversation card, in one place.
- *
- * Every copy of this selected a `file` field that stopped existing when
- * attachments became an array — so a conversation whose newest message was an
- * image or a document rendered with a blank preview in the list. One of the
- * five copies had already been corrected, which is exactly how the other four
- * went unnoticed.
- */
-const LAST_MESSAGE_POPULATE = {
-  path: 'last_message',
-  select: 'content sender timestamp type attachments deleted_at',
-  populate: { path: 'sender', select: 'username pfp_url pfp_variants' },
-} as const;
 
 /**
  * Who may reshape a group.
@@ -379,11 +368,7 @@ export class ConversationService {
         select:
           'first_name last_name username pfp_url pfp_variants status last_seen',
       },
-      {
-        path: 'last_message',
-        select: 'content sender timestamp type attachments',
-        populate: { path: 'sender', select: 'username pfp_url pfp_variants' },
-      },
+      LAST_MESSAGE_POPULATE,
     ]);
 
     const message: ConversationUpdateMessage = {

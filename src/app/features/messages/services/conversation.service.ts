@@ -12,7 +12,10 @@ import { MemberChangesI } from '../interfaces/member-changes.interface';
 import { ConversationIdResponseI } from '../interfaces/conversation-id-response.interface';
 import { toast } from '@spartan-ng/brain/sonner';
 import { UpdateConversationI } from '../interfaces/update-conversation.interface';
-import { MessageI, MessageType } from '../interfaces/message.interface';
+import {
+  deletedMessageFields,
+  MessageI,
+} from '../interfaces/message.interface';
 import { UserStateService } from '../../user/services/user-state.service';
 import { AuthService } from '../../auth/services/auth.service';
 
@@ -359,6 +362,31 @@ export class ConversationService {
    * alone.
    */
   applyDeletedToLastMessage(messageId: string, deletedAt: string): void {
+    this.#patchLastMessage(messageId, deletedMessageFields(deletedAt));
+  }
+
+  /**
+   * Keeps an edited last message's text current in the list.
+   *
+   * The counterpart to the delete above, and missing for the same reason: the
+   * chatbox owns the open thread and the list owns the sidebar, so an edit that
+   * only reached the chatbox left the row showing the text the sender had just
+   * replaced.
+   */
+  applyEditedToLastMessage(edited: MessageI): void {
+    if (!edited._id) return;
+    this.#patchLastMessage(edited._id, edited);
+  }
+
+  /**
+   * Applies a patch to whichever conversation's `last_message` is this message,
+   * and leaves the rest alone.
+   *
+   * Matching on the message id rather than the conversation id is both narrower
+   * and sufficient: an edit or delete further back in a thread does not touch
+   * the card, which is showing a different message.
+   */
+  #patchLastMessage(messageId: string, patch: Partial<MessageI>): void {
     this.#conversationList.update((val) => {
       if (!val) return null;
 
@@ -366,17 +394,7 @@ export class ConversationService {
         ...val,
         conversations: val.conversations.map((c) =>
           c.last_message?._id === messageId
-            ? {
-                ...c,
-                last_message: {
-                  ...c.last_message,
-                  content: null,
-                  attachments: [],
-                  edited_at: undefined,
-                  type: MessageType.TEXT,
-                  deleted_at: deletedAt,
-                },
-              }
+            ? { ...c, last_message: { ...c.last_message, ...patch } }
             : c,
         ),
       };

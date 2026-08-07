@@ -1,6 +1,9 @@
 import type { Types } from 'mongoose';
 import { User } from '../../user/models/user.model';
-import { Conversation } from '../../messenger/models/conversation.model';
+import {
+  Conversation,
+  LAST_MESSAGE_POPULATE,
+} from '../../messenger/models/conversation.model';
 import { Message } from '../../messenger/models/message.model';
 import { MessageTypeEnum } from '../../messenger/interfaces/message.interface';
 import { JobPayload, ProcessResult } from './types';
@@ -109,11 +112,7 @@ export const onGroupAvatarComplete = async (
       'participants',
       'first_name last_name username pfp_url pfp_variants status last_seen',
     )
-    .populate({
-      path: 'last_message',
-      select: 'content sender timestamp type attachments',
-      populate: { path: 'sender', select: 'username pfp_url pfp_variants' },
-    });
+    .populate(LAST_MESSAGE_POPULATE);
 
   if (!conversation) return;
 

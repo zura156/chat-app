@@ -95,6 +95,33 @@ export const Conversation = model<IConversation>(
 );
 
 /**
+ * How `last_message` is loaded, for everyone who loads it.
+ *
+ * It lives beside the schema because both the services and the worker's job
+ * handlers need it, and the handlers deliberately reach for models rather than
+ * services — importing one for a constant would drag the websocket and
+ * notification layers into the worker process.
+ *
+ * The field list is not free-form. Every hand-written copy of this has gone
+ * stale in the same way: they each selected a `file` field that stopped
+ * existing when attachments became an array, so a conversation whose newest
+ * message was an image or a document rendered with a blank preview. That was
+ * fixed by centralising the read paths here — and the two copies that were
+ * *not* centralised then missed `deleted_at`, so a rename or a group-picture
+ * change would broadcast a conversation whose deleted last message had lost
+ * the only field that marks it deleted. Since `conversation-update` replaces
+ * the client's whole object, the sidebar's "This message was deleted" silently
+ * blanked until the next fetch.
+ *
+ * Use this. Do not inline another copy.
+ */
+export const LAST_MESSAGE_POPULATE = {
+  path: 'last_message',
+  select: 'content sender timestamp type attachments deleted_at',
+  populate: { path: 'sender', select: 'username pfp_url pfp_variants' },
+} as const;
+
+/**
  * Records one user's read position, creating the entry or advancing it, in a
  * single round trip and without a race.
  *

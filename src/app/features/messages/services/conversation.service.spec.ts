@@ -10,6 +10,11 @@ import { ConversationService } from './conversation.service';
 import { UserStateService } from '../../user/services/user-state.service';
 import { AuthService } from '../../auth/services/auth.service';
 import { ConversationI } from '../interfaces/conversation.interface';
+import {
+  MessageI,
+  MessageStatus,
+  MessageType,
+} from '../interfaces/message.interface';
 import { environment } from '../../../../environments/environment';
 
 /*
@@ -205,6 +210,90 @@ describe('ConversationService — the conversation list', () => {
       service.updateConversationState(conversation('b'));
 
       expect(state().conversations.map((c) => c._id)).toEqual(['b', 'a']);
+    });
+  });
+
+  describe('the last message on a card', () => {
+    /*
+     * The sidebar keeps its own copy of `last_message`, so an edit or a delete
+     * that only reached the open thread left the card showing text the sender
+     * had already taken back — visible for as long as the session lasted,
+     * because nothing else rewrites that copy until the conversation next moves.
+     */
+    const withLastMessage = (id: string, message: Partial<MessageI>) =>
+      conversation(id, {
+        last_message: {
+          _id: `msg-${id}`,
+          sender: {},
+          conversation: id,
+          type: MessageType.IMAGE,
+          status: MessageStatus.SENT,
+          timestamp: new Date().toISOString(),
+          ...message,
+        } as MessageI,
+      });
+
+    const loadWith = (conversations: ConversationI[]) => {
+      service.getConversations().subscribe();
+      http
+        .expectOne(listUrl)
+        .flush({ conversations, totalCount: conversations.length });
+    };
+
+    it('empties a deleted last message instead of leaving it whole', () => {
+      loadWith([
+        withLastMessage('a', {
+          content: 'the secret',
+          attachments: [{ uploadId: 'u1' } as any],
+          edited_at: new Date().toISOString(),
+        }),
+      ]);
+
+      service.applyDeletedToLastMessage('msg-a', '2026-01-01T00:00:00.000Z');
+
+      const last = state().conversations[0].last_message!;
+      expect(last.content).toBeNull();
+      expect(last.attachments).toEqual([]);
+      expect(last.deleted_at).toBe('2026-01-01T00:00:00.000Z');
+      // The two the card reads to caption a contentless message. Left alone,
+      // the row goes on advertising "📷 Photo" for a message that is gone.
+      expect(last.type).toBe(MessageType.TEXT);
+      expect(last.edited_at).toBeUndefined();
+    });
+
+    it('leaves other conversations alone', () => {
+      loadWith([
+        withLastMessage('a', { content: 'mine' }),
+        withLastMessage('b', { content: 'theirs' }),
+      ]);
+
+      service.applyDeletedToLastMessage('msg-a', '2026-01-01T00:00:00.000Z');
+
+      expect(state().conversations[1].last_message!.content).toBe('theirs');
+    });
+
+    it('ignores a delete further back in the thread', () => {
+      // Only the newest message is on the card; deleting an older one must not
+      // blank it.
+      loadWith([withLastMessage('a', { content: 'still the newest' })]);
+
+      service.applyDeletedToLastMessage('some-older-message', 'whenever');
+
+      expect(state().conversations[0].last_message!.content).toBe(
+        'still the newest',
+      );
+    });
+
+    it('updates the text of an edited last message', () => {
+      loadWith([withLastMessage('a', { content: 'before' })]);
+
+      service.applyEditedToLastMessage({
+        _id: 'msg-a',
+        content: 'after',
+        edited_at: '2026-01-01T00:00:00.000Z',
+      } as MessageI);
+
+      expect(state().conversations[0].last_message!.content).toBe('after');
     });
   });
 

@@ -1,7 +1,11 @@
 import { Types } from 'mongoose';
 import { afterEach, beforeEach, expect, it } from 'vitest';
 import { describeIntegration, resetDatabase } from '../../test/env';
-import { Conversation, IConversation } from '../models/conversation.model';
+import {
+  Conversation,
+  IConversation,
+  LAST_MESSAGE_POPULATE,
+} from '../models/conversation.model';
 import { Message } from '../models/message.model';
 import { MessageTypeEnum } from '../interfaces/message.interface';
 import { User } from '../../user/models/user.model';
@@ -252,6 +256,86 @@ describeIntegration('ConversationService — membership', () => {
 
     const join = broadcasts.find((b) => b.message?.type === 'conversation-join');
     expect(join).toBeDefined();
+  });
+
+  it('carries the deleted marker through the shared populate', async () => {
+    /*
+     * Pins the select string itself, which is what actually went wrong: three
+     * places loaded `last_message` and only one of them asked for `deleted_at`.
+     * Worth its own test because losing that field does not blank the preview
+     * in any obvious way — it silently un-deletes the message, which reads as
+     * ordinary data rather than as a fault.
+     *
+     * Asserting on the constant covers every consumer at once, including the
+     * worker's group-picture handler, which is otherwise only reachable through
+     * a swallowed-error path.
+     */
+    const id = await createGroup();
+
+    const message = await Message.create({
+      sender: admin._id,
+      conversation: id,
+      type: MessageTypeEnum.TEXT,
+      deleted_at: new Date(),
+    });
+    await Conversation.findByIdAndUpdate(id, { last_message: message._id });
+
+    const populated = await Conversation.findById(id)
+      .populate(LAST_MESSAGE_POPULATE)
+      .lean();
+
+    expect((populated!.last_message as any).deleted_at).toBeInstanceOf(Date);
+  });
+
+  it('keeps the deleted marker on the last message it broadcasts', async () => {
+    /*
+     * A `conversation-update` replaces the client's whole conversation object,
+     * so any field missing from its populate is one the receiving client
+     * *loses*. This populate was written by hand and omitted `deleted_at`,
+     * while the shared one used by the REST reads selected it — so renaming a
+     * group whose newest message had been deleted pushed out a copy of that
+     * message with nothing marking it deleted, and the sidebar's "This message
+     * was deleted" blanked until the next fetch.
+     *
+     * It reaches the deleted message at all because `createTextMessage` moves
+     * `last_message` on with a separate write: the in-memory document being
+     * populated here still points at the previous one.
+     */
+    const id = await createGroup();
+
+    const message = await Message.create({
+      sender: admin._id,
+      conversation: id,
+      content: 'to be deleted',
+      type: MessageTypeEnum.TEXT,
+    });
+    await Conversation.findByIdAndUpdate(id, { last_message: message._id });
+
+    const messageService = new MessageService(async () => {});
+    await messageService.deleteMessage(
+      admin._id.toString(),
+      id.toString(),
+      String(message._id),
+    );
+
+    broadcasts = [];
+    await service.updateConversation(
+      await loadGroup(id),
+      { _id: admin._id, username: admin.username } as any,
+      'Renamed group',
+    );
+
+    const update = broadcasts.find(
+      (b) => b.message?.type === 'conversation-update',
+    );
+    expect(update).toBeDefined();
+
+    const lastMessage = update!.message.conversation.last_message;
+    // Asserted first because it is what makes the next line meaningful: the
+    // event has to actually be carrying the deleted message for its marker to
+    // be worth checking.
+    expect(String(lastMessage?._id)).toBe(String(message._id));
+    expect(lastMessage.deleted_at).toBeInstanceOf(Date);
   });
 
   it('only lets the creator delete a group', async () => {

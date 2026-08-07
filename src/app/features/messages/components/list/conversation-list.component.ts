@@ -277,6 +277,9 @@ export class ConversationListComponent {
                 res.message.deleted_at,
               );
               break;
+            case 'message-edited':
+              this.conversationService.applyEditedToLastMessage(res.message);
+              break;
             case 'conversation-update':
               this.conversationService.updateConversationState(
                 res.conversation,

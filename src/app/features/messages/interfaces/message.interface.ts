@@ -59,6 +59,27 @@ export interface MessageI {
   deleted_at?: string;
 }
 
+/**
+ * What a deleted message is reduced to on the client, defined once.
+ *
+ * Mirrors the server's `deleteMessage`: everything describing what the message
+ * *was* goes, and only what the thread is built on stays. Two lists apply it —
+ * the open thread's and the conversation list's — and a third copy of the same
+ * shape is how they would come to disagree, leaving the same message rendered
+ * as deleted in one place and not the other.
+ *
+ * `type` is normalised rather than dropped because every `switch` over it, here
+ * and on the server, is written against the enum; a tombstone is a line of
+ * text, so TEXT is both true and already handled everywhere.
+ */
+export const deletedMessageFields = (deletedAt: string): Partial<MessageI> => ({
+  content: null,
+  attachments: [],
+  edited_at: undefined,
+  type: MessageType.TEXT,
+  deleted_at: deletedAt,
+});
+
 export interface GroupedMessages {
   timeframe: string;
   messages: MessageI[];
