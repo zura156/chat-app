@@ -11,6 +11,7 @@ import { AuthService } from '../../services/auth.service';
 import { HlmButton } from '@spartan-ng/helm/button';
 import { HlmAlertImports } from '@spartan-ng/helm/alert';
 import { HlmIconImports } from '@spartan-ng/helm/icon';
+import { apiErrorMessage } from '../../../../shared/functions/api-error';
 
 @Component({
   selector: 'app-verify-email',
@@ -54,9 +55,7 @@ export class VerifyEmailComponent implements OnInit {
       },
       error: (err) => {
         this.error.set(
-          typeof err === 'string'
-            ? err
-            : (err?.error?.message ?? 'This link is invalid or has expired.'),
+          apiErrorMessage(err, 'This link is invalid or has expired.'),
         );
         this.isLoading.set(false);
       },

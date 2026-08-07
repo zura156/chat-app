@@ -20,6 +20,8 @@ import {
 } from '../../../services/security-settings.service';
 import { AuthService } from '../../../../auth/services/auth.service';
 import { encodeQr } from '../../../../../shared/utils/qr-code';
+import { describePasswordProblems } from '../../../../auth/validators/password.validator';
+import { apiErrorMessage } from '../../../../../shared/functions/api-error';
 
 /**
  * This screen used to render a hardcoded login history — plausible cities,
@@ -110,33 +112,50 @@ export class SecuritySettings implements OnInit {
   readonly confirmPassword = signal('');
 
   /**
-   * Why the form cannot be submitted yet, or null when it can.
+   * Every reason the new password cannot be submitted yet, or an empty list.
    *
-   * The rule mirrors the server's `passwordRule`. Duplicating a constraint is
-   * usually a smell, but the alternative here is making the user submit — and
-   * re-enter their current password — to be told the new one is too short.
-   * The server remains the authority; this only saves a round trip.
+   * The rules come from `describePasswordProblems`, which is the same module the
+   * sign-up form validates against and a mirror of the server's
+   * `password-policy`. This panel used to carry a private copy of the
+   * *composition* checklist — lowercase, uppercase, digit, one of `@$!%*?&` —
+   * which the rest of the codebase abandoned as counterproductive and which the
+   * server does not enforce. See the note on `describePasswordProblems` for
+   * what that cost in both directions.
+   *
+   * All of them, not the first: the old version returned a single string, so a
+   * password with three faults was fixed one round of retyping at a time, each
+   * revealing the next rule.
    */
-  readonly passwordProblem = computed<string | null>(() => {
+  readonly passwordProblems = computed<string[]>(() => {
     const current = this.currentPassword();
     const next = this.newPassword();
     const confirmation = this.confirmPassword();
 
-    if (!current) return null;
-    if (!next) return null;
+    // Silent while the fields are still being filled in — a policy recited at
+    // someone who has typed two characters is noise, not guidance.
+    if (!current || !next) return [];
 
-    if (next.length < 8) return 'Use at least 8 characters.';
-    if (next.length > 128) return 'Use at most 128 characters.';
-    if (!/[a-z]/.test(next)) return 'Include a lowercase letter.';
-    if (!/[A-Z]/.test(next)) return 'Include an uppercase letter.';
-    if (!/\d/.test(next)) return 'Include a number.';
-    if (!/[@$!%*?&]/.test(next)) return 'Include a symbol (@ $ ! % * ? &).';
-    if (next === current) return 'Choose a password you have not used here.';
-    if (confirmation && next !== confirmation) return 'The two do not match.';
-    if (!confirmation) return null;
+    const user = this.currentUser();
+    const problems = describePasswordProblems(next, {
+      username: user?.username,
+      email: user?.email,
+    });
 
-    return null;
+    if (next === current) {
+      problems.push('Choose a password you have not used here before.');
+    }
+
+    if (confirmation && next !== confirmation) {
+      problems.push('The two new passwords do not match.');
+    }
+
+    return problems;
   });
+
+  /** The first reason, for the single line the panel has room for. */
+  readonly passwordProblem = computed<string | null>(
+    () => this.passwordProblems()[0] ?? null,
+  );
 
   beginPasswordChange(): void {
     this.changingPassword.set(true);
@@ -153,18 +172,34 @@ export class SecuritySettings implements OnInit {
     const next = this.newPassword();
     const confirmation = this.confirmPassword();
 
-    // `passwordProblem` returns null while fields are still empty so the form
-    // does not shout at someone who has only started typing; submission is
-    // where completeness actually has to be checked.
+    // `passwordProblems` is empty while fields are still empty so the form does
+    // not shout at someone who has only started typing; submission is where
+    // completeness actually has to be checked.
     if (!current || !next || !confirmation) {
-      toast.error('Fill in all three fields.');
+      toast.error(
+        !current
+          ? 'Enter your current password.'
+          : !next
+            ? 'Enter the new password you want.'
+            : 'Re-enter the new password to confirm it.',
+      );
       return;
     }
-    if (next !== confirmation) {
-      toast.error('The two new passwords do not match.');
+
+    /*
+     * This was a bare `return`. The button is disabled while a problem stands,
+     * so the path was only reachable by pressing Enter in a field — and it
+     * ended the submit with no request, no toast and no change to the screen.
+     * The reason was rendered above the button, but a user who had scrolled
+     * past it saw a form that simply did not respond.
+     */
+    const problems = this.passwordProblems();
+    if (problems.length > 0) {
+      toast.error('That password cannot be used', {
+        description: problems.join(' '),
+      });
       return;
     }
-    if (this.passwordProblem()) return;
 
     this.busy.set(true);
     this.security.changePassword(current, next).subscribe({
@@ -184,7 +219,7 @@ export class SecuritySettings implements OnInit {
       },
       error: (err) => {
         this.busy.set(false);
-        toast.error(err?.error?.message ?? 'Could not change your password');
+        toast.error(apiErrorMessage(err, 'Could not change your password'));
       },
     });
   }
@@ -234,9 +269,9 @@ export class SecuritySettings implements OnInit {
         // Revoking your own session ends this one too.
         if (session.current) this.authService.handleAuthFailure();
       },
-      error: () => {
+      error: (err) => {
         this.markRevoking(session.id, false);
-        toast.error('Could not sign that session out');
+        toast.error(apiErrorMessage(err, 'Could not sign that session out'));
       },
     });
   }
@@ -248,9 +283,9 @@ export class SecuritySettings implements OnInit {
         this.busy.set(false);
         this.authService.handleAuthFailure();
       },
-      error: () => {
+      error: (err) => {
         this.busy.set(false);
-        toast.error('Could not sign out everywhere');
+        toast.error(apiErrorMessage(err, 'Could not sign out everywhere'));
       },
     });
   }
@@ -290,7 +325,7 @@ export class SecuritySettings implements OnInit {
         },
         error: (err) => {
           this.busy.set(false);
-          toast.error(err?.error?.message ?? 'Could not send a code');
+          toast.error(apiErrorMessage(err, 'Could not send a code'));
         },
       });
       return;
@@ -307,7 +342,7 @@ export class SecuritySettings implements OnInit {
       },
       error: (err) => {
         this.busy.set(false);
-        toast.error(err?.error?.message ?? 'Could not start two-factor setup');
+        toast.error(apiErrorMessage(err, 'Could not start two-factor setup'));
       },
     });
   }
@@ -347,7 +382,7 @@ export class SecuritySettings implements OnInit {
       },
       error: (err) => {
         this.busy.set(false);
-        toast.error(err?.error?.message ?? 'That code is not correct');
+        toast.error(apiErrorMessage(err, 'That code is not correct'));
       },
     });
   }
@@ -370,7 +405,7 @@ export class SecuritySettings implements OnInit {
       },
       error: (err) => {
         this.busy.set(false);
-        toast.error(err?.error?.message ?? 'Could not send another code');
+        toast.error(apiErrorMessage(err, 'Could not send another code'));
       },
     });
   }
@@ -413,7 +448,7 @@ export class SecuritySettings implements OnInit {
       },
       error: (err) => {
         this.busy.set(false);
-        toast.error(err?.error?.message ?? 'Could not send a code');
+        toast.error(apiErrorMessage(err, 'Could not send a code'));
       },
     });
   }
@@ -465,7 +500,7 @@ export class SecuritySettings implements OnInit {
         },
         error: (err) => {
           this.busy.set(false);
-          toast.error(err?.error?.message ?? 'That code is not correct');
+          toast.error(apiErrorMessage(err, 'That code is not correct'));
         },
       });
   }

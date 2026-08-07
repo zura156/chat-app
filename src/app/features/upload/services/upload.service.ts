@@ -21,6 +21,7 @@ import {
   UploadContext,
   UploadState,
 } from '../interfaces/upload.interface';
+import { apiErrorMessage } from '../../../shared/functions/api-error';
 
 @Injectable({ providedIn: 'root' })
 export class UploadService {
@@ -109,7 +110,16 @@ export class UploadService {
             uploadId: currentUploadId,
             progress: 0,
             status: 'error',
-            error: err?.message ?? 'Upload failed',
+            /*
+             * `err.message` on an HttpErrorResponse is Angular's own
+             * boilerplate — "Http failure response for
+             * http://…/upload/presign: 400 Bad Request" — and that is the
+             * string that reached the user, in place of the server's reason.
+             * The two most common failures here are the two most fixable ones
+             * ("over the 20MB limit", "that file type is not accepted"), and
+             * neither was ever readable.
+             */
+            error: apiErrorMessage(err, 'Upload failed'),
           });
         }
         return throwError(() => err);

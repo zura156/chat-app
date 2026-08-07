@@ -15,6 +15,7 @@ import {
 } from '../../../features/upload/interfaces/upload.interface';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { UploadService } from '../../../features/upload/services/upload.service';
+import { apiErrorMessage } from '../../../shared/functions/api-error';
 
 // ─── Config ───────────────────────────────────────────────────────────────────
 
@@ -192,23 +193,36 @@ export class FilePicker implements OnDestroy {
           });
         },
         error: (err) => {
-          this.fileError.emit({
-            tempId,
-            error: err.message ?? 'Upload failed',
-          });
+          // Was `err.message`, i.e. Angular's transport boilerplate rather than
+          // the server's reason — see the note in UploadService.uploadFile.
+          const message = apiErrorMessage(
+            err,
+            `"${file.name}" could not be uploaded.`,
+          );
+
+          this.fileError.emit({ tempId, error: message });
           this.uploadState.set({
             uploadId: '',
             progress: 0,
             status: 'error',
-            error: err.message,
+            error: message,
           });
         },
       });
   }
 }
 
-/** Mirrors CONTEXT_CONFIG.maxBytes on the server (config/upload.config.ts). */
-const MAX_SIZE_MB: Partial<Record<UploadContext, number>> = {
+/**
+ * Mirrors CONTEXT_CONFIG.maxBytes on the server (config/upload.config.ts).
+ *
+ * Exported because it was not the only client-side copy of these numbers, and
+ * the copies disagreed. An avatar was capped at 5MB by the profile screen's own
+ * check, described as 10MB by the config it passed to this picker, allowed up
+ * to 20MB here, and accepted up to 20MB by the server — so a 7MB photo was
+ * refused with "File size exceeds the 5MB limit" by an app that would have
+ * taken it, and the number in the message was one no other layer agreed with.
+ */
+export const MAX_SIZE_MB: Partial<Record<UploadContext, number>> = {
   avatar: 20,
   'group-avatar': 20,
   'cover-photo': 20,

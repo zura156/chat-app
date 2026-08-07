@@ -24,7 +24,12 @@ export const authenticateToken = async (
   const token = req.cookies.accessToken;
 
   if (!token) {
-    res.status(401).json({ error: 'Access token required' });
+    res
+      .status(401)
+      .json({
+        message: 'Access token required',
+        error: 'Access token required',
+      });
     return;
   }
 
@@ -35,7 +40,9 @@ export const authenticateToken = async (
     const blacklisted = await isAccessTokenBlacklisted(token);
 
     if (blacklisted) {
-      res.status(401).json({ error: 'Token revoked' });
+      res
+        .status(401)
+        .json({ message: 'Token revoked', error: 'Token revoked' });
       return;
     }
 
@@ -43,7 +50,9 @@ export const authenticateToken = async (
     // everywhere" has to refuse the ones sitting in other browsers, which it
     // has never seen — so those are refused by age instead.
     if (await isSessionRevoked(decoded)) {
-      res.status(401).json({ error: 'Session revoked' });
+      res
+        .status(401)
+        .json({ message: 'Session revoked', error: 'Session revoked' });
       return;
     }
 
@@ -54,7 +63,9 @@ export const authenticateToken = async (
     );
 
     if (!user) {
-      res.status(401).json({ error: 'User not found' });
+      res
+        .status(401)
+        .json({ message: 'User not found', error: 'User not found' });
       return;
     }
 
@@ -63,10 +74,12 @@ export const authenticateToken = async (
     next();
   } catch (error) {
     if (error instanceof jwt.TokenExpiredError) {
-      res.status(401).json({ error: 'Token expired' });
+      res
+        .status(401)
+        .json({ message: 'Token expired', error: 'Token expired' });
       return;
     }
-    res.status(403).json({ error: 'Invalid token' });
+    res.status(403).json({ message: 'Invalid token', error: 'Invalid token' });
     return;
   }
 };
@@ -94,12 +107,18 @@ export const requireVerifiedEmail = (
   }
 
   if (!req.user) {
-    res.status(401).json({ error: 'Access token required' });
+    res
+      .status(401)
+      .json({
+        message: 'Access token required',
+        error: 'Access token required',
+      });
     return;
   }
 
   if (!req.user.is_email_verified) {
     res.status(403).json({
+      message: 'Verify your email address to continue',
       error: 'Verify your email address to continue',
       code: 'EMAIL_NOT_VERIFIED',
     });

@@ -15,14 +15,24 @@ export async function validateConversation(
 
     // Without this an invalid id throws a CastError and surfaces as a 500
     if (!ObjectId.isValid(conversationId)) {
-      res.status(400).json({ error: 'Invalid conversation id' });
+      res
+        .status(400)
+        .json({
+          message: 'Invalid conversation id',
+          error: 'Invalid conversation id',
+        });
       return;
     }
 
     const conversation = await Conversation.findById(conversationId);
 
     if (!conversation) {
-      res.status(404).json({ error: 'Conversation not found' });
+      res
+        .status(404)
+        .json({
+          message: 'Conversation not found',
+          error: 'Conversation not found',
+        });
       return;
     }
 
@@ -30,7 +40,12 @@ export async function validateConversation(
       (participantId) => String(participantId) === userId,
     );
     if (!hasAccess) {
-      res.status(403).json({ error: 'Access denied to this conversation' });
+      res
+        .status(403)
+        .json({
+          message: 'Access denied to this conversation',
+          error: 'Access denied to this conversation',
+        });
       return;
     }
 

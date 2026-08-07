@@ -9,6 +9,7 @@ import {
 import { HlmButton } from '@spartan-ng/helm/button';
 import { HlmIcon } from '@spartan-ng/helm/icon';
 import { AuthService } from '../../services/auth.service';
+import { apiErrorMessage } from '../../../../shared/functions/api-error';
 
 /**
  * Lands from the confirmation link sent to a *new* address.
@@ -37,7 +38,12 @@ import { AuthService } from '../../services/auth.service';
         />
         <p class="text-sm text-muted-foreground">Confirming your address…</p>
       } @else if (confirmed()) {
-        <ng-icon hlm name="lucideCircleCheck" size="xl" class="text-green-600" />
+        <ng-icon
+          hlm
+          name="lucideCircleCheck"
+          size="xl"
+          class="text-green-600"
+        />
         <div class="space-y-1">
           <h1 class="text-base font-medium">Email address updated</h1>
           <p class="max-w-sm text-sm text-muted-foreground">
@@ -101,9 +107,7 @@ export class ConfirmEmailChangeComponent implements OnInit {
       error: (err) => {
         this.loading.set(false);
         this.error.set(
-          typeof err === 'string'
-            ? err
-            : (err?.error?.message ?? 'This link is invalid or has expired.'),
+          apiErrorMessage(err, 'This link is invalid or has expired.'),
         );
       },
     });

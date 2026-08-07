@@ -4,6 +4,7 @@ import {
   PASSWORD_MAX_LENGTH,
   PASSWORD_MIN_LENGTH,
   PasswordIdentityContext,
+  describePasswordProblems,
   passwordValidator,
 } from './password.validator';
 
@@ -244,16 +245,18 @@ describe('passwordValidator', () => {
 
   describe('identity', () => {
     it('rejects a password built from the username', () => {
-      expect(failures('zura156-quiet-river-flows', { username: 'zura156' })).toEqual(
-        ['avoidsIdentity'],
-      );
+      expect(
+        failures('zura156-quiet-river-flows', { username: 'zura156' }),
+      ).toEqual(['avoidsIdentity']);
     });
 
     it('rejects a password built from the email local part', () => {
       // The domain is not a term — everyone at a company shares it, so it
       // would refuse half of a workplace's legitimate passphrases.
       expect(
-        failures('gagnidze-quiet-river-flow', { email: 'gagnidze@example.com' }),
+        failures('gagnidze-quiet-river-flow', {
+          email: 'gagnidze@example.com',
+        }),
       ).toEqual(['avoidsIdentity']);
       expect(
         validate('example.com-quiet-river-flows', {
@@ -268,15 +271,17 @@ describe('passwordValidator', () => {
 
     it('sees through leet substitution in the identity term too', () => {
       expect(failures('ch4t4pp-quiet-river-flows')).toEqual(['avoidsIdentity']);
-      expect(failures('zur4156-quiet-river-flows', { username: 'zura156' })).toEqual(
-        ['avoidsIdentity'],
-      );
+      expect(
+        failures('zur4156-quiet-river-flows', { username: 'zura156' }),
+      ).toEqual(['avoidsIdentity']);
     });
 
     it('ignores an identity term shorter than four characters', () => {
       // A two- or three-letter username appears inside ordinary words; taking
       // it seriously would refuse most passphrases the user could think of.
-      expect(validate('abc-quiet-river-flows-past', { username: 'abc' })).toBeNull();
+      expect(
+        validate('abc-quiet-river-flows-past', { username: 'abc' }),
+      ).toBeNull();
     });
 
     it('accepts the same password when there is no context', () => {
@@ -304,7 +309,9 @@ describe('passwordValidator', () => {
 
     it('defaults to no context when called with no argument', () => {
       // Used by the reset-password form, which has no username field on screen.
-      expect(passwordValidator()(new FormControl('blue-coffee-lamp'))).toBeNull();
+      expect(
+        passwordValidator()(new FormControl('blue-coffee-lamp')),
+      ).toBeNull();
     });
   });
 
@@ -410,5 +417,83 @@ describe('passwordValidator', () => {
       // Stripping separators leaves nothing, and "nothing" is not "no entropy".
       expect(validate('!@#$%^&*()_+-=[]{}')).toBeNull();
     });
+  });
+});
+
+/*
+ * The same policy, for the screens that are not reactive forms.
+ *
+ * The change-password panel on the security screen holds its fields in signals
+ * and had grown a private policy — the lowercase/uppercase/digit/symbol
+ * checklist this codebase abandoned and the server does not enforce. It
+ * disagreed with the real rules in both directions and both were dead ends: a
+ * passphrase the API accepts was refused with a rule that does not exist and
+ * the submit button disabled, while `Passw0rd!` satisfied every clause and was
+ * waved through to a server that refuses it.
+ */
+describe('describePasswordProblems', () => {
+  it('accepts an ordinary passphrase with no uppercase, digit or symbol', () => {
+    expect(describePasswordProblems('quiet river stone bridge')).toEqual([]);
+  });
+
+  it('does not ask for an uppercase letter', () => {
+    const problems = describePasswordProblems('quiet river stone bridge');
+
+    expect(problems.join(' ')).not.toMatch(/uppercase/i);
+  });
+
+  it('does not ask for a digit or a symbol', () => {
+    const problems = describePasswordProblems('quiet river stone bridge');
+
+    expect(problems.join(' ')).not.toMatch(/number|digit|symbol/i);
+  });
+
+  it('rejects the password the composition checklist would have accepted', () => {
+    // Every clause of the old rule is satisfied; it is still a well-known
+    // password, and the server refuses it.
+    const problems = describePasswordProblems('Passw0rd!');
+
+    expect(problems.length).toBeGreaterThan(0);
+    expect(problems.join(' ')).toMatch(/well-known/i);
+  });
+
+  it('states the length rule with the documented minimum', () => {
+    const problems = describePasswordProblems('short');
+
+    expect(problems).toHaveLength(1);
+    expect(problems[0]).toContain(String(PASSWORD_MIN_LENGTH));
+  });
+
+  it('reports every reason at once, not one per attempt', () => {
+    // Long enough to get past the length gate, and both predictable and
+    // identity-derived.
+    const problems = describePasswordProblems('adalovelace', {
+      username: 'adalovelace',
+    });
+
+    expect(problems.length).toBeGreaterThan(0);
+    expect(problems.join(' ')).toMatch(/username/i);
+  });
+
+  it('refuses a password built from the username', () => {
+    const problems = describePasswordProblems('northwind sailing', {
+      username: 'northwind',
+    });
+
+    expect(problems.join(' ')).toMatch(/username/i);
+  });
+
+  it('refuses a keyboard walk', () => {
+    expect(describePasswordProblems('qwertyuiop').join(' ')).toMatch(
+      /predictable/i,
+    );
+  });
+
+  it('says nothing about predictability while the password is too short', () => {
+    // Mirrors the server: "too predictable" on top of "too short" is two
+    // complaints about one fault.
+    const problems = describePasswordProblems('abc');
+
+    expect(problems).toHaveLength(1);
   });
 });

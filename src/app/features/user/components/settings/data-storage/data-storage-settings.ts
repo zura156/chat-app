@@ -7,6 +7,7 @@ import { HlmProgressImports } from '@spartan-ng/helm/progress';
 import { HlmSeparatorImports } from '@spartan-ng/helm/separator';
 import { toast } from '@spartan-ng/brain/sonner';
 import { StorageSettingsService } from '../../../services/storage-settings.service';
+import { apiErrorMessage } from '../../../../../shared/functions/api-error';
 
 /**
  * This screen used to show invented storage figures ("Images — 128 MB, 42%"),
@@ -67,9 +68,9 @@ export class DataStorageSettings implements OnInit {
         this.exporting.set(false);
         toast.success('Export downloaded');
       },
-      error: () => {
+      error: (err) => {
         this.exporting.set(false);
-        toast.error('Could not export your data');
+        toast.error(apiErrorMessage(err, 'Could not export your data'));
       },
     });
   }

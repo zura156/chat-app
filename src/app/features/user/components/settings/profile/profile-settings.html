@@ -86,7 +86,20 @@
             [placeholder]="user?.first_name ?? ''"
             class="w-full"
           />
-          <hlm-field-error class="text-xs">3–20 characters</hlm-field-error>
+          @if (form.controls['first_name'].hasError('maxlength')) {
+          <hlm-field-error class="text-xs">
+            At most {{
+            form.controls['first_name'].getError('maxlength').requiredLength }}
+            characters — {{
+            form.controls['first_name'].getError('maxlength').actualLength }}
+            entered
+          </hlm-field-error>
+          } @if (form.controls['first_name'].hasError('server')) {
+          <hlm-field-error class="text-xs"
+            >{{ form.controls['first_name'].getError('server')
+            }}</hlm-field-error
+          >
+          }
         </hlm-field>
 
         <hlm-field>
@@ -99,7 +112,20 @@
             [placeholder]="user?.last_name ?? ''"
             class="w-full"
           />
-          <hlm-field-error class="text-xs">3–20 characters</hlm-field-error>
+          @if (form.controls['last_name'].hasError('maxlength')) {
+          <hlm-field-error class="text-xs">
+            At most {{
+            form.controls['last_name'].getError('maxlength').requiredLength }}
+            characters — {{
+            form.controls['last_name'].getError('maxlength').actualLength }}
+            entered
+          </hlm-field-error>
+          } @if (form.controls['last_name'].hasError('server')) {
+          <hlm-field-error class="text-xs"
+            >{{ form.controls['last_name'].getError('server')
+            }}</hlm-field-error
+          >
+          }
         </hlm-field>
       </div>
 
@@ -120,7 +146,27 @@
             class="w-full pl-7"
           />
         </div>
-        <hlm-field-error class="text-xs">3–20 characters</hlm-field-error>
+        @if (form.controls['username'].hasError('maxlength')) {
+        <hlm-field-error class="text-xs">
+          At most {{
+          form.controls['username'].getError('maxlength').requiredLength }}
+          characters — {{
+          form.controls['username'].getError('maxlength').actualLength }}
+          entered
+        </hlm-field-error>
+        } @if (form.controls['username'].hasError('minlength')) {
+        <hlm-field-error class="text-xs">
+          At least 3 characters
+        </hlm-field-error>
+        } @if (form.controls['username'].hasError('pattern')) {
+        <hlm-field-error class="text-xs">
+          Letters, numbers, dots, underscores and hyphens only — no spaces
+        </hlm-field-error>
+        } @if (form.controls['username'].hasError('server')) {
+        <hlm-field-error class="text-xs"
+          >{{ form.controls['username'].getError('server') }}</hlm-field-error
+        >
+        }
       </hlm-field>
     </section>
 

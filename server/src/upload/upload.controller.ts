@@ -21,6 +21,20 @@ import { Types } from 'mongoose';
 /** Contexts whose objects live in the private bucket and need signed reads. */
 const PRIVATE_CONTEXTS = ['dm-image', 'dm-video', 'dm-file', 'dm-audio'];
 
+/**
+ * Every refusal in this file, in the shape the rest of the API uses.
+ *
+ * These routes answered `{ error }` while all ~90 other responses in the server
+ * answer `{ message }`. The client reads `message`, so a rejected upload — "File
+ * too large", "File type not allowed", the two the user can actually do
+ * something about — arrived with no readable text at all, and the picker fell
+ * back to printing Angular's `Http failure response for …: 400 Bad Request`.
+ *
+ * `error` is kept alongside so nothing that already reads it breaks.
+ */
+const fail = (res: Response, status: number, message: string) =>
+  res.status(status).json({ message, error: message });
+
 /** How long an unconfirmed upload record is kept before the TTL index reaps it. */
 const PENDING_UPLOAD_TTL_MS = 24 * 60 * 60 * 1000;
 
@@ -48,11 +62,13 @@ const EXTENSIONS: Record<string, string> = {
   'audio/wav': 'wav',
   'application/pdf': 'pdf',
   'application/msword': 'doc',
-  'application/vnd.openxmlformats-officedocument.wordprocessingml.document': 'docx',
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document':
+    'docx',
   'application/vnd.ms-excel': 'xls',
   'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': 'xlsx',
   'application/vnd.ms-powerpoint': 'ppt',
-  'application/vnd.openxmlformats-officedocument.presentationml.presentation': 'pptx',
+  'application/vnd.openxmlformats-officedocument.presentationml.presentation':
+    'pptx',
   'text/plain': 'txt',
   'text/csv': 'csv',
   'application/zip': 'zip',
@@ -62,6 +78,24 @@ const EXTENSIONS: Record<string, string> = {
 
 const extensionFor = (mimeType: string): string =>
   EXTENSIONS[mimeType] ?? 'bin';
+
+/**
+ * A mime type as a person would name it — `.docx` rather than
+ * `application/vnd.openxmlformats-officedocument.wordprocessingml.document`,
+ * which is what a refusal message would otherwise have to quote.
+ */
+const describeType = (mimeType: string): string => {
+  const extension = EXTENSIONS[mimeType];
+  if (extension) return `.${extension}`;
+  return mimeType ? mimeType.split('/')[1] || mimeType : 'unknown';
+};
+
+/** Sizes in the units the limits are written in, so the two can be compared. */
+const formatBytes = (bytes: number): string => {
+  const mb = bytes / (1024 * 1024);
+  if (mb >= 1) return `${Math.round(mb * 10) / 10}MB`;
+  return `${Math.max(1, Math.round(bytes / 1024))}KB`;
+};
 
 const validateResourceAccess = async (
   context: string,
@@ -74,9 +108,8 @@ const validateResourceAccess = async (
     return { status: 400, error: 'A valid resourceId is required' };
   }
 
-  const conversation = await Conversation.findById(resourceId).select(
-    'participants',
-  );
+  const conversation =
+    await Conversation.findById(resourceId).select('participants');
   if (!conversation) {
     return { status: 404, error: 'Conversation not found' };
   }
@@ -98,21 +131,36 @@ export const presign = async (req: AuthRequest, res: Response) => {
   // 1. Validate context
   const config = CONTEXT_CONFIG[context];
   if (!config) {
-    return res.status(400).json({ error: 'Invalid context' });
+    return fail(res, 400, 'Invalid context');
   }
 
   // 2. Validate mime type (whitelist)
+  // The refused type and the accepted ones are both named: "File type not
+  // allowed" told the user nothing about which file or what to send instead.
   if (!config.allowedMimes.includes(mimeType)) {
-    return res.status(400).json({ error: 'File type not allowed' });
+    return fail(
+      res,
+      400,
+      `${describeType(mimeType)} files are not accepted here. Allowed: ${config.allowedMimes
+        .map(describeType)
+        .filter((label, index, all) => all.indexOf(label) === index)
+        .join(', ')}.`,
+    );
   }
 
   // 3. Validate file size
   if (!Number.isFinite(fileSize) || fileSize <= 0) {
-    return res.status(400).json({ error: 'Invalid file size' });
+    return fail(res, 400, 'That file appears to be empty.');
   }
 
   if (fileSize > config.maxBytes) {
-    return res.status(400).json({ error: 'File too large' });
+    return fail(
+      res,
+      400,
+      `That file is ${formatBytes(fileSize)}, over the ${formatBytes(
+        config.maxBytes,
+      )} limit for this kind of upload.`,
+    );
   }
 
   // 3b. Validate the caller may write to the resource this upload targets.
@@ -124,7 +172,7 @@ export const presign = async (req: AuthRequest, res: Response) => {
     userId?.toString(),
   );
   if (resourceError) {
-    return res.status(resourceError.status).json({ error: resourceError.error });
+    return fail(res, resourceError.status, resourceError.error);
   }
 
   // 4. Generate unique file key — never use original filename
@@ -172,11 +220,11 @@ export const confirm = async (req: AuthRequest, res: Response) => {
   const upload = await Upload.findOne({ _id: uploadId, userId });
 
   if (!upload) {
-    return res.status(404).json({ error: 'Upload not found' });
+    return fail(res, 404, 'Upload not found');
   }
 
   if (upload.status !== 'pending') {
-    return res.status(400).json({ error: 'Upload already confirmed' });
+    return fail(res, 400, 'Upload already confirmed');
   }
 
   try {
@@ -190,13 +238,11 @@ export const confirm = async (req: AuthRequest, res: Response) => {
     // 403 = file exists but metadata access denied (SeaweedFS IAM quirk) — allow
     // 404 = file genuinely doesn't exist — reject
     if (e?.$metadata?.httpStatusCode === 404) {
-      return res
-        .status(400)
-        .json({ error: 'File not found in storage. Upload it first.' });
+      return fail(res, 400, 'File not found in storage. Upload it first.');
     }
     if (e?.$metadata?.httpStatusCode !== 403) {
       // unexpected error
-      return res.status(500).json({ error: 'Storage check failed.' });
+      return fail(res, 500, 'Storage check failed.');
     }
     // 403 → file exists, continue
   }
@@ -232,28 +278,27 @@ export const getSignedDownloadUrl = async (req: AuthRequest, res: Response) => {
   const { uploadId } = req.params;
   const userId = req.user?._id;
 
-  if (!userId) return res.status(401).json({ error: 'Unauthorized' });
+  if (!userId) return fail(res, 401, 'Unauthorized');
 
-  if (!uploadId) return res.status(400).json({ error: 'Upload ID required' });
+  if (!uploadId) return fail(res, 400, 'Upload ID required');
 
   // find the upload record
   const upload = await Upload.findById(uploadId);
-  if (!upload) return res.status(404).json({ error: 'Upload not found' });
-  if (upload.status !== 'ready')
-    return res.status(400).json({ error: 'Upload not ready' });
+  if (!upload) return fail(res, 404, 'Upload not found');
+  if (upload.status !== 'ready') return fail(res, 400, 'Upload not ready');
 
   // Public-bucket objects are served straight from the CDN and need no
   // signature — but they are still someone's upload, so the record has to
   // belong to the caller. This branch previously answered for any upload id.
   if (!PRIVATE_CONTEXTS.includes(upload.context)) {
     if (upload.userId?.toString() !== userId.toString()) {
-      return res.status(403).json({ error: 'Access denied' });
+      return fail(res, 403, 'Access denied');
     }
     return res.json({ variants: upload.variants });
   }
 
   if (!upload.variants || typeof upload.variants !== 'object') {
-    return res.status(409).json({ error: 'Upload has no variants' });
+    return fail(res, 409, 'Upload has no variants');
   }
 
   // security: verify requesting user is participant in the conversation
@@ -262,14 +307,14 @@ export const getSignedDownloadUrl = async (req: AuthRequest, res: Response) => {
     { conversation: 1 },
   ).populate('conversation', 'participants');
 
-  if (!message) return res.status(404).json({ error: 'Message not found' });
+  if (!message) return fail(res, 404, 'Message not found');
 
   const conversation = message.conversation as any;
   const isParticipant = conversation.participants
     .map((p: any) => p.toString())
     .includes(userId.toString());
 
-  if (!isParticipant) return res.status(403).json({ error: 'Access denied' });
+  if (!isParticipant) return fail(res, 403, 'Access denied');
 
   // generate signed URLs for all variants
   const signedVariants: Record<string, string> = {};

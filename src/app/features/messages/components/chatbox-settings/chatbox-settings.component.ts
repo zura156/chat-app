@@ -37,6 +37,7 @@ import { HlmTabsImports } from '@spartan-ng/helm/tabs';
 import { ReactiveFormsModule } from '@angular/forms';
 import { ImageCropperComponent } from 'ngx-smart-cropper';
 import { toast } from '@spartan-ng/brain/sonner';
+import { apiErrorMessage } from '../../../../shared/functions/api-error';
 import { ConversationI } from '../../interfaces/conversation.interface';
 import { ParticipantI } from '../../interfaces/participant.interface';
 import { ConversationService } from '../../services/conversation.service';
@@ -45,7 +46,11 @@ import { ChatboxSettingsService } from '../../services/chatbox-settings.service'
 import { ItemManagerComponent } from '../../../../shared/components/item-manager/item-manager';
 import { MediaFilesListComponent } from '../media-files-list/media-files-list.component';
 import { base64ToFile } from '../../../../shared/functions/base64-to-file';
-import { markFormGroupTouched } from '../../../../shared/functions/form.utils';
+import { MAX_SIZE_MB } from '../../../upload/file-picker/file-picker';
+import {
+  markFormGroupTouched,
+  summarizeFormErrors,
+} from '../../../../shared/functions/form.utils';
 import { environment } from '../../../../../environments/environment';
 
 @Component({
@@ -138,12 +143,27 @@ export class ChatboxSettingsComponent {
     const file = input.files?.[0];
     if (!file) return;
 
-    if (file.size > 100 * 1024 * 1024) {
-      toast.error('File size exceeds the 100MB limit.');
+    if (!file.type.startsWith('image/')) {
+      toast.error(
+        `"${file.name}" is not an image the app can use. Choose a JPEG, PNG or WebP.`,
+      );
       return;
     }
-    if (!file.type.startsWith('image/')) {
-      toast.error('Please select a valid image file.');
+
+    /*
+     * 100MB was the limit checked here; the server accepts 20MB for a
+     * group-avatar. So every picture between the two passed this gate, spent a
+     * full upload, and was refused at presign — where the reason arrived in a
+     * shape nothing rendered. The limit now comes from the same table the
+     * picker and the server config agree on.
+     */
+    const maxMb = MAX_SIZE_MB['group-avatar'] ?? 20;
+    if (file.size > maxMb * 1024 * 1024) {
+      toast.error(
+        `"${file.name}" is ${(file.size / (1024 * 1024)).toFixed(
+          1,
+        )}MB, over the ${maxMb}MB limit.`,
+      );
       return;
     }
 
@@ -191,7 +211,9 @@ export class ChatboxSettingsComponent {
           // it would show a change that never happened.
           this.conversationService.clearPendingGroupPicture(conversationId);
           this.uploadingPicture.set(false);
-          toast.error('Failed to update picture', { description: err.message });
+          toast.error('Failed to update picture', {
+            description: apiErrorMessage(err, 'Please try again.'),
+          });
           return throwError(() => err);
         }),
         takeUntilDestroyed(this.destroyRef),
@@ -228,7 +250,9 @@ export class ChatboxSettingsComponent {
     this.#submitSub = this.#modalRef?.instance.submit.subscribe((formData) => {
       if (!form.valid) {
         markFormGroupTouched(form);
-        toast.error('Please correct the form errors.');
+        toast.error('Please correct the form errors', {
+          description: summarizeFormErrors(form, { groupName: 'Name' }),
+        });
         return;
       }
 
@@ -251,7 +275,9 @@ export class ChatboxSettingsComponent {
           }),
           catchError((err) => {
             this.#modalRef?.setInput('isSubmitting', false);
-            toast.error('Failed to update name', { description: err.message });
+            toast.error('Failed to update name', {
+              description: apiErrorMessage(err, 'Please try again.'),
+            });
             return throwError(() => err);
           }),
           takeUntilDestroyed(this.destroyRef),
@@ -287,7 +313,7 @@ export class ChatboxSettingsComponent {
           }),
           catchError((err) => {
             this.#modalRef?.setInput('isLoading', false);
-            toast.error('Failed to load users');
+            toast.error(apiErrorMessage(err, 'Failed to load users'));
             return throwError(() => err);
           }),
           takeUntilDestroyed(this.destroyRef),

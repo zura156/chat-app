@@ -5,7 +5,12 @@ import {
   ReactiveFormsModule,
   Validators,
 } from '@angular/forms';
-import { trimControls } from '../../../../shared/functions/form.utils';
+import {
+  markFormGroupTouched,
+  summarizeFormErrors,
+  trimControls,
+} from '../../../../shared/functions/form.utils';
+import { apiErrorMessage } from '../../../../shared/functions/api-error';
 import { AuthService } from '../../services/auth.service';
 import { LoginCredentialsI } from '../../interfaces/login-credentials.interface';
 import { HlmFieldImports } from '@spartan-ng/helm/field';
@@ -23,6 +28,12 @@ import { catchError, Subject, takeUntil, tap, throwError } from 'rxjs';
 import { HlmAlertImports } from '@spartan-ng/helm/alert';
 import { RouterLink } from '@angular/router';
 import { ThemeService } from '../../../../shared/services/theme.service';
+
+/** How the fields are named in a sentence, rather than as control keys. */
+const FIELD_LABELS: Record<string, string> = {
+  email: 'Email',
+  password: 'Password',
+};
 
 @Component({
   selector: 'app-login',
@@ -111,7 +122,14 @@ export class LoginComponent {
 
     if (this.form.invalid) {
       this.isLoading.set(false);
-      this.error.set('Please fill in all fields correctly.');
+      // Names the field and the rule. "Please fill in all fields correctly."
+      // was the whole of what this said, across two inputs and three
+      // validators, and it is the message a user sees after mistyping their
+      // own address — the one case where knowing *which* field is at fault
+      // matters most, because the other one holds a secret they cannot read
+      // back.
+      markFormGroupTouched(this.form);
+      this.error.set(summarizeFormErrors(this.form, FIELD_LABELS));
       return;
     }
 
@@ -148,10 +166,10 @@ export class LoginComponent {
            * bug the returnUrl handling exists to prevent.
            */
         }),
-        catchError((errorMessage) => {
-          this.error.set(errorMessage);
+        catchError((err) => {
+          this.error.set(apiErrorMessage(err, 'Could not sign you in.'));
           this.isLoading.set(false);
-          return throwError(() => errorMessage);
+          return throwError(() => err);
         }),
       )
       // `catchError` has already put the message on screen; the rethrow keeps
@@ -189,10 +207,12 @@ export class LoginComponent {
           this.isLoading.set(false);
           this.clearError();
         }),
-        catchError((errorMessage) => {
-          this.error.set(errorMessage);
+        catchError((err) => {
+          this.error.set(
+            apiErrorMessage(err, 'Could not send a code to your address.'),
+          );
           this.isLoading.set(false);
-          return throwError(() => errorMessage);
+          return throwError(() => err);
         }),
       )
       // `catchError` has already put the message on screen; the rethrow keeps
@@ -218,11 +238,11 @@ export class LoginComponent {
           this.isLoading.set(false);
           // completeLogin owns the navigation, and honours returnUrl.
         }),
-        catchError((errorMessage) => {
-          this.error.set(errorMessage);
+        catchError((err) => {
+          this.error.set(apiErrorMessage(err, 'That code was not accepted.'));
           this.isLoading.set(false);
           this.twoFactorCode.set('');
-          return throwError(() => errorMessage);
+          return throwError(() => err);
         }),
       )
       // `catchError` has already put the message on screen; the rethrow keeps

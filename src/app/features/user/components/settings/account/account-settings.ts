@@ -14,6 +14,7 @@ import { HlmSeparatorImports } from '@spartan-ng/helm/separator';
 import { UserService } from '../../../services/user.service';
 import { AuthService } from '../../../../auth/services/auth.service';
 import { toast } from '@spartan-ng/brain/sonner';
+import { apiErrorMessage } from '../../../../../shared/functions/api-error';
 
 /**
  * This screen was titled "Account (MOCK COMPONENT)" and mostly was one: a
@@ -88,8 +89,21 @@ export class AccountSettings {
     const email = this.newEmail().trim();
     const password = this.emailPassword();
 
-    if (!email || !password) {
-      toast.error('Enter the new address and your password.');
+    // Named individually: "Enter the new address and your password" is the same
+    // sentence whichever of the two is missing, so it reads as a complaint
+    // about the field the user has just filled in.
+    if (!email) {
+      toast.error('Enter the new email address you want to use.');
+      return;
+    }
+    if (!password) {
+      toast.error('Enter your current password to confirm the change.');
+      return;
+    }
+    if (!/^\S+@\S+\.\S+$/.test(email)) {
+      // The server refuses this too, but only after spending one of the
+      // change-password limiter's few attempts on it.
+      toast.error(`"${email}" is not a valid email address.`);
       return;
     }
 
@@ -100,14 +114,14 @@ export class AccountSettings {
         this.changingEmail.set(false);
         this.newEmail.set('');
         this.emailPassword.set('');
-        toast.success(res?.message ?? `Check ${email} for a confirmation link.`);
+        toast.success(
+          res?.message ?? `Check ${email} for a confirmation link.`,
+        );
       },
       error: (err) => {
         this.savingEmail.set(false);
         toast.error(
-          typeof err === 'string'
-            ? err
-            : (err?.error?.message ?? 'Could not change your email address'),
+          apiErrorMessage(err, 'Could not change your email address'),
         );
       },
     });
@@ -120,9 +134,9 @@ export class AccountSettings {
         this.savingEmail.set(false);
         toast.success('Email change cancelled.');
       },
-      error: () => {
+      error: (err) => {
         this.savingEmail.set(false);
-        toast.error('Could not cancel the change');
+        toast.error(apiErrorMessage(err, 'Could not cancel the change'));
       },
     });
   }
@@ -136,11 +150,7 @@ export class AccountSettings {
       },
       error: (err) => {
         this.resendingVerification.set(false);
-        toast.error(
-          typeof err === 'string'
-            ? err
-            : (err?.error?.message ?? 'Could not send the email'),
-        );
+        toast.error(apiErrorMessage(err, 'Could not send the email'));
       },
     });
   }
@@ -189,7 +199,7 @@ export class AccountSettings {
       },
       error: (err) => {
         this.deleting.set(false);
-        toast.error(err?.error?.message ?? 'Could not delete your account');
+        toast.error(apiErrorMessage(err, 'Could not delete your account'));
       },
     });
   }

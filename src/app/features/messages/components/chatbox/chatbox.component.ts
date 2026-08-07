@@ -81,6 +81,7 @@ import { PanGestureDirective } from '../../../../shared/directives/pan.directive
 import { HlmSkeleton } from '@spartan-ng/helm/skeleton';
 import { environment } from '../../../../../environments/environment';
 import { toast } from '@spartan-ng/brain/sonner';
+import { apiErrorMessage } from '../../../../shared/functions/api-error';
 import { UserStateService } from '../../../user/services/user-state.service';
 import { UploadService } from '../../../upload/services/upload.service';
 import {
@@ -308,7 +309,9 @@ export class ChatboxComponent implements OnInit {
       // header changes at the same moment the settings avatar does rather than
       // several seconds later when the worker finishes.
       return (
-        this.conversationService.pendingGroupPictureFor(activeConversation._id) ??
+        this.conversationService.pendingGroupPictureFor(
+          activeConversation._id,
+        ) ??
         activeConversation.group_picture ??
         null
       );
@@ -1188,20 +1191,57 @@ export class ChatboxComponent implements OnInit {
    * for good, so one failed request would stop every later navigation from
    * loading.
    */
+  /**
+   * `console.error` was the whole of the feedback here.
+   *
+   * This sits on loading a conversation and on paging its history, so a failure
+   * left the thread empty or the scroll frozen with no indication that anything
+   * had gone wrong — indistinguishable from a conversation that really is
+   * empty. The reason went to a console the user is not looking at.
+   *
+   * The toast is suppressed on the navigating variant: that path already
+   * redirects to /messages, and a user who has been moved elsewhere has been
+   * told. It is also suppressed for 401, which the interceptor turns into a
+   * sign-out — a toast about a failed fetch on top of that is noise about a
+   * consequence rather than a cause.
+   */
   private handleError(err: any, navigation = false): Observable<never> {
-    console.error('[chatbox]', err);
     this.isMessageLoading.set(false);
     this.isConversationLoading.set(false);
     // never leave the composer permanently disabled after a failure
     this.canMessage.set(true);
-    if (navigation) this.router.navigate(['/messages']);
+
+    if (navigation) {
+      this.router.navigate(['/messages']);
+      toast.error(apiErrorMessage(err, 'That conversation is unavailable.'));
+      return EMPTY;
+    }
+
+    if (err?.status !== 401) {
+      toast.error(apiErrorMessage(err, 'Could not load this conversation.'));
+    }
+
     return EMPTY;
   }
 
   /** Send failed: surface it on the optimistic bubble and re-enable the composer. */
   private handleSendError(err: any, tempId: string): Observable<never> {
     this.messageService.markMessageFailed(tempId);
-    toast.error('Message could not be sent.');
-    return this.handleError(err);
+
+    /*
+     * The reason, not just the fact. Every refusal the server can give here is
+     * one the user can act on — the message is empty, it is over the length
+     * limit, an attachment is still processing, the recipient has blocked them,
+     * they are no longer in the conversation — and "Message could not be sent."
+     * covered all of them equally.
+     */
+    toast.error('Message could not be sent', {
+      description: apiErrorMessage(err, 'Please try again.'),
+    });
+
+    this.isMessageLoading.set(false);
+    this.isConversationLoading.set(false);
+    this.canMessage.set(true);
+    return EMPTY;
   }
 }

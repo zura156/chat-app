@@ -11,6 +11,7 @@ import { ActivatedRoute, Router } from '@angular/router';
 import { catchError, switchMap, tap } from 'rxjs';
 import { toast } from '@spartan-ng/brain/sonner';
 import { UserStateService } from '../../services/user-state.service';
+import { apiErrorMessage } from '../../../../shared/functions/api-error';
 
 interface Post {
   id: number;
@@ -145,9 +146,9 @@ export class UserPageComponent implements OnInit {
         // would show a page the next reload 404s.
         if (!blocked) this.router.navigateByUrl('/messages');
       },
-      error: () => {
+      error: (err) => {
         this.blocking.set(false);
-        toast.error('Could not update that user');
+        toast.error(apiErrorMessage(err, 'Could not update that user'));
       },
     });
   }

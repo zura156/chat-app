@@ -31,6 +31,7 @@ import { UserService } from '../../user/services/user.service';
 import { ActivatedRoute, Router } from '@angular/router';
 import { UnlockAccountI } from '../interfaces/unlock-account.interface';
 import { TwoFactorMethod } from '../interfaces/two-factor.interface';
+import { apiErrorMessage } from '../../../shared/functions/api-error';
 
 /** Keys that belong to a session and must not outlive it. */
 const SESSION_STORAGE_KEYS = ['isAuthenticated', 'prefers-chat-settings-open'];
@@ -321,7 +322,10 @@ export class AuthService {
    * Requests a move to a new address. Nothing changes until the link mailed to
    * that address is opened — see `confirmEmailChange`.
    */
-  changeEmail(newEmail: string, password: string): Observable<MessageResponseI> {
+  changeEmail(
+    newEmail: string,
+    password: string,
+  ): Observable<MessageResponseI> {
     return this.http
       .post<MessageResponseI>(`${environment.apiUrl}/auth/change-email`, {
         new_email: newEmail,
@@ -361,8 +365,18 @@ export class AuthService {
       .pipe(catchError(this.handleError));
   }
 
+  /**
+   * `handleError` was the one request here without it. The forgot-password
+   * screen types its `catchError` parameter as `string` and puts it straight
+   * into a `signal<string | null>` the template renders — so with the raw
+   * response arriving instead, a failed request printed `[object Object]` where
+   * the reason belonged. TypeScript could not catch it: the annotation asserted
+   * the shape rather than checking it.
+   */
   forgotPassword(email: string): Observable<AuthResponseI> {
-    return this.http.post<AuthResponseI>(this._FORGOT_PASSWORD_URL, { email });
+    return this.http
+      .post<AuthResponseI>(this._FORGOT_PASSWORD_URL, { email })
+      .pipe(catchError(this.handleError));
   }
 
   resetPassword(body: ResetPasswordI): Observable<MessageResponseI> {
@@ -484,14 +498,30 @@ export class AuthService {
     this.#loading.set(false);
   }
 
+  /**
+   * Records the reason and rethrows the response *unchanged*.
+   *
+   * This used to flatten the failure into a bare string, which cost the callers
+   * two things. The lesser one is inconsistency: every other service in the app
+   * rethrows the `HttpErrorResponse`, so components handling both had to guess
+   * with `typeof err === 'string'` and several guessed wrong. The greater one is
+   * that a string cannot carry `errors[]` — the per-field breakdown a form needs
+   * to put each reason under the input it belongs to — so that detail was
+   * discarded at the one layer every auth form goes through.
+   *
+   * The flattening also lost the reasons outright: `error.error.message` was
+   * consulted first and won, and the server answers a validation failure with
+   * the constant `message: 'Validation failed'` plus the real reasons in
+   * `errors[]`. A password refused for being on the breach list, or a username
+   * refused for containing a space, reached the user as "Validation failed" and
+   * nothing more.
+   *
+   * Callers render the reason with `apiErrorMessage`, which reads every shape
+   * this API produces.
+   */
   private handleError = (error: HttpErrorResponse) => {
     this.#loading.set(false);
-    let errorMessage = 'An unknown error occurred';
-    if (error.error?.message) errorMessage = error.error.message;
-    else if (error.error?.errors?.length > 0)
-      errorMessage = error.error.errors.map((e: any) => e.msg).join(', ');
-    else if (error.message) errorMessage = error.message;
-    this.#error.set(errorMessage);
-    return throwError(() => errorMessage);
+    this.#error.set(apiErrorMessage(error, 'An unknown error occurred'));
+    return throwError(() => error);
   };
 }

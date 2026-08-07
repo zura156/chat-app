@@ -102,10 +102,15 @@
             class="w-full"
           />
           @if (form.controls["first_name"].hasError("required")) {
-            <hlm-field-error>Required</hlm-field-error>
+            <hlm-field-error>First name is required</hlm-field-error>
           }
-          @if (form.controls["first_name"].hasError("minLength")) {
-            <hlm-field-error>Min 3 characters</hlm-field-error>
+          @if (form.controls["first_name"].hasError("maxlength")) {
+            <hlm-field-error>Max 64 characters</hlm-field-error>
+          }
+          @if (form.controls["first_name"].hasError("server")) {
+            <hlm-field-error>{{
+              form.controls["first_name"].getError("server")
+            }}</hlm-field-error>
           }
         </hlm-field>
 
@@ -122,10 +127,15 @@
             class="w-full"
           />
           @if (form.controls["last_name"].hasError("required")) {
-            <hlm-field-error>Required</hlm-field-error>
+            <hlm-field-error>Last name is required</hlm-field-error>
           }
-          @if (form.controls["last_name"].hasError("minLength")) {
-            <hlm-field-error>Min 3 characters</hlm-field-error>
+          @if (form.controls["last_name"].hasError("maxlength")) {
+            <hlm-field-error>Max 64 characters</hlm-field-error>
+          }
+          @if (form.controls["last_name"].hasError("server")) {
+            <hlm-field-error>{{
+              form.controls["last_name"].getError("server")
+            }}</hlm-field-error>
           }
         </hlm-field>
       </div>
@@ -145,11 +155,21 @@
         @if (form.controls["username"].hasError("required")) {
           <hlm-field-error>Username is required</hlm-field-error>
         }
-        @if (form.controls["username"].hasError("minLength")) {
+        @if (form.controls["username"].hasError("minlength")) {
           <hlm-field-error>Min 3 characters</hlm-field-error>
         }
-        @if (form.controls["username"].hasError("maxLength")) {
+        @if (form.controls["username"].hasError("maxlength")) {
           <hlm-field-error>Max 32 characters</hlm-field-error>
+        }
+        @if (form.controls["username"].hasError("pattern")) {
+          <hlm-field-error>
+            Letters, numbers, dots, underscores and hyphens only — no spaces
+          </hlm-field-error>
+        }
+        @if (form.controls["username"].hasError("server")) {
+          <hlm-field-error>{{
+            form.controls["username"].getError("server")
+          }}</hlm-field-error>
         }
       </hlm-field>
 
@@ -170,6 +190,11 @@
         }
         @if (form.controls["email"].hasError("email")) {
           <hlm-field-error>Invalid email address</hlm-field-error>
+        }
+        @if (form.controls["email"].hasError("server")) {
+          <hlm-field-error>{{
+            form.controls["email"].getError("server")
+          }}</hlm-field-error>
         }
       </hlm-field>
 
@@ -199,6 +224,11 @@
         </div>
         @if (form.controls["password"].hasError("required")) {
           <hlm-field-error>Password is required</hlm-field-error>
+        }
+        @if (form.controls["password"].hasError("server")) {
+          <hlm-field-error>{{
+            form.controls["password"].getError("server")
+          }}</hlm-field-error>
         }
       </hlm-field>
 

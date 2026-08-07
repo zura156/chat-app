@@ -105,10 +105,9 @@ const isRepeatedUnit = (value: string): boolean => {
 };
 
 /** Every track, in both directions — `poiuytrewq` is as much a walk as `qwerty`. */
-const TRACKS: string[] = [...KEYBOARD_ROWS, ALPHABET, DIGITS].flatMap((track) => [
-  track,
-  [...track].reverse().join(''),
-]);
+const TRACKS: string[] = [...KEYBOARD_ROWS, ALPHABET, DIGITS].flatMap(
+  (track) => [track, [...track].reverse().join('')],
+);
 
 /** Runs shorter than this are ordinary letter adjacency, not a pattern. */
 const MIN_RUN = 3;
@@ -308,9 +307,76 @@ export interface PasswordIdentityContext {
 }
 
 const identityTerms = (context?: PasswordIdentityContext): string[] =>
-  [context?.username ?? '', (context?.email ?? '').split('@')[0] ?? '', 'chatapp']
+  [
+    context?.username ?? '',
+    (context?.email ?? '').split('@')[0] ?? '',
+    'chatapp',
+  ]
     .map(normalize)
     .filter((term) => term.length >= 4);
+
+/**
+ * The strength of a password, without a form around it.
+ *
+ * Split out of `passwordValidator` for the screens that are not reactive forms
+ * — the change-password panel on the security screen holds its fields in
+ * signals. That panel had grown its own private policy:
+ *
+ *     if (!/[a-z]/.test(next)) return 'Include a lowercase letter.';
+ *     if (!/[A-Z]/.test(next)) return 'Include an uppercase letter.';
+ *     if (!/\d/.test(next))    return 'Include a number.';
+ *     if (!/[@$!%*?&]/.test(next)) return 'Include a symbol (@ $ ! % * ? &).';
+ *
+ * — the composition checklist this codebase deliberately abandoned, and which
+ * the server has not enforced for some time. It disagreed with the real policy
+ * in both directions, and both were dead ends. A passphrase the API would
+ * happily accept was refused here with a reason that was not a rule, and the
+ * submit button was disabled, so there was no way to proceed and nothing on
+ * screen to suggest the requirement was fictional. In the other direction
+ * `Passw0rd!` satisfied every clause, so the form let it through to a server
+ * that refused it for being a well-known password — a reason the form had
+ * never mentioned and could not have.
+ */
+export const describePasswordProblems = (
+  password: string,
+  context?: PasswordIdentityContext,
+): string[] => {
+  const length = passwordLength(password);
+  const problems: string[] = [];
+
+  if (length < PASSWORD_MIN_LENGTH) {
+    problems.push(
+      `Use at least ${PASSWORD_MIN_LENGTH} characters — a few unrelated words makes a much stronger password than the minimum.`,
+    );
+  }
+
+  if (length > PASSWORD_MAX_LENGTH) {
+    problems.push(`Use at most ${PASSWORD_MAX_LENGTH} characters.`);
+  }
+
+  // Mirrors the server: worth saying only once the length is plausible, since
+  // "too predictable" on top of "too short" is two complaints about one fault.
+  if (length >= PASSWORD_MIN_LENGTH) {
+    if (looksTrivial(password)) {
+      problems.push(
+        'This is too predictable — it repeats, or runs along the keyboard or alphabet.',
+      );
+    }
+
+    if (isCommon(password)) {
+      problems.push('This is a well-known password. Choose something else.');
+    }
+
+    const normalized = normalize(password);
+    if (identityTerms(context).some((term) => normalized.includes(term))) {
+      problems.push(
+        'Do not build your password out of your username, your email address or the name of this app.',
+      );
+    }
+  }
+
+  return problems;
+};
 
 /**
  * `context` is read lazily so the validator can see the sibling username and

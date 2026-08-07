@@ -16,6 +16,11 @@ import {
   PASSWORD_MIN_LENGTH,
   passwordValidator,
 } from '../../validators/password.validator';
+import {
+  markFormGroupTouched,
+  summarizeFormErrors,
+} from '../../../../shared/functions/form.utils';
+import { apiErrorMessage } from '../../../../shared/functions/api-error';
 import { toast } from '@spartan-ng/brain/sonner';
 import { AuthService } from '../../services/auth.service';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
@@ -70,10 +75,21 @@ export class ResetPasswordComponent {
 
   onSubmit(): void {
     if (!this.form.valid) {
-      toast.info('Form Invalid!', {
-        description:
-          'Please enter credentials acording to validations and proceed to submission.',
-      });
+      /*
+       * The old message ("Please enter credentials acording to validations")
+       * was doubly unhelpful here: this form has one field, and the reason it
+       * is invalid is almost always the password policy — whose five clauses
+       * are already rendered as a live checklist a few lines up the template.
+       * The banner now points at that instead of restating nothing.
+       */
+      markFormGroupTouched(this.form);
+      this.error.set(
+        summarizeFormErrors(
+          this.form,
+          { password: 'Password' },
+          'Please choose a password that meets the requirements above.',
+        ),
+      );
       return;
     }
 
@@ -96,11 +112,16 @@ export class ResetPasswordComponent {
             userId: id,
           };
           return this.authService.resetPassword(body).pipe(
-            catchError((error: string) => {
+            catchError((err) => {
               this.isLoading.set(false);
-              this.error.set(error);
+              // The reasons the server has here are ones no client check can
+              // reproduce: the link has expired, it has already been used, or
+              // the password appears in a breach corpus.
+              this.error.set(
+                apiErrorMessage(err, 'Could not reset your password.'),
+              );
 
-              return throwError(() => error);
+              return throwError(() => err);
             }),
             tap((res) => {
               this.error.set(null);
@@ -117,7 +138,7 @@ export class ResetPasswordComponent {
           );
         }),
       )
-      .subscribe();
+      .subscribe({ error: () => undefined });
   }
 
   clearError() {

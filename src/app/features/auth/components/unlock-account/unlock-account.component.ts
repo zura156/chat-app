@@ -11,6 +11,7 @@ import { HlmAlertImports } from '@spartan-ng/helm/alert';
 import { HlmButtonImports } from '@spartan-ng/helm/button';
 import { AuthService } from '../../services/auth.service';
 import { HlmIconImports } from '@spartan-ng/helm/icon';
+import { apiErrorMessage } from '../../../../shared/functions/api-error';
 
 @Component({
   selector: 'app-unlock-account',
@@ -58,9 +59,7 @@ export class UnlockAccountComponent implements OnInit {
       },
       error: (err) => {
         this.error.set(
-          typeof err === 'string'
-            ? err
-            : (err?.error?.message ?? 'This link is invalid or has expired.'),
+          apiErrorMessage(err, 'This link is invalid or has expired.'),
         );
         this.isLoading.set(false);
       },

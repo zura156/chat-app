@@ -1,6 +1,14 @@
 import { FormArray, FormControl, FormGroup, Validators } from '@angular/forms';
 import { describe, expect, it } from 'vitest';
-import { markFormGroupTouched, trimControls } from './form.utils';
+import { HttpErrorResponse } from '@angular/common/http';
+import {
+  applyServerFieldErrors,
+  clearServerFieldErrors,
+  describeFormErrors,
+  markFormGroupTouched,
+  summarizeFormErrors,
+  trimControls,
+} from './form.utils';
 
 /*
  * Called from every submit handler that has to show validation on a form the
@@ -218,5 +226,211 @@ describe('trimControls', () => {
     trimControls(form, ['contact.email']);
 
     expect(form.controls.contact.controls.email.value).toBe('a@b.c');
+  });
+});
+
+/*
+ * The submit-time explanation.
+ *
+ * Every form in the app answered an invalid submit with one constant string —
+ * "Please fill in all fields correctly." — naming neither the field nor the
+ * rule. On the sign-up form that is six inputs and eleven validators.
+ */
+describe('describeFormErrors', () => {
+  it('names the field and the rule', () => {
+    const form = new FormGroup({
+      username: new FormControl('ab', [Validators.minLength(3)]),
+    });
+
+    expect(describeFormErrors(form)).toEqual([
+      'Username must be at least 3 characters.',
+    ]);
+  });
+
+  it('uses the caller label over the control name', () => {
+    const form = new FormGroup({
+      first_name: new FormControl('', [Validators.required]),
+    });
+
+    expect(describeFormErrors(form, { first_name: 'First name' })).toEqual([
+      'First name is required.',
+    ]);
+  });
+
+  it('falls back to a readable form of the control name', () => {
+    const form = new FormGroup({
+      repeat_password: new FormControl('', [Validators.required]),
+    });
+
+    expect(describeFormErrors(form)).toEqual(['Repeat password is required.']);
+  });
+
+  it('reports "required" alone rather than piling on length rules', () => {
+    // An empty field is one problem. "is required and must be at least 3
+    // characters" reads as two.
+    const form = new FormGroup({
+      username: new FormControl('', [
+        Validators.required,
+        Validators.minLength(3),
+      ]),
+    });
+
+    expect(describeFormErrors(form)).toEqual(['Username is required.']);
+  });
+
+  it('describes the pattern rule the sign-up form was missing', () => {
+    const form = new FormGroup({
+      username: new FormControl('john doe', [
+        Validators.pattern(/^[a-zA-Z0-9._-]+$/),
+      ]),
+    });
+
+    expect(describeFormErrors(form)[0]).toContain('not allowed');
+  });
+
+  it('lists each invalid field once', () => {
+    const form = new FormGroup({
+      email: new FormControl('nope', [Validators.email]),
+      username: new FormControl('', [Validators.required]),
+      bio: new FormControl('fine'),
+    });
+
+    const described = describeFormErrors(form);
+
+    expect(described).toHaveLength(2);
+    expect(described).toContain('Email is not a valid email address.');
+    expect(described).toContain('Username is required.');
+  });
+
+  it('is empty for a valid form', () => {
+    const form = new FormGroup({ email: new FormControl('a@b.co') });
+
+    expect(describeFormErrors(form)).toEqual([]);
+  });
+});
+
+describe('summarizeFormErrors', () => {
+  it('joins a short list', () => {
+    const form = new FormGroup({
+      email: new FormControl('', [Validators.required]),
+      password: new FormControl('', [Validators.required]),
+    });
+
+    expect(summarizeFormErrors(form)).toBe(
+      'Email is required. Password is required.',
+    );
+  });
+
+  it('truncates a long one rather than filling the screen', () => {
+    const form = new FormGroup({
+      a: new FormControl('', [Validators.required]),
+      b: new FormControl('', [Validators.required]),
+      c: new FormControl('', [Validators.required]),
+      d: new FormControl('', [Validators.required]),
+    });
+
+    expect(summarizeFormErrors(form)).toContain('2 other fields');
+  });
+
+  it('uses the fallback when nothing is describable', () => {
+    // A control invalid under a validator with no known key still has to say
+    // *something* — silence here is the bug this whole change is about.
+    const form = new FormGroup({
+      thing: new FormControl('x', [() => ({ someExoticRule: true })]),
+    });
+
+    expect(summarizeFormErrors(form, undefined, 'Check the form.')).toBe(
+      'Check the form.',
+    );
+  });
+});
+
+/*
+ * The server validates things no client check reproduces — a taken username, a
+ * breached password. Those refusals name their field, and used to land in a
+ * banner detached from the input that caused them.
+ */
+describe('applyServerFieldErrors', () => {
+  const validationFailure = (errors: { field: string; msg: string }[]) =>
+    new HttpErrorResponse({
+      status: 400,
+      error: { message: 'Validation failed', errors },
+    });
+
+  it('places each reason on its control and touches it', () => {
+    const form = new FormGroup({
+      username: new FormControl('taken'),
+      email: new FormControl('a@b.co'),
+    });
+
+    const placed = applyServerFieldErrors(
+      form,
+      validationFailure([
+        { field: 'username', msg: 'That username is already taken' },
+      ]),
+    );
+
+    expect(placed).toEqual(['username']);
+    expect(form.controls.username.getError('server')).toBe(
+      'That username is already taken',
+    );
+    expect(form.controls.username.touched).toBe(true);
+    expect(form.controls.email.errors).toBeNull();
+  });
+
+  it('ignores fields the form does not have', () => {
+    const form = new FormGroup({ email: new FormControl('a@b.co') });
+
+    const placed = applyServerFieldErrors(
+      form,
+      validationFailure([{ field: 'nonexistent', msg: 'nope' }]),
+    );
+
+    expect(placed).toEqual([]);
+  });
+
+  it('merges rather than replacing, so client rules survive', () => {
+    const form = new FormGroup({
+      username: new FormControl('ab', [Validators.minLength(3)]),
+    });
+
+    applyServerFieldErrors(
+      form,
+      validationFailure([{ field: 'username', msg: 'Already taken' }]),
+    );
+
+    expect(form.controls.username.hasError('minlength')).toBe(true);
+    expect(form.controls.username.hasError('server')).toBe(true);
+  });
+});
+
+describe('clearServerFieldErrors', () => {
+  it('removes the server error and leaves the control valid', () => {
+    const form = new FormGroup({ username: new FormControl('taken') });
+    form.controls.username.setErrors({ server: 'Already taken' });
+
+    clearServerFieldErrors(form);
+
+    expect(form.controls.username.errors).toBeNull();
+    expect(form.valid).toBe(true);
+  });
+
+  it('keeps client-side errors intact', () => {
+    const form = new FormGroup({
+      username: new FormControl('ab', [Validators.minLength(3)]),
+    });
+    applyServerFieldErrors(
+      form,
+      new HttpErrorResponse({
+        status: 400,
+        error: { errors: [{ field: 'username', msg: 'Already taken' }] },
+      }),
+    );
+
+    clearServerFieldErrors(form);
+
+    expect(form.controls.username.hasError('server')).toBe(false);
+    // Still too short — the server refusal going away does not fix that.
+    expect(form.controls.username.hasError('minlength')).toBe(true);
   });
 });

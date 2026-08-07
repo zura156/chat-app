@@ -5,7 +5,12 @@ import {
   ReactiveFormsModule,
   Validators,
 } from '@angular/forms';
-import { trimControls } from '../../../../shared/functions/form.utils';
+import {
+  markFormGroupTouched,
+  summarizeFormErrors,
+  trimControls,
+} from '../../../../shared/functions/form.utils';
+import { apiErrorMessage } from '../../../../shared/functions/api-error';
 import { NgIcon, provideIcons } from '@ng-icons/core';
 import { HlmAlertImports } from '@spartan-ng/helm/alert';
 import { HlmButton } from '@spartan-ng/helm/button';
@@ -59,10 +64,12 @@ export class ForgotPasswordComponent {
     trimControls(this.form, ['email']);
 
     if (!this.form.valid) {
-      toast.info('Form Invalid!', {
-        description:
-          'Please enter credentials acording to validations and proceed to submission.',
-      });
+      // Was "Please enter credentials acording to validations and proceed to
+      // submission." — a sentence that misspells "according", says nothing
+      // about which validation, and is shown on a form with exactly one field
+      // whose only possible faults are "empty" and "not an address".
+      markFormGroupTouched(this.form);
+      this.error.set(summarizeFormErrors(this.form, { email: 'Email' }));
       return;
     }
 
@@ -75,19 +82,33 @@ export class ForgotPasswordComponent {
     this.authService
       .forgotPassword(email)
       .pipe(
-        catchError((error: string) => {
+        /*
+         * The parameter used to be annotated `string` and put straight into a
+         * signal the template renders — an assertion, not a check, and a false
+         * one: `forgotPassword` was the single request in AuthService without
+         * an error handler, so what arrived was the raw HttpErrorResponse and
+         * the screen rendered `[object Object]` as the explanation.
+         */
+        catchError((err) => {
           this.isLoading.set(false);
-          this.error.set(error);
+          this.error.set(
+            apiErrorMessage(err, 'Could not send a reset link. Try again.'),
+          );
 
-          return throwError(() => error);
+          return throwError(() => err);
         }),
       )
-      .subscribe((res) => {
-        this.error.set(null);
-        this.isLoading.set(false);
-        toast.info('Please check your email inbox.', {
-          description: res.message,
-        });
+      .subscribe({
+        next: (res) => {
+          this.error.set(null);
+          this.isLoading.set(false);
+          toast.info('Please check your email inbox.', {
+            description: res.message,
+          });
+        },
+        // The message is already on screen; this stops the rethrow above from
+        // being reported as an unhandled error on top of it.
+        error: () => undefined,
       });
   }
 

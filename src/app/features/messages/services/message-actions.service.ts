@@ -1,5 +1,6 @@
 import { Injectable, inject, signal } from '@angular/core';
 import { toast } from '@spartan-ng/brain/sonner';
+import { apiErrorMessage } from '../../../shared/functions/api-error';
 import { MessageI, MessageType } from '../interfaces/message.interface';
 import { MessageService } from './message.service';
 import { ConversationService } from './conversation.service';
@@ -122,7 +123,7 @@ export class MessageActionsService {
         },
         error: (err) => {
           this.busy.set(false);
-          toast.error(err?.error?.message ?? 'Could not edit that message');
+          toast.error(apiErrorMessage(err, 'Could not edit that message'));
         },
       });
   }
@@ -153,7 +154,7 @@ export class MessageActionsService {
       error: (err) => {
         this.busy.set(false);
         this.pendingDelete.set(null);
-        toast.error(err?.error?.message ?? 'Could not delete that message');
+        toast.error(apiErrorMessage(err, 'Could not delete that message'));
       },
     });
   }

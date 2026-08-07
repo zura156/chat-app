@@ -12,6 +12,7 @@ import {
   PrivacySettingsService,
   Visibility,
 } from '../../../services/privacy-settings.service';
+import { apiErrorMessage } from '../../../../../shared/functions/api-error';
 
 /**
  * The visibility dropdowns here used to be a hardcoded signal array with no
@@ -80,14 +81,16 @@ export class PrivacySettings implements OnInit {
 
   setVisibility(key: keyof PrivacySettingsI, value: string): void {
     this.settings.setVisibility(key, value as Visibility).subscribe({
-      error: () => toast.error('Could not save that setting'),
+      error: (err) =>
+        toast.error(apiErrorMessage(err, 'Could not save that setting')),
     });
   }
 
   unblock(user: UserI): void {
     this.settings.unblock(user).subscribe({
       next: () => toast.success(`Unblocked @${user.username}`),
-      error: () => toast.error('Could not unblock that user'),
+      error: (err) =>
+        toast.error(apiErrorMessage(err, 'Could not unblock that user')),
     });
   }
 }

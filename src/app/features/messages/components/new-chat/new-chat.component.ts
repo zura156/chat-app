@@ -44,6 +44,8 @@ import { HlmFieldImports } from '@spartan-ng/helm/field';
 import { ParticipantI } from '../../interfaces/participant.interface';
 import { HlmAvatarImports } from '@spartan-ng/helm/avatar';
 import { environment } from '../../../../../environments/environment';
+import { toast } from '@spartan-ng/brain/sonner';
+import { apiErrorMessage } from '../../../../shared/functions/api-error';
 
 @Component({
   selector: 'app-new-chat',
@@ -221,10 +223,22 @@ export class NewChatComponent implements OnInit, OnDestroy {
         }),
         catchError((err) => {
           this.isLoading.set(false);
+          /*
+           * This branch reset the spinner and rethrew, and the `.subscribe()`
+           * below took no error callback — so a refused conversation produced
+           * nothing but an unhandled rejection in the console. The user pressed
+           * the button, the spinner stopped, and the screen did not move. The
+           * server's reasons here are all actionable ("You cannot start a
+           * conversation with someone who has blocked you", "Group name is
+           * required"), and none of them were ever shown.
+           */
+          toast.error('Could not start that conversation', {
+            description: apiErrorMessage(err, 'Please try again.'),
+          });
           return throwError(() => err);
         }),
       )
-      .subscribe();
+      .subscribe({ error: () => undefined });
   }
 
   addToConversation(user: UserI): void {
@@ -275,8 +289,10 @@ export class NewChatComponent implements OnInit, OnDestroy {
       .pipe(
         takeUntil(this.destroy$),
         catchError((err) => {
-          this.error.set('Failed to load users');
-          console.error('Error fetching users:', err);
+          // "Failed to load users" covered a rate limit, an expired session and
+          // being offline alike, with the distinguishing detail going to the
+          // console.
+          this.error.set(apiErrorMessage(err, 'Failed to load users.'));
           this.isLoading.set(false);
           return EMPTY;
         }),

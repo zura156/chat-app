@@ -5,7 +5,14 @@ import {
   ReactiveFormsModule,
   Validators,
 } from '@angular/forms';
-import { trimControls } from '../../../../shared/functions/form.utils';
+import {
+  applyServerFieldErrors,
+  clearServerFieldErrors,
+  markFormGroupTouched,
+  summarizeFormErrors,
+  trimControls,
+} from '../../../../shared/functions/form.utils';
+import { apiErrorMessage } from '../../../../shared/functions/api-error';
 import { repeatPasswordValidator } from '../../validators/repeat-password.validator';
 import { AuthService } from '../../services/auth.service';
 import { RegisterCredentialsI } from '../../interfaces/register-credentials.interface';
@@ -28,6 +35,19 @@ import {
 } from '../../validators/password.validator';
 import { Router, RouterLink } from '@angular/router';
 import { ThemeService } from '../../../../shared/services/theme.service';
+
+/** The server's `USERNAME_PATTERN`, restated so the form can refuse first. */
+const USERNAME_PATTERN = /^[a-zA-Z0-9._-]+$/;
+
+/** How the fields are named in a sentence, rather than as control keys. */
+const FIELD_LABELS: Record<string, string> = {
+  first_name: 'First name',
+  last_name: 'Last name',
+  username: 'Username',
+  email: 'Email',
+  password: 'Password',
+  repeat_password: 'Confirm password',
+};
 
 @Component({
   selector: 'app-register',
@@ -58,22 +78,34 @@ export class RegisterComponent implements OnDestroy {
   error = signal<string>('');
   isLoading = signal<boolean>(false);
 
+  /*
+   * These mirror `validateRegistration` in the API's auth.router, field for
+   * field. They did not, and every disagreement was a dead end for the user:
+   *
+   *   - the names required 3 characters where the server requires 1 and allows
+   *     64, so "Li" was refused by a form that would not say which of its six
+   *     inputs it meant, and a 40-character surname was accepted here and
+   *     rejected there;
+   *   - the username had no character rule at all, while the server insists on
+   *     letters, numbers, dots, underscores and hyphens. Typing a space — the
+   *     obvious thing to do in a field a person reads as a name — produced a
+   *     round trip that came back "Validation failed" and nothing else.
+   */
   form: FormGroup = new FormGroup(
     {
       first_name: new FormControl('', [
         Validators.required,
-        Validators.minLength(3),
-        Validators.maxLength(32),
+        Validators.maxLength(64),
       ]),
       last_name: new FormControl('', [
         Validators.required,
-        Validators.minLength(3),
-        Validators.maxLength(32),
+        Validators.maxLength(64),
       ]),
       username: new FormControl('', [
         Validators.required,
         Validators.minLength(3),
         Validators.maxLength(32),
+        Validators.pattern(USERNAME_PATTERN),
       ]),
       email: new FormControl('', [Validators.required, Validators.email]),
       // The context is read lazily so the rule against building a password out
@@ -132,9 +164,19 @@ export class RegisterComponent implements OnDestroy {
      */
     trimControls(this.form, ['first_name', 'last_name', 'username', 'email']);
 
+    // A previous submit's server errors describe values that have since been
+    // edited; leaving them would keep the form unsubmittable with no way to
+    // clear them.
+    clearServerFieldErrors(this.form);
+
     if (this.form.invalid) {
       this.isLoading.set(false);
-      this.error.set('Please fill in all fields correctly.');
+      // `markFormGroupTouched` first: the per-field messages under each input
+      // are the detailed half of this, and an untouched control does not show
+      // them — so a user who pressed the button without typing got the banner
+      // and no indication of where to look.
+      markFormGroupTouched(this.form);
+      this.error.set(summarizeFormErrors(this.form, FIELD_LABELS));
       return;
     }
     const credentials: RegisterCredentialsI = {
@@ -154,12 +196,33 @@ export class RegisterComponent implements OnDestroy {
           this.isLoading.set(false);
           this.router.navigateByUrl('/auth/login');
         }),
-        catchError((errorMessage) => {
-          this.error.set(errorMessage);
+        catchError((err) => {
           this.isLoading.set(false);
-          return throwError(() => errorMessage);
+
+          /*
+           * The server checks things this form cannot: whether the address is
+           * already registered, whether the password appears in a breach
+           * corpus. Those refusals name their field, so they belong under the
+           * input rather than in a banner the user has to map back onto six
+           * of them.
+           */
+          const placed = applyServerFieldErrors(this.form, err);
+          this.error.set(
+            apiErrorMessage(err, 'Could not create your account.'),
+          );
+
+          // Scroll the first refused field into view — on a phone the banner
+          // and the input it refers to are rarely on screen together.
+          if (placed.length > 0) {
+            document.getElementById(placed[0])?.focus({ preventScroll: false });
+          }
+
+          return throwError(() => err);
         }),
       )
-      .subscribe();
+      // Without an error callback the rethrow above is an unhandled rejection,
+      // which RxJS reports globally alongside the message the user is meant to
+      // read.
+      .subscribe({ error: () => undefined });
   }
 }

@@ -14,131 +14,143 @@
     <h3 class="text-sm font-medium">Password</h3>
 
     @if (!changingPassword()) {
-      <div
-        class="flex items-start justify-between gap-x-4 px-4 py-3 rounded-xl border border-border"
-      >
-        <div class="flex items-start gap-x-3 min-w-0">
-          <ng-icon
-            hlm
-            size="sm"
-            name="lucideKeyRound"
-            class="mt-0.5 shrink-0 text-muted-foreground"
-          />
-          <div class="min-w-0">
-            <p class="text-sm">Change your password</p>
-            <p class="text-xs text-muted-foreground">
-              Every other device will be signed out.
-            </p>
-          </div>
-        </div>
-
-        <button
-          hlmBtn
-          variant="outline"
+    <div
+      class="flex items-start justify-between gap-x-4 px-4 py-3 rounded-xl border border-border"
+    >
+      <div class="flex items-start gap-x-3 min-w-0">
+        <ng-icon
+          hlm
           size="sm"
-          class="rounded-full cursor-pointer text-xs shrink-0"
-          [disabled]="busy()"
-          (click)="beginPasswordChange()"
-        >
-          Change
-        </button>
+          name="lucideKeyRound"
+          class="mt-0.5 shrink-0 text-muted-foreground"
+        />
+        <div class="min-w-0">
+          <p class="text-sm">Change your password</p>
+          <p class="text-xs text-muted-foreground">
+            Every other device will be signed out.
+          </p>
+        </div>
       </div>
+
+      <button
+        hlmBtn
+        variant="outline"
+        size="sm"
+        class="rounded-full cursor-pointer text-xs shrink-0"
+        [disabled]="busy()"
+        (click)="beginPasswordChange()"
+      >
+        Change
+      </button>
+    </div>
     } @else {
-      <!--
+    <!--
         A real <form> so browsers and password managers recognise this as a
         credential change. `(submit)` rather than `(ngSubmit)`: this component
         does not import FormsModule, and without it `ngSubmit` is not a
         directive output — the binding would attach a listener for a DOM event
         that is never dispatched and the button would do nothing.
       -->
-      <form
-        class="flex flex-col gap-y-3 px-4 py-4 rounded-xl border border-border"
-        (submit)="$event.preventDefault(); submitPasswordChange()"
-      >
-        <!--
+    <form
+      class="flex flex-col gap-y-3 px-4 py-4 rounded-xl border border-border"
+      (submit)="$event.preventDefault(); submitPasswordChange()"
+    >
+      <!--
           A hidden username field is what lets a password manager attach the
           new credential to the right account; without it the entry is saved
           detached, or not offered at all.
         -->
+      <input
+        type="text"
+        autocomplete="username"
+        class="hidden"
+        [value]="currentUser()?.email ?? ''"
+        readonly
+        tabindex="-1"
+        aria-hidden="true"
+      />
+
+      <label class="flex flex-col gap-y-1">
+        <span class="text-xs text-muted-foreground">Current password</span>
         <input
-          type="text"
-          autocomplete="username"
-          class="hidden"
-          [value]="currentUser()?.email ?? ''"
-          readonly
-          tabindex="-1"
-          aria-hidden="true"
+          type="password"
+          autocomplete="current-password"
+          class="w-full text-sm bg-background border border-border rounded-lg px-3 py-2 focus:outline-none focus:ring-1 focus:ring-ring"
+          [value]="currentPassword()"
+          (input)="currentPassword.set($any($event.target).value)"
         />
+      </label>
 
-        <label class="flex flex-col gap-y-1">
-          <span class="text-xs text-muted-foreground">Current password</span>
-          <input
-            type="password"
-            autocomplete="current-password"
-            class="w-full text-sm bg-background border border-border rounded-lg px-3 py-2 focus:outline-none focus:ring-1 focus:ring-ring"
-            [value]="currentPassword()"
-            (input)="currentPassword.set($any($event.target).value)"
-          />
-        </label>
+      <label class="flex flex-col gap-y-1">
+        <span class="text-xs text-muted-foreground">New password</span>
+        <input
+          type="password"
+          autocomplete="new-password"
+          class="w-full text-sm bg-background border border-border rounded-lg px-3 py-2 focus:outline-none focus:ring-1 focus:ring-ring"
+          [value]="newPassword()"
+          (input)="newPassword.set($any($event.target).value)"
+        />
+      </label>
 
-        <label class="flex flex-col gap-y-1">
-          <span class="text-xs text-muted-foreground">New password</span>
-          <input
-            type="password"
-            autocomplete="new-password"
-            class="w-full text-sm bg-background border border-border rounded-lg px-3 py-2 focus:outline-none focus:ring-1 focus:ring-ring"
-            [value]="newPassword()"
-            (input)="newPassword.set($any($event.target).value)"
-          />
-        </label>
+      <label class="flex flex-col gap-y-1">
+        <span class="text-xs text-muted-foreground">Confirm new password</span>
+        <input
+          type="password"
+          autocomplete="new-password"
+          class="w-full text-sm bg-background border border-border rounded-lg px-3 py-2 focus:outline-none focus:ring-1 focus:ring-ring"
+          [value]="confirmPassword()"
+          (input)="confirmPassword.set($any($event.target).value)"
+        />
+      </label>
 
-        <label class="flex flex-col gap-y-1">
-          <span class="text-xs text-muted-foreground">Confirm new password</span>
-          <input
-            type="password"
-            autocomplete="new-password"
-            class="w-full text-sm bg-background border border-border rounded-lg px-3 py-2 focus:outline-none focus:ring-1 focus:ring-ring"
-            [value]="confirmPassword()"
-            (input)="confirmPassword.set($any($event.target).value)"
-          />
-        </label>
-
-        <!--
+      <!--
           The server enforces this rule too; stating it here means the user is
           not made to submit before finding out what it is.
         -->
-        @if (passwordProblem(); as problem) {
-          <p class="text-xs text-destructive">{{ problem }}</p>
-        } @else {
-          <p class="text-xs text-muted-foreground">
-            At least 8 characters, with an uppercase letter, a lowercase letter,
-            a number and a symbol.
-          </p>
+      @if (passwordProblems().length > 0) {
+      <ul class="text-xs text-destructive space-y-0.5">
+        @for (problem of passwordProblems(); track problem) {
+        <li>{{ problem }}</li>
         }
+      </ul>
+      } @else {
+      <!--
+            The hint used to recite a composition checklist — uppercase,
+            lowercase, digit, symbol — that neither this app nor the API has
+            enforced since the policy was consolidated. It told users to satisfy
+            four rules that did not exist while saying nothing about the ones
+            that do.
+          -->
+      <p class="text-xs text-muted-foreground">
+        At least 8 characters. A few unrelated words is stronger than a short
+        one with symbols in it — avoid well-known passwords, keyboard runs, and
+        anything built from your username or email.
+      </p>
+      }
 
-        <div class="flex items-center gap-x-2 pt-1">
-          <button
-            hlmBtn
-            size="sm"
-            type="submit"
-            class="rounded-full cursor-pointer text-xs"
-            [disabled]="busy() || !!passwordProblem()"
-          >
-            {{ busy() ? "Changing…" : "Change password" }}
-          </button>
-          <button
-            hlmBtn
-            variant="ghost"
-            size="sm"
-            type="button"
-            class="rounded-full cursor-pointer text-xs"
-            [disabled]="busy()"
-            (click)="cancelPasswordChange()"
-          >
-            Cancel
-          </button>
-        </div>
-      </form>
+      <div class="flex items-center gap-x-2 pt-1">
+        <button
+          hlmBtn
+          size="sm"
+          type="submit"
+          class="rounded-full cursor-pointer text-xs"
+          [disabled]="busy() || !!passwordProblem()"
+        >
+          {{ busy() ? "Changing…" : "Change password" }}
+        </button>
+        <button
+          hlmBtn
+          variant="ghost"
+          size="sm"
+          type="button"
+          class="rounded-full cursor-pointer text-xs"
+          [disabled]="busy()"
+          (click)="cancelPasswordChange()"
+        >
+          Cancel
+        </button>
+      </div>
+    </form>
     }
   </section>
 
@@ -149,446 +161,421 @@
     <h3 class="text-sm font-medium">Two-factor authentication</h3>
 
     @if (setupStage() === "idle" && !disarming()) {
-      <!--
+    <!--
         One row per factor. Both can be on at once; at sign-in the user picks
         which to answer, so neither is merely a fallback for the other.
       -->
-      <p class="text-xs text-muted-foreground">
-        @if (twoFactor().enabled) {
-          You'll be asked for a code when you sign in.
-          {{ twoFactor().recovery_codes_remaining }} recovery
-          {{ twoFactor().recovery_codes_remaining === 1 ? "code" : "codes" }}
-          remaining.
-        } @else {
-          Ask for a second proof of identity on top of your password.
-        }
-      </p>
+    <p class="text-xs text-muted-foreground">
+      @if (twoFactor().enabled) { You'll be asked for a code when you sign in.
+      {{ twoFactor().recovery_codes_remaining }} recovery {{
+      twoFactor().recovery_codes_remaining === 1 ? "code" : "codes" }}
+      remaining. } @else { Ask for a second proof of identity on top of your
+      password. }
+    </p>
 
-      <div class="rounded-xl border border-border divide-y divide-border">
-        <!-- Authenticator app -->
-        <div class="flex items-start justify-between gap-x-4 px-4 py-3">
-          <div class="flex items-start gap-x-3 min-w-0">
-            <ng-icon
-              hlm
-              size="sm"
-              class="mt-0.5 shrink-0"
-              [name]="
+    <div class="rounded-xl border border-border divide-y divide-border">
+      <!-- Authenticator app -->
+      <div class="flex items-start justify-between gap-x-4 px-4 py-3">
+        <div class="flex items-start gap-x-3 min-w-0">
+          <ng-icon
+            hlm
+            size="sm"
+            class="mt-0.5 shrink-0"
+            [name]="
                 twoFactor().totp_enabled
                   ? 'lucideShieldCheck'
                   : 'lucideShieldOff'
               "
-              [class.text-green-600]="twoFactor().totp_enabled"
-              [class.text-muted-foreground]="!twoFactor().totp_enabled"
-            />
-            <div class="min-w-0">
-              <p class="text-sm">Authenticator app</p>
-              <p class="text-xs text-muted-foreground">
-                @if (twoFactor().totp_enabled) {
-                  On — a 6-digit code from your app.
-                } @else {
-                  Works offline, and the code never leaves your device.
-                }
-              </p>
-            </div>
+            [class.text-green-600]="twoFactor().totp_enabled"
+            [class.text-muted-foreground]="!twoFactor().totp_enabled"
+          />
+          <div class="min-w-0">
+            <p class="text-sm">Authenticator app</p>
+            <p class="text-xs text-muted-foreground">
+              @if (twoFactor().totp_enabled) { On — a 6-digit code from your
+              app. } @else { Works offline, and the code never leaves your
+              device. }
+            </p>
           </div>
-
-          @if (twoFactor().totp_enabled) {
-            <button
-              hlmBtn
-              variant="outline"
-              size="sm"
-              class="rounded-full cursor-pointer text-xs shrink-0"
-              [disabled]="busy()"
-              (click)="beginDisable('totp')"
-            >
-              Turn off
-            </button>
-          } @else {
-            <button
-              hlmBtn
-              size="sm"
-              class="rounded-full cursor-pointer text-xs shrink-0"
-              [disabled]="busy()"
-              (click)="beginSetup('totp')"
-            >
-              Set up
-            </button>
-          }
         </div>
 
-        <!-- Email -->
-        <div class="flex items-start justify-between gap-x-4 px-4 py-3">
-          <div class="flex items-start gap-x-3 min-w-0">
-            <ng-icon
-              hlm
-              size="sm"
-              class="mt-0.5 shrink-0"
-              name="lucideMail"
-              [class.text-green-600]="twoFactor().email_enabled"
-              [class.text-muted-foreground]="!twoFactor().email_enabled"
-            />
-            <div class="min-w-0">
-              <p class="text-sm">Email</p>
-              <p class="text-xs text-muted-foreground">
-                @if (twoFactor().email_enabled) {
-                  On — a code sent to
-                  {{ currentUser()?.email ?? "your address" }}.
-                } @else {
-                  A code sent to the address on your account. Nothing to
-                  install.
-                }
-              </p>
-            </div>
-          </div>
-
-          @if (twoFactor().email_enabled) {
-            <button
-              hlmBtn
-              variant="outline"
-              size="sm"
-              class="rounded-full cursor-pointer text-xs shrink-0"
-              [disabled]="busy()"
-              (click)="beginDisable('email')"
-            >
-              Turn off
-            </button>
-          } @else {
-            <button
-              hlmBtn
-              size="sm"
-              class="rounded-full cursor-pointer text-xs shrink-0"
-              [disabled]="busy()"
-              (click)="beginSetup('email')"
-            >
-              Set up
-            </button>
-          }
-        </div>
+        @if (twoFactor().totp_enabled) {
+        <button
+          hlmBtn
+          variant="outline"
+          size="sm"
+          class="rounded-full cursor-pointer text-xs shrink-0"
+          [disabled]="busy()"
+          (click)="beginDisable('totp')"
+        >
+          Turn off
+        </button>
+        } @else {
+        <button
+          hlmBtn
+          size="sm"
+          class="rounded-full cursor-pointer text-xs shrink-0"
+          [disabled]="busy()"
+          (click)="beginSetup('totp')"
+        >
+          Set up
+        </button>
+        }
       </div>
+
+      <!-- Email -->
+      <div class="flex items-start justify-between gap-x-4 px-4 py-3">
+        <div class="flex items-start gap-x-3 min-w-0">
+          <ng-icon
+            hlm
+            size="sm"
+            class="mt-0.5 shrink-0"
+            name="lucideMail"
+            [class.text-green-600]="twoFactor().email_enabled"
+            [class.text-muted-foreground]="!twoFactor().email_enabled"
+          />
+          <div class="min-w-0">
+            <p class="text-sm">Email</p>
+            <p class="text-xs text-muted-foreground">
+              @if (twoFactor().email_enabled) { On — a code sent to {{
+              currentUser()?.email ?? "your address" }}. } @else { A code sent
+              to the address on your account. Nothing to install. }
+            </p>
+          </div>
+        </div>
+
+        @if (twoFactor().email_enabled) {
+        <button
+          hlmBtn
+          variant="outline"
+          size="sm"
+          class="rounded-full cursor-pointer text-xs shrink-0"
+          [disabled]="busy()"
+          (click)="beginDisable('email')"
+        >
+          Turn off
+        </button>
+        } @else {
+        <button
+          hlmBtn
+          size="sm"
+          class="rounded-full cursor-pointer text-xs shrink-0"
+          [disabled]="busy()"
+          (click)="beginSetup('email')"
+        >
+          Set up
+        </button>
+        }
+      </div>
+    </div>
     }
 
     <!-- Enrolment: prove the password, then prove the factor -->
     @if (setupStage() === "confirming-password") {
-      <div class="flex flex-col gap-y-3 pt-2">
-        <div>
-          <p class="text-sm font-medium">Confirm your password</p>
-          <p class="text-xs text-muted-foreground">
-            @if (setupMethod() === "email") {
-              Turning on email codes changes how you sign in, so we ask for your
-              password first.
-            } @else {
-              Adding an authenticator app changes how you sign in, so we ask for
-              your password first.
-            }
-          </p>
-        </div>
-
-        <input
-          type="password"
-          autocomplete="current-password"
-          placeholder="Your password"
-          aria-label="Your password"
-          class="w-full text-sm bg-background border border-border rounded-lg px-3 py-2 focus:outline-none focus:ring-1 focus:ring-ring"
-          [value]="password()"
-          (input)="password.set($any($event.target).value)"
-        />
-
-        <div class="flex items-center gap-x-2">
-          <button
-            hlmBtn
-            size="sm"
-            class="rounded-full cursor-pointer text-xs"
-            [disabled]="busy() || !password()"
-            (click)="startTwoFactorSetup()"
-          >
-            Continue
-          </button>
-          <button
-            hlmBtn
-            variant="ghost"
-            size="sm"
-            class="rounded-full cursor-pointer text-xs"
-            [disabled]="busy()"
-            (click)="cancelSetup()"
-          >
-            Cancel
-          </button>
-        </div>
+    <div class="flex flex-col gap-y-3 pt-2">
+      <div>
+        <p class="text-sm font-medium">Confirm your password</p>
+        <p class="text-xs text-muted-foreground">
+          @if (setupMethod() === "email") { Turning on email codes changes how
+          you sign in, so we ask for your password first. } @else { Adding an
+          authenticator app changes how you sign in, so we ask for your password
+          first. }
+        </p>
       </div>
-    }
 
-    @if (setupStage() === "scanning") {
-      <div class="px-4 py-4 rounded-xl border border-border space-y-4">
-        <div>
-          <p class="text-sm font-medium">Add this to your authenticator app</p>
-          <p class="text-xs text-muted-foreground">
-            Scan this code with your authenticator app, or enter the setup key
-            by hand.
-          </p>
-        </div>
+      <input
+        type="password"
+        autocomplete="current-password"
+        placeholder="Your password"
+        aria-label="Your password"
+        class="w-full text-sm bg-background border border-border rounded-lg px-3 py-2 focus:outline-none focus:ring-1 focus:ring-ring"
+        [value]="password()"
+        (input)="password.set($any($event.target).value)"
+      />
 
-        @if (setupQr(); as qr) {
-          <!--
+      <div class="flex items-center gap-x-2">
+        <button
+          hlmBtn
+          size="sm"
+          class="rounded-full cursor-pointer text-xs"
+          [disabled]="busy() || !password()"
+          (click)="startTwoFactorSetup()"
+        >
+          Continue
+        </button>
+        <button
+          hlmBtn
+          variant="ghost"
+          size="sm"
+          class="rounded-full cursor-pointer text-xs"
+          [disabled]="busy()"
+          (click)="cancelSetup()"
+        >
+          Cancel
+        </button>
+      </div>
+    </div>
+    } @if (setupStage() === "scanning") {
+    <div class="px-4 py-4 rounded-xl border border-border space-y-4">
+      <div>
+        <p class="text-sm font-medium">Add this to your authenticator app</p>
+        <p class="text-xs text-muted-foreground">
+          Scan this code with your authenticator app, or enter the setup key by
+          hand.
+        </p>
+      </div>
+
+      @if (setupQr(); as qr) {
+      <!--
             Held to dark-on-white whatever the app theme is: that polarity is
             what the symbol spec assumes, and an inverted one fails to scan on
             some readers.
           -->
-          <div class="flex justify-center">
-            <svg
-              [attr.viewBox]="'0 0 ' + qr.extent + ' ' + qr.extent"
-              class="size-52 rounded-lg bg-white"
-              shape-rendering="crispEdges"
-              role="img"
-              aria-label="QR code containing your two-factor setup key"
-            >
-              <path [attr.d]="qr.path" fill="#000" />
-            </svg>
-          </div>
-        }
-
-        <div class="space-y-2">
-          <p class="text-xs text-muted-foreground">
-            Setup key — if you can't scan
-          </p>
-          <code
-            class="block text-sm font-mono break-all bg-muted rounded-lg px-3 py-2 select-all"
-            >{{ setupSecret() }}</code
-          >
-        </div>
-
-        @if (setupUri(); as uri) {
-          <a
-            [href]="uri"
-            class="text-xs underline text-muted-foreground hover:text-foreground break-all"
-            >Open in authenticator app on this device</a
-          >
-        }
-
-        <div class="space-y-2">
-          <label for="setup-code" class="text-xs text-muted-foreground"
-            >Enter the 6-digit code to confirm</label
-          >
-          <input
-            id="setup-code"
-            inputmode="numeric"
-            autocomplete="one-time-code"
-            placeholder="000000"
-            class="w-full text-sm bg-background border border-border rounded-lg px-3 py-2 font-mono tracking-widest focus:outline-none focus:ring-1 focus:ring-ring"
-            [value]="code()"
-            (input)="onCodeInput($any($event.target).value)"
-          />
-        </div>
-
-        <div class="flex items-center gap-x-2">
-          <button
-            hlmBtn
-            size="sm"
-            class="rounded-full cursor-pointer text-xs"
-            [disabled]="busy() || code().length !== 6"
-            (click)="confirmTwoFactorSetup()"
-          >
-            Confirm
-          </button>
-          <button
-            hlmBtn
-            variant="ghost"
-            size="sm"
-            class="rounded-full cursor-pointer text-xs"
-            [disabled]="busy()"
-            (click)="cancelSetup()"
-          >
-            Cancel
-          </button>
-        </div>
+      <div class="flex justify-center">
+        <svg
+          [attr.viewBox]="'0 0 ' + qr.extent + ' ' + qr.extent"
+          class="size-52 rounded-lg bg-white"
+          shape-rendering="crispEdges"
+          role="img"
+          aria-label="QR code containing your two-factor setup key"
+        >
+          <path [attr.d]="qr.path" fill="#000" />
+        </svg>
       </div>
-    }
+      }
 
-    <!-- Email enrolment: the code that proves the inbox is reachable -->
-    @if (setupStage() === "awaiting-email-code") {
-      <div class="px-4 py-4 rounded-xl border border-border space-y-4">
-        <div>
-          <p class="text-sm font-medium">Check your inbox</p>
-          <p class="text-xs text-muted-foreground">
-            We sent a 6-digit code to
-            <span class="font-medium text-foreground">{{
-              emailSentTo() ?? "your address"
-            }}</span
-            >. It expires in 10 minutes.
-          </p>
-        </div>
-
-        <div class="space-y-2">
-          <label for="email-setup-code" class="text-xs text-muted-foreground"
-            >Enter the code to confirm</label
-          >
-          <input
-            id="email-setup-code"
-            inputmode="numeric"
-            autocomplete="one-time-code"
-            placeholder="000000"
-            class="w-full text-sm bg-background border border-border rounded-lg px-3 py-2 font-mono tracking-widest focus:outline-none focus:ring-1 focus:ring-ring"
-            [value]="code()"
-            (input)="onCodeInput($any($event.target).value)"
-          />
-        </div>
-
-        <div class="flex items-center gap-x-2">
-          <button
-            hlmBtn
-            size="sm"
-            class="rounded-full cursor-pointer text-xs"
-            [disabled]="busy() || code().length !== 6"
-            (click)="confirmTwoFactorSetup()"
-          >
-            Confirm
-          </button>
-          <button
-            hlmBtn
-            variant="outline"
-            size="sm"
-            class="rounded-full cursor-pointer text-xs"
-            [disabled]="busy()"
-            (click)="resendEmailSetupCode()"
-          >
-            Resend
-          </button>
-          <button
-            hlmBtn
-            variant="ghost"
-            size="sm"
-            class="rounded-full cursor-pointer text-xs"
-            [disabled]="busy()"
-            (click)="cancelSetup()"
-          >
-            Cancel
-          </button>
-        </div>
+      <div class="space-y-2">
+        <p class="text-xs text-muted-foreground">
+          Setup key — if you can't scan
+        </p>
+        <code
+          class="block text-sm font-mono break-all bg-muted rounded-lg px-3 py-2 select-all"
+          >{{ setupSecret() }}</code
+        >
       </div>
-    }
 
-    <!-- Recovery codes: shown exactly once -->
-    @if (setupStage() === "recovery") {
-      <div class="px-4 py-4 rounded-xl border border-border space-y-4">
-        <div>
-          <p class="text-sm font-medium">Save your recovery codes</p>
-          <p class="text-xs text-muted-foreground">
-            Each code works once, if you lose access to your authenticator app.
-            This is the only time they are shown.
-          </p>
-        </div>
+      @if (setupUri(); as uri) {
+      <a
+        [href]="uri"
+        class="text-xs underline text-muted-foreground hover:text-foreground break-all"
+        >Open in authenticator app on this device</a
+      >
+      }
 
-        <ul class="grid grid-cols-2 gap-2">
-          @for (recoveryCode of recoveryCodes(); track recoveryCode) {
-            <li
-              class="text-sm font-mono bg-muted rounded-lg px-3 py-2 text-center select-all"
-            >
-              {{ recoveryCode }}
-            </li>
-          }
-        </ul>
-
-        <div class="flex items-center gap-x-2">
-          <button
-            hlmBtn
-            variant="outline"
-            size="sm"
-            class="rounded-full cursor-pointer text-xs"
-            (click)="copyRecoveryCodes()"
-          >
-            Copy codes
-          </button>
-          <button
-            hlmBtn
-            size="sm"
-            class="rounded-full cursor-pointer text-xs"
-            (click)="finishSetup()"
-          >
-            I've saved them
-          </button>
-        </div>
-      </div>
-    }
-
-    @if (disarming()) {
-      <div class="px-4 py-4 rounded-xl border border-border space-y-3">
-        <div>
-          <p class="text-sm font-medium">
-            @if (disarmingMethod() === "email") {
-              Turn off email codes
-            } @else if (disarmingMethod() === "totp") {
-              Turn off the authenticator app
-            } @else {
-              Turn off two-factor authentication
-            }
-          </p>
-          <p class="text-xs text-muted-foreground">
-            Enter a code from any factor you still have, or one of your recovery
-            codes.
-            @if (disarmLeavesAccountBare()) {
-              Your account will be back to password-only, and every device will
-              be signed out.
-            } @else {
-              Your other factor stays on, and you'll stay signed in here.
-            }
-          </p>
-        </div>
-
-        @if (twoFactor().email_enabled) {
-          <button
-            hlmBtn
-            variant="outline"
-            size="sm"
-            class="rounded-full cursor-pointer text-xs w-fit"
-            [disabled]="busy()"
-            (click)="sendDisableEmailCode()"
-          >
-            {{ emailSentTo() ? "Send another code" : "Email me a code" }}
-          </button>
-        }
-
+      <div class="space-y-2">
+        <label for="setup-code" class="text-xs text-muted-foreground"
+          >Enter the 6-digit code to confirm</label
+        >
         <input
-          inputmode="text"
+          id="setup-code"
+          inputmode="numeric"
           autocomplete="one-time-code"
-          placeholder="000000 or recovery code"
-          aria-label="Authentication or recovery code"
+          placeholder="000000"
           class="w-full text-sm bg-background border border-border rounded-lg px-3 py-2 font-mono tracking-widest focus:outline-none focus:ring-1 focus:ring-ring"
           [value]="code()"
           (input)="onCodeInput($any($event.target).value)"
         />
-
-        <input
-          type="password"
-          autocomplete="current-password"
-          placeholder="Your password"
-          aria-label="Your password"
-          class="w-full text-sm bg-background border border-border rounded-lg px-3 py-2 focus:outline-none focus:ring-1 focus:ring-ring"
-          [value]="password()"
-          (input)="password.set($any($event.target).value)"
-        />
-
-        <div class="flex items-center gap-x-2">
-          <button
-            hlmBtn
-            variant="destructive"
-            size="sm"
-            class="rounded-full cursor-pointer text-xs"
-            [disabled]="busy() || !code() || !password()"
-            (click)="confirmDisable()"
-          >
-            Turn off
-          </button>
-          <button
-            hlmBtn
-            variant="ghost"
-            size="sm"
-            class="rounded-full cursor-pointer text-xs"
-            [disabled]="busy()"
-            (click)="cancelDisable()"
-          >
-            Cancel
-          </button>
-        </div>
       </div>
+
+      <div class="flex items-center gap-x-2">
+        <button
+          hlmBtn
+          size="sm"
+          class="rounded-full cursor-pointer text-xs"
+          [disabled]="busy() || code().length !== 6"
+          (click)="confirmTwoFactorSetup()"
+        >
+          Confirm
+        </button>
+        <button
+          hlmBtn
+          variant="ghost"
+          size="sm"
+          class="rounded-full cursor-pointer text-xs"
+          [disabled]="busy()"
+          (click)="cancelSetup()"
+        >
+          Cancel
+        </button>
+      </div>
+    </div>
+    }
+
+    <!-- Email enrolment: the code that proves the inbox is reachable -->
+    @if (setupStage() === "awaiting-email-code") {
+    <div class="px-4 py-4 rounded-xl border border-border space-y-4">
+      <div>
+        <p class="text-sm font-medium">Check your inbox</p>
+        <p class="text-xs text-muted-foreground">
+          We sent a 6-digit code to
+          <span class="font-medium text-foreground"
+            >{{ emailSentTo() ?? "your address" }}</span
+          >. It expires in 10 minutes.
+        </p>
+      </div>
+
+      <div class="space-y-2">
+        <label for="email-setup-code" class="text-xs text-muted-foreground"
+          >Enter the code to confirm</label
+        >
+        <input
+          id="email-setup-code"
+          inputmode="numeric"
+          autocomplete="one-time-code"
+          placeholder="000000"
+          class="w-full text-sm bg-background border border-border rounded-lg px-3 py-2 font-mono tracking-widest focus:outline-none focus:ring-1 focus:ring-ring"
+          [value]="code()"
+          (input)="onCodeInput($any($event.target).value)"
+        />
+      </div>
+
+      <div class="flex items-center gap-x-2">
+        <button
+          hlmBtn
+          size="sm"
+          class="rounded-full cursor-pointer text-xs"
+          [disabled]="busy() || code().length !== 6"
+          (click)="confirmTwoFactorSetup()"
+        >
+          Confirm
+        </button>
+        <button
+          hlmBtn
+          variant="outline"
+          size="sm"
+          class="rounded-full cursor-pointer text-xs"
+          [disabled]="busy()"
+          (click)="resendEmailSetupCode()"
+        >
+          Resend
+        </button>
+        <button
+          hlmBtn
+          variant="ghost"
+          size="sm"
+          class="rounded-full cursor-pointer text-xs"
+          [disabled]="busy()"
+          (click)="cancelSetup()"
+        >
+          Cancel
+        </button>
+      </div>
+    </div>
+    }
+
+    <!-- Recovery codes: shown exactly once -->
+    @if (setupStage() === "recovery") {
+    <div class="px-4 py-4 rounded-xl border border-border space-y-4">
+      <div>
+        <p class="text-sm font-medium">Save your recovery codes</p>
+        <p class="text-xs text-muted-foreground">
+          Each code works once, if you lose access to your authenticator app.
+          This is the only time they are shown.
+        </p>
+      </div>
+
+      <ul class="grid grid-cols-2 gap-2">
+        @for (recoveryCode of recoveryCodes(); track recoveryCode) {
+        <li
+          class="text-sm font-mono bg-muted rounded-lg px-3 py-2 text-center select-all"
+        >
+          {{ recoveryCode }}
+        </li>
+        }
+      </ul>
+
+      <div class="flex items-center gap-x-2">
+        <button
+          hlmBtn
+          variant="outline"
+          size="sm"
+          class="rounded-full cursor-pointer text-xs"
+          (click)="copyRecoveryCodes()"
+        >
+          Copy codes
+        </button>
+        <button
+          hlmBtn
+          size="sm"
+          class="rounded-full cursor-pointer text-xs"
+          (click)="finishSetup()"
+        >
+          I've saved them
+        </button>
+      </div>
+    </div>
+    } @if (disarming()) {
+    <div class="px-4 py-4 rounded-xl border border-border space-y-3">
+      <div>
+        <p class="text-sm font-medium">
+          @if (disarmingMethod() === "email") { Turn off email codes } @else if
+          (disarmingMethod() === "totp") { Turn off the authenticator app }
+          @else { Turn off two-factor authentication }
+        </p>
+        <p class="text-xs text-muted-foreground">
+          Enter a code from any factor you still have, or one of your recovery
+          codes. @if (disarmLeavesAccountBare()) { Your account will be back to
+          password-only, and every device will be signed out. } @else { Your
+          other factor stays on, and you'll stay signed in here. }
+        </p>
+      </div>
+
+      @if (twoFactor().email_enabled) {
+      <button
+        hlmBtn
+        variant="outline"
+        size="sm"
+        class="rounded-full cursor-pointer text-xs w-fit"
+        [disabled]="busy()"
+        (click)="sendDisableEmailCode()"
+      >
+        {{ emailSentTo() ? "Send another code" : "Email me a code" }}
+      </button>
+      }
+
+      <input
+        inputmode="text"
+        autocomplete="one-time-code"
+        placeholder="000000 or recovery code"
+        aria-label="Authentication or recovery code"
+        class="w-full text-sm bg-background border border-border rounded-lg px-3 py-2 font-mono tracking-widest focus:outline-none focus:ring-1 focus:ring-ring"
+        [value]="code()"
+        (input)="onCodeInput($any($event.target).value)"
+      />
+
+      <input
+        type="password"
+        autocomplete="current-password"
+        placeholder="Your password"
+        aria-label="Your password"
+        class="w-full text-sm bg-background border border-border rounded-lg px-3 py-2 focus:outline-none focus:ring-1 focus:ring-ring"
+        [value]="password()"
+        (input)="password.set($any($event.target).value)"
+      />
+
+      <div class="flex items-center gap-x-2">
+        <button
+          hlmBtn
+          variant="destructive"
+          size="sm"
+          class="rounded-full cursor-pointer text-xs"
+          [disabled]="busy() || !code() || !password()"
+          (click)="confirmDisable()"
+        >
+          Turn off
+        </button>
+        <button
+          hlmBtn
+          variant="ghost"
+          size="sm"
+          class="rounded-full cursor-pointer text-xs"
+          [disabled]="busy()"
+          (click)="cancelDisable()"
+        >
+          Cancel
+        </button>
+      </div>
+    </div>
     }
   </section>
 
@@ -599,79 +586,74 @@
     <div class="flex items-baseline justify-between gap-x-2">
       <h3 class="text-sm font-medium">Where you're signed in</h3>
       @if (!loading() && sessions().length > 1) {
-        <button
-          hlmBtn
-          variant="ghost"
-          size="sm"
-          class="rounded-full cursor-pointer text-xs text-destructive"
-          [disabled]="busy()"
-          (click)="signOutAllDevices()"
-        >
-          Sign out everywhere
-        </button>
+      <button
+        hlmBtn
+        variant="ghost"
+        size="sm"
+        class="rounded-full cursor-pointer text-xs text-destructive"
+        [disabled]="busy()"
+        (click)="signOutAllDevices()"
+      >
+        Sign out everywhere
+      </button>
       }
     </div>
 
     @if (loading()) {
-      <div class="space-y-1">
-        @for (placeholder of [1, 2]; track placeholder) {
-          <div class="flex items-center gap-x-3 px-4 py-3">
-            <div
-              class="size-9 rounded-full bg-muted animate-pulse shrink-0"
-            ></div>
-            <div class="h-4 w-48 rounded bg-muted animate-pulse"></div>
-          </div>
-        }
+    <div class="space-y-1">
+      @for (placeholder of [1, 2]; track placeholder) {
+      <div class="flex items-center gap-x-3 px-4 py-3">
+        <div class="size-9 rounded-full bg-muted animate-pulse shrink-0"></div>
+        <div class="h-4 w-48 rounded bg-muted animate-pulse"></div>
       </div>
+      }
+    </div>
     } @else if (sessions().length === 0) {
-      <p class="text-sm text-muted-foreground px-4 py-6 text-center">
-        No active sessions.
-      </p>
+    <p class="text-sm text-muted-foreground px-4 py-6 text-center">
+      No active sessions.
+    </p>
     } @else {
-      <ul class="space-y-1">
-        @for (session of sessions(); track session.id) {
-          <li
-            class="flex items-center justify-between gap-x-3 px-4 py-3 rounded-xl hover:bg-muted/40 transition-colors"
-          >
-            <div class="flex items-center gap-x-3 min-w-0">
-              <ng-icon
-                hlm
-                size="sm"
-                class="text-muted-foreground shrink-0"
-                [name]="
+    <ul class="space-y-1">
+      @for (session of sessions(); track session.id) {
+      <li
+        class="flex items-center justify-between gap-x-3 px-4 py-3 rounded-xl hover:bg-muted/40 transition-colors"
+      >
+        <div class="flex items-center gap-x-3 min-w-0">
+          <ng-icon
+            hlm
+            size="sm"
+            class="text-muted-foreground shrink-0"
+            [name]="
                   isMobile(session) ? 'lucideSmartphone' : 'lucideMonitor'
                 "
-              />
-              <div class="min-w-0">
-                <p class="text-sm truncate">
-                  {{ describeDevice(session) }}
-                  @if (session.current) {
-                    <span class="text-xs text-green-600">· this device</span>
-                  }
-                </p>
-                <p class="text-xs text-muted-foreground truncate">
-                  @if (session.ip) {
-                    {{ session.ip }} ·
-                  }
-                  last active {{ session.last_used_at | date: "medium" }}
-                </p>
-              </div>
-            </div>
+          />
+          <div class="min-w-0">
+            <p class="text-sm truncate">
+              {{ describeDevice(session) }} @if (session.current) {
+              <span class="text-xs text-green-600">· this device</span>
+              }
+            </p>
+            <p class="text-xs text-muted-foreground truncate">
+              @if (session.ip) { {{ session.ip }} · } last active {{
+              session.last_used_at | date: "medium" }}
+            </p>
+          </div>
+        </div>
 
-            <button
-              hlmBtn
-              variant="outline"
-              size="sm"
-              class="rounded-full cursor-pointer text-xs shrink-0"
-              [attr.aria-label]="'Sign out ' + describeDevice(session)"
-              [disabled]="isRevoking(session.id)"
-              (click)="revoke(session)"
-            >
-              Sign out
-            </button>
-          </li>
-        }
-      </ul>
+        <button
+          hlmBtn
+          variant="outline"
+          size="sm"
+          class="rounded-full cursor-pointer text-xs shrink-0"
+          [attr.aria-label]="'Sign out ' + describeDevice(session)"
+          [disabled]="isRevoking(session.id)"
+          (click)="revoke(session)"
+        >
+          Sign out
+        </button>
+      </li>
+      }
+    </ul>
     }
   </section>
 </main>
