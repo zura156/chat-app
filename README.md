@@ -15,12 +15,19 @@ variants the client actually renders.
 
 - Real-time messaging over WebSocket, with typing indicators and notifications
 - Direct and group conversations, including member management
+- Message editing and deletion (deletion is soft — see `CHANGELOG.md` for why)
 - Attachments: images, video, audio and arbitrary files
 - Background media pipeline — virus scanning, image resizing, video/audio
   transcoding, thumbnail extraction
-- Read receipts and per-conversation media/file browsing
+- Read receipts, per-conversation mute, and per-conversation media/file browsing
 - Authentication with email verification, password reset, account lockout and
   reCAPTCHA
+- Two-factor authentication — an authenticator app (TOTP), emailed codes, or
+  both — with single-use recovery codes
+- Session management: list your active sessions and revoke one or all of them,
+  which refuses the access token already in that browser and closes its socket
+- Blocking and per-field privacy visibility (last seen, profile picture, bio,
+  online status)
 - Mobile shell via Capacitor
 
 ## Tech Stack
@@ -224,7 +231,20 @@ Sessions and credentials — authenticated:
 | DELETE | `/user/profile` | Delete the current user |
 | GET | `/user` | List users |
 | GET | `/user/search` | Search users |
-| GET | `/user/:id` | Get a user by id |
+| GET | `/user/privacy` | Get the privacy visibility settings |
+| PATCH | `/user/privacy` | Update them (whitelisted on both key and value) |
+| GET | `/user/blocked` | List the accounts you have blocked |
+| POST | `/user/:id/block` | Block a user |
+| DELETE | `/user/:id/block` | Unblock a user |
+| GET | `/user/storage` | Storage used by the uploads this account owns |
+| GET | `/user/export` | Download this account's data as JSON |
+| GET | `/user/:id` | Get a user by id — 404s, not 403s, if either side has blocked the other |
+
+A block is one-directional as data and bidirectional as an effect: every check
+asks whether *either* party blocked the other. It is enforced on sending (both
+entry points), starting a conversation, being added to a group, the DM lookup,
+user search, the user list and the profile page. System INFO messages are exempt
+— those are the app narrating membership changes, not a user reaching anyone.
 
 ### Conversations — `/conversations`
 
@@ -234,10 +254,17 @@ Sessions and credentials — authenticated:
 | POST | `/conversations` | Create a conversation |
 | GET | `/conversations/search` | Search conversations |
 | GET | `/conversations/find/:participantId` | Find a DM by participant |
+| GET | `/conversations/muted` | List the conversations you have muted |
 | GET | `/conversations/:id` | Get a conversation |
 | PATCH | `/conversations/:id` | Update a conversation (name, picture) |
 | DELETE | `/conversations/:id` | Delete a conversation |
 | PATCH | `/conversations/:id/members` | Add or remove members |
+| POST | `/conversations/:id/mute` | Mute a conversation |
+| DELETE | `/conversations/:id/mute` | Unmute it, recomputing the badge |
+
+Everything under `/:id` is behind `validateConversation`, which proves
+membership. Mutes are permanent — `muted_until` is declared on the model and
+never enforced, which is why the settings screen has no duration picker.
 
 ### Messages — `/messages`
 
@@ -245,8 +272,17 @@ Sessions and credentials — authenticated:
 |---|---|---|
 | POST | `/messages/:id/send` | Send a message to a conversation |
 | GET | `/messages/:id/messages` | Get messages in a conversation |
+| PATCH | `/messages/:id/messages/:messageId` | Edit a message (text only; stamps `edited_at`) |
+| DELETE | `/messages/:id/messages/:messageId` | Delete a message (soft) |
 | GET | `/messages/:id/media` | Get media attachments in a conversation |
 | GET | `/messages/:id/files` | Get file attachments in a conversation |
+
+`:id` is the conversation, whose membership the route middleware proves;
+ownership of `:messageId` is checked in the service. Deletion is soft and has to
+be — read receipts reference message ids and the unread count is derived from the
+referenced message's timestamp, so removing the row would leave that user with no
+watermark and mark the whole conversation unread. The row survives, emptied, and
+renders as a tombstone.
 
 ### Notifications — `/notifications`
 
@@ -267,17 +303,66 @@ Upload contexts: `dm-image`, `dm-video`, `dm-audio`, `dm-file`, `avatar`,
 `group-avatar`. Conversation attachments land in the private bucket; avatars are
 public.
 
+### Error responses
+
+Every error the API returns has the same shape:
+
+```jsonc
+{
+  "message": "Password: Use at least 8 characters. Username is already taken.",
+  "code": "VALIDATION_FAILED",           // optional
+  "errors": [                            // optional, one entry per field
+    { "field": "password", "msg": "Use at least 8 characters." },
+    { "field": "username", "msg": "is already taken" }
+  ]
+}
+```
+
+`message` is a complete sentence naming every field that failed and why — render
+it directly. `errors[]` carries the same reasons split per field, for putting each
+one under the input it belongs to rather than in a single banner. `code` is one
+of `VALIDATION_FAILED`, `DUPLICATE`, `EMAIL_NOT_VERIFIED`, `RATE_LIMITED`, `CSRF`
+or `ALREADY_AUTHENTICATED`.
+
+Clients should read these through `apiErrorMessage` / `apiFieldErrors` in
+`src/app/shared/functions/api-error.ts`, which also covers a network failure, a
+non-JSON error page, and the endpoints that answer `{ error }`.
+
 ## WebSocket
 
-The client connects to `wsUrl` and authenticates over the socket itself.
+The client connects to `wsUrl` and authenticates over the socket itself. The
+identity proven at the upgrade handshake is re-stamped onto every inbound
+message, so a client cannot name someone else by supplying an id.
 
 | Type | Direction | Purpose |
 |---|---|---|
 | `authenticate` | client → server | Authenticate the connection |
-| `message` | both | New or updated message |
-| `typing` | both | Typing indicator |
-| `notification` | server → client | Notification for the current user |
-| `pong` | client → server | Keep-alive response |
+| `message` | both | New message |
+| `message-edited` | server → client | A message's text changed |
+| `message-deleted` | server → client | A message became a tombstone |
+| `message-status` | both | Read receipt |
+| `typing` | both | Typing indicator (membership-checked) |
+| `user-status` | both | Presence |
+| `conversation-update` | server → client | Name, picture or membership changed |
+| `conversation-join` | server → client | You were added to a conversation |
+| `conversation-leave` | server → client | You were removed, or it was deleted |
+| `upload-ready` | server → client | The worker finished an attachment |
+| `upload-failed` | server → client | Processing failed permanently |
+| `upload-infected` | server → client | ClamAV rejected the file |
+| `notification` | server → client | Unread count for the current user |
+| `rate-limited` | server → client | The socket is over its message budget |
+
+Keep-alive is the protocol's own ping/pong frames, not a JSON message — the
+server pings and drops a client that does not answer.
+
+Sockets are closed with code **4002** when the session behind them is revoked —
+by `sid` for one named session, or by issue time for a bulk revocation.
+
+Delivery is over Redis pub/sub (`ws:broadcast`, `ws:notification`, `ws:revoke`)
+so it works across API instances. Anything pushing to users must go through the
+broadcast helpers on `webSocketServiceInstance`; a bare `sendToUser` reaches only
+the sockets attached to the local process, which looks correct on one machine and
+drops messages in production.
 
 ## Environment Variables
 
@@ -285,11 +370,13 @@ The client connects to `wsUrl` and authenticates over the socket itself.
 
 ```
 # Server
+# The WebSocket shares this port — it attaches to the same HTTP server, so
+# `wsUrl` on the client points at PORT, not at a second one.
 PORT=3000
-WS_PORT=3001
 NODE_ENV=development
 CLIENT_URL=http://localhost:4200
-TRUSTED_PROXIES=          # comma-separated list
+TRUSTED_PROXIES=          # comma-separated list; decides whether the address
+                          # recorded against a session is the user's or a proxy's
 
 # Database
 MONGO_URI=your-mongo-uri
@@ -302,10 +389,25 @@ REDIS_PASSWORD=
 # Secrets
 COOKIE_SECRET=your-cookie-secret
 SESSION_SECRET=your-session-secret
-JWT_SECRET=your-jwt-secret
+JWT_SECRET=your-jwt-secret            # also signs the 5-minute 2FA challenge
 JWT_REFRESH_SECRET=your-refresh-token-secret
 JWT_EXPIRES_IN=1h
 JWT_REFRESH_EXPIRES_IN=7d
+# The four secrets above, and COOKIE_DOMAIN below, throw at boot when
+# NODE_ENV=production rather than falling back to a development default.
+COOKIE_DOMAIN=localhost   # the CSRF cookie is set with a domain, and a browser
+                          # silently drops one scoped to a host it is not on —
+                          # every mutating request then 403s with nothing logged
+
+# Two-factor
+TWO_FACTOR_ISSUER=chat-app  # the label authenticator apps show next to the code
+
+# Email verification gate
+# Off by default. Verification shipped long before anything read its result, so
+# every pre-existing account has is_email_verified: false and switching this on
+# unconditionally locks out the whole user base. Run `npm run backfill:verified`
+# to grandfather those accounts first, then set this to true.
+REQUIRE_EMAIL_VERIFICATION=false
 
 # Passwords
 # Checks new passwords against Have I Been Pwned. The password never leaves the
@@ -316,6 +418,13 @@ JWT_REFRESH_EXPIRES_IN=7d
 # resets, and a breaker stops it retrying a host that is unreachable. Set to
 # false only where outbound HTTPS is unavailable by policy.
 CHECK_BREACHED_PASSWORDS=true
+
+# bcrypt work factor. 10 everywhere it is not set, and that is the number that
+# matters — it is what protects a stolen password table. Configurable only so the
+# test setup can drop it to 4 (a full hash is ~68ms at 10, ~2ms at 4, and every
+# integration fixture creates users). Anything outside 4–15, or below 10 while
+# NODE_ENV=production, is ignored and 10 is used.
+BCRYPT_ROUNDS=10
 
 # S3-compatible storage
 S3_ENDPOINT=https://your-s3-endpoint
@@ -335,13 +444,22 @@ CLAMAV_PORT=3310
 # Mail
 SMTP_HOST=your-host
 SMTP_PORT=your-port
+SMTP_SECURE=false         # true for port 465, false for 587
 SMTP_USER=your-email-address
 SMTP_PASS=your-email-app-password
+
+# Logging
+LOG_LEVEL=info
+LOG_DIR=                  # defaults to <cwd>/logs
+LOG_SILENT=               # 1 silences every transport; the test setup sets it
 
 # Misc
 RECAPTCHA_SECRET_KEY=your-recaptcha-secret
 WORKER_CONCURRENCY=4
 ```
+
+`MONGO_TEST_URI`, `REDIS_TEST_URL` and `REQUIRE_INTEGRATION` only affect the test
+run — see [Tests](#tests).
 
 ### Frontend (`src/environments/`)
 
@@ -405,12 +523,33 @@ the full diagnosis.
 **The media worker is not optional.** Attachments stay in `processing` forever if
 no worker is consuming the `media-processing` queue.
 
-**Password policy follows NIST SP 800-63B rev. 4.** There are no composition
-rules — no "must contain an uppercase letter and a symbol". The requirements are
-a 15-character minimum (the standard's floor for a password used as a single
-factor, which is every account here until its owner enrols 2FA), a 128-character
-maximum, all printable characters and Unicode accepted, and a check against
-common, predictable and breached passwords.
+**Password policy follows NIST SP 800-63B rev. 4, with one deliberate
+deviation.** There are no composition rules — no "must contain an uppercase
+letter and a symbol". The requirements are an 8-character minimum, a
+128-character maximum, all printable characters and Unicode accepted, and a check
+against common, predictable and breached passwords.
+
+The minimum is **OWASP ASVS 5.0 6.2.1's L1 floor, not NIST's 15**, and that is a
+product call rather than a reading of the standard: NIST allows 8 only where a
+second factor is *required*, and two-factor is opt-in here, so an account is
+single-factor unless its owner has chosen otherwise. A 15-character minimum is
+also the single largest source of drop-off on a sign-up form, and people who
+cannot get past it reuse a password from elsewhere — the outcome the policy exists
+to prevent. What it costs: an 8-character password is within offline-cracking
+reach in a way a 15-character one is not, and bcrypt raises the cost per guess
+without changing that.
+
+Length was previously doing most of the blocklist's work — almost every entry in
+the usual "top 10,000" lists is under 15 characters and was refused on length
+before any rule could name it. At 8, `password`, `iloveyou` and `princess` are all
+length-legal and none of them repeats, walks the keyboard or runs along the
+alphabet, so the checks that used to be a backstop are now the control:
+`looksTrivial`, a blocklist grown to cover the short end (matched after trailing
+digits and punctuation are stripped, so `M0nkey!` reduces to `monkey`), and above
+all the Have I Been Pwned check. That check fails open by design, so during an
+outage `password-policy.ts` is the whole policy. If 2FA ever becomes mandatory —
+or a tiered rule is added, 15 alone and 8 with a second factor —
+`PASSWORD_MIN_LENGTH` is the only thing that needs to move.
 
 **Registration and password changes make an outbound request to
 `api.pwnedpasswords.com`,** unless you set `CHECK_BREACHED_PASSWORDS=false`. The
@@ -433,14 +572,20 @@ registration, reset, change.
 Both halves of the project run on Vitest.
 
 ```bash
-# Backend
+# Both suites, from the repository root
+npm test           # client, then server
+npm run test:ci    # the same, with REQUIRE_INTEGRATION=1
+npm run typecheck  # client specs and server — the build configs exclude specs
+
+# Backend only
 cd server
 npm test           # once
 npm run test:watch # while working
-npm run typecheck  # type-checks the specs, which the build config excludes
+npm run smoke      # end-to-end over HTTP against a running stack
 
-# Frontend
-ng test
+# Frontend only
+npm run test:client                            # or: ng test
+npx ng test --include="**/api-error.spec.ts"   # a single spec
 ```
 
 Backend specs come in two kinds, distinguished by filename:
@@ -460,6 +605,15 @@ reachable, so `npm test` is always runnable:
 Point them elsewhere with `MONGO_TEST_URI` and `REDIS_TEST_URL`. They use a
 separate database and drop every collection between tests, so do not aim them at
 anything you care about.
+
+Because they skip rather than fail, a green local run can silently cover far less
+than a full one. `REQUIRE_INTEGRATION=1` turns the skip into a hard failure, which
+is what `npm run test:ci` sets.
+
+The suite pins three variables, all overridable: `CHECK_BREACHED_PASSWORDS=false`
+keeps it off `api.pwnedpasswords.com`, `LOG_SILENT=1` silences winston (use
+`LOG_SILENT=0 npm test` to see what a spec is doing), and `BCRYPT_ROUNDS=4` keeps
+fixture users from spending seconds of the run proving bcrypt still works.
 
 Some of these are regression tests for bugs that a mock could not have caught —
 the membership broadcast that named its recipients by `toString()`-ing populated

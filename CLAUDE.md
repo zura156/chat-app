@@ -147,9 +147,11 @@ which is what `ng serve` uses. Edit the development file for local work.
 
 - **Password policy is mirrored in two places.** `server/src/auth/services/password-policy.ts` and
   `src/app/features/auth/validators/password.validator.ts`. Change one and you must change the other,
-  and update the shared vector table both suites run. The rules follow NIST SP 800-63B rev. 4: 15
-  character minimum, 128 maximum, all printable characters and Unicode, no composition rules — do not
-  add "must contain an uppercase letter".
+  and update the shared vector table both suites run. The rules follow NIST SP 800-63B rev. 4 with one
+  deliberate deviation: an **8** character minimum (OWASP ASVS 5.0 L1, not NIST's 15 — read the block
+  on `PASSWORD_MIN_LENGTH` before changing it back), 128 maximum, all printable characters and
+  Unicode, no composition rules — do not add "must contain an uppercase letter". At 8 the blocklist
+  and the Have I Been Pwned check are the control, not a backstop.
 - **The root `tsconfig.json` excludes `server/`.** Without that exclusion TypeScript judges server
   code by the Angular app's flags (`noPropertyAccessFromIndexSignature`, `noUnusedLocals`), neither of
   which applies to it. Server code answers to `server/tsconfig.json`.

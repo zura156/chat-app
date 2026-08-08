@@ -18,6 +18,230 @@ same, including the mail path.
 
 ---
 
+## Fixed — refusals that named nothing
+
+A user could be told only that something was wrong, never what. The reasons
+existed at every layer; nothing carried them the whole way to the screen.
+
+- **`validateRequest` answered the constant string `Validation failed`.** The
+  per-field reasons were in `errors[]` all along and no client rendered them, so
+  a sign-up refused for a password on the breach list, or a username with a
+  space in it, said the same six words as one refused for an empty field —
+  across six inputs and eleven validators. `message` is now a complete sentence
+  naming every field that failed and why, with `errors[]` kept beside it for
+  putting each reason under its own input. One entry per field, so a field that
+  fails two validators does not repeat its label. Raw paths are mapped through a
+  `FIELD_LABELS` table, and the label is skipped when the validator's own
+  message already opens with it — otherwise "Username: Username must be…".
+  *server/src/auth/middlewares/validate-request.middleware.ts*
+
+- **Mongoose's aggregated wrapper was being shown to users.** ``User validation
+  failed: username: Path `username` is required.`` names the model, repeats the
+  path twice and backticks a schema key. The per-path messages underneath it are
+  the ones the schema actually authored; those are used now and the wrapper is
+  dropped. Duplicate-key 11000 reads as "That username is already taken." rather
+  than `username already exists`.
+  *server/src/error-handling/middlewares/error.middleware.ts*
+
+- **The upload routes answered `{ error }` while the other ~90 responses in the
+  server answer `{ message }`.** The client reads `message`, so the two refusals
+  a user can act on — file too large, file type not accepted — arrived with no
+  readable text at all and the picker printed Angular's `Http failure response
+  for …: 400 Bad Request` in their place. Both keys are now sent. Sizes are
+  formatted in the units the limits are written in, and a mime type is named as
+  `.docx` rather than quoted in full.
+  *server/src/upload/upload.controller.ts, auth/middlewares/auth.middleware.ts*
+
+- **Every call site invented its own reading of an `HttpErrorResponse`,** and
+  most threw the reason away — `err.message` is Angular's transport boilerplate,
+  `err.error.message` is blank for the endpoints answering `{ error }`, and
+  `AuthService.handleError` rethrows a bare string, so components expecting an
+  object fell through to their fallback. `apiErrorMessage` / `apiFieldErrors`
+  accept all of those shapes and return the most specific sentence available,
+  including for a status 0 (offline, DNS, CORS — the browser refusing to say
+  more), a non-JSON error page, and the statuses the server did not describe.
+  *src/app/shared/functions/api-error.ts* (new)
+
+- **Every form answered an invalid submit with "Please fill in all fields
+  correctly."** `describeFormErrors` / `summarizeFormErrors` turn Angular's
+  error keys into the reason a person would give, naming the field. `required`
+  wins alone where present — an empty username "is required and must be at least
+  3 characters" is two problems where there is one — and a list past three is
+  truncated rather than filling the screen. Found while writing it: the
+  registration form's per-field messages were keyed on `minLength`/`maxLength`
+  while Angular's keys are `minlength`/`maxlength`, so neither could ever render.
+  `applyServerFieldErrors` projects a 400 back onto the controls it names,
+  merging rather than replacing so a control can be both empty and refused, and
+  `clearServerFieldErrors` drops them as the user edits — a server refusal
+  describes the value that was sent and stops being true the moment it changes.
+  *src/app/shared/functions/form.utils.ts*
+
+*Covered by validate-request.middleware.spec.ts, api-error.spec.ts,
+form.utils.spec.ts and register.component.spec.ts, which asserts on what a real
+server response renders as.*
+
+## Changed — the password minimum, and what had to grow to cover it
+
+**`PASSWORD_MIN_LENGTH` is 8, down from 15.** OWASP ASVS 5.0 6.2.1's L1 floor
+rather than NIST's, and a deliberate deviation from a SHALL rather than a reading
+of one: SP 800-63B rev. 4 §3.1.1 allows 8 only for a password used alongside a
+*required* second factor, and 2FA is opt-in here, so an account is single-factor
+unless its owner has chosen otherwise. The call is a product one — a
+15-character minimum is the single largest source of drop-off on a sign-up form,
+and people who cannot get past it reuse a password from elsewhere, which is the
+outcome the policy exists to prevent. What it costs is stated in the file: an
+8-character password is within offline-cracking reach in a way a 15-character one
+is not, and bcrypt raises the cost per guess without changing that. If 2FA
+becomes mandatory, or a tiered rule is added, that constant is the only thing
+that moves.
+
+The length rule was doing most of the blocklist's work, and everything below is
+what had to take over:
+
+- **The blocklist had to cover the short end itself.** Almost every entry in the
+  usual "top 10,000" lists is under 15 characters and was refused on length
+  before any rule could name it. `password`, `iloveyou` and `princess` are now
+  length-legal, and none of them repeats, walks the keyboard or runs along the
+  alphabet — no structural check sees anything wrong with them. Base words were
+  added, stored in the normalised form `isCommon` compares against.
+
+- **`P@ssw0rd!` matched nothing.** The shape path strips the `@` as a separator
+  before the leet map can read it as an `a`, giving `pssword`; the word path
+  de-leets the trailing `!` into an `i`, giving `passwordi`. Neither is
+  `password`. A third candidate strips trailing non-letters *before* normalising,
+  which is the only one of the three that catches it. Invisible while the
+  15-character floor refused it on length anyway, and a hole the moment that
+  floor came down.
+
+- **Trailing noise is stripped in either order.** `password1!` and `password!1`
+  both reduce to `password`; chaining a digit strip and a punctuation strip only
+  handles whichever order it is written in.
+
+Both copies moved together, as the invariant requires, and the shared vector
+table both suites run was updated. *server/src/auth/services/password-policy.ts,
+src/app/features/auth/validators/password.validator.ts*
+
+**Unrelated, in the same commit:** the CSP now allows
+`static.cloudflareinsights.com` and `cloudflareinsights.com`. Cloudflare Web
+Analytics injects its beacon into the HTML at the edge, after nginx has set the
+header, so the app's own CSP was blocking a script the app never asked for. Both
+hosts are needed — one serves the script, the other receives the beacon. Drop
+both if automatic setup is turned off. *security-headers.conf*
+
+## Fixed — a revoked session kept working on the device it was revoked from
+
+Evicting a device from the security screen deleted its refresh tokens and stopped
+there. The access token already sitting in that browser — which the server has
+never seen and cannot enumerate — stayed valid for its remaining lifetime, along
+with its open socket. That is precisely the token that matters: the whole reason
+to revoke a session you do not recognise is that someone else is holding it.
+
+- **`markSessionRevoked` refuses every token carrying one `sid`.** The existing
+  revocation epoch could not express this — it is keyed by user and by time, so
+  reaching for it here would have signed out every device instead of the one
+  chosen. This key is the session, and needs no timestamp: a `sid` is minted per
+  login and survives refresh rotation, so any token carrying it belongs to the
+  session being ended, whenever it was issued. That also sidesteps the
+  same-second tie the epoch has to live with — signing in again mints a new id
+  this key cannot match, so there is no legitimate token to catch by accident and
+  the comparison can be exact. The `{userId}` hash tag matches the existing keys,
+  so `isSessionRevoked` reads both in one `MGET` rather than a cross-slot pair.
+  *server/src/auth/services/token.service.ts*
+
+- **The mark is written before the refresh tokens are deleted, not after.** If
+  the process dies between the two, this order leaves a session that is refused
+  everywhere with a stale refresh entry behind it; the other order leaves one
+  that looks ended and still works.
+
+- **`/auth/refresh` re-checks revocation after resolving the `sid`.** Belt and
+  braces for the case where one of those two halves did not happen: the entry is
+  still there, so the rotation succeeds and mints a *fresh* access token, which
+  the epoch cannot refuse because it is newer than the revocation. Resolved after
+  the `sid` lookup so a token predating sessions is matched by the id its stored
+  entry carries.
+  *server/src/auth/auth.controller.ts*
+
+- **The socket goes with it.** `ws:revoke` now carries two shapes — one named
+  session, or everything issued before a moment — and the subscriber closes by
+  `sid` for the first. A socket authorises once at its handshake and would
+  otherwise outlive the session it belongs to.
+  *server/src/websocket/websocket.setup.ts*
+
+*Covered by session-revocation.int.spec.ts and refresh-revocation.int.spec.ts,
+both against real Redis; a section was added to `scripts/smoke.sh`.*
+
+Also in this commit:
+
+- **`BCRYPT_ROUNDS` is configurable, with a floor.** Every integration fixture
+  creates users, each costing a full hash — ~68ms at 10 on a dev machine, ~2ms at
+  4 — which was seconds of every run spent proving bcrypt still works. Anything
+  outside 4–15, or below 10 while `NODE_ENV=production`, is ignored and 10 is
+  used, so the suite's setting cannot escape into a deployment.
+  *server/src/config/config.ts, user/models/user.model.ts*
+
+- **`LOG_SILENT=1` silences winston,** which the test setup sets unless the
+  environment says otherwise. Several specs assert on failure paths, so they call
+  the code that logs the failure — those messages are the test working, but they
+  arrive as a wall of stack traces indistinguishable from something being wrong,
+  and were also being written to `logs/error.log` at tens of kilobytes a run.
+  `LOG_SILENT=0 npm test` gets the output back.
+  *server/src/utils/logger.ts*
+
+- **Text inputs are trimmed at the top of the submit handler,** through
+  `trimControls`, before validity is consulted. Trimming further down, where the
+  payload is assembled, is too late to matter: `Validators.email` refuses an
+  address with spaces around it, so a pasted `"  ada@example.test "` failed the
+  form outright and no request was ever made for the later trim to clean up —
+  the user is told to fill the fields in correctly while looking at an address
+  that is correct. `Validators.minLength` counts the spaces the server will
+  strip, so `"  ab  "` satisfies a minimum of three that `"ab"` does not, and the
+  stored value is one the client's own validator would reject. Controls are named
+  rather than discovered, so a password can never be swept up by accident.
+  *src/app/shared/functions/form.utils.ts*
+
+## Fixed — a deleted last message came back
+
+`last_message` was loaded by five hand-written copies of the same populate, and
+they went stale the same way each time: every one selected a `file` field that
+stopped existing when attachments became an array, so a conversation whose newest
+message was an image or a document rendered with a blank preview. That was fixed
+by centralising the read paths — and the two copies that were *not* centralised
+then missed `deleted_at`, so a rename or a group-picture change broadcast a
+conversation whose deleted last message had lost the only field marking it
+deleted. Since `conversation-update` replaces the client's whole object, the
+sidebar's "This message was deleted" silently blanked until the next fetch.
+
+- `LAST_MESSAGE_POPULATE` now lives beside the schema, because both the services
+  and the worker's job handlers need it and the handlers deliberately reach for
+  models rather than services — importing one for a constant would drag the
+  websocket and notification layers into the worker process.
+  *server/src/messenger/models/conversation.model.ts, services/conversation.service.ts,
+  processors/handlers/side-effects.ts*
+
+- **The client had the same split.** What a deleted message is reduced to was
+  written out twice — once by the open thread, once by the conversation list —
+  and a third copy is how they would come to disagree, leaving one message
+  rendered as deleted in one place and not the other. `deletedMessageFields`
+  defines it once, mirroring the server's `deleteMessage`. `type` is normalised
+  to TEXT rather than dropped because every `switch` over it is written against
+  the enum, and a tombstone is a line of text.
+  *src/app/features/messages/interfaces/message.interface.ts*
+
+- **An edited last message kept its old text in the sidebar.** The counterpart to
+  the delete above and missing for the same reason — the chatbox owns the open
+  thread and the list owns the sidebar, so an edit that only reached the chatbox
+  left the row showing the text the sender had just replaced.
+  `applyEditedToLastMessage` joins `applyDeletedToLastMessage` on one
+  `#patchLastMessage`, which matches on the message id rather than the
+  conversation: an edit further back in a thread does not touch a card showing a
+  different message.
+  *src/app/features/messages/services/conversation.service.ts, message.service.ts*
+
+*Covered by conversation.service.int.spec.ts (server) and
+conversation.service.spec.ts (client).*
+
+---
+
 ## Fixed — two-factor authentication
 
 - **The second factor could not be completed at all.** The code form was
@@ -1006,11 +1230,12 @@ Deliberately not addressed:
   were left alone.
 - Placeholder template fields that do not exist on the user model: `roles`,
   `stats`, `website`, `location`, `joinedDate`.
-- **There are still no tests.** Karma and Jasmine are configured; there is not a
-  single `.spec.ts`. The auth flow, the read-receipt path and the upload state
-  machine are where these bugs clustered. The notification work was verified by a
-  throwaway harness driving a live stack, which is not checked in — the 12
-  scenarios it covers are the obvious first specs.
+- ~~**There are still no tests.**~~ **Closed.** Both halves run on Vitest — 26
+  client specs, 13 server unit specs and 11 integration specs, plus
+  `scripts/smoke.sh` end-to-end over HTTP. What is still thin is the upload state
+  machine and the websocket controller; the throwaway harness that drove the
+  notification work against a live stack is still not checked in, and its 12
+  scenarios remain the obvious next specs.
 - **`createNotification` still counts once per recipient.** It runs on every
   message, so a group of twenty costs twenty counts. Batching it is harder than
   the read path was: each recipient has a different `sender: { $ne }` filter as
