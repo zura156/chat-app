@@ -49,6 +49,7 @@ describeIntegration('MessageService — delete', () => {
     broadcasts = [];
     service = new MessageService((message: any) => {
       broadcasts.push(message);
+      return Promise.resolve();
     });
 
     sender = await makeUser('sender');

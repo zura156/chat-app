@@ -380,6 +380,13 @@ TRUSTED_PROXIES=          # comma-separated list; decides whether the address
 
 # Database
 MONGO_URI=your-mongo-uri
+MONGO_DB_NAME=chat_app_dev  # which database inside the cluster — `chat_app` in
+                            # production, so the two never share one. Optional
+                            # when MONGO_URI already carries a path, but the URI
+                            # Atlas hands you does not, and a pathless one
+                            # resolves to a database named `test`; the server
+                            # refuses to start on that name rather than run
+                            # production data under it.
 
 # Redis
 REDIS_HOST=127.0.0.1

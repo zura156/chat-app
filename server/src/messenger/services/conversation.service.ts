@@ -6,11 +6,8 @@ import {
 } from '../models/conversation.model';
 import { MutedConversation } from '../models/muted-conversation.model';
 import { IUser, User } from '../../user/models/user.model';
-import {
-  createCustomError,
-  CustomAPIError,
-} from '../../error-handling/models/custom-api-error.model';
-import { MemberChangesI } from '../interfaces/member-changes.interface';
+import { createCustomError } from '../../error-handling/models/custom-api-error.model';
+import { MemberChangesI } from '@chat-app/contract';
 import { Message } from '../models/message.model';
 import { BroadcastFunction } from '../../websocket/services/websocket.service';
 import {
@@ -70,10 +67,8 @@ const isOwnMediaUrl = (value: unknown): value is string =>
  * DMs have no creator and two equal parties, so they are excluded here and
  * handled by their own rules at each call site.
  */
-const isGroupAdmin = (
-  conversation: IConversation,
-  userId: string,
-): boolean => conversation.created_by?.toString() === userId;
+const isGroupAdmin = (conversation: IConversation, userId: string): boolean =>
+  conversation.created_by?.toString() === userId;
 
 const assertGroupAdmin = (
   conversation: IConversation,
@@ -262,7 +257,10 @@ export class ConversationService {
      * the document and later rendered as an image source. Only keys this
      * server's own upload pipeline produced are accepted.
      */
-    const name = typeof group_name === 'string' ? group_name.trim().slice(0, 100) : undefined;
+    const name =
+      typeof group_name === 'string'
+        ? group_name.trim().slice(0, 100)
+        : undefined;
 
     if (group_picture !== undefined && !isOwnMediaUrl(group_picture)) {
       throw createCustomError('Invalid group picture', 400);
@@ -544,7 +542,9 @@ export class ConversationService {
     ).length;
 
     if (
-      conversation.participants.length - effectiveRemovals + effectiveAdditions >
+      conversation.participants.length -
+        effectiveRemovals +
+        effectiveAdditions >
       MAX_PARTICIPANTS
     ) {
       throw createCustomError(
@@ -569,10 +569,7 @@ export class ConversationService {
       // group, which would route their messages to you anyway.
       const blocked = await blockedAmong(userId, addIds);
       if (blocked.size > 0) {
-        throw createCustomError(
-          'You cannot add a user you have blocked',
-          403,
-        );
+        throw createCustomError('You cannot add a user you have blocked', 403);
       }
     }
 
@@ -650,9 +647,9 @@ export class ConversationService {
      */
     const currentUser =
       participants.find((p) => p._id?.toString() === userId) ??
-      (removedUserDocs.find(
-        (u) => u._id?.toString() === userId,
-      ) as Partial<UserDTO> | undefined);
+      (removedUserDocs.find((u) => u._id?.toString() === userId) as
+        | Partial<UserDTO>
+        | undefined);
 
     if (removeSet.size > 0) {
       const removedUsers = removedUserDocs;
@@ -687,10 +684,7 @@ export class ConversationService {
       // Recipients are named explicitly: the removed users are no longer
       // members, so resolving from the conversation would skip the very people
       // being told they were removed.
-      await this.broadcast(message, [
-        ...remainingParticipantIds,
-        ...removeSet,
-      ]);
+      await this.broadcast(message, [...remainingParticipantIds, ...removeSet]);
     }
 
     // Both of these follow the save rather than precede it: until membership is

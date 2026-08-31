@@ -9,6 +9,7 @@
   ],
   "include": [
     "src/**/*.d.ts",
+    "libs/contract/**/*.d.ts",
     "libs/ui/**/src/**/*.ts"
   ],
   "angularCompilerOptions": {

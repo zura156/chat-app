@@ -21,17 +21,6 @@ import { Types } from 'mongoose';
 /** Contexts whose objects live in the private bucket and need signed reads. */
 const PRIVATE_CONTEXTS = ['dm-image', 'dm-video', 'dm-file', 'dm-audio'];
 
-/**
- * Every refusal in this file, in the shape the rest of the API uses.
- *
- * These routes answered `{ error }` while all ~90 other responses in the server
- * answer `{ message }`. The client reads `message`, so a rejected upload — "File
- * too large", "File type not allowed", the two the user can actually do
- * something about — arrived with no readable text at all, and the picker fell
- * back to printing Angular's `Http failure response for …: 400 Bad Request`.
- *
- * `error` is kept alongside so nothing that already reads it breaks.
- */
 const fail = (res: Response, status: number, message: string) =>
   res.status(status).json({ message, error: message });
 

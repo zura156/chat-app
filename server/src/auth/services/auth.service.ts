@@ -55,8 +55,6 @@ export const generateLink = async (
       case AccountTokenEnum.EMAIL_VERIFICATION:
         await AccountTokensModel.deleteMany({ user_id: userId, type });
 
-        // must match the Angular route (auth.routes.ts), otherwise the link
-        // lands on the catch-all user page and bounces off the auth guard
         link = `${config.clientUrl}/auth/verify-email?token=${rawToken}&id=${userId}`;
         break;
       case AccountTokenEnum.EMAIL_CHANGE:

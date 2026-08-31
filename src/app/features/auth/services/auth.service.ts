@@ -36,17 +36,6 @@ import { apiErrorMessage } from '../../../shared/functions/api-error';
 /** Keys that belong to a session and must not outlive it. */
 const SESSION_STORAGE_KEYS = ['isAuthenticated', 'prefers-chat-settings-open'];
 
-/**
- * Whether a failure means the session is genuinely over, as opposed to the
- * network or the server having a moment.
- *
- * Everything here used to sign the user out on *any* error, so a 429 from the
- * rate limiter dumped them on the login screen — with their cookies still live,
- * because nothing told the server. Only 401 is the server saying the
- * credentials are no longer good: `/auth/refresh` answers 401 for every real
- * end-of-session (missing, expired, revoked, reused), while 429, 0, 408 and 5xx
- * all describe a session that is still perfectly valid.
- */
 const isSessionOver = (error: unknown): boolean =>
   (error as HttpErrorResponse)?.status === 401;
 
@@ -98,11 +87,6 @@ export class AuthService {
 
   init(): void {
     if (this.isAuthenticated()) {
-      // Boot is the one place a transient failure really costs: give up here
-      // and a signed-in user has no profile for the rest of the session. One
-      // retry, spaced by whatever the server asked for when it was a rate
-      // limit; a dead session (401) has already been handled and must not be
-      // retried.
       this.loadCurrentUser()
         .pipe(
           retry({
@@ -117,8 +101,6 @@ export class AuthService {
     }
     this.setupUnloadListener();
 
-    // The server only knows we are back when we say so — without this the
-    // account stays "offline" for everyone else after any reconnect.
     this.webSocketService.onReconnect().subscribe(() => {
       const user = this.user();
       if (user) this.announcePresence(user._id);
@@ -176,11 +158,6 @@ export class AuthService {
     );
   }
 
-  /**
-   * True once the password has been accepted but a second factor is still
-   * outstanding. The login screen swaps to the code step on this rather than
-   * routing, so the challenge cookie's short life is not spent on a navigation.
-   */
   readonly twoFactorRequired = signal(false);
 
   /** Which factors this account can answer with — one entry, or both. */
@@ -223,13 +200,6 @@ export class AuthService {
     );
   }
 
-  /**
-   * Second step: exchanges a code for a session.
-   *
-   * `method` tells the server which factor the code came from. A recovery code
-   * is accepted whatever it says — that is the point of one — so the field
-   * narrows the check rather than restricting it.
-   */
   submitTwoFactorCode(
     code: string,
     method = this.twoFactorMethod(),
@@ -251,16 +221,11 @@ export class AuthService {
       );
   }
 
-  /**
-   * Asks for a code to be sent to the address on the account. Only reachable
-   * with a live challenge, so it is not a way to mail an arbitrary person.
-   */
   requestTwoFactorEmailCode(): Observable<{ message: string }> {
     return this.http
-      .post<{ message: string }>(
-        `${environment.apiUrl}/auth/login/2fa/email`,
-        {},
-      )
+      .post<{
+        message: string;
+      }>(`${environment.apiUrl}/auth/login/2fa/email`, {})
       .pipe(catchError(this.handleError));
   }
 
@@ -365,14 +330,6 @@ export class AuthService {
       .pipe(catchError(this.handleError));
   }
 
-  /**
-   * `handleError` was the one request here without it. The forgot-password
-   * screen types its `catchError` parameter as `string` and puts it straight
-   * into a `signal<string | null>` the template renders — so with the raw
-   * response arriving instead, a failed request printed `[object Object]` where
-   * the reason belonged. TypeScript could not catch it: the annotation asserted
-   * the shape rather than checking it.
-   */
   forgotPassword(email: string): Observable<AuthResponseI> {
     return this.http
       .post<AuthResponseI>(this._FORGOT_PASSWORD_URL, { email })
@@ -402,10 +359,6 @@ export class AuthService {
       .post<MessageResponseI>(this._REFRESH_TOKEN_URL, {})
       .pipe(
         catchError((error) => {
-          // A refresh that was rate limited or that never reached the server
-          // says nothing about whether the session is still good — the tokens
-          // are untouched and the next attempt will work. Signing out here is
-          // what turned a 429 into a logout.
           if (isSessionOver(error)) this.handleAuthFailure();
           return throwError(() => error);
         }),
@@ -419,16 +372,6 @@ export class AuthService {
     return this.refreshInFlight$;
   }
 
-  /**
-   * Signing out must always succeed locally.
-   *
-   * The server call was the only thing that cleared client state, so once the
-   * access token expired the request came back 401 — and because /auth/logout
-   * is excluded from the interceptor's refresh-and-retry, nothing recovered.
-   * The user stayed "signed in" in the UI with no way to correct it. The
-   * server now tolerates an expired token; this tolerates the request failing
-   * for any other reason.
-   */
   logOut(): Observable<AuthResponseI | null> {
     this.#loading.set(true);
     return this.revokeServerSession().pipe(
@@ -454,12 +397,7 @@ export class AuthService {
       .pipe(catchError(() => of(null)));
   }
 
-  // Public so authInterceptor can call it on reuse detection
-  handleAuthFailure(): void {
-    // The server holds the other half of a sign-out. Clearing local state alone
-    // left the accessToken, refreshToken and csrfToken cookies in the browser,
-    // so the app said "logged out" while the session it was hiding was still
-    // live — and the next visit started from that half-dead state.
+  public handleAuthFailure(): void {
     this.revokeServerSession().subscribe();
     this.clearAppState();
     this.router.navigateByUrl('/auth/login');
@@ -487,9 +425,6 @@ export class AuthService {
     this.notificationService.reset();
     this.webSocketService.close();
 
-    // Only session keys. `localStorage.clear()` also wiped the user's theme and
-    // accent colour, so signing out silently reset their appearance settings —
-    // which are a device preference, not part of the session.
     for (const key of SESSION_STORAGE_KEYS) localStorage.removeItem(key);
     sessionStorage.removeItem('selectedUser');
 
@@ -498,27 +433,6 @@ export class AuthService {
     this.#loading.set(false);
   }
 
-  /**
-   * Records the reason and rethrows the response *unchanged*.
-   *
-   * This used to flatten the failure into a bare string, which cost the callers
-   * two things. The lesser one is inconsistency: every other service in the app
-   * rethrows the `HttpErrorResponse`, so components handling both had to guess
-   * with `typeof err === 'string'` and several guessed wrong. The greater one is
-   * that a string cannot carry `errors[]` — the per-field breakdown a form needs
-   * to put each reason under the input it belongs to — so that detail was
-   * discarded at the one layer every auth form goes through.
-   *
-   * The flattening also lost the reasons outright: `error.error.message` was
-   * consulted first and won, and the server answers a validation failure with
-   * the constant `message: 'Validation failed'` plus the real reasons in
-   * `errors[]`. A password refused for being on the breach list, or a username
-   * refused for containing a space, reached the user as "Validation failed" and
-   * nothing more.
-   *
-   * Callers render the reason with `apiErrorMessage`, which reads every shape
-   * this API produces.
-   */
   private handleError = (error: HttpErrorResponse) => {
     this.#loading.set(false);
     this.#error.set(apiErrorMessage(error, 'An unknown error occurred'));

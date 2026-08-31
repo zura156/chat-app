@@ -4,6 +4,18 @@ dotenv.config();
 export default {
   port: parseInt(process.env.PORT || '3000', 10),
   mongoUri: process.env.MONGO_URI || 'mongodb://localhost:27017/auth_service',
+  /*
+   * Which database inside the cluster, so environments cannot share one.
+   *
+   * Optional: a URI that carries its own path (`...net/chat_app?retryWrites=true`)
+   * already says which, and this overrides it when set. It exists because the
+   * URI Atlas hands you when you copy a connection string has no path at all,
+   * and a pathless URI silently resolves to a database literally named `test`.
+   * That is where this app's data lived — on the same cluster, under the name
+   * a throwaway would have. `connectDB` now refuses to start on that name
+   * rather than let it happen again unnoticed.
+   */
+  mongoDbName: process.env.MONGO_DB_NAME || undefined,
   cookieSecret:
     process.env.COOKIE_SECRET ||
     (() => {

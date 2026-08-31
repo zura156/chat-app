@@ -1,4 +1,4 @@
 export interface NewPasswordDto {
   token: string;
-  newPassword: string;
+  new_password: string;
 }

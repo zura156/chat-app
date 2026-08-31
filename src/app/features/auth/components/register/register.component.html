@@ -211,16 +211,21 @@
             required
             class="w-full pr-20"
           />
-          <button
-            type="button"
-            hlmBtn
-            variant="ghost"
-            size="sm"
-            class="absolute right-1 top-1/2 -translate-y-1/2 h-7 px-2.5 text-xs text-muted-foreground hover:text-foreground cursor-pointer"
-            (click)="togglePasswordVisibility()"
+
+          <div
+            class="absolute right-0 top-1/2 -translate-y-1/2 text-xs text-muted-foreground hover:text-foreground"
           >
-            {{ showPass() ? "Hide" : "Show" }}
-          </button>
+            <button
+              type="button"
+              hlmBtn
+              variant="ghost"
+              size="sm"
+              class="cursor-pointer"
+              (click)="togglePasswordVisibility()"
+            >
+              {{ showPass() ? "Hide" : "Show" }}
+            </button>
+          </div>
         </div>
         @if (form.controls["password"].hasError("required")) {
           <hlm-field-error>Password is required</hlm-field-error>
@@ -245,16 +250,20 @@
             required
             class="w-full pr-20"
           />
-          <button
-            type="button"
-            hlmBtn
-            variant="ghost"
-            size="sm"
-            class="absolute right-1 top-1/2 -translate-y-1/2 h-7 px-2.5 text-xs text-muted-foreground hover:text-foreground cursor-pointer"
-            (click)="toggleRepeatPasswordVisibility()"
+          <div
+            class="absolute right-0 top-1/2 -translate-y-1/2 text-xs text-muted-foreground hover:text-foreground"
           >
-            {{ showRepeatPass() ? "Hide" : "Show" }}
-          </button>
+            <button
+              type="button"
+              hlmBtn
+              variant="ghost"
+              size="sm"
+              class="cursor-pointer"
+              (click)="toggleRepeatPasswordVisibility()"
+            >
+              {{ showRepeatPass() ? "Hide" : "Show" }}
+            </button>
+          </div>
         </div>
         @if (form.controls["repeat_password"].hasError("required")) {
           <hlm-field-error>Please confirm your password</hlm-field-error>

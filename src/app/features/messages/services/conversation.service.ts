@@ -8,7 +8,7 @@ import {
 } from '../interfaces/conversation.interface';
 import { ConversationListI } from '../interfaces/conversation-list.interface';
 import { ParticipantI } from '../interfaces/participant.interface';
-import { MemberChangesI } from '../interfaces/member-changes.interface';
+import { MemberChangesI } from '@chat-app/contract';
 import { ConversationIdResponseI } from '../interfaces/conversation-id-response.interface';
 import { toast } from '@spartan-ng/brain/sonner';
 import { UpdateConversationI } from '../interfaces/update-conversation.interface';
@@ -58,9 +58,10 @@ export class ConversationService {
    * out of the conversation objects themselves so a data URL can never be
    * mistaken for a stored one, and it is dropped as soon as the real URL lands.
    */
-  #pendingGroupPicture = signal<{ conversationId: string; dataUrl: string } | null>(
-    null,
-  );
+  #pendingGroupPicture = signal<{
+    conversationId: string;
+    dataUrl: string;
+  } | null>(null);
 
   /** The optimistic picture for a conversation, if one is outstanding. */
   pendingGroupPictureFor(conversationId: string | undefined): string | null {
