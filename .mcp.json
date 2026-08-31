@@ -27,6 +27,13 @@
         "@playwright/mcp@latest"
       ],
       "env": {}
+    },
+    "spartan-ui": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@spartan-ng/mcp"
+      ]
     }
   }
 }
