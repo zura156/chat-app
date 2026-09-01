@@ -41,12 +41,19 @@ export class UploadService {
     );
   });
 
+  /**
+   * Averaged over the uploads still running, not over every entry ever made.
+   *
+   * Entries are only removed by an explicit `clearUpload`, so `done` and
+   * `error` uploads from earlier in the session stayed in the denominator and
+   * held the reported percentage down for the ones actually in flight.
+   */
   readonly overallProgress = computed(() => {
-    const uploads = [...this._uploads().values()];
-    if (!uploads.length) return 0;
-    return Math.round(
-      uploads.reduce((s, u) => s + u.progress, 0) / uploads.length,
+    const live = [...this._uploads().values()].filter(
+      (u) => u.status === 'uploading' || u.status === 'confirming',
     );
+    if (!live.length) return 0;
+    return Math.round(live.reduce((s, u) => s + u.progress, 0) / live.length);
   });
 
   // get state for a specific upload

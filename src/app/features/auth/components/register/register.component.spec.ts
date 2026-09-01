@@ -175,3 +175,59 @@ describe('RegisterComponent — telling the user what is wrong', () => {
     );
   });
 });
+
+/*
+ * The password's identity rule is checked against the username and address as
+ * they stand *now*, not as they stood when the field was last touched.
+ *
+ * `passwordValidator` reads its context through a thunk precisely so it can see
+ * the siblings — but Angular re-runs a control's validators only when that
+ * control changes, so before this the thunk was never consulted again. Both
+ * failures below were reproducible in the real form.
+ */
+describe('RegisterComponent — password vs. the username beside it', () => {
+  const IDENTITY_PASSWORD = 'alice-Zq7#vLm2pKd';
+
+  it('flags a password that the username typed afterwards invalidates', async () => {
+    const fixture = await build();
+    const form = fixture.componentInstance.form;
+
+    form.controls['password'].setValue(IDENTITY_PASSWORD);
+    expect(form.controls['password'].valid).toBe(true);
+
+    // Typing the username is what makes the password unusable. Before, the
+    // control stayed valid, the checklist stayed hidden, and the server was
+    // left to refuse the account.
+    form.controls['username'].setValue('alice');
+    expect(form.controls['password'].valid).toBe(false);
+    expect(
+      form.controls['password'].errors?.['passwordStrength']?.avoidsIdentity,
+    ).toBe(false);
+  });
+
+  it('clears the flag once the username no longer appears in it', async () => {
+    const fixture = await build();
+    const form = fixture.componentInstance.form;
+
+    form.controls['username'].setValue('alice');
+    form.controls['password'].setValue(IDENTITY_PASSWORD);
+    expect(form.controls['password'].valid).toBe(false);
+
+    // The stale half: the reason stopped being true, and the only way to clear
+    // it was to edit the password field.
+    form.controls['username'].setValue('bobbybobby');
+    expect(form.controls['password'].valid).toBe(true);
+  });
+
+  it('leaves the rest of the policy alone', async () => {
+    const fixture = await build();
+    const form = fixture.componentInstance.form;
+
+    form.controls['password'].setValue('short');
+    form.controls['username'].setValue('unrelated');
+
+    expect(form.controls['password'].errors?.['passwordStrength']?.hasLength).toBe(
+      false,
+    );
+  });
+});

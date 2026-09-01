@@ -15,9 +15,17 @@ const startClock = (): void => {
   setInterval(() => now.set(Date.now()), 30_000);
 };
 
+/*
+ * Pure, deliberately.
+ *
+ * `pure: false` re-ran `transform` for every instance on every change-detection
+ * pass, and a long thread renders one per message plus one per conversation
+ * card. It was also redundant: `now` is a signal read inside `transform`, so
+ * the pipe is already reactive — the 30-second tick invalidates every view that
+ * read it, with no help from the impure flag.
+ */
 @Pipe({
   name: 'timeAgo',
-  pure: false,
 })
 export class TimeAgoPipe implements PipeTransform {
   constructor() {

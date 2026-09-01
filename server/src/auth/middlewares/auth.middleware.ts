@@ -24,12 +24,10 @@ export const authenticateToken = async (
   const token = req.cookies.accessToken;
 
   if (!token) {
-    res
-      .status(401)
-      .json({
-        message: 'Access token required',
-        error: 'Access token required',
-      });
+    res.status(401).json({
+      message: 'Access token required',
+      error: 'Access token required',
+    });
     return;
   }
 
@@ -79,7 +77,7 @@ export const authenticateToken = async (
         .json({ message: 'Token expired', error: 'Token expired' });
       return;
     }
-    res.status(403).json({ message: 'Invalid token', error: 'Invalid token' });
+    res.status(401).json({ message: 'Invalid token', error: 'Invalid token' });
     return;
   }
 };
@@ -107,12 +105,10 @@ export const requireVerifiedEmail = (
   }
 
   if (!req.user) {
-    res
-      .status(401)
-      .json({
-        message: 'Access token required',
-        error: 'Access token required',
-      });
+    res.status(401).json({
+      message: 'Access token required',
+      error: 'Access token required',
+    });
     return;
   }
 

@@ -296,9 +296,19 @@ export const registerUser = async (
 
     const existingUser = await User.findOne({
       $or: [{ email: normalizedEmail }, { username }],
-    });
+    }).collation({ locale: 'en', strength: 2 });
+
     if (existingUser) {
-      res.status(409).json({ message: 'User already exists' });
+      const field =
+        existingUser.email === normalizedEmail ? 'email' : 'username';
+      res.status(409).json({
+        message:
+          field === 'email'
+            ? 'That email address is already registered.'
+            : 'That username is already taken.',
+        code: 'DUPLICATE',
+        errors: [{ field, msg: 'is already taken' }],
+      });
       return;
     }
 
@@ -322,18 +332,22 @@ export const registerUser = async (
     });
     await user.save();
 
-    const verifyLink = await generateLink(
-      AccountTokenEnum.EMAIL_VERIFICATION,
-      user.id,
-    );
-    await sendEmail(
-      user.email,
-      'Please Verify Your Email',
-      `<h2>Verify Email</h2>
+    try {
+      const verifyLink = await generateLink(
+        AccountTokenEnum.EMAIL_VERIFICATION,
+        user.id,
+      );
+      await sendEmail(
+        user.email,
+        'Please Verify Your Email',
+        `<h2>Verify Email</h2>
        <p>Click the link below to verify your email:</p>
        <a href="${verifyLink}">Verify</a>
        <p>This link will expire in 1 hour.</p>`,
-    );
+      );
+    } catch (error) {
+      logger.error('Failed to send verification email on register:', error);
+    }
 
     res.status(201).json({
       message: 'User registered successfully',
@@ -412,16 +426,6 @@ export const loginUser = async (
         maxAge: TWO_FACTOR_CHALLENGE_MS,
       });
 
-      /*
-       * With only the email factor there is nothing for the user to read a code
-       * off, so the code is sent as part of answering this request — otherwise
-       * the sign-in screen would open on a code entry field with no code on its
-       * way and no obvious way to summon one.
-       *
-       * With an authenticator enrolled the send waits for the user to ask,
-       * since they usually have their app to hand and mailing a code to
-       * everyone who signs in is both noise and needless exposure.
-       */
       if (methods.length === 1 && methods[0] === 'email' && user.email) {
         await sendLoginEmailCode(user._id.toString(), user.email);
       }
@@ -429,8 +433,6 @@ export const loginUser = async (
       res.status(200).json({
         two_factor_required: true,
         methods,
-        // Which one the client should open on. The authenticator is instant and
-        // offline, so it leads whenever it is available.
         default_method: methods.includes('totp') ? 'totp' : 'email',
       });
       return;
@@ -457,11 +459,6 @@ export const refreshAccessToken = async (
       return;
     }
 
-    // An expired or malformed refresh token is a routine end-of-session, not a
-    // server fault. Letting jwt's error reach the generic error middleware
-    // turned every ordinary expiry into a 500 and a console.error, and left the
-    // client's 401 handling — the branch that navigates to the login page —
-    // unreachable from here.
     let decoded: { userId: string; sid?: string; iat?: number };
     try {
       decoded = verifyRefreshToken(token);
@@ -480,7 +477,9 @@ export const refreshAccessToken = async (
     // The rotated pair keeps the session it came from. Falling back to the
     // stored entry covers tokens issued before sessions carried an id.
     const sid =
-      decoded.sid ?? (await sessionIdForToken(decoded.userId, token)) ?? undefined;
+      decoded.sid ??
+      (await sessionIdForToken(decoded.userId, token)) ??
+      undefined;
 
     /*
      * Belt and braces. Every path that revokes a session also deletes its
@@ -622,17 +621,6 @@ export const loginTwoFactor = async (
     const submitted = String(code ?? '').replace(/\s/g, '');
     const methods = enrolledMethods(record);
 
-    /*
-     * `method` narrows what the code is checked against when the client knows
-     * which one the user picked. Without it every enrolled factor is tried,
-     * which is what keeps a recovery code — and a client that never sends the
-     * field — working.
-     *
-     * Narrowing matters for more than tidiness: with both factors on, running
-     * an emailed code through the TOTP check first is a wasted comparison, and
-     * running a TOTP code through the email check consumes an attempt against
-     * the delivered code that the user has not actually got wrong.
-     */
     const requested = method as TwoFactorMethod | undefined;
     const tryTotp =
       record.two_factor_enabled &&
@@ -646,7 +634,8 @@ export const loginTwoFactor = async (
     // period plus the drift window, so an observed one is otherwise replayable
     // for up to ninety seconds.
     let accepted =
-      tryTotp && (await verifyAndConsumeCode(userId, record.secret!, submitted));
+      tryTotp &&
+      (await verifyAndConsumeCode(userId, record.secret!, submitted));
 
     if (!accepted && tryEmail) {
       accepted = await verifyAndConsumeEmailCode(userId, 'login', submitted);
@@ -751,7 +740,8 @@ export const revokeSessionById = async (
       if (accessToken) {
         try {
           const decoded = jwt.decode(accessToken) as { exp?: number };
-          if (decoded?.exp) await blacklistAccessToken(accessToken, decoded.exp);
+          if (decoded?.exp)
+            await blacklistAccessToken(accessToken, decoded.exp);
         } catch {
           // non-critical
         }
@@ -1031,16 +1021,6 @@ export const resetPassword = async (
 
 /**
  * Changes the password of the account that is already signed in.
- *
- * This did not exist. The two "Change password" buttons in settings both linked
- * to `/auth/forgot-password`, which is behind the unauthenticated guard — so
- * for the only people who could ever see those buttons, they redirected back to
- * the app and nothing happened. Recovering an account you have lost access to
- * and rotating a password you still know are different operations, and only the
- * first one was built.
- *
- * Knowing the current password is what authorises this: a session cookie alone
- * would let anyone with a borrowed logged-in browser lock the owner out.
  */
 export const changePassword = async (
   req: AuthRequest,
@@ -1171,9 +1151,9 @@ export const changeEmail = async (
 
     const { new_email, password } = req.body ?? {};
     if (!new_email || !password) {
-      res
-        .status(400)
-        .json({ message: 'A new email address and your password are required.' });
+      res.status(400).json({
+        message: 'A new email address and your password are required.',
+      });
       return;
     }
 
@@ -1192,9 +1172,7 @@ export const changeEmail = async (
     }
 
     if (nextEmail === normalizeEmail(user.email)) {
-      res
-        .status(400)
-        .json({ message: 'That is already your email address.' });
+      res.status(400).json({ message: 'That is already your email address.' });
       return;
     }
 
@@ -1202,7 +1180,9 @@ export const changeEmail = async (
     // can be taken by someone else in between.
     const taken = await User.exists({ email: nextEmail });
     if (taken) {
-      res.status(409).json({ message: 'That email address is already in use.' });
+      res
+        .status(409)
+        .json({ message: 'That email address is already in use.' });
       return;
     }
 

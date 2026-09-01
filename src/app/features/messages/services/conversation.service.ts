@@ -187,10 +187,15 @@ export class ConversationService {
       tap((data) => {
         this.#conversationList.set(data);
       }),
-      catchError((error) => {
-        this.#conversationList.set(null);
-        throw error;
-      }),
+      /*
+       * The cached list is left alone on failure.
+       *
+       * Both this and `searchConversations` used to `set(null)` here, so a 429,
+       * a dropped connection or a 500 emptied the whole sidebar — replacing a
+       * list that was still perfectly good with nothing at all. A failed
+       * refresh says nothing about the conversations already on screen.
+       */
+      catchError((error) => throwError(() => error)),
     );
   }
 
@@ -204,10 +209,8 @@ export class ConversationService {
       tap((data) => {
         this.#conversationList.set(data);
       }),
-      catchError((error) => {
-        this.#conversationList.set(null);
-        return throwError(() => error);
-      }),
+      // See getConversations: a failed search must not empty the sidebar.
+      catchError((error) => throwError(() => error)),
     );
   }
 

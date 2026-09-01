@@ -320,7 +320,16 @@ export class SecuritySettings implements OnInit {
           this.emailSentTo.set(sent.sent_to);
           this.setupStage.set('awaiting-email-code');
           this.code.set('');
-          this.password.set('');
+          /*
+           * The password is deliberately *kept* through this stage.
+           *
+           * It used to be cleared here, and `resendEmailSetupCode` reads the
+           * same signal — so the resend button found it empty every time,
+           * showed "Re-enter your password to send another code" and threw the
+           * user back to the password step. There was no path where it did what
+           * it said. It is still cleared on every exit: confirm, cancel and
+           * finish below.
+           */
           this.busy.set(false);
         },
         error: (err) => {
@@ -363,6 +372,8 @@ export class SecuritySettings implements OnInit {
         this.setupSecret.set(null);
         this.setupUri.set(null);
         this.code.set('');
+        // Held through the email stage for the resend; done with now.
+        this.password.set('');
         this.busy.set(false);
 
         // Codes come back only the first time a factor is confirmed. Adding a
@@ -413,6 +424,7 @@ export class SecuritySettings implements OnInit {
   finishSetup(): void {
     this.setupStage.set('idle');
     this.recoveryCodes.set([]);
+    this.password.set('');
   }
 
   cancelSetup(): void {
@@ -512,8 +524,12 @@ export class SecuritySettings implements OnInit {
       .catch(() => toast.error('Could not copy'));
   }
 
-  onCodeInput(value: string): void {
-    this.code.set(value.replace(/[^0-9A-Za-z-]/g, '').slice(0, 11));
+  /** See LoginComponent.onTwoFactorCodeInput — the element needs correcting too. */
+  onCodeInput(event: Event): void {
+    const el = event.target as HTMLInputElement;
+    const cleaned = el.value.replace(/[^0-9A-Za-z-]/g, '').slice(0, 11);
+    if (el.value !== cleaned) el.value = cleaned;
+    this.code.set(cleaned);
   }
 
   private markRevoking(id: string, active: boolean): void {

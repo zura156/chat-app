@@ -263,12 +263,25 @@ export class WebSocketController {
       // the message's timestamp — so a message from another conversation, or
       // one that does not exist, would silently move the count. Awaited and
       // checked rather than fired off, which is what let that through before.
+      /*
+       * `status` is a property of the message, not of the reader — so setting
+       * it to READ in a group means one member opening the thread marks it read
+       * for everyone. The per-reader truth is the `read_receipts` array on the
+       * conversation, which is maintained below and is what the group UI
+       * renders. The flag is therefore only advanced in a one-to-one
+       * conversation, where "read" has exactly one possible meaning.
+       */
+      const isDirectMessage = await Conversation.exists({
+        _id: conversation_id,
+        is_group: { $ne: true },
+      });
+
       const readMessage = await Message.findOneAndUpdate(
         {
           _id: new ObjectId(lastReadId),
           conversation: new ObjectId(conversation_id),
         },
-        { status: MessageStatusEnum.READ },
+        isDirectMessage ? { status: MessageStatusEnum.READ } : {},
       )
         .select('_id')
         .lean();
@@ -306,12 +319,22 @@ export class WebSocketController {
         lastReadId,
       ).catch((err) => logger.error('Failed to recompute notification:', err));
 
+      /*
+       * The receipt is rebuilt around the server's `readAt`, not forwarded as
+       * it arrived. The comment above explains why `read_at` off a client clock
+       * is not usable — and then the original object was passed through here
+       * verbatim, so what was stored and what every other client rendered were
+       * two different timestamps.
+       */
       await this.websocketService.sendToUsers(
         conversation.participants.map(String),
         {
           type: 'message-status',
           status: MessageStatusEnum.READ,
-          read_receipt,
+          read_receipt: {
+            ...read_receipt,
+            read_at: readAt,
+          },
           conversation_id,
         },
       );

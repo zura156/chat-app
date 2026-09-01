@@ -82,12 +82,22 @@ export class StorageSettingsService {
       .get(`${this.userUrl}/export`, { responseType: 'blob' })
       .pipe(
         tap((blob) => {
+          /*
+           * The anchor is put in the document and the URL is revoked on a later
+           * task. Firefox ignores a synthetic click on a detached anchor, and
+           * revoking synchronously can cancel the transfer before it starts —
+           * so the toast said "Export downloaded" and nothing was saved. This
+           * is what `MediaViewer.downloadMedia` already does.
+           */
           const url = URL.createObjectURL(blob);
           const anchor = document.createElement('a');
           anchor.href = url;
           anchor.download = `chat-app-export-${Date.now()}.json`;
+          anchor.style.display = 'none';
+          document.body.appendChild(anchor);
           anchor.click();
-          URL.revokeObjectURL(url);
+          document.body.removeChild(anchor);
+          setTimeout(() => URL.revokeObjectURL(url), 0);
         }),
       );
   }

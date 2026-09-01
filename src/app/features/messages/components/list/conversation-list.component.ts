@@ -13,6 +13,7 @@ import { Router, RouterLink } from '@angular/router';
 import { UserService } from '../../../user/services/user.service';
 import {
   catchError,
+  retry,
   combineLatest,
   debounceTime,
   distinctUntilChanged,
@@ -251,88 +252,112 @@ export class ConversationListComponent {
     );
   }
 
+  /**
+   * The sidebar's realtime feed, for the lifetime of the component.
+   *
+   * This used to end in `catchError(err => this.handleError(err))`, which
+   * returns `EMPTY`. The comment above `handleError` explains that rethrowing
+   * killed the stream — but completing it ends the subscription just as
+   * finally, and this is one subscription that is never re-established. A
+   * single throw inside any branch below therefore stopped last-message
+   * previews, edits, deletes and membership events for the rest of the session.
+   * (The chatbox has the same shape but re-subscribes on every navigation,
+   * which is why only this one stayed dead.)
+   *
+   * Two layers now: each event is handled inside a try/catch so one bad payload
+   * cannot take the stream down at all, and `retry` re-subscribes if the source
+   * itself ever errors.
+   */
   private handleWebSocketMessages(): Observable<WebSocketMessageT> {
     return (
       this.webSocketService.onMessage().pipe(
         tap((res) => {
-          switch (res.type) {
-            case 'message':
-              const message: MessageI = res.message;
-              const conversation: string | ConversationI = message.conversation;
-
-              if (!message || !conversation) {
-                return;
-              }
-
-              this.conversationService.setLastMessageInConversation(
-                typeof conversation === 'string'
-                  ? conversation
-                  : conversation._id,
-                message,
-              );
-
-              return;
-            // The sidebar's copy of `last_message` is maintained here, so a
-            // delete has to reach this handler too — the chatbox only owns the
-            // open thread. Arrives for every conversation the user is in, not
-            // just the visible one.
-            case 'message-deleted':
-              this.conversationService.applyDeletedToLastMessage(
-                res.message._id,
-                res.message.deleted_at,
-              );
-              break;
-            case 'message-edited':
-              this.conversationService.applyEditedToLastMessage(res.message);
-              break;
-            case 'conversation-update':
-              this.conversationService.updateConversationState(
-                res.conversation,
-              );
-              break;
-            case 'conversation-join':
-              const { added_by, conversation: joinedConversation } = res;
-
-              if (added_by?._id === this.currentUser()?._id) {
-                break;
-              } else {
-                this.conversationService.addConversationToList(
-                  joinedConversation as ConversationI,
-                );
-              }
-              break;
-
-            case 'conversation-leave':
-              const { conversation: left, removed_users } = res;
-              const currentUserId = this.currentUser()?._id;
-
-              const isCurrentUserRemoved = removed_users?.some(
-                (u: any) =>
-                  (typeof u === 'string' ? u : u._id) === currentUserId,
-              );
-
-              if (isCurrentUserRemoved) {
-                this.conversationService.removeConversationFromList(
-                  left as ConversationI,
-                );
-                this.router.navigate(['/messages']);
-              } else {
-                this.conversationService.updateConversationState(
-                  left as ConversationI,
-                );
-              }
-              break;
+          try {
+            this.applyWebSocketMessage(res);
+          } catch (error) {
+            console.error('[conversation-list] failed to apply event', res, error);
           }
         }),
-        catchError((err) => this.handleError(err)),
-      ) || EMPTY
+        retry({ delay: 1000 }),
+      )
     );
   }
 
+  private applyWebSocketMessage(res: WebSocketMessageT): void {
+    switch (res.type) {
+      case 'message': {
+        const message: MessageI = res.message;
+        const conversation: string | ConversationI = message.conversation;
+        if (!message || !conversation) return;
+
+        this.conversationService.setLastMessageInConversation(
+          typeof conversation === 'string' ? conversation : conversation._id,
+          message,
+        );
+        return;
+      }
+
+      // The sidebar's copy of `last_message` is maintained here, so a delete
+      // has to reach this handler too — the chatbox only owns the open thread.
+      // Arrives for every conversation the user is in, not just the visible one.
+      case 'message-deleted':
+        this.conversationService.applyDeletedToLastMessage(
+          res.message._id,
+          res.message.deleted_at,
+        );
+        break;
+
+      case 'message-edited':
+        this.conversationService.applyEditedToLastMessage(res.message);
+        break;
+
+      case 'conversation-update':
+        this.conversationService.updateConversationState(res.conversation);
+        break;
+
+      case 'conversation-join': {
+        const { added_by, conversation: joinedConversation } = res;
+        if (added_by?._id === this.currentUser()?._id) break;
+
+        this.conversationService.addConversationToList(
+          joinedConversation as ConversationI,
+        );
+        break;
+      }
+
+      case 'conversation-leave': {
+        const { conversation: left, removed_users } = res;
+        const currentUserId = this.currentUser()?._id;
+
+        const isCurrentUserRemoved = removed_users?.some(
+          (u: unknown) =>
+            (typeof u === 'string' ? u : (u as { _id?: string })?._id) ===
+            currentUserId,
+        );
+
+        if (isCurrentUserRemoved) {
+          this.conversationService.removeConversationFromList(
+            left as ConversationI,
+          );
+          this.router.navigate(['/messages']);
+        } else {
+          this.conversationService.updateConversationState(
+            left as ConversationI,
+          );
+        }
+        break;
+      }
+    }
+  }
+
   /**
-   * EMPTY rather than throwError: this sits on the long-lived search and
-   * websocket streams, and re-throwing killed them permanently — one failed
-   * request and search stopped working until a reload.
+   * EMPTY rather than throwError: this sits on the long-lived search stream,
+   * and re-throwing killed it permanently — one failed request and search
+   * stopped working until a reload.
+   *
+   * The websocket feed no longer comes through here. Completing that stream
+   * ended its subscription just as finally as throwing did, and unlike search
+   * it is never re-established — see `handleWebSocketMessages`.
    */
   private handleError(
     err: HttpErrorResponse,

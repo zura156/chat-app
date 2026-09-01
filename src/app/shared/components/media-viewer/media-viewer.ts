@@ -87,8 +87,6 @@ export class MediaViewer implements OnInit {
 
   isZoomed = signal<boolean>(false);
   zoomLevel = 1;
-  panX = 0;
-  panY = 0;
 
   ngOnInit() {
     if (this.config.enableGallery) {
@@ -173,26 +171,17 @@ export class MediaViewer implements OnInit {
     if (this.currentMedia().type === 'image') {
       this.isZoomed.update((val) => !val);
       this.zoomLevel = this.isZoomed() ? 2 : 1;
-
-      if (!this.isZoomed()) {
-        this.panX = 0;
-        this.panY = 0;
-      }
     }
   }
 
   resetZoom() {
     this.isZoomed.set(false);
     this.zoomLevel = 1;
-    this.panX = 0;
-    this.panY = 0;
   }
 
+  /** No pan gesture is wired to this viewer, so there is no offset to apply. */
   getImageTransform(): string {
-    if (this.isZoomed()) {
-      return `scale(${this.zoomLevel}) translate(${this.panX}px, ${this.panY}px)`;
-    }
-    return 'scale(1) translate(0, 0)';
+    return this.isZoomed() ? `scale(${this.zoomLevel})` : 'scale(1)';
   }
 
   onMediaLoad() {
@@ -270,17 +259,28 @@ export class MediaViewer implements OnInit {
     });
   }
 
-  get currentAsAttachment(): AttachmentI {
+  /**
+   * A computed, not a getter.
+   *
+   * As a getter this built a fresh object literal every time the template read
+   * it. Signal inputs compare with `Object.is`, so `[video]="currentAsAttachment"`
+   * counted as changed on every change-detection pass and marked the video
+   * player dirty continuously; only the `linkedSignal` holding its `src` kept
+   * playback from restarting with it. A computed returns the same reference
+   * until `currentMedia` actually changes.
+   */
+  readonly currentAsAttachment = computed<AttachmentI>(() => {
+    const media = this.currentMedia();
     return {
-      uploadId: this.currentMedia()._id,
+      uploadId: media.uploadId ?? media._id,
       context: 'dm-video',
       mimeType: 'video/mp4',
-      fileSize: this.currentMedia().size ?? 0,
+      fileSize: media.size ?? 0,
       status: 'ready',
       variants: {
-        original: this.currentMedia().url,
-        thumbnail: this.currentMedia().thumbnail,
+        original: media.url,
+        thumbnail: media.thumbnail,
       },
     };
-  }
+  });
 }

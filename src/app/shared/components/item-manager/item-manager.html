@@ -67,23 +67,25 @@
         <input
           type="text"
           placeholder="Search people..."
+          [value]="searchQuery()"
+          (input)="onSearchInput($any($event.target).value)"
           class="flex h-9 w-full rounded-full border border-input bg-muted/50 pl-9 pr-4 py-2 text-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring focus:bg-background focus:border-border transition-all"
         />
       </div>
 
       <!-- List -->
       <div class="space-y-0.5">
-        @let items = this.items(); @if (items && items.length > 0) { @for (item
-        of items; let i = $index; track item._id) {
+        @let items = this.visibleItems(); @if (items && items.length > 0) {
+        @for (item of items; track item._id) {
         <button
           type="button"
-          (click)="toggleCheckbox(i)"
+          (click)="toggleItem(item._id)"
           class="w-full flex items-center gap-x-3 px-3 py-2.5 rounded-xl hover:bg-muted transition-colors cursor-pointer text-start group"
-          [class.bg-muted]="isChecked(i)"
+          [class.bg-muted]="isSelected(item._id)"
         >
           <hlm-avatar variant="medium" class="shrink-0">
             <img
-              [src]="item.pfp_url ? (apiUrl + item.pfp_url) : '/icons/avatar.svg'"
+              [src]="item.pfp_url || '/icons/avatar.svg'"
               [alt]="item.username"
               hlmAvatarImage
             />
@@ -104,9 +106,11 @@
           <!-- Checkbox -->
           <div
             class="size-5 rounded-full border-2 shrink-0 relative transition-all duration-150 flex items-center justify-center"
-            [class]="isChecked(i) ? 'bg-primary border-primary' : 'border-border'"
+            [class]="
+              isSelected(item._id) ? 'bg-primary border-primary' : 'border-border'
+            "
           >
-            @if (isChecked(i)) {
+            @if (isSelected(item._id)) {
             <ng-icon
               hlm
               name="lucideCheck"
@@ -119,12 +123,12 @@
         }
 
         <!-- Selected count badge -->
-        @if (checkedBoxIds.size > 0) {
+        @if (selectedCount() > 0) {
         <div class="pt-2 flex items-center justify-center">
           <span
             class="text-xs text-muted-foreground bg-muted px-3 py-1 rounded-full"
           >
-            {{ checkedBoxIds.size }} selected
+            {{ selectedCount() }} selected
           </span>
         </div>
         } } @else {

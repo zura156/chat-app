@@ -80,7 +80,7 @@
       />
       } @if (currentMedia().type === 'video') {
       <app-video-player
-        [video]="currentAsAttachment"
+        [video]="currentAsAttachment()"
         size="lg"
         [class.hidden]="isLoading() || hasError()"
         (loaded)="onMediaLoad()"

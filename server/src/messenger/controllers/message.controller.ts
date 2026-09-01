@@ -27,7 +27,9 @@ export class MessageController {
       const { content } = req.body ?? {};
 
       if (!senderId || !conversationId) {
-        next(createCustomError('Conversation not found or access denied.', 403));
+        next(
+          createCustomError('Conversation not found or access denied.', 403),
+        );
         return;
       }
 
@@ -55,7 +57,9 @@ export class MessageController {
       const messageId = String(req.params.messageId ?? '');
 
       if (!senderId || !conversationId) {
-        next(createCustomError('Conversation not found or access denied.', 403));
+        next(
+          createCustomError('Conversation not found or access denied.', 403),
+        );
         return;
       }
 
@@ -148,6 +152,7 @@ export class MessageController {
         conversationId,
         limit,
         offset,
+        req.user?._id?.toString(),
       );
 
       res.status(200).json(result);
@@ -181,6 +186,7 @@ export class MessageController {
         conversationId,
         limit,
         offset,
+        req.user?._id?.toString(),
       );
 
       res.status(200).json(result);
@@ -213,6 +219,7 @@ export class MessageController {
         conversationId,
         limit,
         offset,
+        req.user?._id?.toString(),
       );
 
       res.status(200).json(result);
@@ -220,15 +227,4 @@ export class MessageController {
       next(error);
     }
   };
-
 }
-
-/*
- * `getMediaFileStats` used to live here. It was removed rather than fixed:
- * nothing routed to it, it aggregated over a `file` field that stopped existing
- * when attachments became an array (so it could only ever have returned zeroes),
- * and it read `userId` and `conversationId` straight from the query with no
- * authorisation check — had anyone mounted it, it would have reported any
- * user's storage totals to any caller. The storage screen is served by
- * `GET /user/storage`, which scopes to the authenticated user.
- */

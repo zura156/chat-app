@@ -16,7 +16,11 @@ import { NgIcon, provideIcons } from '@ng-icons/core';
 import { HlmIconImports } from '@spartan-ng/helm/icon';
 import { lucidePause, lucidePlay } from '@ng-icons/lucide';
 import { pseudoWaveform } from '../../utils/pseudo-waveform';
-import { mediaIdentity } from '../../services/signed-media.service';
+import {
+  SignedMediaService,
+  mediaIdentity,
+} from '../../services/signed-media.service';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 
 @Component({
   selector: 'app-audio-player',
@@ -48,6 +52,10 @@ export class AudioPlayer {
   });
 
   currentTime = signal<number>(0);
+
+  /** Set once re-signing has been tried and the media still will not play. */
+  readonly hasError = signal(false);
+  private recoveryAttempted = false;
 
   /** Duration the element reports, once metadata has loaded. */
   private readonly elementDuration = signal<number>(0);
@@ -97,8 +105,11 @@ export class AudioPlayer {
   private lastRenderedBar = -1;
   private lastRenderedSecond = -1;
 
+  private readonly destroyRef = inject(DestroyRef);
+  private readonly signedMedia = inject(SignedMediaService);
+
   constructor() {
-    inject(DestroyRef).onDestroy(() => this.stopTracking());
+    this.destroyRef.onDestroy(() => this.stopTracking());
   }
 
   onPlay(audio: HTMLAudioElement): void {
@@ -159,6 +170,51 @@ export class AudioPlayer {
   private stopTracking(): void {
     if (this.rafId !== undefined) cancelAnimationFrame(this.rafId);
     this.rafId = undefined;
+  }
+
+  /**
+   * Recovers from a playback failure, once.
+   *
+   * Attachment URLs are presigned with a fixed lifetime, so one handed to the
+   * browser hours ago — a tab left open, a long scroll back through history —
+   * can be dead by the time the element asks for the bytes. The video player
+   * has re-signed on error for exactly this reason; this one had no error
+   * handler at all, so an expired voice note was simply a player that did
+   * nothing when pressed. Bounded to one attempt so a genuinely broken object
+   * surfaces rather than looping.
+   */
+  onError(audio: HTMLAudioElement): void {
+    const uploadId = this.audio()?.uploadId;
+    if (this.recoveryAttempted || !uploadId) {
+      this.hasError.set(true);
+      return;
+    }
+    this.recoveryAttempted = true;
+
+    this.signedMedia.invalidate(uploadId);
+    this.signedMedia
+      .refresh(uploadId)
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe((variants) => {
+        const fresh = variants?.['original'];
+        if (!fresh) {
+          this.hasError.set(true);
+          return;
+        }
+        const resumeAt = audio.currentTime;
+        this.src.set(fresh);
+        audio.src = fresh;
+        audio.load();
+        if (resumeAt > 0) {
+          const restore = () => {
+            audio.removeEventListener('loadedmetadata', restore);
+            if (Number.isFinite(audio.duration)) {
+              audio.currentTime = Math.min(resumeAt, audio.duration);
+            }
+          };
+          audio.addEventListener('loadedmetadata', restore);
+        }
+      });
   }
 
   onLoadedMetadata(audio: HTMLAudioElement): void {

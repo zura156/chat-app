@@ -6,7 +6,21 @@ import { ConversationService } from './conversation.service'; // adjust path
 export const conversationsResolver: ResolveFn<unknown> = () => {
   const conversationService = inject(ConversationService);
 
+  /*
+   * The cached list is shown immediately *and* revalidated.
+   *
+   * Returning the cache and stopping meant conversations started by other
+   * people while the user was elsewhere never appeared: nothing refetched, and
+   * an incoming message for an unknown conversation only reaches
+   * `setLastMessageInConversation`, which maps over the ones already present
+   * and silently does nothing. The request is fired without being awaited, so
+   * the route still resolves instantly off the cache.
+   */
   if (conversationService.conversationList()?.conversations?.length) {
+    conversationService
+      .getConversations()
+      .pipe(catchError(() => of(null)))
+      .subscribe();
     return of(conversationService.conversationList());
   }
 

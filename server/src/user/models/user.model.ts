@@ -73,16 +73,29 @@ const UserSchema = new Schema<IUser>(
   {
     first_name: { type: String, required: [true, 'First name is required'] },
     last_name: { type: String, required: [true, 'Last name is required'] },
+    /*
+     * `unique: true` is deliberately absent — the index is declared below with
+     * a collation instead. A plain unique index is case-*sensitive*, so `alice`
+     * and `Alice` were two different accounts.
+     */
     username: {
       type: String,
       required: [true, 'Username is required'],
-      unique: true,
+      trim: true,
     },
     bio: { type: String },
+    /*
+     * `lowercase` and `trim` are belt to `normalizeEmail`'s braces. Every write
+     * path already normalizes, so this changes no stored value — but the
+     * guarantee lived entirely in application code, and the unique index would
+     * happily have held two casings of one address the day a path forgot.
+     */
     email: {
       type: String,
       required: [true, 'Email is required'],
       unique: true,
+      lowercase: true,
+      trim: true,
       validate: [validator.isEmail, 'Invalid email'],
     },
     is_email_verified: { type: Boolean, default: false },
@@ -169,6 +182,25 @@ const UserSchema = new Schema<IUser>(
     },
   },
   { timestamps: true },
+);
+
+/*
+ * Case-insensitive uniqueness for usernames.
+ *
+ * strength: 2 compares base letters and accents but ignores case, so `alice`,
+ * `Alice` and `ALICE` collide at the index. NOTE for deployment: an existing
+ * database already carries the old case-sensitive `username_1` index, and
+ * MongoDB will not redefine an index in place — drop `username_1` once, after
+ * reconciling any collisions that already exist, and this one is built on the
+ * next start.
+ */
+UserSchema.index(
+  { username: 1 },
+  {
+    unique: true,
+    name: 'username_ci_unique',
+    collation: { locale: 'en', strength: 2 },
+  },
 );
 
 UserSchema.index(

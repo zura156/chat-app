@@ -108,6 +108,17 @@ const build = async (): Promise<ComponentFixture<SecuritySettings>> => {
   return fixture;
 };
 
+/** Types into a detached input and hands it to the component's handler. */
+const typeCode = (
+  fixture: { componentInstance: { onCodeInput(event: Event): void } },
+  value: string,
+): HTMLInputElement => {
+  const input = document.createElement('input');
+  input.value = value;
+  fixture.componentInstance.onCodeInput({ target: input } as unknown as Event);
+  return input;
+};
+
 describe('SecuritySettings — two factors', () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -405,14 +416,18 @@ describe('SecuritySettings — two factors', () => {
   describe('the code field', () => {
     it('keeps a dashed recovery code intact', async () => {
       const fixture = await build();
-      fixture.componentInstance.onCodeInput('J3LT2-L3N43');
+      const input = typeCode(fixture, 'J3LT2-L3N43');
       expect(fixture.componentInstance.code()).toBe('J3LT2-L3N43');
+      expect(input.value).toBe('J3LT2-L3N43');
     });
 
     it('strips what neither kind of code contains', async () => {
       const fixture = await build();
-      fixture.componentInstance.onCodeInput('12 34/56');
+      const input = typeCode(fixture, '12 34/56');
       expect(fixture.componentInstance.code()).toBe('123456');
+      // See the equivalent note in login.component.spec.ts: the element has to
+      // be corrected too, or the stripped character stays on screen.
+      expect(input.value).toBe('123456');
     });
   });
 });

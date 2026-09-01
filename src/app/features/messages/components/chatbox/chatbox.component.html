@@ -63,41 +63,31 @@
                 @if (conversation.group_name) {
                   {{ conversation.group_name }}
                 } @else {
+                  @let others = this.otherParticipants();
                   @for (
-                    participant of conversation?.participants;
-                    let i = $index;
+                    participant of others;
+                    let last = $last;
                     track participant._id
                   ) {
-                    @if (participant._id !== currentUser?._id) {
-                      <span>{{
-                        participant.first_name +
-                          " " +
-                          participant.last_name +
-                          (i + 1 !== conversation.participants.length
-                            ? ", "
-                            : "")
-                      }}</span>
-                    }
+                    <span>{{
+                      participant.first_name +
+                        " " +
+                        participant.last_name +
+                        (last ? "" : ", ")
+                    }}</span>
                   }
                 }
               }
             </h1>
 
             @if (conversation && !conversation.is_group) {
-              @for (
-                participant of conversation?.participants;
-                track participant._id
-              ) {
-                @if (participant._id !== currentUser?._id) {
-                  @if (participant.status === "online") {
-                    <span class="text-xs text-green-500 font-medium"
-                      >Online</span
-                    >
-                  } @else {
-                    <span class="text-xs text-muted-foreground">
-                      Last active {{ participant.last_seen ?? "" | timeAgo }}
-                    </span>
-                  }
+              @for (participant of otherParticipants(); track participant._id) {
+                @if (participant.status === "online") {
+                  <span class="text-xs text-green-500 font-medium">Online</span>
+                } @else {
+                  <span class="text-xs text-muted-foreground">
+                    Last active {{ participant.last_seen ?? "" | timeAgo }}
+                  </span>
                 }
               }
             }
@@ -288,6 +278,7 @@
         #filePicker
         [config]="filePickerConfig"
         [contextResolver]="fileContextResolver"
+        [accept]="acceptAttachment"
         (fileSelected)="onFileSelected($event)"
         (fileReady)="onFileReady($event)"
         (fileError)="onFileError($event)"

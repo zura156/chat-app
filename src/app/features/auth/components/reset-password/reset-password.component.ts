@@ -17,9 +17,12 @@ import {
   passwordValidator,
 } from '../../validators/password.validator';
 import {
+  applyServerFieldErrors,
+  clearServerFieldErrors,
   markFormGroupTouched,
   summarizeFormErrors,
 } from '../../../../shared/functions/form.utils';
+import { repeatPasswordValidator } from '../../validators/repeat-password.validator';
 import { apiErrorMessage } from '../../../../shared/functions/api-error';
 import { toast } from '@spartan-ng/brain/sonner';
 import { AuthService } from '../../services/auth.service';
@@ -60,9 +63,21 @@ export class ResetPasswordComponent {
 
   isDarkMode = this.themeService.isDarkMode;
 
-  form: FormGroup = new FormGroup({
-    password: new FormControl('', [Validators.required, passwordValidator()]),
-  });
+  /*
+   * No identity context on `passwordValidator()`, and there cannot be one: the
+   * reset link carries a token and a user id, so this form has no way to know
+   * the username or address the rule is about. The server does apply it — see
+   * `passwordRefusal` in resetPassword — and now returns that refusal against
+   * the `password` field, so `applyServerFieldErrors` can put it under the
+   * input instead of leaving the checklist looking satisfied.
+   */
+  form: FormGroup = new FormGroup(
+    {
+      password: new FormControl('', [Validators.required, passwordValidator()]),
+      repeat_password: new FormControl('', [Validators.required]),
+    },
+    { validators: repeatPasswordValidator('password', 'repeat_password') },
+  );
 
   /** Surfaced so the checklist quotes the policy rather than restating it. */
   readonly passwordMinLength = PASSWORD_MIN_LENGTH;
@@ -71,9 +86,15 @@ export class ResetPasswordComponent {
   isLoading = signal<boolean>(false);
   error = signal<string | null>(null);
   showPass = signal<boolean>(false);
+  showRepeatPass = signal<boolean>(false);
   resetToken = signal<string>('');
 
   onSubmit(): void {
+    // A previous submit's server errors describe a password that has since been
+    // retyped; leaving them would keep the form unsubmittable with nothing the
+    // user can do about it.
+    clearServerFieldErrors(this.form);
+
     if (!this.form.valid) {
       /*
        * The old message ("Please enter credentials acording to validations")
@@ -114,9 +135,18 @@ export class ResetPasswordComponent {
           return this.authService.resetPassword(body).pipe(
             catchError((err) => {
               this.isLoading.set(false);
-              // The reasons the server has here are ones no client check can
-              // reproduce: the link has expired, it has already been used, or
-              // the password appears in a breach corpus.
+              /*
+               * The reasons the server has here are ones no client check can
+               * reproduce: the link has expired, it has already been used, the
+               * password appears in a breach corpus, or it is built out of the
+               * username — which this form cannot check, because the link
+               * carries only a token and an id.
+               *
+               * Placed under the input where the server names a field, so the
+               * refusal appears against the thing it is about rather than only
+               * in the banner above a checklist showing five green ticks.
+               */
+              applyServerFieldErrors(this.form, err);
               this.error.set(
                 apiErrorMessage(err, 'Could not reset your password.'),
               );
@@ -143,6 +173,10 @@ export class ResetPasswordComponent {
 
   clearError() {
     this.error.set(null);
+  }
+
+  toggleRepeatPasswordVisibility(): void {
+    this.showRepeatPass.update((val) => !val);
   }
 
   togglePasswordVisibility(): void {

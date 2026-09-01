@@ -180,10 +180,22 @@ export class LoginComponent {
       .subscribe({ error: () => undefined });
   }
 
-  onTwoFactorCodeInput(value: string): void {
-    // Authenticator and email codes are six digits; recovery codes are
-    // XXXXX-XXXXX, and are accepted whichever factor is selected.
-    this.twoFactorCode.set(value.replace(/[^0-9A-Za-z-]/g, '').slice(0, 11));
+  /**
+   * Authenticator and email codes are six digits; recovery codes are
+   * XXXXX-XXXXX, and are accepted whichever factor is selected.
+   *
+   * The element is corrected as well as the signal. This was bound as
+   * `[value]="twoFactorCode()"` with a sanitising `(input)`, which is only half
+   * a controlled input: when the sanitiser strips a character the signal's
+   * value is *unchanged*, so Angular's property binding sees no difference and
+   * never writes back — leaving the rejected character on screen while the
+   * model had already dropped it.
+   */
+  onTwoFactorCodeInput(event: Event): void {
+    const el = event.target as HTMLInputElement;
+    const cleaned = el.value.replace(/[^0-9A-Za-z-]/g, '').slice(0, 11);
+    if (el.value !== cleaned) el.value = cleaned;
+    this.twoFactorCode.set(cleaned);
   }
 
   /** Switches which factor is being answered, without restarting the sign-in. */

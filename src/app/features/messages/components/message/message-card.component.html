@@ -480,61 +480,46 @@
   </div>
 }
 
-@if (readReceipts() && readReceipts().length > 0 && isGroup()) {
-  @let matchingReceipts =
-    readReceipts().filter(r =>
-  r.last_message_read_id === message._id && r.user_id !== currentUser()._id
-);
+@if (isGroup()) {
+  <!--
+    `seenBy()` is a computed on the component. This was an inline
+    `readReceipts().filter(...)` in an @let, which allocates a new array on
+    every change detection for every rendered message, and the @for bodies then
+    re-tested the two conditions the filter had already applied.
+  -->
+  @let matchingReceipts = this.seenBy();
 
   @if (matchingReceipts.length > 0) {
     <div class="w-full flex items-center gap-x-1 justify-end pt-1">
+      @for (
+        readReceipt of matchingReceipts.slice(0, 4);
+        track readReceipt.user_id
+      ) {
+        @let userCredentials = this.getUserCredentials(readReceipt.user_id);
+        <button
+          type="button"
+          hlmTooltip="Seen by {{ userCredentials.username }} at {{
+            readReceipt.read_at | date: 'short'
+          }}"
+          position="top"
+          class="w-fit"
+        >
+          <hlm-avatar class="size-4">
+            <img
+              [src]="userCredentials.pfp_url || '/icons/avatar.svg'"
+              [alt]="userCredentials.username"
+              hlmAvatarImage
+            />
+            <span hlmAvatarFallback>
+              <img src="/icons/avatar.svg" alt="" />
+            </span>
+          </hlm-avatar>
+        </button>
+      }
       @if (matchingReceipts.length > 4) {
-        @for (
-          readReceipt of matchingReceipts.slice(0, 4);
-          track readReceipt.user_id
-        ) {
-          @let userCredentials = this.getUserCredentials(readReceipt.user_id);
-          @if (readReceipt.last_message_read_id === message._id) {
-            <hlm-avatar class="size-4">
-              <img
-                [src]="userCredentials.pfp_url || '/icons/avatar.svg'"
-                [alt]="userCredentials.username"
-                hlmAvatarImage
-              />
-            </hlm-avatar>
-          }
-        }
         <span class="text-xs text-muted-foreground"
           >+{{ matchingReceipts.length - 4 }}</span
         >
-      } @else {
-        @for (readReceipt of matchingReceipts; track readReceipt.user_id) {
-          @if (
-            currentUser()._id !== readReceipt.user_id &&
-            readReceipt.last_message_read_id === message._id
-          ) {
-            @let userCredentials = this.getUserCredentials(readReceipt.user_id);
-            <button
-              type="button"
-              hlmTooltip="Seen by {{ userCredentials.username }} at {{
-                readReceipt.read_at | date: 'short'
-              }}"
-              position="top"
-              class="w-fit"
-            >
-              <hlm-avatar class="size-4">
-                <img
-                  [src]="userCredentials.pfp_url || '/icons/avatar.svg'"
-                  [alt]="userCredentials.username"
-                  hlmAvatarImage
-                />
-                <span hlmAvatarFallback
-                  ><img src="/icons/avatar.svg" alt=""
-                /></span>
-              </hlm-avatar>
-            </button>
-          }
-        }
       }
     </div>
   }

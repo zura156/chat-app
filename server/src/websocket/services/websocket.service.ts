@@ -51,12 +51,23 @@ export class WebSocketService {
     }
     this.clients.get(userId)!.add(ws);
 
-    // Track in BOTH: global set (for getAllConnectedUserIds) and per-instance set (for isUserFullyDisconnected)
+    /*
+     * Track in BOTH: the global set (for getAllConnectedUserIds) and the
+     * per-instance set (for isUserFullyDisconnected).
+     *
+     * The EXPIRE is sequenced *after* the SADD that creates the key. These
+     * three used to run concurrently in one Promise.all, and Redis gives no
+     * ordering guarantee between them — EXPIRE on a key that does not exist yet
+     * is a no-op returning 0, so the presence key could end up with no TTL at
+     * all. The heartbeat re-applies one 30 seconds later, but a crash inside
+     * that window left the key permanent and its users reported online forever,
+     * which is precisely what the TTL exists to prevent.
+     */
     await Promise.all([
       redisClient.sAdd('online_users', userId),
       redisClient.sAdd(INSTANCE_KEY, userId),
-      redisClient.expire(INSTANCE_KEY, INSTANCE_KEY_TTL),
     ]);
+    await redisClient.expire(INSTANCE_KEY, INSTANCE_KEY_TTL);
 
     logger.info(
       `User ${userId} authenticated (${this.clients.get(userId)!.size} local sessions)`,

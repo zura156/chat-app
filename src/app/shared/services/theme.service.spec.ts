@@ -322,21 +322,38 @@ describe('ThemeService', () => {
       expect(isDarkOnDocument()).toBe(true);
     });
 
-    it('throws when a preference is written, which the caller does not expect', () => {
+    it('applies a preference it cannot persist, rather than throwing', () => {
       /*
-       * Pinned as a known gap. `readStored` guards reads, but `setTheme` and
-       * `setColorTheme` call `localStorage.setItem` directly — so on the same
-       * browsers the app now boots on, changing the theme throws out of the
-       * click handler. The signal is set first, so the appearance does change;
-       * what breaks is anything sequenced after the call.
+       * Was pinned as a known gap: `readStored` guarded the reads while
+       * `setTheme` and `setColorTheme` called `localStorage.setItem` directly,
+       * so on the same browsers the app boots on, changing the theme threw out
+       * of the click handler. Worse than the click — `setColorTheme` also runs
+       * from the constructor, so an unguarded write made this root service
+       * throw during construction.
+       *
+       * Both halves are guarded now. A preference that cannot be remembered
+       * still applies for this session.
        */
       const service = build();
       vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => {
         throw new DOMException('denied');
       });
 
-      expect(() => service.setColorTheme('blue')).toThrow();
+      expect(() => service.setColorTheme('blue')).not.toThrow();
       expect(service.colorTheme()).toBe('blue');
+    });
+
+    it('constructs when storage rejects both reads and writes', () => {
+      // The constructor calls setColorTheme(); an unguarded write there took
+      // the whole app down before anything rendered.
+      vi.spyOn(Storage.prototype, 'getItem').mockImplementation(() => {
+        throw new DOMException('denied');
+      });
+      vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => {
+        throw new DOMException('denied');
+      });
+
+      expect(() => build()).not.toThrow();
     });
   });
 });

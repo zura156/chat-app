@@ -20,5 +20,7 @@ export interface UserI {
   };
   status: 'offline' | 'online';
   last_seen: string;
+  /** Sent on the API's public projection; the profile page's "Joined" line. */
+  createdAt?: string;
   blocked_users: string[] | UserI[];
 }

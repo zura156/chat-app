@@ -373,7 +373,7 @@
           placeholder="000000"
           class="w-full text-sm bg-background border border-border rounded-lg px-3 py-2 font-mono tracking-widest focus:outline-none focus:ring-1 focus:ring-ring"
           [value]="code()"
-          (input)="onCodeInput($any($event.target).value)"
+          (input)="onCodeInput($event)"
         />
       </div>
 
@@ -425,7 +425,7 @@
           placeholder="000000"
           class="w-full text-sm bg-background border border-border rounded-lg px-3 py-2 font-mono tracking-widest focus:outline-none focus:ring-1 focus:ring-ring"
           [value]="code()"
-          (input)="onCodeInput($any($event.target).value)"
+          (input)="onCodeInput($event)"
         />
       </div>
 
@@ -540,7 +540,7 @@
         aria-label="Authentication or recovery code"
         class="w-full text-sm bg-background border border-border rounded-lg px-3 py-2 font-mono tracking-widest focus:outline-none focus:ring-1 focus:ring-ring"
         [value]="code()"
-        (input)="onCodeInput($any($event.target).value)"
+        (input)="onCodeInput($event)"
       />
 
       <input

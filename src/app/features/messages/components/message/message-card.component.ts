@@ -1,6 +1,7 @@
 import {
   Component,
   ElementRef,
+  computed,
   effect,
   input,
   inject,
@@ -131,6 +132,27 @@ export class MessageCardComponent {
 
   readonly draft = this.actions.draft;
   readonly busy = this.actions.busy;
+
+  /**
+   * Who has read *this* message, excluding the viewer.
+   *
+   * The template did this inline with `@let matchingReceipts =
+   * readReceipts().filter(...)`, which allocates a fresh array on every change
+   * detection for every rendered message, and then re-tested both conditions
+   * inside the `@for`. A computed recalculates only when the receipts or the
+   * message actually change.
+   */
+  readonly seenBy = computed(() => {
+    const messageId = this.message()._id;
+    const viewerId = this.currentUser()?._id;
+    if (!messageId) return [];
+
+    return this.readReceipts().filter(
+      (receipt) =>
+        receipt.last_message_read_id === messageId &&
+        receipt.user_id !== viewerId,
+    );
+  });
 
   constructor() {
     // Put the caret in the message the moment it becomes editable, at the end

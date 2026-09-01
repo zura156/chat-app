@@ -142,7 +142,7 @@
           placeholder="000000"
           class="w-full font-mono tracking-widest"
           [value]="twoFactorCode()"
-          (input)="onTwoFactorCodeInput($any($event.target).value)"
+          (input)="onTwoFactorCodeInput($event)"
         />
 
         <button

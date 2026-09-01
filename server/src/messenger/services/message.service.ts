@@ -67,6 +67,39 @@ const deliverableParticipants = async (
     .filter((id) => !blocked.has(id));
 };
 
+/**
+ * Senders whose messages this viewer should not be shown, as a query clause.
+ *
+ * Delivery already filters these (`deliverableParticipants`), but the read
+ * paths did not — so every group message a block spared the viewer in realtime
+ * came straight back on the next page fetch, and the block was cosmetic until
+ * they reloaded. Returns `{}` when there is nothing to exclude, so the common
+ * case adds no clause and the existing indexes are unaffected.
+ *
+ * A block is symmetric here, as it is everywhere else: it hides the messages of
+ * someone the viewer blocked *and* of someone who blocked the viewer.
+ */
+const hiddenSenderClause = async (
+  viewerId: string | undefined,
+  conversationId: string | Types.ObjectId,
+): Promise<QueryFilter<IMessage>> => {
+  if (!viewerId) return {};
+
+  const conversation = await Conversation.findById(conversationId)
+    .select('participants')
+    .lean();
+  if (!conversation) return {};
+
+  const blocked = await blockedAmong(viewerId, conversation.participants);
+  if (blocked.size === 0) return {};
+
+  return {
+    sender: {
+      $nin: [...blocked].map((id) => new Types.ObjectId(id)),
+    },
+  };
+};
+
 /** Mirrored by the schema and by the client's own check. */
 export const MAX_MESSAGE_LENGTH = 2000;
 export const MAX_ATTACHMENTS = 10;
@@ -91,14 +124,19 @@ export class MessageService {
     conversationId: string,
     limit: number,
     offset: number,
+    viewerId?: string,
   ) {
+    const query: QueryFilter<IMessage> = {
+      conversation: conversationId,
+      ...(await hiddenSenderClause(viewerId, conversationId)),
+    };
     const [messages, totalCount] = await Promise.all([
-      Message.find({ conversation: conversationId })
+      Message.find(query)
         .sort({ timestamp: -1 })
         .skip(offset)
         .limit(limit)
         .populate('sender', 'username pfp_url pfp_variants'),
-      Message.countDocuments({ conversation: conversationId }),
+      Message.countDocuments(query),
     ]);
     return { messages: await signMessages(messages), totalCount };
   }
@@ -107,11 +145,13 @@ export class MessageService {
     conversationId: string,
     limit: number,
     offset: number,
+    viewerId?: string,
   ) {
     const query: QueryFilter<IMessage> = {
       conversation: conversationId,
       'attachments.0': { $exists: true },
       'attachments.context': { $in: ['dm-image', 'dm-video'] },
+      ...(await hiddenSenderClause(viewerId, conversationId)),
     };
     const [messages, totalCount] = await Promise.all([
       Message.find(query)
@@ -128,11 +168,13 @@ export class MessageService {
     conversationId: string,
     limit: number,
     offset: number,
+    viewerId?: string,
   ) {
     const query: QueryFilter<IMessage> = {
       conversation: conversationId,
       'attachments.0': { $exists: true },
       'attachments.context': 'dm-file',
+      ...(await hiddenSenderClause(viewerId, conversationId)),
     };
     const [messages, totalCount] = await Promise.all([
       Message.find(query)

@@ -3,14 +3,12 @@ import {
   computed,
   DestroyRef,
   inject,
-  OnDestroy,
   OnInit,
-  signal,
 } from '@angular/core';
 import { ReactiveFormsModule } from '@angular/forms';
 import { HlmSeparatorImports } from '@spartan-ng/helm/separator';
 import { NgTemplateOutlet } from '@angular/common';
-import { concatMap, filter, map, Subject, tap } from 'rxjs';
+import { concatMap, filter, map, tap } from 'rxjs';
 import {
   ActivatedRoute,
   NavigationEnd,
@@ -40,7 +38,7 @@ import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
   ],
   templateUrl: './messages-layout.component.html',
 })
-export class MessagesLayoutComponent implements OnInit, OnDestroy {
+export class MessagesLayoutComponent implements OnInit {
   private readonly destroyRef = inject(DestroyRef);
   private readonly layoutService = inject(LayoutService);
   private readonly authService = inject(AuthService);
@@ -66,12 +64,6 @@ export class MessagesLayoutComponent implements OnInit, OnDestroy {
 
   isMobile = this.layoutService.isMobile;
   activeView = this.layoutService.activeView;
-  chatboxAnimationDirection = signal<'right' | 'left'>('right');
-  isConversationListActive = signal<boolean>(true);
-
-  windowWidth: number = window.innerWidth;
-
-  private destroy$ = new Subject<void>();
 
   ngOnInit() {
     this.route.firstChild?.params
@@ -89,9 +81,6 @@ export class MessagesLayoutComponent implements OnInit, OnDestroy {
           this.router.events.pipe(
             filter((event) => event instanceof NavigationEnd),
             tap((event: NavigationEnd) => {
-              this.isConversationListActive.set(
-                event.urlAfterRedirects === '/messages',
-              );
               this.setActiveView(
                 event.urlAfterRedirects === '/messages' ? 'lists' : 'chatbox',
               );
@@ -107,11 +96,6 @@ export class MessagesLayoutComponent implements OnInit, OnDestroy {
         ),
       )
       .subscribe();
-  }
-
-  ngOnDestroy(): void {
-    this.destroy$.next();
-    this.destroy$.complete();
   }
 
   setActiveView(destination: ActiveViewType) {

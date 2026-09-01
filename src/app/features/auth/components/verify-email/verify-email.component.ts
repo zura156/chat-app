@@ -38,7 +38,6 @@ export class VerifyEmailComponent implements OnInit {
 
   isLoading = signal(false);
   error = signal<string | null>(null);
-  success = signal(false);
   /** true once the token from the email link has been accepted */
   verified = signal(false);
 
@@ -52,6 +51,25 @@ export class VerifyEmailComponent implements OnInit {
       next: () => {
         this.verified.set(true);
         this.isLoading.set(false);
+
+        /*
+         * Re-read the profile so the verification wall actually lifts.
+         *
+         * `refreshCurrentUser` existed for exactly this and was called from one
+         * place: the "I've verified" button on the wall itself. Following the
+         * link — the path everyone actually takes — left `is_email_verified`
+         * false in the cached user, so the wall was still there when they
+         * navigated back, and the only ways out were that button or a reload.
+         *
+         * Guarded on the session: this link is routinely opened in a browser
+         * with no cookies, and asking for the profile there would 401 and be
+         * turned into a sign-out.
+         */
+        if (this.authService.isAuthenticated()) {
+          this.authService
+            .refreshCurrentUser()
+            .subscribe({ error: () => undefined });
+        }
       },
       error: (err) => {
         this.error.set(

@@ -12,7 +12,7 @@ import {
 } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { Router, RouterLink } from '@angular/router';
-import { catchError, tap, throwError } from 'rxjs';
+import { EMPTY, catchError, tap, throwError } from 'rxjs';
 import { NgIcon, provideIcons } from '@ng-icons/core';
 import {
   lucideArrowLeft,
@@ -134,8 +134,18 @@ export class ChatboxSettingsComponent {
       return;
     }
 
+    /*
+     * The navigation was missing.
+     *
+     * This branch selected the user and built the mock conversation, then
+     * stopped — but the chatbox is driven by `route.params`, and the URL was
+     * still the group's. Nothing on screen changed, so the button read as dead.
+     * A not-yet-created conversation is addressed by the other user's id; see
+     * `createMockConversation` and `ensureConversation`.
+     */
     this.conversationService.selectUserForConversation(participant);
     this.conversationService.createMockConversation();
+    this.router.navigate(['/messages', participant._id]);
   }
 
   onFileChange(event: Event): void {
@@ -333,6 +343,19 @@ export class ChatboxSettingsComponent {
               this.#modalRef?.setInput('isSubmitting', false);
               filteredUsers = filteredUsers.filter((u) => !ids.includes(u._id));
               this.#modalRef?.setInput('items', filteredUsers);
+              toast.success(
+                ids.length === 1 ? 'Member added.' : `${ids.length} members added.`,
+              );
+            }),
+            // Without this a refusal left `isSubmitting` true forever: the
+            // spinner ran, the modal stayed open, nothing was said, and the
+            // error surfaced only as an unhandled RxJS rejection.
+            catchError((err) => {
+              this.#modalRef?.setInput('isSubmitting', false);
+              toast.error('Could not add those members', {
+                description: apiErrorMessage(err, 'Please try again.'),
+              });
+              return EMPTY;
             }),
             takeUntilDestroyed(this.destroyRef),
           )
@@ -361,6 +384,16 @@ export class ChatboxSettingsComponent {
           tap(() => {
             this.#modalRef?.setInput('isSubmitting', false);
             this.#modalRef?.instance.closed.emit();
+            toast.success(`${user.username} was removed.`);
+          }),
+          // See onAddMembers: the confirmation modal has no other way to
+          // report that the removal was refused.
+          catchError((err) => {
+            this.#modalRef?.setInput('isSubmitting', false);
+            toast.error('Could not remove that member', {
+              description: apiErrorMessage(err, 'Please try again.'),
+            });
+            return EMPTY;
           }),
           takeUntilDestroyed(this.destroyRef),
         )
@@ -390,6 +423,16 @@ export class ChatboxSettingsComponent {
             this.#modalRef?.setInput('isSubmitting', false);
             toast.info(`You left the conversation.`);
             this.#modalRef?.instance.closed.emit();
+            this.router.navigateByUrl('/messages');
+          }),
+          // See onAddMembers. Leaving is also the one of the three where a
+          // silent failure is worst: the user believes they are out.
+          catchError((err) => {
+            this.#modalRef?.setInput('isSubmitting', false);
+            toast.error('Could not leave the conversation', {
+              description: apiErrorMessage(err, 'Please try again.'),
+            });
+            return EMPTY;
           }),
           takeUntilDestroyed(this.destroyRef),
         )

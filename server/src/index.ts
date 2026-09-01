@@ -144,6 +144,16 @@ app.use(
 );
 app.use('/upload', authenticateToken, requireVerifiedEmail, uploadRouter);
 
+/*
+ * Unmatched routes answer in the shape the client parses.
+ */
+app.use((req: Request, res: Response) => {
+  res.status(404).json({
+    message: `Cannot ${req.method} ${req.path}`,
+    code: 'NOT_FOUND',
+  });
+});
+
 app.use((err: Error, req: Request, res: Response, next: NextFunction) => {
   errorMiddleware(err, req, res, next);
 });
@@ -160,18 +170,12 @@ process.on('unhandledRejection', (reason) => {
 });
 
 process.on('uncaughtException', (error) => {
-  logger.error('Uncaught exception:', error);
+  logger.error('Uncaught exception, exiting:', error);
+  setTimeout(() => process.exit(1), 100).unref?.();
 });
 
 /*
  * Everything the server depends on is connected *before* the port is opened.
- *
- * These used to run inside the `listen` callback, so there was a window in
- * which the socket accepted requests while Redis was still connecting. Any
- * request arriving in it reached `authenticateToken`, whose blacklist check
- * throws when Redis is not ready, and came back as "403 Invalid token" — a
- * failure that reads like a credential problem and is not one. The rate
- * limiters, initialised in the same callback, fail open until they exist.
  */
 const start = async (): Promise<void> => {
   await connectDB();
@@ -205,9 +209,7 @@ const start = async (): Promise<void> => {
 };
 
 /*
- * Graceful shutdown. The worker already had this; the API had nothing, so a
- * redeploy severed every open WebSocket mid-frame and left connections to
- * Mongo and Redis to be reclaimed by process death.
+ * Graceful shutdown.
  */
 let shuttingDown = false;
 

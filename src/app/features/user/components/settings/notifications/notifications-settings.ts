@@ -1,5 +1,5 @@
 import { Component, OnInit, computed, inject } from '@angular/core';
-import { HlmSeparatorImports } from '../../../../../../../libs/ui/separator/src/index';
+import { HlmSeparatorImports } from '@spartan-ng/helm/separator';
 import { NotificationSettingsService } from './notification-settings.service';
 import { ConversationI } from '../../../../messages/interfaces/conversation.interface';
 import { UserStateService } from '../../../services/user-state.service';

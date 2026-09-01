@@ -322,6 +322,25 @@ export class ChatboxComponent implements OnInit {
     );
   });
 
+  /**
+   * Everyone in the conversation except the viewer.
+   *
+   * The header used to filter with an `@if` inside the loop while deciding the
+   * separator from the *unfiltered* index and length — correct only while the
+   * current user happened to be last in `participants`. `getConversationById`
+   * strips the caller, so it usually was; the WebSocket payloads
+   * (`conversation-update`, `-join`, `-leave`) send the full roster, so after a
+   * rename or a membership change the header rendered "Jane Doe, " with a
+   * trailing comma. Filtering before indexing is what the conversation card in
+   * the sidebar already does.
+   */
+  otherParticipants = computed<ParticipantI[]>(() => {
+    const currentUserId = this.currentUser()?._id;
+    return (this.conversation()?.participants ?? []).filter(
+      (participant) => participant._id !== currentUserId,
+    );
+  });
+
   groupedMessages = computed<GroupedMessages[]>(() => {
     const result: GroupedMessages[] = [];
     const messages = this.messages();
@@ -580,21 +599,27 @@ export class ChatboxComponent implements OnInit {
     files.forEach((file) => this.filePicker().processFile(file));
   }
 
-  onFileSelected(event: FileSelectedEvent): void {
+  /**
+   * Consulted by the picker before it starts uploading — see FilePicker.accept.
+   *
+   * Both of these used to live in `onFileSelected`, which runs *after* the
+   * upload has been kicked off, so a refused file still spent a full upload and
+   * left an orphaned object in the temp bucket.
+   */
+  readonly acceptAttachment = (file: File): string | null => {
     const isDuplicate = this.pendingAttachments().some(
-      (a) => a.file.name === event.file.name && a.file.size === event.file.size,
+      (a) => a.file.name === file.name && a.file.size === file.size,
     );
-    if (isDuplicate) {
-      toast.warning(`"${event.file.name}" is already added.`);
-      return;
-    }
+    if (isDuplicate) return `"${file.name}" is already added.`;
 
     if (this.pendingAttachments().length >= 10) {
-      toast.error('Maximum 10 attachments per message.', {
-        id: 'max-attachment-errors',
-      });
-      return;
+      return 'Maximum 10 attachments per message.';
     }
+
+    return null;
+  };
+
+  onFileSelected(event: FileSelectedEvent): void {
     const context = this.fileContextResolver(event.file);
     this.pendingAttachments.update((list) => [
       ...list,
@@ -903,7 +928,13 @@ export class ChatboxComponent implements OnInit {
         this.recordingResult.set(undefined);
         this.messageService.fillInMessageDetails(res);
       }),
-      catchError((err) => this.handleSendError(err, tempId)),
+      catchError((err) => {
+        // The recorder is dismissed on failure too. It used to be left open
+        // over the composer, and the only way out was the discard button —
+        // which also threw away the recording that had just failed to send.
+        this.isRecording.set(false);
+        return this.handleSendError(err, tempId);
+      }),
     );
   }
 

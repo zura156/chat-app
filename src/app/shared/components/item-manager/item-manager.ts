@@ -1,4 +1,4 @@
-import { Component, input, output } from '@angular/core';
+import { Component, computed, input, output, signal } from '@angular/core';
 import { ModalStatesT } from '../../interfaces/modal-states.type';
 import { HlmButton } from '@spartan-ng/helm/button';
 import { ModalVariantsT } from '../../interfaces/modal-variants.type';
@@ -9,7 +9,6 @@ import {
   HlmAvatarFallback,
   HlmAvatarImage,
 } from '@spartan-ng/helm/avatar';
-import { environment } from '../../../../environments/environment';
 import { HttpErrorResponse } from '@angular/common/http';
 import { toast } from '@spartan-ng/brain/sonner';
 import { FormGroup, ReactiveFormsModule } from '@angular/forms';
@@ -59,16 +58,53 @@ export class ItemManagerComponent {
 
   animationEnd = output<void>();
 
-  readonly apiUrl = environment.apiUrl;
+  /**
+   * The search box was rendered but bound to nothing — no `formControl`, no
+   * `(input)`, no filtering. Typing in it did nothing at all, which with a long
+   * user list left no way to find anyone.
+   */
+  readonly searchQuery = signal('');
 
-  checkedBoxIds: Set<number> = new Set<number>([]);
+  /** What the list actually renders, narrowed by the search box. */
+  readonly visibleItems = computed(() => {
+    const all = this.items() ?? [];
+    const query = this.searchQuery().trim().toLowerCase();
+    if (!query) return all;
 
-  toggleCheckbox(index: number): void {
-    if (this.isChecked(index)) {
-      this.checkedBoxIds.delete(index);
-    } else {
-      this.checkedBoxIds.add(index);
-    }
+    return all.filter((item) =>
+      `${item.first_name ?? ''} ${item.last_name ?? ''} ${item.username ?? ''}`
+        .toLowerCase()
+        .includes(query),
+    );
+  });
+
+  /**
+   * Selections are keyed by `_id`, not by position in the array.
+   *
+   * They used to be a `Set<number>` of `$index` values, which is only stable
+   * while the list never moves. It moves: the search above re-orders and
+   * shortens it, and `onAddMembers` rewrites `items` after a successful add. An
+   * index-keyed set survives neither, so a tick would silently transfer to
+   * whoever happened to land at that position.
+   */
+  private readonly selectedIds = signal<ReadonlySet<string>>(new Set());
+
+  readonly selectedCount = computed(() => this.selectedIds().size);
+
+  onSearchInput(value: string): void {
+    this.searchQuery.set(value);
+  }
+
+  toggleItem(id: string): void {
+    this.selectedIds.update((ids) => {
+      const next = new Set(ids);
+      next.has(id) ? next.delete(id) : next.add(id);
+      return next;
+    });
+  }
+
+  isSelected(id: string): boolean {
+    return this.selectedIds().has(id);
   }
 
   onSubmit(): void {
@@ -97,22 +133,25 @@ export class ItemManagerComponent {
       return;
     }
 
-    let selectedItemIds: string[] = [];
-    const items = this.items();
+    const selectedItemIds = [...this.selectedIds()];
 
-    if (!items || !items.length) {
-      toast.error('Submission was cancelled', {
-        description: 'due to nothing being selected',
+    /*
+     * Refuses on the selection rather than on the list.
+     *
+     * This used to check `items` and complain "due to nothing being selected"
+     * when the list was empty — which is a different fault — while an empty
+     * *selection* fell through and emitted `[]`, sending a request to add
+     * nobody.
+     */
+    if (selectedItemIds.length === 0) {
+      toast.error('Nothing selected', {
+        description: 'Choose at least one person first.',
       });
       return;
     }
 
-    for (let i of this.checkedBoxIds) {
-      selectedItemIds.push(items[i]._id);
-    }
-
     this.submit.emit(selectedItemIds);
-    this.checkedBoxIds.clear();
+    this.selectedIds.set(new Set());
   }
 
   private markFormGroupTouched(formGroup: FormGroup): void {
@@ -124,9 +163,5 @@ export class ItemManagerComponent {
         this.markFormGroupTouched(control);
       }
     });
-  }
-
-  isChecked(index: number) {
-    return this.checkedBoxIds.has(index);
   }
 }

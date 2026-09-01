@@ -1,7 +1,6 @@
 import {
   Component,
   computed,
-  effect,
   inject,
   OnDestroy,
   OnInit,
@@ -113,15 +112,6 @@ export class NewChatComponent implements OnInit, OnDestroy {
   // Cleanup subject
   private readonly destroy$ = new Subject<void>();
 
-  constructor() {
-    effect(() => {
-      const query = this.searchQuery();
-      if (query) {
-        this.fetchUsersIfNeeded(query);
-      }
-    });
-  }
-
   ngOnInit(): void {
     const state = this.router.lastSuccessfulNavigation()?.extras.state;
     const preselected = state?.['preselectedUser'];
@@ -148,7 +138,17 @@ export class NewChatComponent implements OnInit, OnDestroy {
          */
         map((q) => q?.toString().trim() ?? ''),
         distinctUntilChanged(),
-        tap((q) => this.fetchUsersIfNeeded(q)),
+        /*
+         * `searchQuery` is what `#filteredUsers` narrows on, and nothing ever
+         * wrote to it — so the local filter was a pass-through and the effect
+         * that used to sit in the constructor fired once, with an empty string,
+         * and never again. Setting it here makes the list narrow immediately
+         * while the server's own search is still in flight.
+         */
+        tap((q) => {
+          this.searchQuery.set(q);
+          this.fetchUsersIfNeeded(q);
+        }),
       )
       .subscribe();
   }
@@ -196,6 +196,19 @@ export class NewChatComponent implements OnInit, OnDestroy {
   }
 
   createConversation() {
+    /*
+     * `groupNameControl` carries minLength(3)/maxLength(32) and nothing ever
+     * read `.valid` — a two-character group name went to the server and came
+     * back as a refusal the form could have caught itself.
+     */
+    if (this.groupNameControl.invalid) {
+      this.groupNameControl.markAsTouched();
+      toast.error('Check the group name', {
+        description: 'Use between 3 and 32 characters.',
+      });
+      return;
+    }
+
     this.isLoading.set(true);
 
     const selectedUsersIds = [

@@ -16,8 +16,10 @@ export class ChatboxSettingsService {
 
   buildChatNameForm(currentName: string) {
     return this.fb.group({
+      // No `minLength(1)`: Angular's minLength passes on an empty value and any
+      // non-empty value is already at least one character, so it could never
+      // fail. `noOnlyWhitespace` is what actually rejects a cleared name.
       groupName: new FormControl(currentName, [
-        Validators.minLength(1),
         Validators.maxLength(50),
         noOnlyWhitespace(),
       ]),

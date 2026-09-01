@@ -87,6 +87,18 @@ export class FilePicker implements OnDestroy {
 
   contextResolver = input<((file: File) => UploadContext) | null>(null);
 
+  /**
+   * A host veto, consulted *before* the upload begins.
+   *
+   * The host's own checks — "already attached", "that's the eleventh" — used to
+   * run in its `fileSelected` handler, which this component emits immediately
+   * before calling `startUpload`. Returning early there stopped the file
+   * becoming a chip but not the upload: it ran to completion, `fileReady` found
+   * no attachment to hand the key to, and the stored object was orphaned.
+   * Returning a string here refuses the file and reports the reason instead.
+   */
+  accept = input<((file: File) => string | null) | null>(null);
+
   triggerInput(): void {
     this.inputRef()?.click();
   }
@@ -107,7 +119,12 @@ export class FilePicker implements OnDestroy {
   onDrop(event: DragEvent): void {
     event.preventDefault();
     this.isDragOver.set(false);
-    const files = Array.from(event.dataTransfer?.files ?? []);
+    // Sliced to the allowance, as onInputChange already was — dropping ten
+    // files onto a composer with one slot left started ten uploads.
+    const files = Array.from(event.dataTransfer?.files ?? []).slice(
+      0,
+      this.remainingSlots(),
+    );
     files.forEach((file) => this.processFile(file));
   }
 
@@ -155,6 +172,12 @@ export class FilePicker implements OnDestroy {
 
     if (file.size > maxBytes) {
       fail(`"${file.name}" exceeds the ${maxMb}MB limit.`);
+      return;
+    }
+
+    const refusal = this.accept()?.(file);
+    if (refusal) {
+      fail(refusal);
       return;
     }
 

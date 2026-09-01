@@ -317,25 +317,48 @@ export class MessageService {
     });
   }
 
+  /**
+   * Applies a change to every list that can be showing the same message.
+   *
+   * The thread, the media panel and the files panel hold three independent
+   * copies of the same messages. Every mutator here used to touch only
+   * `this.messages`, so an attachment that finished processing — or failed, or
+   * was found infected — updated in the thread and stayed a "Processing"
+   * placeholder in the panels until a conversation change reset them.
+   */
+  private updateAllLists(fn: (messages: MessageI[]) => MessageI[]): void {
+    this.messages.update(fn);
+    this.media.update(fn);
+    this.files.update(fn);
+  }
+
+  /** Rewrites one attachment wherever it appears, leaving the rest alone. */
+  private patchAttachment(
+    uploadId: string,
+    patch: Partial<AttachmentI>,
+  ): (messages: MessageI[]) => MessageI[] {
+    return (messages) =>
+      messages.map((msg) => {
+        const idx =
+          msg.attachments?.findIndex((a) => a.uploadId === uploadId) ?? -1;
+        if (idx === -1) return msg;
+        const updatedAttachments = [...(msg.attachments ?? [])];
+        updatedAttachments[idx] = { ...updatedAttachments[idx], ...patch };
+        return { ...msg, attachments: updatedAttachments };
+      });
+  }
+
   // update attachment variants when worker finishes
   updateAttachmentVariants(
     uploadId: string,
     variants: Record<string, string>,
     duration?: number,
   ): void {
-    this.messages.update((messages) =>
-      messages.map((msg) => {
-        const idx =
-          msg.attachments?.findIndex((a) => a.uploadId === uploadId) ?? -1;
-        if (idx === -1) return msg;
-        const updatedAttachments = [...(msg.attachments ?? [])];
-        updatedAttachments[idx] = {
-          ...updatedAttachments[idx],
-          status: 'ready',
-          variants,
-          ...(duration !== undefined && { duration }),
-        };
-        return { ...msg, attachments: updatedAttachments };
+    this.updateAllLists(
+      this.patchAttachment(uploadId, {
+        status: 'ready',
+        variants,
+        ...(duration !== undefined && { duration }),
       }),
     );
   }
@@ -352,16 +375,7 @@ export class MessageService {
     uploadId: string,
     status: AttachmentI['status'],
   ): void {
-    this.messages.update((messages) =>
-      messages.map((msg) => {
-        const idx =
-          msg.attachments?.findIndex((a) => a.uploadId === uploadId) ?? -1;
-        if (idx === -1) return msg;
-        const updatedAttachments = [...(msg.attachments ?? [])];
-        updatedAttachments[idx] = { ...updatedAttachments[idx], status };
-        return { ...msg, attachments: updatedAttachments };
-      }),
-    );
+    this.updateAllLists(this.patchAttachment(uploadId, { status }));
   }
 
   markMessageAsRead(lastMessageId: string) {
@@ -436,8 +450,21 @@ export class MessageService {
         : [message, ...currentMessages].sort(byNewestFirst);
     });
 
+    /*
+     * Keyed on `tempId` as well as `_id`.
+     *
+     * Matching on `_id` alone could never dedupe an optimistic message, because
+     * one does not have an `_id` yet — so every photo or video the user sent
+     * was prepended to the media panel unconditionally, and `fillInMessageDetails`
+     * only ever reconciled the thread. The optimistic copy was left in the panel
+     * beside the real one, permanently, with no id and a processing placeholder.
+     */
     const prependOnce = (list: MessageI[]): MessageI[] =>
-      list.some((m) => !!message._id && m._id === message._id)
+      list.some(
+        (m) =>
+          (!!message._id && m._id === message._id) ||
+          (!!message.tempId && m.tempId === message.tempId),
+      )
         ? list
         : [message, ...list].sort(byNewestFirst);
 
@@ -467,7 +494,9 @@ export class MessageService {
 
   /** Replaces an edited message in place, keeping its position in the thread. */
   applyEdited(edited: MessageI): void {
-    this.messages.update((messages) =>
+    // Across all three lists: a media message carries a caption, and an edit to
+    // it has to reach the copy the panel is rendering too.
+    this.updateAllLists((messages) =>
       messages.map((message) =>
         message._id === edited._id ? { ...message, ...edited } : message,
       ),
@@ -518,15 +547,16 @@ export class MessageService {
    * operation is idempotent no matter the arrival order.
    */
   fillInMessageDetails(message: MessageI): void {
-    this.messages.update((messages) => {
-      const isSame = (m: MessageI): boolean =>
-        (!!message.tempId && m.tempId === message.tempId) ||
-        (!!message._id && m._id === message._id);
+    const isSame = (m: MessageI): boolean =>
+      (!!message.tempId && m.tempId === message.tempId) ||
+      (!!message._id && m._id === message._id);
 
+    /** Collapses every entry this message matches into one merged entry. */
+    const mergeInto = (list: MessageI[]): { next: MessageI[]; merged: boolean } => {
       const next: MessageI[] = [];
       let merged = false;
 
-      for (const m of messages) {
+      for (const m of list) {
         if (!isSame(m)) {
           next.push(m);
           continue;
@@ -543,6 +573,11 @@ export class MessageService {
         merged = true;
       }
 
+      return { next, merged };
+    };
+
+    this.messages.update((messages) => {
+      const { next, merged } = mergeInto(messages);
       if (merged) return next;
 
       // Sent from another device of the same user: only insert it if it
@@ -552,6 +587,16 @@ export class MessageService {
         ? [message, ...messages].sort(byNewestFirst)
         : messages;
     });
+
+    /*
+     * The panels are merged into as well, but never inserted into: putting a
+     * message there is `addMessage`'s job, and it already decides by type.
+     * Without this the optimistic entry `addMessage` placed in the media panel
+     * never received its `_id` or its processed variants.
+     */
+    const reconcile = (list: MessageI[]): MessageI[] => mergeInto(list).next;
+    this.media.update(reconcile);
+    this.files.update(reconcile);
   }
 
   private belongsToActiveConversation(message: MessageI): boolean {

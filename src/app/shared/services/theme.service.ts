@@ -21,6 +21,23 @@ const readStored = (key: string): string | null => {
     return null;
   }
 };
+
+/**
+ * The other half of the same guard.
+ *
+ * Only the reads were protected, which is exactly the asymmetry the note above
+ * warns about — and worse here, because `setColorTheme` runs from the
+ * constructor, so an unguarded write made this root service throw during
+ * construction and took the app down with it on the one browser configuration
+ * where storage is unavailable.
+ */
+const writeStored = (key: string, value: string): void => {
+  try {
+    localStorage.setItem(key, value);
+  } catch {
+    // a preference that cannot be remembered is not a reason to fail
+  }
+};
 @Injectable({ providedIn: 'root' })
 export class ThemeService {
   private renderer: Renderer2;
@@ -67,7 +84,7 @@ export class ThemeService {
   setTheme(theme: Theme, colorTheme?: string): void {
     const apply = () => {
       this.theme.set(theme);
-      localStorage.setItem('theme', theme);
+      writeStored('theme', theme);
       if (colorTheme) this.setColorTheme(colorTheme);
     };
 
@@ -90,7 +107,7 @@ export class ThemeService {
 
   setColorTheme(colorTheme: string): void {
     this.colorTheme.set(colorTheme);
-    localStorage.setItem('colorTheme', colorTheme);
+    writeStored('colorTheme', colorTheme);
     if (colorTheme === 'mono') {
       document.documentElement.removeAttribute('data-theme');
     } else {

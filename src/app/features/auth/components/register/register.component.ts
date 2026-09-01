@@ -13,6 +13,7 @@ import {
   trimControls,
 } from '../../../../shared/functions/form.utils';
 import { apiErrorMessage } from '../../../../shared/functions/api-error';
+import { toast } from '@spartan-ng/brain/sonner';
 import { repeatPasswordValidator } from '../../validators/repeat-password.validator';
 import { AuthService } from '../../services/auth.service';
 import { RegisterCredentialsI } from '../../interfaces/register-credentials.interface';
@@ -26,7 +27,7 @@ import {
   lucideLoader,
   lucideTriangleAlert,
 } from '@ng-icons/lucide';
-import { catchError, Subject, takeUntil, tap, throwError } from 'rxjs';
+import { catchError, merge, Subject, takeUntil, tap, throwError } from 'rxjs';
 import { HlmAlertImports } from '@spartan-ng/helm/alert';
 import {
   PASSWORD_MAX_LENGTH,
@@ -131,6 +132,34 @@ export class RegisterComponent implements OnDestroy {
 
   private destroy$ = new Subject<void>();
 
+  constructor() {
+    /*
+     * Re-checks the password when the identity it is checked against changes.
+     *
+     * `passwordValidator` reads its context lazily so it can see the sibling
+     * username and email "as they are typed" — but Angular only re-runs a
+     * control's validators when *that* control changes, so nothing made it
+     * look again. Both directions were wrong: a password typed before the
+     * username stayed valid and the checklist stayed hidden, so the form was
+     * submittable and the server refused it with the one rule the checklist
+     * exists to state in advance; and a password correctly flagged for
+     * containing the username kept its flag after the username was changed,
+     * clearable only by editing the password field.
+     *
+     * `emitEvent: false` so this cannot feed back into itself.
+     */
+    merge(
+      this.form.controls['username'].valueChanges,
+      this.form.controls['email'].valueChanges,
+    )
+      .pipe(takeUntil(this.destroy$))
+      .subscribe(() =>
+        this.form.controls['password'].updateValueAndValidity({
+          emitEvent: false,
+        }),
+      );
+  }
+
   ngOnDestroy(): void {
     this.destroy$.next();
     this.destroy$.complete();
@@ -194,6 +223,17 @@ export class RegisterComponent implements OnDestroy {
         tap(() => {
           this.clearError();
           this.isLoading.set(false);
+          /*
+           * The account is created but unverified, and the server has just
+           * mailed a link with a one-hour expiry. This used to navigate in
+           * silence, so the user landed on a blank login form with no reason
+           * to go looking for it — the one flow in the app that sends mail and
+           * does not say so.
+           */
+          toast.success('Account created', {
+            description: `Check ${credentials.email} for a link to verify your address.`,
+            duration: 8000,
+          });
           this.router.navigateByUrl('/auth/login');
         }),
         catchError((err) => {

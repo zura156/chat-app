@@ -96,6 +96,19 @@ const challenge = async (
   fixture.detectChanges();
 };
 
+/** Types into a detached input and hands it to the component's handler. */
+const typeInto = (
+  fixture: { componentInstance: { onTwoFactorCodeInput(event: Event): void } },
+  value: string,
+): HTMLInputElement => {
+  const input = document.createElement('input');
+  input.value = value;
+  fixture.componentInstance.onTwoFactorCodeInput({
+    target: input,
+  } as unknown as Event);
+  return input;
+};
+
 describe('LoginComponent — second factor', () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -321,26 +334,39 @@ describe('LoginComponent — second factor', () => {
   describe('the code field', () => {
     it('accepts a six-digit code', async () => {
       const fixture = await build();
-      fixture.componentInstance.onTwoFactorCodeInput('123456');
+      const input = typeInto(fixture, '123456');
       expect(fixture.componentInstance.twoFactorCode()).toBe('123456');
+      expect(input.value).toBe('123456');
     });
 
     it('accepts a dashed recovery code', async () => {
       const fixture = await build();
-      fixture.componentInstance.onTwoFactorCodeInput('J3LT2-L3N43');
+      const input = typeInto(fixture, 'J3LT2-L3N43');
       expect(fixture.componentInstance.twoFactorCode()).toBe('J3LT2-L3N43');
+      expect(input.value).toBe('J3LT2-L3N43');
     });
 
     it('strips characters neither kind of code contains', async () => {
       const fixture = await build();
-      fixture.componentInstance.onTwoFactorCodeInput('12 34/56!');
+      const input = typeInto(fixture, '12 34/56!');
       expect(fixture.componentInstance.twoFactorCode()).toBe('123456');
+      /*
+       * The element, not just the signal.
+       *
+       * The field is bound `[value]="twoFactorCode()"` with a sanitising
+       * `(input)`. When the sanitiser strips a character the signal's value is
+       * unchanged, so Angular's property binding sees no difference and never
+       * writes back — which left the rejected character sitting on screen while
+       * the model had already dropped it.
+       */
+      expect(input.value).toBe('123456');
     });
 
     it('stops at the length of the longer code', async () => {
       const fixture = await build();
-      fixture.componentInstance.onTwoFactorCodeInput('ABCDE-FGHIJKLMNOP');
+      const input = typeInto(fixture, 'ABCDE-FGHIJKLMNOP');
       expect(fixture.componentInstance.twoFactorCode()).toHaveLength(11);
+      expect(input.value).toHaveLength(11);
     });
   });
 
