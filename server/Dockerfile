@@ -1,34 +1,29 @@
 FROM node:24-slim AS builder
 
-# RUN apt-get update && apt-get install -y ffmpeg && rm -rf /var/lib/apt/lists/*
-
 WORKDIR /app
-COPY package*.json ./
+
+# Copy the shared library and server source code maintaining the root relative structure
+COPY libs/contract/ ./libs/contract/
+COPY server/ ./server/
+
+# Install dependencies and build from the server directory
+WORKDIR /app/server
 RUN NODE_ENV=development npm ci
-
-COPY . .
 RUN npm run build
-
-# Production dependencies only, resolved after the build. The runtime image
-# used to copy the *build* node_modules wholesale, so it shipped TypeScript,
-# eslint, nodemon, ts-node and every @types package into production.
 RUN npm ci --omit=dev
 
 # ---- runtime ----
 FROM node:24-slim AS runner
 
-# tini as PID 1. Node neither reaps zombies nor gets default signal handling
-# when it is PID 1, so anything it spawns (ffmpeg) could linger after a stop.
 RUN apt-get update \
   && apt-get install -y --no-install-recommends ffmpeg tini \
   && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
-COPY --from=builder /app/dist ./dist
-COPY --from=builder /app/node_modules ./node_modules
-COPY --from=builder /app/package.json ./
+COPY --from=builder /app/server/dist ./dist
+COPY --from=builder /app/server/node_modules ./node_modules
+COPY --from=builder /app/server/package.json ./
 
-# The logger writes under the working directory; the node user must own it.
 RUN mkdir -p /app/logs && chown -R node:node /app
 
 ARG PORT=3000
@@ -37,8 +32,6 @@ ENV NODE_ENV=production
 ENV PORT=$PORT
 ENV WS_PORT=$WS_PORT
 
-# Not root. The image ran as root, so a compromise of the process was a
-# compromise of the container.
 USER node
 
 EXPOSE $PORT $WS_PORT
