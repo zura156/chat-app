@@ -16,7 +16,7 @@ RUN npm ci --omit=dev
 FROM node:24-slim AS runner
 
 RUN apt-get update \
-  && apt-get install -y --no-install-recommends ffmpeg tini \
+  && apt-get install -y --no-install-recommends ffmpeg tini curl \
   && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
