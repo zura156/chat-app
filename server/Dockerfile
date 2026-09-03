@@ -46,7 +46,6 @@ WORKDIR /app/server
 
 # Expose HTTP and WSS ports
 EXPOSE 3000
-EXPOSE 3001
 
 # Use tini to handle kernel signals and prevent zombie processes
 ENTRYPOINT ["/usr/bin/tini", "--"]
