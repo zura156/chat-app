@@ -1,43 +1,55 @@
-FROM node:24-slim AS builder
+# Stage 1: Build
+FROM node:22-bookworm-slim AS builder
 
+# Set the working directory to the monorepo root
 WORKDIR /app
 
-# Copy the shared library and server source code maintaining the root relative structure
-COPY libs/contract/ ./libs/contract/
-COPY server/ ./server/
+# Copy the shared contract library first (required by tsconfig)
+COPY libs/ /app/libs/
 
-# Install dependencies and build from the server directory
+# Copy the server package files
+COPY server/package.json server/package-lock.json ./server/
+
 WORKDIR /app/server
-RUN NODE_ENV=development npm ci
+
+# Install all dependencies (including devDependencies needed for tsc)
+RUN npm ci
+
+# Copy the rest of the server source code
+COPY server/ ./
+
+# Build the TypeScript code
 RUN npm run build
-RUN npm ci --omit=dev
 
-# ---- runtime ----
-FROM node:24-slim AS runner
+# Remove devDependencies to keep the final image clean
+RUN npm prune --omit=dev
 
-RUN apt-get update \
-  && apt-get install -y --no-install-recommends ffmpeg tini curl \
-  && rm -rf /var/lib/apt/lists/*
+# Stage 2: Production Runtime
+FROM node:22-bookworm-slim
+
+# Install requested system dependencies (ffmpeg, tini, curl)
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    ffmpeg \
+    tini \
+    curl \
+    && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
-COPY --from=builder /app/server/dist ./dist
-COPY --from=builder /app/server/node_modules ./node_modules
-COPY --from=builder /app/server/package.json ./
 
-RUN mkdir -p /app/logs && chown -R node:node /app
+# Copy the shared libs (in case they are referenced at runtime)
+COPY --from=builder /app/libs /app/libs
 
-ARG PORT=3000
-ARG WS_PORT=3001
-ENV NODE_ENV=production
-ENV PORT=$PORT
-ENV WS_PORT=$WS_PORT
+# Copy the built server code and pruned node_modules
+COPY --from=builder /app/server /app/server
 
-USER node
+WORKDIR /app/server
 
-EXPOSE $PORT $WS_PORT
+# Expose HTTP and WSS ports
+EXPOSE 3000
+EXPOSE 3001
 
-HEALTHCHECK --interval=30s --timeout=3s --start-period=10s --retries=3 \
-  CMD node -e "fetch('http://localhost:'+process.env.PORT+'/health-check').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
-
+# Use tini to handle kernel signals and prevent zombie processes
 ENTRYPOINT ["/usr/bin/tini", "--"]
-CMD ["node", "dist/src/index.js"]
+
+# Start the main API/WebSocket server
+CMD ["npm", "start"]
