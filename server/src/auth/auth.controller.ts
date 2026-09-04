@@ -332,22 +332,25 @@ export const registerUser = async (
     });
     await user.save();
 
-    try {
-      const verifyLink = await generateLink(
-        AccountTokenEnum.EMAIL_VERIFICATION,
-        user.id,
-      );
-      await sendEmail(
-        user.email,
-        'Please Verify Your Email',
-        `<h2>Verify Email</h2>
+    /** Fire off the verification email, but do not block on it. The user is already
+     *  registered, and the mailer may be slow or fail. The user can request a
+     *  resend if they do not get it. (The do not even know that email is being sent,
+     *  so a failure is not their problem).
+     */
+    const verifyLink = await generateLink(
+      AccountTokenEnum.EMAIL_VERIFICATION,
+      user.id,
+    );
+    sendEmail(
+      user.email,
+      'Please Verify Your Email',
+      `<h2>Verify Email</h2>
        <p>Click the link below to verify your email:</p>
        <a href="${verifyLink}">Verify</a>
        <p>This link will expire in 1 hour.</p>`,
-      );
-    } catch (error) {
-      logger.error('Failed to send verification email on register:', error);
-    }
+    ).catch((error) =>
+      logger.error('Failed to send verification email on register:', error),
+    );
 
     res.status(201).json({
       message: 'User registered successfully',
