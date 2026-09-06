@@ -17,7 +17,6 @@ import { HlmSkeleton } from '@spartan-ng/helm/skeleton';
 import { HlmSpinner } from '@spartan-ng/helm/spinner';
 import { AttachmentI } from '../../../features/messages/interfaces/message.interface';
 import { FileSizePipe } from '../../pipes/file-size.pipe';
-import { FileVisualPipe } from '../../pipes/file-visual.pipe';
 
 /** How much room the placeholder has, so it matches what will replace it. */
 export type AttachmentPlaceholderShape =
@@ -46,13 +45,7 @@ export type AttachmentPlaceholderShape =
  */
 @Component({
   selector: 'app-attachment-placeholder',
-  imports: [
-    NgIcon,
-    HlmIcon,
-    HlmSkeleton,
-    HlmSpinner,
-    FileVisualPipe,
-  ],
+  imports: [NgIcon, HlmIcon, HlmSkeleton, HlmSpinner],
   providers: [
     provideIcons({
       lucideImage,
@@ -75,15 +68,14 @@ export type AttachmentPlaceholderShape =
             The name and size are known from the moment the upload starts, so
             the row can show what it is rather than two grey bars.
           -->
-          @let visual = attachment()?.originalName | fileVisual;
+
           <div
             class="m-1 flex w-fit max-w-full items-center gap-2 rounded-md border border-border px-3 py-2"
           >
             <div
               class="flex size-8 shrink-0 items-center justify-center rounded-md"
-              [class]="visual.bg"
             >
-              <ng-icon hlm [name]="visual.icon" size="sm" />
+              <ng-icon hlm name="lucideFileText" size="sm" />
             </div>
             <div class="flex min-w-0 flex-col">
               <span class="truncate text-xs font-medium">
@@ -92,7 +84,7 @@ export type AttachmentPlaceholderShape =
               <span
                 class="flex items-center gap-x-1.5 text-[11px] text-muted-foreground"
               >
-                <hlm-spinner class="size-2.5" />
+                <hlm-spinner />
                 Processing{{ sizeSuffix() }}
               </span>
             </div>
@@ -114,7 +106,7 @@ export type AttachmentPlaceholderShape =
             <span
               class="flex size-8 shrink-0 items-center justify-center rounded-full bg-current/15"
             >
-              <hlm-spinner class="size-3.5" />
+              <hlm-spinner />
             </span>
 
             <div class="flex h-8 flex-1 items-center gap-px">
@@ -148,12 +140,12 @@ export type AttachmentPlaceholderShape =
                 to say "working" at that size.
               -->
               @if (isCompact()) {
-                <hlm-spinner class="size-3 text-muted-foreground" />
+                <hlm-spinner class="text-muted-foreground" />
               } @else {
                 <span
                   class="flex items-center gap-x-1.5 text-xs text-muted-foreground"
                 >
-                  <hlm-spinner class="size-3" />
+                  <hlm-spinner />
                   Processing
                 </span>
               }
@@ -234,7 +226,9 @@ export class AttachmentPlaceholder {
    * Shapes that occupy a fixed box, so the failure state has to fill the same
    * space rather than collapse to a text row and shift everything around it.
    */
-  readonly isBoxed = computed(() => this.isCompact() || this.shape() === 'image');
+  readonly isBoxed = computed(
+    () => this.isCompact() || this.shape() === 'image',
+  );
 
   readonly boxClass = computed(() => {
     switch (this.shape()) {

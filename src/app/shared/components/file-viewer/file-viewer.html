@@ -1,35 +1,20 @@
 @let file = this.file();
-@let visual = file?.originalName | fileVisual;
-
-<div
-  class="group bg-card hover:bg-accent border border-border transition-colors rounded-xl p-3 w-full max-w-32 sm:max-w-52"
->
+<div hlmAttachment>
   <a
     [href]="file?.variants?.original"
     target="_blank"
     [download]="file?.originalName"
     class="flex items-center gap-3 w-full outline-none"
   >
-    <div
-      class="relative shrink-0 flex items-center justify-center size-10 rounded-lg"
-      [class]="visual.bg"
-    >
-      <ng-icon hlm [name]="visual.icon" size="base" />
-      <span
-        class="absolute -bottom-1 -right-1 text-[8px] font-bold leading-none px-1 py-0.5 rounded bg-background border border-border text-muted-foreground"
-      >
-        {{ visual.ext }}
-      </span>
+    <div hlmAttachmentMedia class="relative">
+      <ng-icon name="lucideFileText" />
     </div>
 
-    <div class="flex flex-col flex-1 min-w-0 justify-center">
-      <h1
-        class="sm:text-sm text-xs font-medium text-foreground truncate"
-        [title]="file?.originalName"
-      >
+    <div hlmAttachmentContent>
+      <span hlmAttachmentTitle [title]="file?.originalName">
         {{ file?.originalName }}
-      </h1>
-      <span class="text-xs text-muted-foreground mt-0.5">
+      </span>
+      <span hlmAttachmentDescription>
         {{ (file?.fileSize || 0) | fileSize }}
       </span>
     </div>

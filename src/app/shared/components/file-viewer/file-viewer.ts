@@ -10,14 +10,14 @@ import {
 } from '@ng-icons/lucide';
 import { AttachmentI } from '../../../features/messages/interfaces/message.interface';
 import { FileSizePipe } from '../../pipes/file-size.pipe';
-import { FileVisualPipe } from '../../pipes/file-visual.pipe';
 import { environment } from '../../../../environments/environment';
+import { HlmAttachmentImports } from '@spartan-ng/helm/attachment';
 import { HlmIcon } from '@spartan-ng/helm/icon';
 
 @Component({
   selector: 'app-file-viewer',
   templateUrl: './file-viewer.html',
-  imports: [NgIcon, HlmIcon, FileSizePipe, FileVisualPipe],
+  imports: [NgIcon, HlmIcon, FileSizePipe, HlmAttachmentImports],
   providers: [
     provideIcons({
       lucideDownload,

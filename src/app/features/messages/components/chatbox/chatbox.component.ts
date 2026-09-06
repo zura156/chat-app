@@ -51,7 +51,6 @@ import { UserI } from '../../../user/interfaces/user.interface';
 import { ParticipantI } from '../../interfaces/participant.interface';
 import { TypingMessage } from '../../interfaces/web-socket-message.interface';
 import { TimeAgoPipe } from '../../../../shared/pipes/time-ago.pipe';
-import { FileVisualPipe } from '../../../../shared/pipes/file-visual.pipe';
 import { MessageCardComponent } from '../message/message-card.component';
 import { NgIcon, provideIcons } from '@ng-icons/core';
 import {
@@ -150,7 +149,6 @@ const readSelectedUser = (): UserI | null => {
   selector: 'app-chatbox',
   imports: [
     TimeAgoPipe,
-    FileVisualPipe,
     NgIcon,
     HlmIcon,
     PanGestureDirective,

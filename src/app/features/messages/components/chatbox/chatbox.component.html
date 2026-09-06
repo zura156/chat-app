@@ -102,7 +102,7 @@
           aria-label="Toggle conversation details"
           (click)="toggleSettingsView()"
         >
-          <ng-icon hlm size="sm" name="lucideInfo" />
+          <ng-icon size="sm" name="lucideInfo" />
         </button>
       }
     </header>
@@ -338,15 +338,10 @@
                 />
               </div>
             } @else {
-              @let visual = attachment.file.name | fileVisual;
               <div
                 class="size-full flex flex-col items-center justify-center gap-1"
-                [class]="visual.bg"
               >
-                <ng-icon hlm [name]="visual.icon" size="base" />
-                <span class="text-[8px] font-bold leading-none opacity-80">{{
-                  visual.ext
-                }}</span>
+                <ng-icon name="lucideFileText" />
               </div>
             }
 
@@ -357,7 +352,7 @@
                 (click)="removeAttachment(attachment.tempId)"
                 class="absolute top-0.5 right-0.5 size-4 rounded-full bg-background/90 border border-border flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
               >
-                <ng-icon hlm name="lucideX" size="xs" />
+                <ng-icon name="lucideX" size="xs" />
               </button>
             }
           </div>
@@ -389,7 +384,7 @@
               [disabled]="!canMessage()"
               class="rounded-full px-4 shrink-0 flex items-center justify-center cursor-pointer disabled:opacity-40 transition-colors"
             >
-              <ng-icon hlm size="base" name="lucideSend" />
+              <ng-icon name="lucideSend" />
             </button>
           }
         </div>
@@ -404,7 +399,7 @@
               (click)="fileInput.click()"
               [disabled]="pendingAttachments().length >= 10"
             >
-              <ng-icon hlm size="base" name="lucidePaperclip"></ng-icon>
+              <ng-icon name="lucidePaperclip"></ng-icon>
             </button>
             <button
               hlmBtn
@@ -419,7 +414,7 @@
               "
               (click)="startRecording()"
             >
-              <ng-icon hlm size="base" name="lucideMic"></ng-icon>
+              <ng-icon name="lucideMic"></ng-icon>
             </button>
           </div>
 
@@ -444,7 +439,7 @@
             (click)="sendMessage()"
             class="rounded-full px-4 shrink-0 flex items-center justify-center cursor-pointer disabled:opacity-40 transition-colors"
           >
-            <ng-icon hlm size="base" name="lucideSend"></ng-icon>
+            <ng-icon name="lucideSend"></ng-icon>
           </button>
         </div>
       }
