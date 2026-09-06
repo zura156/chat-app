@@ -28,6 +28,7 @@ import { catchError, Subject, takeUntil, tap, throwError } from 'rxjs';
 import { HlmAlertImports } from '@spartan-ng/helm/alert';
 import { RouterLink } from '@angular/router';
 import { ThemeService } from '../../../../shared/services/theme.service';
+import { remixGithubFill } from '@ng-icons/remixicon';
 
 /** How the fields are named in a sentence, rather than as control keys. */
 const FIELD_LABELS: Record<string, string> = {
@@ -48,7 +49,12 @@ const FIELD_LABELS: Record<string, string> = {
     HlmAlertImports,
   ],
   providers: [
-    provideIcons({ lucideCircleAlert, lucideTriangleAlert, lucideLoader }),
+    provideIcons({
+      lucideCircleAlert,
+      lucideTriangleAlert,
+      lucideLoader,
+      remixGithubFill,
+    }),
   ],
   templateUrl: './login.component.html',
 })

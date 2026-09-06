@@ -165,79 +165,102 @@
         </button>
       </form>
     } @else {
-    <form [formGroup]="form" (ngSubmit)="onSubmit()" class="space-y-3">
-      <hlm-field>
-        <input
-          hlmInput
-          type="email"
-          name="email"
-          formControlName="email"
-          id="email"
-          autocomplete="email"
-          required
-          placeholder="Email"
-          class="w-full"
-        />
-        @if (form.controls["email"].hasError("required")) {
-          <hlm-field-error>Email is required</hlm-field-error>
-        }
-        @if (form.controls["email"].hasError("email")) {
-          <hlm-field-error>Invalid email address</hlm-field-error>
-        }
-      </hlm-field>
-
-      <hlm-field>
-        <div class="relative">
+      <form [formGroup]="form" (ngSubmit)="onSubmit()" class="space-y-3 mb-2">
+        <hlm-field class="gap-2">
           <input
             hlmInput
-            [type]="showPass() ? 'text' : 'password'"
-            name="password"
-            formControlName="password"
-            id="password"
-            placeholder="Password"
-            autocomplete="current-password"
+            type="email"
+            name="email"
+            formControlName="email"
+            id="email"
+            autocomplete="email"
             required
-            class="w-full pr-20"
+            placeholder="Email"
+            class="w-full"
           />
+          @if (form.controls["email"].hasError("required")) {
+            <hlm-field-error>Email is required</hlm-field-error>
+          }
+          @if (form.controls["email"].hasError("email")) {
+            <hlm-field-error>Invalid email address</hlm-field-error>
+          }
+        </hlm-field>
+
+        <hlm-field class="gap-2">
+          <div class="relative">
+            <input
+              hlmInput
+              [type]="showPass() ? 'text' : 'password'"
+              name="password"
+              formControlName="password"
+              id="password"
+              placeholder="Password"
+              autocomplete="current-password"
+              required
+              class="w-full pr-20"
+            />
+
+            <div
+              class="absolute right-0 top-1/2 -translate-y-1/2 text-xs text-muted-foreground hover:text-foreground"
+            >
+              <button
+                type="button"
+                hlmBtn
+                variant="ghost"
+                size="sm"
+                class="cursor-pointer"
+                (click)="togglePasswordVisibility()"
+              >
+                {{ showPass() ? "Hide" : "Show" }}
+              </button>
+            </div>
+          </div>
+          <div class="flex justify-between items-center">
+            <span>
+              @if (form.controls["password"].hasError("required")) {
+                <hlm-field-error>Password is required</hlm-field-error>
+              }
+            </span>
+            <a
+              [routerLink]="'/auth/forgot-password'"
+              class="text-xs text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
+            >
+              Forgot password?
+            </a>
+          </div>
+        </hlm-field>
+
+        <hlm-field>
           <button
-            type="button"
+            type="submit"
             hlmBtn
-            variant="ghost"
-            size="sm"
-            class="absolute right-1 top-1/2 -translate-y-1/2 h-7 px-2.5 text-xs text-muted-foreground hover:text-foreground cursor-pointer"
-            (click)="togglePasswordVisibility()"
+            class="w-full cursor-pointer rounded-full"
           >
-            {{ showPass() ? "Hide" : "Show" }}
+            Sign in
           </button>
+        </hlm-field>
+
+        <div>
+          <hlm-field-separator>Or continue with</hlm-field-separator>
         </div>
-        @if (form.controls["password"].hasError("required")) {
-          <hlm-field-error>Password is required</hlm-field-error>
-        }
-      </hlm-field>
 
-      <div class="text-end">
+        <hlm-field>
+          <button hlmBtn variant="outline" type="button" class="rounded-full">
+            <ng-icon name="remixGithubFill" class="text-xl" />
+            Login with GitHub
+          </button>
+        </hlm-field>
+      </form>
+
+      <p class="text-center text-sm text-muted-foreground">
+        Don't have an account?
         <a
-          [routerLink]="'/auth/forgot-password'"
-          class="text-xs text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
+          [routerLink]="'/auth/register'"
+          class="text-foreground font-medium hover:underline cursor-pointer ml-1"
         >
-          Forgot password?
+          Register
         </a>
-      </div>
-
-      <button type="submit" hlmBtn class="w-full cursor-pointer rounded-full">
-        Sign in
-      </button>
-    </form>
-
-    <p class="mt-5 text-center text-sm text-muted-foreground">
-      Don't have an account?
-      <a
-        [routerLink]="'/auth/register'"
-        class="text-foreground font-medium hover:underline cursor-pointer ml-1"
-      >
-        Register
-      </a>
-    </p>
+      </p>
     }
   </div>
 </div>
