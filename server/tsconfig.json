@@ -10,7 +10,9 @@
     "skipLibCheck": true,
     "paths": {
       "@chat-app/contract": ["../libs/contract/src/index.d.ts"]
-    }
+    },
+    "sourceMap": true,
+    "inlineSources": true
   },
   "include": ["./**/*.ts"],
   "exclude": ["node_modules", "dist", "**/*.spec.ts", "src/test/**"]

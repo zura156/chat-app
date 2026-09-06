@@ -3,6 +3,17 @@
   "version": "0.2.0",
   "configurations": [
     {
+      "name": "Debug Express Server",
+      "type": "node",
+      "request": "launch",
+      "runtimeExecutable": "npx",
+      "runtimeArgs": ["tsx", "watch", "server/src/index.ts"],
+      "envFile": "${workspaceFolder}/server/.env",
+      "sourceMaps": true,
+      "smartStep": true,
+      "console": "integratedTerminal"
+    },
+    {
       "name": "ng serve",
       "type": "chrome",
       "request": "launch",

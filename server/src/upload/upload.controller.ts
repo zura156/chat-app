@@ -1,6 +1,5 @@
 import { Response } from 'express';
 import {
-  S3Client,
   PutObjectCommand,
   HeadObjectCommand,
   GetObjectCommand,
@@ -17,6 +16,7 @@ import appConfig from '../config/config';
 import { Message } from '../messenger/models/message.model';
 import { Conversation } from '../messenger/models/conversation.model';
 import { Types } from 'mongoose';
+import { isUUID } from 'validator';
 
 /** Contexts whose objects live in the private bucket and need signed reads. */
 const PRIVATE_CONTEXTS = ['dm-image', 'dm-video', 'dm-file', 'dm-audio'];
@@ -206,7 +206,7 @@ export const confirm = async (req: AuthRequest, res: Response) => {
   const { uploadId } = req.body;
   const userId = req.user?._id;
 
-  if (typeof uploadId !== 'string' || !Types.ObjectId.isValid(uploadId)) {
+  if (typeof uploadId !== 'string' || !isUUID(uploadId)) {
     return fail(res, 400, 'A valid uploadId is required');
   }
 
