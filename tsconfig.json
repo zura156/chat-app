@@ -103,6 +103,9 @@
       ],
       "@spartan-ng/helm/utils": [
         "./libs/ui/utils/src/index.ts"
+      ],
+      "@spartan-ng/helm/attachment": [
+        "./libs/ui/attachment/src/index.ts"
       ]
     }
   },
