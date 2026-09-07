@@ -95,6 +95,9 @@ import {
   MediaItem,
   MediaViewerService,
 } from '../../../../shared/services/media-viewer.service';
+import { HlmAttachmentImports } from '@spartan-ng/helm/attachment';
+import { FileSizePipe } from '../../../../shared/pipes/file-size.pipe';
+import { FileTypePipe } from '../../../../shared/pipes/file-type.pipe';
 
 /**
  * The type the server will give this message, worked out up front.
@@ -149,6 +152,8 @@ const readSelectedUser = (): UserI | null => {
   selector: 'app-chatbox',
   imports: [
     TimeAgoPipe,
+    FileSizePipe,
+    FileTypePipe,
     NgIcon,
     HlmIcon,
     PanGestureDirective,
@@ -159,6 +164,7 @@ const readSelectedUser = (): UserI | null => {
     HlmAvatarImage,
     HlmAvatar,
     HlmSpinner,
+    HlmAttachmentImports,
     MessageCardComponent,
     ReactiveFormsModule,
     AudioRecorder,
@@ -756,6 +762,11 @@ export class ChatboxComponent implements OnInit {
     const tempId = crypto.randomUUID();
 
     if (!recordingResult && !content && !this.pendingAttachments().length) {
+      return;
+    }
+
+    if (this.pendingAttachments().some((a) => a.error)) {
+      toast.error('Please remove or fix any attachments with errors.');
       return;
     }
 
