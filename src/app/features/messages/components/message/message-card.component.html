@@ -370,12 +370,12 @@
                 @case ("audio") {
                   @let attachment = getPrimaryAttachment(message);
                   @if (attachment) {
-                    <div class="w-3xs sm:w-40 md:w-52">
+                    <div class="w-3xs sm:w-40">
                       <app-audio-player [audio]="attachment" />
                     </div>
                   } @else if (isProcessing(message)) {
                     <!-- same wrapper as the player, so the bubble keeps its size -->
-                    <div class="w-3xs sm:w-40 md:w-52">
+                    <div class="w-3xs sm:w-40">
                       <app-attachment-placeholder
                         [attachment]="message.attachments?.[0]"
                         shape="audio"
@@ -442,18 +442,6 @@
                   }
                 }
               }
-
-              @if (
-                message.content &&
-                message.type !== "info" &&
-                message.type !== "text"
-              ) {
-                <p
-                  class="whitespace-pre-wrap text-sm wrap-anywhere [word-break:break-word] py-1.5 px-3"
-                >
-                  {{ message.content }}
-                </p>
-              }
             }
 
             <!-- Edited marker, on anything still standing -->
@@ -462,6 +450,24 @@
             }
           </div>
         </div>
+        @if (
+          message.content && message.type !== "info" && message.type !== "text"
+        ) {
+          <div
+            class="mt-1 overflow-hidden pointer-coarse:select-none pointer-coarse:[-webkit-touch-callout:none] max-w-2xs"
+            [class]="
+              isCurrentUserMessage
+                ? 'bg-primary text-primary-foreground rounded-2xl '
+                : 'bg-muted text-foreground border border-border rounded-2xl '
+            "
+          >
+            <p
+              class="whitespace-pre-wrap text-sm wrap-anywhere [word-break:break-word] py-1.5 px-3"
+            >
+              {{ message.content }}
+            </p>
+          </div>
+        }
       </div>
     </div>
   </div>

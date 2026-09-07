@@ -102,7 +102,7 @@
           aria-label="Toggle conversation details"
           (click)="toggleSettingsView()"
         >
-          <ng-icon size="sm" name="lucideInfo" />
+          <ng-icon name="lucideInfo" />
         </button>
       }
     </header>
@@ -287,7 +287,7 @@
       />
 
       @if (pendingAttachments().length > 0) {
-        <div class="mx-auto w-full">
+        <div class="mx-auto w-full mb-2">
           <div hlmAttachmentGroup class="w-full">
             @for (attachment of pendingAttachments(); track attachment.tempId) {
               <div
@@ -339,12 +339,13 @@
                     }
                   </div>
                 } @else if (attachment.previewUrl) {
-                  <img
-                    hlmAttachmentMedia
-                    [src]="attachment.previewUrl"
-                    alt="preview"
-                    (click)="previewMedia(attachment)"
-                  />
+                  <div hlmAttachmentMedia>
+                    <img
+                      [src]="attachment.previewUrl"
+                      alt="preview"
+                      (click)="previewMedia(attachment)"
+                    />
+                  </div>
                 } @else if (attachment.error) {
                   <div hlmAttachmentMedia>
                     <ng-icon
@@ -355,10 +356,7 @@
                     />
                   </div>
                 } @else {
-                  <div
-                    hlmAttachmentMedia
-                    class="size-full flex flex-col items-center justify-center gap-1"
-                  >
+                  <div hlmAttachmentMedia>
                     <ng-icon name="lucideFileText" />
                   </div>
                 }
