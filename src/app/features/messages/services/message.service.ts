@@ -188,50 +188,56 @@ export class MessageService {
     });
   }
 
-  activeMessagesResource = httpResource<MessageListI>((): string | undefined => {
-    const conversationId = this.conversationService.selectedConversationId();
+  activeMessagesResource = httpResource<MessageListI>(
+    (): string | undefined => {
+      const conversationId = this.conversationService.selectedConversationId();
 
-    if (
-      !conversationId ||
-      conversationId === this.userStateService.selectedUser()?._id
-    ) {
-      return;
-    }
+      if (
+        !conversationId ||
+        conversationId === this.userStateService.selectedUser()?._id
+      ) {
+        return;
+      }
 
-    return `${this.apiUrl}/${conversationId}/messages?offset=${this.messageOffset()}&limit=${this.messageLimit()}`;
-  });
+      return `${this.apiUrl}/${conversationId}/messages?offset=${this.messageOffset()}&limit=${this.messageLimit()}`;
+    },
+  );
 
-  activeMediaMessagesResource = httpResource<MessageListI>((): string | undefined => {
-    const conversationId = this.conversationService.selectedConversationId();
-    const shouldFetch = this.shouldFetchMediaMessages();
+  activeMediaMessagesResource = httpResource<MessageListI>(
+    (): string | undefined => {
+      const conversationId = this.conversationService.selectedConversationId();
+      const shouldFetch = this.shouldFetchMediaMessages();
 
-    if (!conversationId || !shouldFetch) {
-      return;
-    }
+      if (!conversationId || !shouldFetch) {
+        return;
+      }
 
-    const prevId = this.previousConversationId();
-    if (prevId && prevId !== conversationId) {
-      return;
-    }
+      const prevId = this.previousConversationId();
+      if (prevId && prevId !== conversationId) {
+        return;
+      }
 
-    return `${this.apiUrl}/${conversationId}/media?offset=${this.mediaMessageOffset()}&limit=${this.mediaMessageLimit()}`;
-  });
+      return `${this.apiUrl}/${conversationId}/media?offset=${this.mediaMessageOffset()}&limit=${this.mediaMessageLimit()}`;
+    },
+  );
 
-  activeFileMessagesResource = httpResource<MessageListI>((): string | undefined => {
-    const conversationId = this.conversationService.selectedConversationId();
-    const shouldFetch = this.shouldFetchFileMessages();
+  activeFileMessagesResource = httpResource<MessageListI>(
+    (): string | undefined => {
+      const conversationId = this.conversationService.selectedConversationId();
+      const shouldFetch = this.shouldFetchFileMessages();
 
-    if (!conversationId || !shouldFetch) {
-      return;
-    }
+      if (!conversationId || !shouldFetch) {
+        return;
+      }
 
-    const prevId = this.previousConversationId();
-    if (prevId && prevId !== conversationId) {
-      return;
-    }
+      const prevId = this.previousConversationId();
+      if (prevId && prevId !== conversationId) {
+        return;
+      }
 
-    return `${this.apiUrl}/${conversationId}/files?offset=${this.fileMessageOffset()}&limit=${this.fileMessageLimit()}`;
-  });
+      return `${this.apiUrl}/${conversationId}/files?offset=${this.fileMessageOffset()}&limit=${this.fileMessageLimit()}`;
+    },
+  );
 
   /*
    * Three instances of the same thing, instead of three hand-maintained copies
@@ -332,6 +338,11 @@ export class MessageService {
     this.files.update(fn);
   }
 
+  private pendingVariants = new Map<
+    string,
+    { variants: Record<string, string>; duration?: number }
+  >();
+
   /** Rewrites one attachment wherever it appears, leaving the rest alone. */
   private patchAttachment(
     uploadId: string,
@@ -354,13 +365,27 @@ export class MessageService {
     variants: Record<string, string>,
     duration?: number,
   ): void {
-    this.updateAllLists(
-      this.patchAttachment(uploadId, {
+    let wasApplied = false;
+
+    this.updateAllLists((messages) => {
+      // Check if the message is actually in the UI with this uploadId yet
+      const found = messages.some((msg) =>
+        msg.attachments?.some((a) => a.uploadId === uploadId),
+      );
+      if (!found) return messages; // Not here yet, don't modify
+
+      wasApplied = true;
+      return this.patchAttachment(uploadId, {
         status: 'ready',
         variants,
         ...(duration !== undefined && { duration }),
-      }),
-    );
+      })(messages);
+    });
+
+    // If the WebSocket beat the HTTP response, store it temporarily
+    if (!wasApplied) {
+      this.pendingVariants.set(uploadId, { variants, duration });
+    }
   }
 
   markAttachmentInfected(uploadId: string): void {
@@ -486,9 +511,10 @@ export class MessageService {
 
   deleteMessage(conversationId: string, messageId: string) {
     return this.http
-      .delete<{ _id: string; deleted_at: string }>(
-        `${this.apiUrl}/${conversationId}/messages/${messageId}`,
-      )
+      .delete<{
+        _id: string;
+        deleted_at: string;
+      }>(`${this.apiUrl}/${conversationId}/messages/${messageId}`)
       .pipe(tap((res) => this.applyDeleted(res._id, res.deleted_at)));
   }
 
@@ -523,12 +549,8 @@ export class MessageService {
 
     this.messages.update(strip);
     // Deleted media must also leave the media and file panels.
-    this.media.update((list) =>
-      list.filter((m) => m._id !== messageId),
-    );
-    this.files.update((list) =>
-      list.filter((m) => m._id !== messageId),
-    );
+    this.media.update((list) => list.filter((m) => m._id !== messageId));
+    this.files.update((list) => list.filter((m) => m._id !== messageId));
   }
 
   // Clear active messages (useful when changing conversations)
@@ -547,12 +569,32 @@ export class MessageService {
    * operation is idempotent no matter the arrival order.
    */
   fillInMessageDetails(message: MessageI): void {
+    if (message.attachments) {
+      message.attachments = message.attachments.map((att) => {
+        const pending = this.pendingVariants.get(att.uploadId);
+        if (pending) {
+          this.pendingVariants.delete(att.uploadId);
+          return {
+            ...att,
+            status: 'ready',
+            variants: pending.variants,
+            ...(pending.duration !== undefined && {
+              duration: pending.duration,
+            }),
+          };
+        }
+        return att;
+      });
+    }
+
     const isSame = (m: MessageI): boolean =>
       (!!message.tempId && m.tempId === message.tempId) ||
       (!!message._id && m._id === message._id);
 
     /** Collapses every entry this message matches into one merged entry. */
-    const mergeInto = (list: MessageI[]): { next: MessageI[]; merged: boolean } => {
+    const mergeInto = (
+      list: MessageI[],
+    ): { next: MessageI[]; merged: boolean } => {
       const next: MessageI[] = [];
       let merged = false;
 
