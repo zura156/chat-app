@@ -1,5 +1,5 @@
 @let file = this.file();
-<div hlmAttachment class="max-w-52">
+<div hlmAttachment [class]="maxWidth() ? 'w-full' : 'max-w-52'">
   <a
     [href]="file?.variants?.original"
     target="_blank"

@@ -31,5 +31,6 @@ import { HlmIcon } from '@spartan-ng/helm/icon';
 })
 export class FileViewer {
   readonly apiUrl = environment.apiUrl;
+  maxWidth = input<boolean>();
   file = input<AttachmentI>();
 }

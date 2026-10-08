@@ -98,11 +98,11 @@
     }
   </div>
 
-  <div hlmTabsContent="files" class="flex flex-col divide-y divide-border">
+  <div hlmTabsContent="files" class="flex flex-wrap divide-y divide-border">
     @for (message of fileMessages(); track message._id) {
       @for (attachment of message.attachments; track attachment.uploadId) {
         <button
-          class="w-full py-1.5 px-1 text-start hover:bg-muted active:scale-[0.99] transition-all cursor-pointer rounded-lg flex"
+          class="w-full py-1.5 px-1 text-start hover:bg-muted active:scale-[0.99] transition-all cursor-pointer flex"
         >
           <!--
             `@if (attachment)` was always true — it is the loop variable. The
@@ -117,7 +117,7 @@
                 </div>
               }
               @default {
-                <app-file-viewer [file]="attachment" />
+                <app-file-viewer [file]="attachment" [maxWidth]="true" />
               }
             }
           } @else {
