@@ -1,5 +1,7 @@
 <ngx-loading-bar [includeSpinner]="false" ref="router" />
 
 @let theme = this.theme();
-<router-outlet />
+<main class="vt-host" data-depth="0">
+  <router-outlet />
+</main>
 <hlm-toaster [theme]="theme ?? 'system'" />

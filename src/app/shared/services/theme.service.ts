@@ -93,12 +93,15 @@ export class ThemeService {
       return;
     }
 
-    document.startViewTransition(async () => {
+    const root = document.documentElement;
+    root.classList.add('theme-transition');
+    const t = document.startViewTransition(async () => {
       apply();
       // Yields so the effect has flushed and the transition captures the new
       // appearance rather than the old one.
       await new Promise((resolve) => setTimeout(resolve, 0));
     });
+    t.finished.finally(() => root.classList.remove('theme-transition'));
   }
 
   toggle(): void {
