@@ -13,7 +13,10 @@
       <app-conversation-list></app-conversation-list>
     </section>
     <hlm-separator decorative orientation="vertical" />
-    <section class="vt-host h-dvh overflow-hidden sm:w-1/2 md:w-2/3" data-depth="1">
+    <section
+      class="vt-host h-dvh overflow-hidden sm:w-1/2 md:w-2/3"
+      data-depth="2"
+    >
       @if (activeView() === "lists") {
         <app-messages-start />
       } @else {
@@ -21,7 +24,7 @@
       }
     </section>
   } @else {
-    <section class="vt-host h-dvh w-full" data-depth="1">
+    <section class="vt-host h-dvh w-full" data-depth="2">
       <ng-container *ngTemplateOutlet="routerOutlet"></ng-container>
     </section>
   }
