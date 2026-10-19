@@ -18,6 +18,8 @@ import {
   changeEmail,
   confirmEmailChange,
   cancelEmailChange,
+  oidcStart,
+  oidcCallback,
 } from './auth.controller';
 import {
   beginEmailTwoFactorSetup,
@@ -44,6 +46,8 @@ import {
   twoFactorCodeLimiter,
   twoFactorEmailSendLimiter,
   twoFactorSetupLimiter,
+  oidcStartLimiter,
+  oidcCallbackLimiter
 } from './middlewares/rate-limiter';
 import { issueCsrfToken } from './middlewares/csrf.middleware';
 import { validateRequest } from './middlewares/validate-request.middleware';
@@ -164,6 +168,10 @@ router.post(
   validateRequest,
   loginUser,
 );
+
+router.post('/oidc/start', oidcStartLimiter, oidcStart);
+router.post('/oidc/callback', oidcCallbackLimiter, oidcCallback);
+
 // Second step of a two-factor sign-in. Rate limited like the first: it is a
 // six-digit secret and brute force is the obvious attack.
 router.post('/login/2fa', twoFactorCodeLimiter, loginTwoFactor);
@@ -241,7 +249,12 @@ router.delete(
   twoFactorCodeLimiter,
   disableEmailTwoFactor,
 );
-router.delete('/2fa', authenticateToken, twoFactorCodeLimiter, disableTwoFactor);
+router.delete(
+  '/2fa',
+  authenticateToken,
+  twoFactorCodeLimiter,
+  disableTwoFactor,
+);
 
 /*
  * Deliberately not behind `authenticateToken`. Signing out is how a client

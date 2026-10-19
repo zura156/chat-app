@@ -72,8 +72,7 @@ export default {
    * accounts that predate enforcement, then set REQUIRE_EMAIL_VERIFICATION=true.
    * New registrations are gated from that point on.
    */
-  requireEmailVerification:
-    process.env.REQUIRE_EMAIL_VERIFICATION === 'true',
+  requireEmailVerification: process.env.REQUIRE_EMAIL_VERIFICATION === 'true',
   /*
    * Whether a new password is checked against Have I Been Pwned.
    *
@@ -131,4 +130,18 @@ export default {
   s3QuarantineSecretKey: process.env.S3_QUARANTINE_SECRET || '',
   clamavHost: process.env.CLAMAV_HOST || 'localhost',
   clamavPort: parseInt(process.env.CLAMAV_PORT || '3310', 10),
+
+  /*
+   * The OIDC configuration is used for OpenID Connect authentication.
+   * The values are read from environment variables, and if they are not
+   * set, they default to empty strings. This allows the application to be
+   * configured for different environments without changing the code.
+   */
+  oidc: {
+    issuer: process.env.OIDC_ISSUER || '',
+    clientId: process.env.OIDC_CLIENT_ID || '',
+    clientSecret: process.env.OIDC_CLIENT_SECRET || '',
+    redirectUri: process.env.OIDC_REDIRECT_URI || '',
+    appUrl: process.env.APP_URL || '',
+  },
 };

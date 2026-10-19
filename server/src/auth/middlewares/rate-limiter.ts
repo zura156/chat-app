@@ -9,6 +9,7 @@ import {
 } from '../services/jwt.service';
 import { normalizeEmail } from '../services/auth.service';
 import type { AuthRequest } from './auth.middleware';
+import config from '../../config/config';
 
 /** What a limiter hangs off the request so `resetRateLimit` can find it again. */
 interface RateLimitedRequest extends Request {
@@ -163,6 +164,8 @@ interface RateLimitConfig {
    */
   cooldownsMs: number[];
   keyGenerator: (req: Request) => string;
+
+  onLimited?: (req: Request, res: Response, retryAfter: number) => void;
 }
 
 const formatWait = (seconds: number): string => {
@@ -210,6 +213,11 @@ export function createRateLimiter(config: RateLimitConfig) {
   const windowSeconds = Math.ceil(config.windowMs / 1000);
   const longestCooldownMs = Math.max(...config.cooldownsMs);
 
+  const limited =
+    config.onLimited ??
+    ((_req: Request, res: Response, seconds: number) =>
+      respondLimited(res, seconds));
+
   return async (
     req: Request,
     res: Response,
@@ -228,7 +236,7 @@ export function createRateLimiter(config: RateLimitConfig) {
     try {
       const cooldownTTL = await redisClient.ttl(cooldownKey);
       if (cooldownTTL > 0) {
-        respondLimited(res, cooldownTTL);
+        limited(req, res, cooldownTTL);
         return;
       }
 
@@ -264,7 +272,7 @@ export function createRateLimiter(config: RateLimitConfig) {
           Math.ceil((config.windowMs + longestCooldownMs * 2) / 1000),
         );
 
-        respondLimited(res, retryAfter);
+        limited(req, res, retryAfter);
         return;
       }
 
@@ -295,7 +303,8 @@ export const resetRateLimit = async (req: Request): Promise<void> => {
 
 // ─── Configurations ──────────────────────────────────────────────────────────
 
-const ipKey = (req: Request): string => `ip:${ipKeyGenerator(req.ip ?? 'unknown')}`;
+const ipKey = (req: Request): string =>
+  `ip:${ipKeyGenerator(req.ip ?? 'unknown')}`;
 
 const userKey = (req: Request): string => {
   const userId = (req as AuthRequest).user?._id;
@@ -304,6 +313,42 @@ const userKey = (req: Request): string => {
 
 const MINUTE = 60 * 1000;
 const HOUR = 60 * MINUTE;
+
+const redirectWhenLimited = (
+  _req: Request,
+  res: Response,
+  retryAfter: number,
+): void => {
+  res.redirect(
+    `${config.oidc.appUrl}/login?error=rate_limited&retry_after=${retryAfter}`,
+  );
+};
+
+/** Cheap leg (a redirect and a cookie), so generous: retried and abandoned flows all land here. */
+const oidcStartLimiter = createRateLimiter({
+  keyPrefix: 'oidc-start',
+  allowance: 20,
+  windowMs: 15 * MINUTE,
+  cooldownsMs: [5 * MINUTE, 15 * MINUTE],
+  keyGenerator: ipKey,
+  onLimited: redirectWhenLimited,
+});
+
+/**
+ * Each hit costs an outbound token exchange, and a success can mint an account
+ * from any identity the caller controls at the IdP. So, like `registerLimiter`,
+ * it is never reset on success. Nothing here is guessable (the code is bound to
+ * PKCE and the `oidcTx` cookie): this bounds load and account-spam, not
+ * credential guessing.
+ */
+const oidcCallbackLimiter = createRateLimiter({
+  keyPrefix: 'oidc-callback',
+  allowance: 10,
+  windowMs: 15 * MINUTE,
+  cooldownsMs: [5 * MINUTE, 15 * MINUTE, HOUR],
+  keyGenerator: ipKey,
+  onLimited: redirectWhenLimited,
+});
 
 /**
  * Keyed by address *and* origin so one attacker cannot lock a user out of their
@@ -492,6 +537,8 @@ const twoFactorSetupLimiter = createRateLimiter({
 });
 
 export {
+  oidcStartLimiter,
+  oidcCallbackLimiter,
   loginLimiter,
   registerLimiter,
   forgotPasswordLimiter,

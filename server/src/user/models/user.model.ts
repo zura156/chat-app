@@ -37,6 +37,7 @@ export interface IUser extends Document {
   blocked_users: Types.ObjectId[];
   privacy: IPrivacySettings;
   comparePassword(candidatePassword: string): Promise<boolean>;
+  identities: { provider: string; sub: string }[];
 }
 
 /**
@@ -130,7 +131,12 @@ const UserSchema = new Schema<IUser>(
      */
     password: {
       type: String,
-      required: [true, 'Password is required'],
+      required: [
+        function (this: IUser) {
+          return !this.identities?.length;
+        },
+        'Password is required',
+      ],
       select: false,
       /*
        * The same policy the router and the Angular form apply, rather than a
@@ -149,6 +155,19 @@ const UserSchema = new Schema<IUser>(
         message: () =>
           `Password must be at least ${PASSWORD_MIN_LENGTH} characters and must not be a common or predictable one.`,
       },
+    },
+
+    identities: {
+      type: [
+        new Schema(
+          {
+            provider: { type: String, required: true },
+            sub: { type: String, required: true },
+          },
+          { _id: false },
+        ),
+      ],
+      default: [],
     },
 
     pfp_url: { type: String },
@@ -211,6 +230,17 @@ UserSchema.index(
   },
 );
 
+UserSchema.index(
+  { 'identities.sub': 1, 'identities.provider': 1 },
+  {
+    unique: true,
+    name: 'identities_unique',
+    partialFilterExpression: {
+      'identities.sub': { $exists: true },
+    },
+  },
+);
+
 UserSchema.pre('save', async function hashPassword() {
   if (!this.isModified('password')) return;
   const salt = await bcrypt.genSalt(appConfig.bcryptRounds);
@@ -220,6 +250,7 @@ UserSchema.pre('save', async function hashPassword() {
 UserSchema.methods.comparePassword = async function (
   candidatePassword: string,
 ): Promise<boolean> {
+  if (!this.password) return false;
   return bcrypt.compare(candidatePassword, this.password);
 };
 

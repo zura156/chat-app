@@ -65,6 +65,8 @@ import { Types } from 'mongoose';
 const isValidObjectId = (value: unknown): value is string =>
   typeof value === 'string' && Types.ObjectId.isValid(value);
 import { isBreachedPassword } from './services/breached-password.service';
+import * as client from 'openid-client';
+import { oidcConfig, resolveOidcUser } from './services/oidc.service';
 
 /**
  * The policy checks that need the account in hand.
@@ -366,6 +368,26 @@ export const registerUser = async (
     if (error instanceof CustomAPIError) throw error;
     next(error);
   }
+};
+
+const startTwoFactorIfEnrolled = async (res: Response, user: IUser) => {
+  const tf = await TwoFactorAuthModel.findOne({ user_id: user._id }).lean();
+  if (!hasSecondFactor(tf)) return null;
+  const methods = enrolledMethods(tf);
+  res.cookie(
+    'twoFactorChallenge',
+    generateTwoFactorChallenge(user._id.toString()),
+    {
+      ...COOKIE_BASE,
+      maxAge: TWO_FACTOR_CHALLENGE_MS,
+    },
+  );
+  if (methods.length === 1 && methods[0] === 'email' && user.email)
+    await sendLoginEmailCode(user._id.toString(), user.email);
+  return {
+    methods,
+    default_method: methods.includes('totp') ? 'totp' : 'email',
+  };
 };
 
 export const loginUser = async (
@@ -1466,5 +1488,82 @@ export const unlockAccount = async (
   } catch (error: any) {
     if (error instanceof CustomAPIError) throw error;
     next(error);
+  }
+};
+
+const OIDC_COOKIE = {
+  httpOnly: true,
+  secure: config.nodeEnv === 'production',
+  sameSite: 'lax' as const,
+  path: '/auth/oidc',
+};
+
+export const oidcStart = async (
+  _req: Request,
+  res: Response,
+  next: NextFunction,
+) => {
+  try {
+    const state = client.randomState();
+    const nonce = client.randomNonce();
+    const verifier = client.randomPKCECodeVerifier();
+
+    res.cookie('oidcTx', JSON.stringify({ state, nonce, verifier }), {
+      ...OIDC_COOKIE,
+      maxAge: 10 * 60 * 1000,
+    });
+    res.redirect(
+      client.buildAuthorizationUrl(await oidcConfig(), {
+        redirect_uri: config.oidc.redirectUri,
+        scope: 'openid email profile',
+        code_challenge: await client.calculatePKCECodeChallenge(verifier),
+        code_challenge_method: 'S256',
+        state,
+        nonce,
+      }).href,
+    );
+  } catch (e) {
+    next(e);
+  }
+};
+
+export const oidcCallback = async (req: Request, res: Response) => {
+  const back = (e: string) =>
+    res.redirect(`${config.oidc.appUrl}/login?error=${e}`);
+  try {
+    const tx = req.cookies.oidcTx ? JSON.parse(req.cookies.oidcTx) : null;
+    res.clearCookie('oidcTx', OIDC_COOKIE);
+    if (!tx) return back('oidc_expired');
+
+    if (req.query.error === 'access_denied') return back('oidc_cancelled');
+
+    const tokens = await client.authorizationCodeGrant(
+      await oidcConfig(),
+      // built from the configured origin, not the Host header
+      new URL(req.originalUrl, config.oidc.redirectUri),
+      {
+        pkceCodeVerifier: tx.verifier,
+        expectedState: tx.state,
+        expectedNonce: tx.nonce,
+        idTokenExpected: true,
+      },
+    );
+    const claims = tokens.claims();
+    if (!claims) return back('oidc_failed');
+
+    const result = await resolveOidcUser(claims);
+    if ('error' in result) return back(result.error ?? 'oidc_failed');
+
+    const ch = await startTwoFactorIfEnrolled(res, result.user);
+    if (ch)
+      return res.redirect(
+        `${config.oidc.appUrl}/login?two_factor=1&methods=${ch.methods.join(',')}`,
+      );
+
+    await issueSession(req, res, result.user);
+    res.redirect(`${config.oidc.appUrl}/`);
+  } catch (e) {
+    logger.warn('OIDC callback failed', e);
+    back('oidc_failed'); // generic: don't leak why
   }
 };
