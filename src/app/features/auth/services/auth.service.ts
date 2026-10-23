@@ -32,6 +32,7 @@ import { ActivatedRoute, Router } from '@angular/router';
 import { UnlockAccountI } from '../interfaces/unlock-account.interface';
 import { TwoFactorMethod } from '../interfaces/two-factor.interface';
 import { apiErrorMessage } from '../../../shared/functions/api-error';
+import { toast } from '@spartan-ng/brain/sonner';
 
 /** Keys that belong to a session and must not outlive it. */
 const SESSION_STORAGE_KEYS = ['isAuthenticated', 'prefers-chat-settings-open'];
@@ -435,7 +436,20 @@ export class AuthService {
 
   private handleError = (error: HttpErrorResponse) => {
     this.#loading.set(false);
-    this.#error.set(apiErrorMessage(error, 'An unknown error occurred'));
+    switch (error.error.code) {
+      case 'ALREADY_AUTHENTICATED':
+        this.#error.set(
+          apiErrorMessage(
+            error,
+            'You are already authenticated. Redirecting...',
+          ),
+        );
+        toast.loading('Redirecting...');
+        this.completeLogin().subscribe();
+        break;
+      default:
+        this.#error.set(apiErrorMessage(error, 'An unknown error occurred'));
+    }
     return throwError(() => error);
   };
 }
