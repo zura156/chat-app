@@ -9,8 +9,8 @@ written.
 
 Feature directories (`auth/`, `user/`, `messenger/`, `upload/`, `websocket/`) hold their own
 `controllers/`, `services/`, `models/`, `routers/`, `dtos/` and `middlewares/`. Cross-cutting pieces
-live in `config/`, `utils/`, `error-handling/`, `processors/`, `templates/`, `test/` and `scripts/`.
-Specs sit next to the code they test, never in a separate tree.
+live in `config/`, `utils/`, `error-handling/`, `processors/`, `templates/` and `scripts/`.
+Specs live in `src/tests/`, mirroring the module tree, alongside the shared test helpers.
 
 Controllers handle HTTP and delegate; the logic belongs in the service. `auth/` is flatter than the
 rest for historical reasons (`auth.controller.ts`, `auth.router.ts` at the feature root) — follow the
@@ -81,7 +81,7 @@ back.
 ## Config
 
 `config/config.ts` is a single default export and the only place `process.env` should be read outside
-`test/` and `scripts/`. `config.bcryptRounds` refuses anything below 10 when `NODE_ENV=production`,
+`tests/` and `scripts/`. `config.bcryptRounds` refuses anything below 10 when `NODE_ENV=production`,
 which is what keeps the suite's `BCRYPT_ROUNDS=4` from escaping.
 
 ## The media worker
@@ -110,7 +110,7 @@ of the others against a real database, and prefer `diagnose:notifications`, whic
 
 Unit specs (`*.spec.ts`) must not touch network, database or the clock. Anything needing a real
 MongoDB or Redis is `*.int.spec.ts` and must use `describeIntegration` / `describeRedisIntegration`
-from `src/test/env.ts` — see the root `CLAUDE.md` for why a bare `describe` with an early return is
+from `src/tests/env.ts` — see the root `CLAUDE.md` for why a bare `describe` with an early return is
 worse than useless here.
 
 Integration files run serially (`fileParallelism: false`) against one shared database, and

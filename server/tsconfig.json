@@ -15,5 +15,5 @@
     "inlineSources": true
   },
   "include": ["./**/*.ts"],
-  "exclude": ["node_modules", "dist", "**/*.spec.ts", "src/test/**"]
+  "exclude": ["node_modules", "dist", "**/*.spec.ts", "src/tests/**"]
 }

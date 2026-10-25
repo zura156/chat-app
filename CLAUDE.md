@@ -24,7 +24,7 @@ npx ng test --include="**/api-error.spec.ts"   # a single client spec
 npm run dev                                # nodemon src/index.ts — API + WebSocket
 npm run worker                             # the BullMQ media worker (see below)
 npm test                                   # vitest run
-npx vitest run src/auth/services/totp.service.spec.ts   # a single server spec
+npx vitest run src/tests/auth/services/totp.service.spec.ts   # a single server spec
 npx vitest run -t "rejects a reused code"               # a single test by name
 npm run typecheck                          # tsc --noEmit -p tsconfig.spec.json
 
@@ -45,20 +45,23 @@ harness. Use the scripts above.
 
 ## Tests
 
-Both suites are Vitest. Server specs come in two tiers, distinguished by filename:
+Both suites are Vitest. Client specs sit next to the file they test. Server specs all live under
+`server/src/tests/`, mirroring the module tree (`src/auth/services/totp.service.ts` →
+`src/tests/auth/services/totp.service.spec.ts`); vitest only collects from there, so a spec written
+anywhere else silently never runs. They come in two tiers, distinguished by filename:
 
 - `*.spec.ts` — pure logic, no external services, must pass anywhere.
 - `*.int.spec.ts` — real MongoDB and Redis. Index behaviour, concurrency, `select: false`, cascading
   deletes.
 
-`src/test/global-setup.ts` probes both services once before collection (it has to happen there —
+`src/tests/global-setup.ts` probes both services once before collection (it has to happen there —
 `describe.skip` is decided synchronously) and reports through the environment. Integration suites
 then **skip themselves with an explanatory message** when a service is unreachable, so `npm test`
 is always runnable. That means a green run can silently cover ~40% fewer tests; `REQUIRE_INTEGRATION=1`
 turns the skip into a hard failure, which is why `test:ci` sets it.
 
 When writing an integration spec, use `describeIntegration` / `describeRedisIntegration` from
-`server/src/test/env.ts`, never a bare `describe` — the helpers own connect/disconnect and the skip.
+`server/src/tests/env.ts`, never a bare `describe` — the helpers own connect/disconnect and the skip.
 `resetDatabase()` drops every collection, so never point `MONGO_TEST_URI` at data you care about.
 
 Global setup pins three env vars with `??=`, all overridable: `CHECK_BREACHED_PASSWORDS=false` (keeps

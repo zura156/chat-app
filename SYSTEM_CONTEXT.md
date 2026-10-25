@@ -741,7 +741,7 @@ COOP `same-origin`. **The API/S3 origins are hard-coded in this file** — chang
 ## 13. Environment variables
 
 Authoritative source is `server/src/config/config.ts` (plus `utils/mailer.ts`, `utils/logger.ts`,
-`test/env.ts`). Names only — **never put values in docs**.
+`tests/env.ts`). Names only — **never put values in docs**.
 
 | Group | Variables |
 |---|---|
@@ -769,8 +769,8 @@ Client: `src/environments/environment.ts` (**production defaults**) / `environme
 ## 14. Testing and tooling
 
 - **Client**: 25 spec files, Vitest in jsdom through `ng test` (`@angular/build:unit-test`); the root
-  `vitest.config.ts` throws on purpose. **Server**: 13 unit specs (`*.spec.ts`) + 11 integration specs
-  (`*.int.spec.ts`, need Mongo + Redis, use `describeIntegration`/`describeRedisIntegration`, skip
+  `vitest.config.ts` throws on purpose. **Server**: 26 spec files under `server/src/tests/`, mirroring
+  the module tree — unit (`*.spec.ts`) and integration (`*.int.spec.ts`, need Mongo + Redis, use `describeIntegration`/`describeRedisIntegration`, skip
   themselves when the services are down; `REQUIRE_INTEGRATION=1` makes that a failure). Global setup
   pins `CHECK_BREACHED_PASSWORDS=false`, `LOG_SILENT=1`, `BCRYPT_ROUNDS=4`.
 - `server/scripts/smoke.sh` (`npm run smoke`) drives a running API over HTTP with cookies, CSRF and the
