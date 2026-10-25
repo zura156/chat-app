@@ -20,6 +20,10 @@ import {
 } from '../services/privacy.service';
 import { deleteAccount } from '../services/account-deletion.service';
 import { clampLimit, clampOffset } from '../../utils/pagination';
+import {
+  PASSWORD_NOT_SET_MESSAGE,
+  providerNameFor,
+} from '../../auth/services/oidc.service';
 import { clearAuthCookies } from '../../auth/auth.controller';
 
 /**
@@ -258,7 +262,7 @@ export const getCurrentUser = async (
     }
 
     const user = await User.findById(req.user._id.toString()).select(
-      SELF_USER_FIELDS,
+      `${SELF_USER_FIELDS} identities +password`,
     );
 
     if (!user) {
@@ -266,7 +270,23 @@ export const getCurrentUser = async (
       return;
     }
 
-    res.status(200).json(user);
+    /*
+     * The security screen needs to know whether there is a password to ask
+     * for, and which providers are connected — but not the hash, and not the
+     * provider-side `sub`, which identifies the person at Google or GitHub and
+     * is nobody's business here, the owner's included. Both are read and
+     * reduced to what the screen needs, then dropped.
+     */
+    const { password, identities, ...self } = user.toObject();
+    res.status(200).json({
+      ...self,
+      has_password: Boolean(password),
+      providers: (identities ?? [])
+        .map((identity: { provider: string }) =>
+          providerNameFor(identity.provider),
+        )
+        .filter(Boolean),
+    });
   } catch (error) {
     next(error);
   }
@@ -408,16 +428,6 @@ export const deleteUser = async (
 
     const { password } = (req.body ?? {}) as { password?: unknown };
 
-    if (typeof password !== 'string' || !password) {
-      next(
-        createCustomError(
-          'Your password is required to delete your account',
-          400,
-        ),
-      );
-      return;
-    }
-
     // `+password`: deleting an account is authorised by re-entering it.
     const user = await User.findById(req.user._id.toString()).select(
       '+password',
@@ -425,6 +435,23 @@ export const deleteUser = async (
 
     if (!user) {
       next(createCustomError('User not found', 404));
+      return;
+    }
+
+    // Ahead of the "required" check — an account created through Google or
+    // GitHub has no password to type, and should be told how to get one.
+    if (!user.password) {
+      next(createCustomError(PASSWORD_NOT_SET_MESSAGE, 400));
+      return;
+    }
+
+    if (typeof password !== 'string' || !password) {
+      next(
+        createCustomError(
+          'Your password is required to delete your account',
+          400,
+        ),
+      );
       return;
     }
 

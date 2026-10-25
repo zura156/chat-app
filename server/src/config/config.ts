@@ -132,16 +132,29 @@ export default {
   clamavPort: parseInt(process.env.CLAMAV_PORT || '3310', 10),
 
   /*
-   * The OIDC configuration is used for OpenID Connect authentication.
-   * The values are read from environment variables, and if they are not
-   * set, they default to empty strings. This allows the application to be
-   * configured for different environments without changing the code.
+   * "Continue with Google / GitHub". A provider is offered only when all three
+   * of its values are set, so a half-configured one is absent rather than a
+   * button that always fails.
+   *
+   * The redirect URI is spelled out rather than derived from the request: it
+   * has to match what is registered in the provider's console byte for byte,
+   * and the token exchange re-sends it — deriving it from the Host header or
+   * `req.originalUrl` broke the moment a proxy added a path prefix.
+   *
+   * There is deliberately no separate "app URL": the browser is sent back to
+   * `clientUrl`, the same origin CORS and every emailed link already use. A
+   * second variable for it defaulted to '' and redirected to the API's own host.
    */
   oidc: {
-    issuer: process.env.OIDC_ISSUER || '',
-    clientId: process.env.OIDC_CLIENT_ID || '',
-    clientSecret: process.env.OIDC_CLIENT_SECRET || '',
-    redirectUri: process.env.OIDC_REDIRECT_URI || '',
-    appUrl: process.env.APP_URL || '',
+    google: {
+      clientId: process.env.GOOGLE_CLIENT_ID || '',
+      clientSecret: process.env.GOOGLE_CLIENT_SECRET || '',
+      redirectUri: process.env.GOOGLE_REDIRECT_URI || '',
+    },
+    github: {
+      clientId: process.env.GITHUB_CLIENT_ID || '',
+      clientSecret: process.env.GITHUB_CLIENT_SECRET || '',
+      redirectUri: process.env.GITHUB_REDIRECT_URI || '',
+    },
   },
 };

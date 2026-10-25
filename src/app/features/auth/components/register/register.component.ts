@@ -35,6 +35,7 @@ import {
   passwordValidator,
 } from '../../validators/password.validator';
 import { Router, RouterLink } from '@angular/router';
+import { OidcButtonsComponent } from '../oidc-buttons/oidc-buttons.component';
 import { ThemeService } from '../../../../shared/services/theme.service';
 
 /** The server's `USERNAME_PATTERN`, restated so the form can refuse first. */
@@ -61,6 +62,7 @@ const FIELD_LABELS: Record<string, string> = {
     HlmIcon,
     NgIcon,
     HlmAlertImports,
+    OidcButtonsComponent,
   ],
   providers: [
     provideIcons({ lucideCircleAlert, lucideTriangleAlert, lucideLoader }),

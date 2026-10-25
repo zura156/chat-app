@@ -3,6 +3,7 @@ import { HttpClient } from '@angular/common/http';
 import { tap } from 'rxjs';
 import { environment } from '../../../../environments/environment';
 import { TwoFactorMethod } from '../../auth/interfaces/two-factor.interface';
+import type { OidcProvider } from '../../auth/services/auth.service';
 
 export interface SessionI {
   id: string;
@@ -203,6 +204,28 @@ export class SecuritySettingsService {
         body: { code, password },
       })
       .pipe(tap((res) => this.absorbStatus(res)));
+  }
+
+  /**
+   * Connects Google or GitHub to this account. The server answers with the
+   * provider's URL rather than redirecting, because this has to be a
+   * CSRF-protected request — the caller navigates there itself, and the
+   * provider sends the browser back to this screen with `?linked=` or
+   * `?link_error=`.
+   */
+  linkOidc(provider: OidcProvider, password: string) {
+    return this.http.post<{ url: string }>(
+      `${this.authUrl}/oidc/${provider}/link`,
+      { password },
+    );
+  }
+
+  unlinkOidc(provider: OidcProvider, password: string) {
+    return this.http.request<{ message: string }>(
+      'delete',
+      `${this.authUrl}/identities/${provider}`,
+      { body: { password } },
+    );
   }
 
   /** Keeps the local status in step with whatever the server just decided. */

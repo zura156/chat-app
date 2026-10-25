@@ -18,10 +18,33 @@ import {
   SessionI,
   TwoFactorMethod,
 } from '../../../services/security-settings.service';
-import { AuthService } from '../../../../auth/services/auth.service';
+import {
+  AuthService,
+  OidcProvider,
+} from '../../../../auth/services/auth.service';
+import {
+  OIDC_PROVIDER_DETAILS,
+  injectEnabledOidcProviders,
+  isOidcProvider,
+} from '../../../../auth/services/oidc-providers';
 import { encodeQr } from '../../../../../shared/utils/qr-code';
 import { describePasswordProblems } from '../../../../auth/validators/password.validator';
 import { apiErrorMessage } from '../../../../../shared/functions/api-error';
+import { ActivatedRoute, Router } from '@angular/router';
+import { remixGithubFill, remixGoogleFill } from '@ng-icons/remixicon';
+
+/** What a connect that came back unsuccessful means, from its `?link_error=`. */
+const LINK_ERROR_MESSAGES: Record<string, string> = {
+  oidc_cancelled: 'Connecting was cancelled.',
+  oidc_expired:
+    'That took too long, or your session changed on the way. Please try again.',
+  oidc_failed: 'Could not connect that account. Please try again.',
+  oidc_unavailable: 'That sign-in option is not available right now.',
+  identity_in_use:
+    'That account is already connected to a different account here.',
+  provider_in_use:
+    'A different account from that provider is already connected. Disconnect it first.',
+};
 
 /**
  * This screen used to render a hardcoded login history — plausible cities,
@@ -51,12 +74,16 @@ import { apiErrorMessage } from '../../../../../shared/functions/api-error';
       lucideSmartphone,
       lucideKeyRound,
       lucideMail,
+      remixGithubFill,
+      remixGoogleFill,
     }),
   ],
 })
 export class SecuritySettings implements OnInit {
   private readonly security = inject(SecuritySettingsService);
   private readonly authService = inject(AuthService);
+  private readonly route = inject(ActivatedRoute);
+  private readonly router = inject(Router);
 
   readonly sessions = this.security.sessions;
   readonly twoFactor = this.security.twoFactor;
@@ -244,6 +271,150 @@ export class SecuritySettings implements OnInit {
   ngOnInit(): void {
     this.security.load().subscribe();
     this.security.loadTwoFactor().subscribe();
+    this.readLinkResult();
+  }
+
+  // ── Password-less accounts ──────────────────────────────────────────────────
+
+  /**
+   * False only for an account created through Google or GitHub that has not
+   * chosen a password. Defaults to true while the user is loading, or against
+   * an API that does not report it, so nothing is hidden by mistake.
+   */
+  readonly hasPassword = computed(
+    () => this.currentUser()?.has_password !== false,
+  );
+
+  /**
+   * A first password arrives through the reset link rather than a form here.
+   * The link proves the inbox; a form would let anyone holding this session
+   * set a password — the same reason every password-gated action asks for one.
+   */
+  sendSetPasswordLink(): void {
+    const email = this.currentUser()?.email;
+    if (!email) return;
+
+    this.busy.set(true);
+    this.authService.forgotPassword(email).subscribe({
+      next: () => {
+        this.busy.set(false);
+        toast.success('Check your inbox', {
+          description: `We sent a link to ${email}. Setting your password signs you out on every device.`,
+        });
+      },
+      error: (err) => {
+        this.busy.set(false);
+        toast.error(apiErrorMessage(err, 'Could not send the link'));
+      },
+    });
+  }
+
+  // ── Connected accounts ──────────────────────────────────────────────────────
+
+  private readonly enabledProviders = injectEnabledOidcProviders();
+
+  /**
+   * One row per provider the server offers, plus any already connected that
+   * it no longer does — a connection must stay removable after its provider is
+   * switched off.
+   */
+  readonly providerRows = computed(() => {
+    const connected = this.currentUser()?.providers ?? [];
+    const names = [
+      ...new Set<OidcProvider>([...this.enabledProviders(), ...connected]),
+    ];
+    return names.map((name) => ({
+      name,
+      ...OIDC_PROVIDER_DETAILS[name],
+      connected: connected.includes(name),
+    }));
+  });
+
+  /** The provider whose connect/disconnect is waiting on the password. */
+  readonly identityAction = signal<{
+    provider: OidcProvider;
+    kind: 'connect' | 'disconnect';
+  } | null>(null);
+  readonly identityPassword = signal('');
+
+  beginIdentityAction(
+    provider: OidcProvider,
+    kind: 'connect' | 'disconnect',
+  ): void {
+    this.identityAction.set({ provider, kind });
+    this.identityPassword.set('');
+  }
+
+  cancelIdentityAction(): void {
+    this.identityAction.set(null);
+    this.identityPassword.set('');
+  }
+
+  confirmIdentityAction(): void {
+    const action = this.identityAction();
+    const password = this.identityPassword();
+    if (!action) return;
+    if (!password) {
+      toast.error('Enter your password.');
+      return;
+    }
+
+    const label = OIDC_PROVIDER_DETAILS[action.provider].label;
+    this.busy.set(true);
+
+    if (action.kind === 'connect') {
+      this.security.linkOidc(action.provider, password).subscribe({
+        // The provider sends the browser back here with ?linked= or
+        // ?link_error=, read by readLinkResult on the way in.
+        next: ({ url }) => window.location.assign(url),
+        error: (err) => {
+          this.busy.set(false);
+          this.identityPassword.set('');
+          toast.error(apiErrorMessage(err, `Could not connect ${label}`));
+        },
+      });
+      return;
+    }
+
+    this.security.unlinkOidc(action.provider, password).subscribe({
+      next: (res) => {
+        this.busy.set(false);
+        this.cancelIdentityAction();
+        toast.success(res?.message ?? `${label} was disconnected.`);
+        this.authService.refreshCurrentUser().subscribe();
+      },
+      error: (err) => {
+        this.busy.set(false);
+        this.identityPassword.set('');
+        toast.error(apiErrorMessage(err, `Could not disconnect ${label}`));
+      },
+    });
+  }
+
+  /**
+   * The far end of a connect: the provider round trip lands back on this
+   * page. Reported once, then removed from the URL so a reload does not
+   * announce it again.
+   */
+  private readLinkResult(): void {
+    const params = this.route.snapshot.queryParamMap;
+    const linked = params.get('linked');
+    const error = params.get('link_error');
+    if (!linked && !error) return;
+
+    if (isOidcProvider(linked)) {
+      toast.success(`${OIDC_PROVIDER_DETAILS[linked].label} connected.`);
+      this.authService.refreshCurrentUser().subscribe();
+    } else if (error) {
+      toast.error(LINK_ERROR_MESSAGES[error] ?? LINK_ERROR_MESSAGES['oidc_failed']);
+    }
+
+    this.router.navigate([], {
+      relativeTo: this.route,
+      queryParams: { linked: null, link_error: null },
+      queryParamsHandling: 'merge',
+      replaceUrl: true,
+    });
   }
 
   describeDevice(session: SessionI): string {

@@ -1,4 +1,11 @@
-import { Component, computed, inject, signal } from '@angular/core';
+import {
+  Component,
+  OnDestroy,
+  OnInit,
+  computed,
+  inject,
+  signal,
+} from '@angular/core';
 import {
   FormControl,
   FormGroup,
@@ -26,14 +33,53 @@ import {
 
 import { catchError, Subject, takeUntil, tap, throwError } from 'rxjs';
 import { HlmAlertImports } from '@spartan-ng/helm/alert';
-import { RouterLink } from '@angular/router';
+import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { ThemeService } from '../../../../shared/services/theme.service';
-import { remixGithubFill } from '@ng-icons/remixicon';
+import { OidcButtonsComponent } from '../oidc-buttons/oidc-buttons.component';
+import { TwoFactorMethod } from '../../interfaces/two-factor.interface';
 
 /** How the fields are named in a sentence, rather than as control keys. */
 const FIELD_LABELS: Record<string, string> = {
   email: 'Email',
   password: 'Password',
+};
+
+/**
+ * What the server's `?error=` codes mean, for a provider sign-in that came
+ * back unsuccessful. They arrive on the URL because the sign-in was a
+ * redirect — there is no response body to carry a message.
+ */
+export const OIDC_ERROR_MESSAGES: Record<string, string> = {
+  oidc_cancelled: 'Sign-in was cancelled.',
+  oidc_expired:
+    'That sign-in took too long, or was started in another browser. Please try again.',
+  oidc_failed:
+    'We could not sign you in with that provider. Please try again.',
+  oidc_unavailable: 'That sign-in option is not available right now.',
+  email_unverified:
+    'That account has no verified email address. Verify one with the provider, then try again.',
+  link_required:
+    'An account with this email already exists, but its address has not been verified. Sign in with your password and verify it first.',
+  provider_in_use:
+    'Your account is already connected to a different account at that provider. Sign in with that one, or with your password.',
+};
+
+/** The query parameters a provider sign-in leaves behind, removed once read. */
+const OIDC_RESULT_PARAMS = [
+  'error',
+  'retry_after',
+  'two_factor',
+  'methods',
+  'default',
+] as const;
+
+const rateLimitedMessage = (retryAfter: string | null): string => {
+  const seconds = Number(retryAfter);
+  if (!Number.isFinite(seconds) || seconds <= 0) {
+    return 'Too many sign-in attempts. Please wait a little and try again.';
+  }
+  const minutes = Math.ceil(seconds / 60);
+  return `Too many sign-in attempts. Try again in ${minutes} minute${minutes === 1 ? '' : 's'}.`;
 };
 
 @Component({
@@ -47,20 +93,22 @@ const FIELD_LABELS: Record<string, string> = {
     HlmIcon,
     NgIcon,
     HlmAlertImports,
+    OidcButtonsComponent,
   ],
   providers: [
     provideIcons({
       lucideCircleAlert,
       lucideTriangleAlert,
       lucideLoader,
-      remixGithubFill,
     }),
   ],
   templateUrl: './login.component.html',
 })
-export class LoginComponent {
+export class LoginComponent implements OnInit, OnDestroy {
   private authService = inject(AuthService);
   private themeService = inject(ThemeService);
+  private route = inject(ActivatedRoute);
+  private router = inject(Router);
 
   isDarkMode = this.themeService.isDarkMode;
 
@@ -104,6 +152,55 @@ export class LoginComponent {
   });
 
   private destroy$ = new Subject<void>();
+
+  ngOnInit(): void {
+    this.readProviderResult();
+  }
+
+  /**
+   * A provider sign-in comes back here when it did not end in a session:
+   * either with an `error` code, or with the second-factor step the server
+   * opened (the `twoFactorChallenge` cookie is already set). The parameters
+   * are then removed, so a reload does not replay a stale error or a challenge
+   * that has since expired — `returnUrl` is left where it is.
+   */
+  private readProviderResult(): void {
+    const params = this.route.snapshot.queryParamMap;
+    const error = params.get('error');
+
+    if (error === 'rate_limited') {
+      this.error.set(rateLimitedMessage(params.get('retry_after')));
+    } else if (error) {
+      this.error.set(
+        OIDC_ERROR_MESSAGES[error] ?? OIDC_ERROR_MESSAGES['oidc_failed'],
+      );
+    } else if (params.get('two_factor') === '1') {
+      const methods = (params.get('methods') ?? '')
+        .split(',')
+        .filter(Boolean) as TwoFactorMethod[];
+      this.authService.resumeTwoFactor(
+        methods,
+        (params.get('default') as TwoFactorMethod | null) ?? undefined,
+      );
+      // As after a password: when email is the only factor, the server has
+      // already sent the code, so the screen must not offer to send a first.
+      this.emailCodeSent.set(
+        this.twoFactorMethods().length === 1 &&
+          this.twoFactorMethod() === 'email',
+      );
+    }
+
+    if (OIDC_RESULT_PARAMS.some((name) => params.has(name))) {
+      this.router.navigate([], {
+        relativeTo: this.route,
+        queryParams: Object.fromEntries(
+          OIDC_RESULT_PARAMS.map((name) => [name, null]),
+        ),
+        queryParamsHandling: 'merge',
+        replaceUrl: true,
+      });
+    }
+  }
 
   ngOnDestroy(): void {
     this.destroy$.next();

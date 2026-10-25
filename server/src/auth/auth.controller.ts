@@ -10,7 +10,10 @@ import {
   verifyRefreshToken,
   verifyTwoFactorChallenge,
 } from './services/jwt.service';
-import { CustomAPIError } from '../error-handling/models/custom-api-error.model';
+import {
+  CustomAPIError,
+  createCustomError,
+} from '../error-handling/models/custom-api-error.model';
 import config from '../config/config';
 import { LoginDto } from './dtos/login.dto';
 import { RegisterDto } from './dtos/register.dto';
@@ -48,7 +51,7 @@ import {
 import { verifyAndConsumeCode } from './services/totp.service';
 import { verifyAndConsumeEmailCode } from './services/email-otp.service';
 import { findRecoveryCodeIndex } from './services/recovery-code.service';
-import { sendLoginEmailCode } from './two-factor.controller';
+import { assertPassword, sendLoginEmailCode } from './two-factor.controller';
 import { checkPassword, PasswordContext } from './services/password-policy';
 import { Types } from 'mongoose';
 
@@ -66,7 +69,22 @@ const isValidObjectId = (value: unknown): value is string =>
   typeof value === 'string' && Types.ObjectId.isValid(value);
 import { isBreachedPassword } from './services/breached-password.service';
 import * as client from 'openid-client';
-import { oidcConfig, resolveOidcUser } from './services/oidc.service';
+import {
+  ExternalProfile,
+  PASSWORD_NOT_SET_MESSAGE,
+  PROVIDER_LABELS,
+  ProviderName,
+  callbackUrl,
+  enabledProviders,
+  getProvider,
+  linkIdentity,
+  providerConfiguration,
+  providerIssuer,
+  resolveOidcUser,
+  unlinkIdentity,
+} from './services/oidc.service';
+import { getIdentityChangeEmailHTML } from '../templates/identity-change-email';
+import { liveSessionUserId } from './middlewares/auth.middleware';
 
 /**
  * The policy checks that need the account in hand.
@@ -370,7 +388,18 @@ export const registerUser = async (
   }
 };
 
-const startTwoFactorIfEnrolled = async (res: Response, user: IUser) => {
+/**
+ * Opens the second-factor step when the account has one, and says which
+ * factors may answer it; null when the account has none.
+ *
+ * Shared by the password and the provider sign-ins — a provider proves who
+ * someone is at Google or GitHub, not that they hold this account's second
+ * factor, so it must not skip the step.
+ */
+const startTwoFactorIfEnrolled = async (
+  res: Response,
+  user: IUser,
+): Promise<{ methods: TwoFactorMethod[]; default_method: TwoFactorMethod } | null> => {
   const tf = await TwoFactorAuthModel.findOne({ user_id: user._id }).lean();
   if (!hasSecondFactor(tf)) return null;
   const methods = enrolledMethods(tf);
@@ -439,27 +468,9 @@ export const loginUser = async (
     // The password is only the first factor. When a second one is enrolled, no
     // session is issued here — the caller gets a short-lived challenge and has
     // to come back with a code.
-    const twoFactor = await TwoFactorAuthModel.findOne({
-      user_id: user._id,
-    }).lean();
-
-    if (hasSecondFactor(twoFactor)) {
-      const methods = enrolledMethods(twoFactor);
-
-      res.cookie('twoFactorChallenge', generateTwoFactorChallenge(user.id), {
-        ...COOKIE_BASE,
-        maxAge: TWO_FACTOR_CHALLENGE_MS,
-      });
-
-      if (methods.length === 1 && methods[0] === 'email' && user.email) {
-        await sendLoginEmailCode(user._id.toString(), user.email);
-      }
-
-      res.status(200).json({
-        two_factor_required: true,
-        methods,
-        default_method: methods.includes('totp') ? 'totp' : 'email',
-      });
+    const challenge = await startTwoFactorIfEnrolled(res, user);
+    if (challenge) {
+      res.status(200).json({ two_factor_required: true, ...challenge });
       return;
     }
 
@@ -926,7 +937,10 @@ export const forgotPassword = async (
   }
 
   try {
-    const user = await User.findOne({ email: normalizeEmail(email) });
+    // `+password` only to tell whether there is one; it is never sent anywhere.
+    const user = await User.findOne({ email: normalizeEmail(email) }).select(
+      '+password',
+    );
 
     if (!user) {
       // No reset here, and none on the success path either: what this endpoint
@@ -942,13 +956,20 @@ export const forgotPassword = async (
       AccountTokenEnum.PASSWORD_RESET,
       user.id,
     );
+    /*
+     * An account created through Google or GitHub has no password to reset.
+     * This same link is how it gets its first one (Settings → Security sends
+     * it), and "Reset your password" is a confusing thing to receive for a
+     * password you never had.
+     */
+    const firstPassword = !user.password;
     await sendEmail(
       user.email,
-      'Reset your password',
-      `<h2>Password Reset</h2>
-       <p>Click the link below to set a new password:</p>
-       <a href="${resetLink}">Reset Password</a>
-       <p>This link will expire in 1 hour.</p>`,
+      firstPassword ? 'Set a password for your account' : 'Reset your password',
+      `<h2>${firstPassword ? 'Set a password' : 'Password Reset'}</h2>
+       <p>Click the link below to ${firstPassword ? 'choose a password for your account. You can keep signing in with Google or GitHub as well.' : 'set a new password:'}</p>
+       <a href="${resetLink}">${firstPassword ? 'Set Password' : 'Reset Password'}</a>
+       <p>This link will expire in 1 hour. Using it signs you out on every device.</p>`,
     );
 
     // Do NOT wipe sessions here — user is still legitimately logged in on their devices
@@ -1076,6 +1097,11 @@ export const changePassword = async (
       return;
     }
 
+    if (!user.password) {
+      res.status(400).json({ message: PASSWORD_NOT_SET_MESSAGE });
+      return;
+    }
+
     if (!(await user.comparePassword(current_password))) {
       res.status(401).json({ message: 'Your current password is incorrect.' });
       return;
@@ -1188,6 +1214,11 @@ export const changeEmail = async (
     const user = await User.findById(authUser._id).select('+password');
     if (!user) {
       res.status(404).json({ message: 'User not found.' });
+      return;
+    }
+
+    if (!user.password) {
+      res.status(400).json({ message: PASSWORD_NOT_SET_MESSAGE });
       return;
     }
 
@@ -1491,6 +1522,14 @@ export const unlockAccount = async (
   }
 };
 
+// ─── Google / GitHub sign-in ───────────────────────────────────────────────────
+
+/*
+ * `lax`, not COOKIE_BASE's `none`: the provider sends the browser back with a
+ * top-level GET, which is precisely what Lax still carries cross-site, and
+ * nothing else ever needs this cookie. Scoped to /auth/oidc so no other
+ * endpoint sees it.
+ */
 const OIDC_COOKIE = {
   httpOnly: true,
   secure: config.nodeEnv === 'production',
@@ -1498,72 +1537,316 @@ const OIDC_COOKIE = {
   path: '/auth/oidc',
 };
 
-export const oidcStart = async (
-  _req: Request,
-  res: Response,
-  next: NextFunction,
-) => {
-  try {
-    const state = client.randomState();
-    const nonce = client.randomNonce();
-    const verifier = client.randomPKCECodeVerifier();
+const OIDC_TX_MS = 10 * 60 * 1000;
 
-    res.cookie('oidcTx', JSON.stringify({ state, nonce, verifier }), {
-      ...OIDC_COOKIE,
-      maxAge: 10 * 60 * 1000,
-    });
-    res.redirect(
-      client.buildAuthorizationUrl(await oidcConfig(), {
-        redirect_uri: config.oidc.redirectUri,
-        scope: 'openid email profile',
-        code_challenge: await client.calculatePKCECodeChallenge(verifier),
-        code_challenge_method: 'S256',
-        state,
-        nonce,
-      }).href,
-    );
-  } catch (e) {
-    next(e);
+/**
+ * One authorization round trip, held by the browser between leaving for the
+ * provider and coming back.
+ *
+ * Unsigned, so treat it as the caller's word: the state and verifier are only
+ * useful to the browser that started the flow, but nothing in here may decide
+ * *which account* a result lands in. A link is attached to the live session's
+ * user; `userId` only has to agree with it.
+ */
+interface OidcTransaction {
+  provider: ProviderName;
+  state: string;
+  verifier: string;
+  nonce?: string;
+  intent: 'signin' | 'link';
+  userId?: string;
+}
+
+const readTransaction = (req: Request): OidcTransaction | null => {
+  try {
+    const raw = req.cookies?.oidcTx;
+    const tx = typeof raw === 'string' ? JSON.parse(raw) : null;
+    return tx && typeof tx.state === 'string' && typeof tx.verifier === 'string'
+      ? tx
+      : null;
+  } catch {
+    return null;
   }
 };
 
-export const oidcCallback = async (req: Request, res: Response) => {
-  const back = (e: string) =>
-    res.redirect(`${config.oidc.appUrl}/login?error=${e}`);
-  try {
-    const tx = req.cookies.oidcTx ? JSON.parse(req.cookies.oidcTx) : null;
-    res.clearCookie('oidcTx', OIDC_COOKIE);
-    if (!tx) return back('oidc_expired');
+/** Opens a round trip and returns the provider URL to send the browser to. */
+const beginAuthorization = async (
+  res: Response,
+  provider: NonNullable<ReturnType<typeof getProvider>>,
+  intent: OidcTransaction['intent'],
+  userId?: string,
+): Promise<string> => {
+  const tx: OidcTransaction = {
+    provider: provider.name,
+    state: client.randomState(),
+    verifier: client.randomPKCECodeVerifier(),
+    // A nonce binds an ID token to this request; GitHub issues none.
+    nonce: provider.usesIdToken ? client.randomNonce() : undefined,
+    intent,
+    userId,
+  };
 
-    if (req.query.error === 'access_denied') return back('oidc_cancelled');
+  const url = client.buildAuthorizationUrl(
+    await providerConfiguration(provider),
+    {
+      redirect_uri: provider.redirectUri,
+      scope: provider.scope,
+      code_challenge: await client.calculatePKCECodeChallenge(tx.verifier),
+      code_challenge_method: 'S256',
+      state: tx.state,
+      ...(tx.nonce ? { nonce: tx.nonce } : {}),
+      ...provider.extraAuthorizationParams,
+    },
+  );
+
+  res.cookie('oidcTx', JSON.stringify(tx), {
+    ...OIDC_COOKIE,
+    maxAge: OIDC_TX_MS,
+  });
+  return url.href;
+};
+
+/** Best-effort, like the password-changed receipt: the change already happened. */
+const notifyIdentityChange = async (
+  req: Request,
+  user: Pick<IUser, '_id' | 'email' | 'username'>,
+  provider: ProviderName,
+  change: 'connected' | 'disconnected',
+): Promise<void> => {
+  try {
+    const observed = observedClient(req);
+    const label = PROVIDER_LABELS[provider];
+    const resetLink = await generateLink(
+      AccountTokenEnum.PASSWORD_RESET,
+      user._id.toString(),
+    );
+    await sendEmail(
+      user.email,
+      change === 'connected'
+        ? `${label} was connected to your account`
+        : `${label} was disconnected from your account`,
+      getIdentityChangeEmailHTML(
+        user.username,
+        label,
+        change,
+        new Date().toUTCString(),
+        observed.ip ?? 'unknown',
+        observed.userAgent ?? 'Unknown device',
+        resetLink,
+      ),
+    );
+  } catch (error) {
+    logger.error('Failed to send identity-change notification:', error);
+  }
+};
+
+/** The providers this deployment has credentials for — the client's buttons. */
+export const listOidcProviders = (_req: Request, res: Response): void => {
+  res.status(200).json({ providers: enabledProviders() });
+};
+
+/**
+ * A top-level navigation, not an XHR: it answers with a redirect to the
+ * provider, which a fetch could never follow across origins. That is also why
+ * it is a GET — a POST from a plain link or form cannot carry the
+ * `X-CSRF-Token` header `csrfProtection` requires. Nothing here is worth
+ * forging: starting a round trip only sets a cookie in the caller's own
+ * browser, and the state it holds is what defeats a forged *callback*.
+ */
+export const oidcStart = async (
+  req: Request,
+  res: Response,
+  next: NextFunction,
+): Promise<void> => {
+  try {
+    const provider = getProvider(req.params.provider);
+    if (!provider) {
+      res.redirect(`${config.clientUrl}/auth/login?error=oidc_unavailable`);
+      return;
+    }
+    res.redirect(await beginAuthorization(res, provider, 'signin'));
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * Connecting a provider to the signed-in account.
+ *
+ * A CSRF-protected POST that answers with the provider URL for the SPA to
+ * navigate to, rather than a GET that redirects: unlike signing in, this
+ * changes an existing account, so a third-party page must not be able to set
+ * it in motion. It costs the password for the same reason enrolling a second
+ * factor does — a linked identity is a standing way in, and a stolen session
+ * alone must not be able to mint one.
+ */
+export const oidcLinkStart = async (
+  req: AuthRequest,
+  res: Response,
+  next: NextFunction,
+): Promise<void> => {
+  try {
+    if (!req.user) {
+      next(createCustomError('Not authenticated', 401));
+      return;
+    }
+    const provider = getProvider(req.params.provider);
+    if (!provider) {
+      next(createCustomError('That sign-in provider is not available.', 404));
+      return;
+    }
+
+    const userId = req.user._id.toString();
+    await assertPassword(userId, req.body?.password);
+
+    const url = await beginAuthorization(res, provider, 'link', userId);
+    res.status(200).json({ url });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * Where the provider sends the browser back to. Every outcome is a redirect
+ * into the SPA — this is a page load, so a JSON error would be the whole page.
+ */
+export const oidcCallback = async (
+  req: Request,
+  res: Response,
+): Promise<void> => {
+  const toLogin = (code: string) =>
+    res.redirect(`${config.clientUrl}/auth/login?error=${code}`);
+  const toSecurity = (query: string) =>
+    res.redirect(`${config.clientUrl}/settings/security?${query}`);
+
+  const tx = readTransaction(req);
+  res.clearCookie('oidcTx', OIDC_COOKIE);
+  const fail = (code: string) =>
+    tx?.intent === 'link' ? toSecurity(`link_error=${code}`) : toLogin(code);
+
+  try {
+    const provider = getProvider(req.params.provider);
+    if (!provider) return fail('oidc_unavailable');
+    if (!tx) return fail('oidc_expired');
+    // A round trip begun at one provider and finished at another is the
+    // shape of a mix-up attack, never a legitimate flow.
+    if (tx.provider !== provider.name) return fail('oidc_failed');
+    if (req.query.error === 'access_denied') return fail('oidc_cancelled');
 
     const tokens = await client.authorizationCodeGrant(
-      await oidcConfig(),
-      // built from the configured origin, not the Host header
-      new URL(req.originalUrl, config.oidc.redirectUri),
+      await providerConfiguration(provider),
+      callbackUrl(provider.redirectUri, req.originalUrl),
       {
         pkceCodeVerifier: tx.verifier,
         expectedState: tx.state,
         expectedNonce: tx.nonce,
-        idTokenExpected: true,
+        idTokenExpected: provider.usesIdToken,
       },
     );
-    const claims = tokens.claims();
-    if (!claims) return back('oidc_failed');
+    const profile = await provider.profile(tokens);
 
-    const result = await resolveOidcUser(claims);
-    if ('error' in result) return back(result.error ?? 'oidc_failed');
+    if (tx.intent === 'link') {
+      await finishLink(req, res, tx, provider.name, profile);
+      return;
+    }
 
-    const ch = await startTwoFactorIfEnrolled(res, result.user);
-    if (ch)
+    const result = await resolveOidcUser(profile);
+    if ('error' in result) return toLogin(result.error);
+
+    if (result.linked) {
+      await notifyIdentityChange(req, result.user, provider.name, 'connected');
+    }
+
+    const challenge = await startTwoFactorIfEnrolled(res, result.user);
+    if (challenge) {
       return res.redirect(
-        `${config.oidc.appUrl}/login?two_factor=1&methods=${ch.methods.join(',')}`,
+        `${config.clientUrl}/auth/login?two_factor=1&methods=${challenge.methods.join(',')}&default=${challenge.default_method}`,
       );
+    }
 
     await issueSession(req, res, result.user);
-    res.redirect(`${config.oidc.appUrl}/`);
-  } catch (e) {
-    logger.warn('OIDC callback failed', e);
-    back('oidc_failed'); // generic: don't leak why
+    // Not `/`: the SPA cannot see httpOnly cookies, so it needs a page whose
+    // job is to notice the session it was just handed.
+    res.redirect(`${config.clientUrl}/auth/oidc/callback`);
+  } catch (error) {
+    logger.warn('OIDC callback failed', error);
+    fail('oidc_failed'); // generic: don't leak why
+  }
+};
+
+const finishLink = async (
+  req: Request,
+  res: Response,
+  tx: OidcTransaction,
+  provider: ProviderName,
+  profile: ExternalProfile,
+): Promise<void> => {
+  const toSecurity = (query: string) =>
+    res.redirect(`${config.clientUrl}/settings/security?${query}`);
+
+  // The account comes from the session on *this* request. A user id from
+  // the cookie alone would let anyone who writes their own `oidcTx` attach
+  // their provider account to somebody else's.
+  const userId = await liveSessionUserId(req.cookies?.accessToken);
+  if (!userId || userId !== tx.userId) {
+    toSecurity('link_error=oidc_expired');
+    return;
+  }
+
+  const outcome = await linkIdentity(userId, profile);
+  if (outcome === 'identity_in_use' || outcome === 'provider_in_use') {
+    toSecurity(`link_error=${outcome}`);
+    return;
+  }
+
+  if (outcome === 'linked') {
+    const user = await User.findById(userId).select('email username');
+    if (user) await notifyIdentityChange(req, user, provider, 'connected');
+  }
+  toSecurity(`linked=${provider}`);
+};
+
+/**
+ * Disconnecting a provider. Costs the password, which also settles the
+ * question of stranding the account: one that can prove a password still has
+ * a way to sign in once the provider is gone.
+ */
+export const unlinkOidcIdentity = async (
+  req: AuthRequest,
+  res: Response,
+  next: NextFunction,
+): Promise<void> => {
+  try {
+    if (!req.user) {
+      next(createCustomError('Not authenticated', 401));
+      return;
+    }
+    const name = req.params.provider;
+    const issuer = providerIssuer(name);
+    if (!issuer) {
+      next(createCustomError('Unknown sign-in provider.', 404));
+      return;
+    }
+
+    const userId = req.user._id.toString();
+    await assertPassword(userId, req.body?.password);
+
+    const provider = name as ProviderName;
+    if (!(await unlinkIdentity(userId, issuer))) {
+      next(
+        createCustomError(
+          `No ${PROVIDER_LABELS[provider]} account is connected.`,
+          404,
+        ),
+      );
+      return;
+    }
+
+    await notifyIdentityChange(req, req.user, provider, 'disconnected');
+    res.status(200).json({
+      message: `${PROVIDER_LABELS[provider]} was disconnected.`,
+    });
+  } catch (error) {
+    next(error);
   }
 };

@@ -193,6 +193,20 @@ Sign-in and recovery — public:
 | POST | `/auth/confirm-email` | Confirm an email change from the link sent to the new address |
 | POST | `/auth/unlock-account` | Unlock an account locked by failed logins |
 
+Google and GitHub sign-in — public, and browser navigations rather than API calls:
+
+| Method | Path | Description |
+|---|---|---|
+| GET | `/auth/oidc/providers` | The providers this deployment has credentials for — what the client renders buttons for |
+| GET | `/auth/oidc/:provider/start` | Redirect to Google or GitHub (PKCE + state, rate limited) |
+| GET | `/auth/oidc/:provider/callback` | Where the provider sends the browser back; signs in, opens the 2FA step, or redirects to `CLIENT_URL/auth/login?error=…` (rate limited) |
+
+A provider sign-in signs in the account that holds that identity. Failing that,
+it links the account whose verified address matches and emails its owner;
+failing that, it creates a verified account with no password. A password-less
+account gets its first password through `/auth/forgot-password` (Settings →
+Security sends the link), because every password-gated action needs one.
+
 Two-factor enrolment — authenticated:
 
 | Method | Path | Description |
@@ -221,6 +235,8 @@ Sessions and credentials — authenticated:
 | POST | `/auth/change-email` | Request an email change; confirmed from the new inbox (rate limited) |
 | POST | `/auth/cancel-email-change` | Cancel a pending email change |
 | POST | `/auth/resend-verification` | Resend the verification email (rate limited) |
+| POST | `/auth/oidc/:provider/link` | Connect Google or GitHub — needs the password; returns the provider URL to navigate to (rate limited) |
+| DELETE | `/auth/identities/:provider` | Disconnect Google or GitHub — needs the password (rate limited) |
 
 ### Users — `/user`
 
@@ -409,6 +425,16 @@ COOKIE_DOMAIN=localhost   # the CSRF cookie is set with a domain, and a browser
 # Two-factor
 TWO_FACTOR_ISSUER=chat-app  # the label authenticator apps show next to the code
 
+# Google / GitHub sign-in — see "Setting up Google and GitHub sign-in" below.
+# A provider is offered only when all three of its values are set. Each redirect
+# URI must match the one registered with the provider exactly.
+GOOGLE_CLIENT_ID=
+GOOGLE_CLIENT_SECRET=
+GOOGLE_REDIRECT_URI=http://localhost:3000/auth/oidc/google/callback
+GITHUB_CLIENT_ID=
+GITHUB_CLIENT_SECRET=
+GITHUB_REDIRECT_URI=http://localhost:3000/auth/oidc/github/callback
+
 # Email verification gate
 # Off by default. Verification shipped long before anything read its result, so
 # every pre-existing account has is_email_verified: false and switching this on
@@ -467,6 +493,23 @@ WORKER_CONCURRENCY=4
 
 `MONGO_TEST_URI`, `REDIS_TEST_URL` and `REQUIRE_INTEGRATION` only affect the test
 run — see [Tests](#tests).
+
+#### Setting up Google and GitHub sign-in
+
+The redirect URI is always the **API's** public URL plus
+`/auth/oidc/<provider>/callback` — the provider sends the browser to the API,
+which then redirects into `CLIENT_URL`.
+
+- **Google** — in Google Cloud Console, APIs & Services → Credentials → *Create
+  OAuth client ID*, type *Web application*. Add the redirect URI under
+  *Authorized redirect URIs* (one per environment). The scopes are `openid`,
+  `email` and `profile`. While the consent screen is in *Testing*, only the test
+  users you list can sign in.
+- **GitHub** — Settings → Developer settings → OAuth Apps → *New OAuth App*, with
+  the redirect URI as the *Authorization callback URL*. An OAuth App has a single
+  callback host, so use one app per environment. GitHub is plain OAuth 2.0 rather
+  than OpenID Connect: the server reads the profile from `GET /user` and the
+  verified address from `GET /user/emails`, which is why it asks for `user:email`.
 
 ### Frontend (`src/environments/`)
 

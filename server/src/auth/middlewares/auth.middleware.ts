@@ -83,6 +83,27 @@ export const authenticateToken = async (
 };
 
 /**
+ * The user behind an access token, if it is a live session — the same three
+ * checks `authenticateToken` makes, without its 401 responses.
+ *
+ * For the provider callback, which is a browser navigation: a JSON 401 there
+ * would be the entire page. Keep the checks in step with the middleware above.
+ */
+export const liveSessionUserId = async (
+  token: unknown,
+): Promise<string | null> => {
+  if (typeof token !== 'string' || !token) return null;
+  try {
+    const decoded = verifyAccessToken(token);
+    if (await isAccessTokenBlacklisted(token)) return null;
+    if (await isSessionRevoked(decoded)) return null;
+    return decoded.userId;
+  } catch {
+    return null;
+  }
+};
+
+/**
  * Gates the app behind a verified address. The whole verification flow existed
  * — token model, mail, endpoint, a flag on the user — but nothing ever read the
  * flag, so the emails were decorative and any address could be used.

@@ -320,7 +320,7 @@ const redirectWhenLimited = (
   retryAfter: number,
 ): void => {
   res.redirect(
-    `${config.oidc.appUrl}/login?error=rate_limited&retry_after=${retryAfter}`,
+    `${config.clientUrl}/auth/login?error=rate_limited&retry_after=${retryAfter}`,
   );
 };
 

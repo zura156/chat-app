@@ -37,6 +37,26 @@ import { toast } from '@spartan-ng/brain/sonner';
 /** Keys that belong to a session and must not outlive it. */
 const SESSION_STORAGE_KEYS = ['isAuthenticated', 'prefers-chat-settings-open'];
 
+export type OidcProvider = 'google' | 'github';
+
+/**
+ * Where a provider sign-in should land once it is back.
+ *
+ * The round trip through Google or GitHub is a full page load, so the
+ * `returnUrl` the guard put on the login URL is gone by the time the app boots
+ * again. It is parked here rather than handed to the server, which then never
+ * has to decide whether a redirect target is safe.
+ */
+const OIDC_RETURN_URL_KEY = 'oidcReturnUrl';
+
+/**
+ * A path inside this app, or null. `navigateByUrl` cannot leave the app
+ * anyway; this keeps a garbled or protocol-relative value from becoming a
+ * not-found page instead of the default.
+ */
+const inAppPath = (url: string | null | undefined): string | null =>
+  url && url.startsWith('/') && !url.startsWith('//') ? url : null;
+
 const isSessionOver = (error: unknown): boolean =>
   (error as HttpErrorResponse)?.status === 401;
 
@@ -216,7 +236,10 @@ export class AuthService {
       .pipe(
         switchMap(() => {
           this.twoFactorRequired.set(false);
-          return this.completeLogin();
+          // A provider sign-in that stopped for a second factor parked its
+          // destination before leaving; a password sign-in has none parked
+          // and falls through to the `returnUrl` query parameter.
+          return this.completeLogin(this.takeOidcReturnUrl());
         }),
         catchError(this.handleError),
       );
@@ -242,7 +265,58 @@ export class AuthService {
     this.#error.set(null);
   }
 
-  private completeLogin(): Observable<UserI> {
+  /**
+   * Picks up a second-factor step that the server opened at the end of a
+   * provider sign-in. It arrives as query parameters on the login page rather
+   * than as a response body, because the sign-in itself was a redirect.
+   */
+  resumeTwoFactor(methods: TwoFactorMethod[], preferred?: TwoFactorMethod): void {
+    const known = methods.filter(
+      (method): method is TwoFactorMethod =>
+        method === 'totp' || method === 'email',
+    );
+    const offered = known.length ? known : (['totp'] as TwoFactorMethod[]);
+    this.twoFactorMethods.set(offered);
+    this.twoFactorMethod.set(
+      preferred && offered.includes(preferred) ? preferred : offered[0],
+    );
+    this.twoFactorRequired.set(true);
+  }
+
+  /**
+   * Leaves for the provider. A navigation, not an HTTP call: the server
+   * answers with a redirect to Google or GitHub, which a fetch could never
+   * follow across origins.
+   */
+  startOidc(provider: OidcProvider): void {
+    const returnUrl = inAppPath(
+      this.route.snapshot.queryParamMap.get('returnUrl'),
+    );
+    if (returnUrl) sessionStorage.setItem(OIDC_RETURN_URL_KEY, returnUrl);
+    else sessionStorage.removeItem(OIDC_RETURN_URL_KEY);
+
+    window.location.assign(
+      `${environment.apiUrl}/auth/oidc/${provider}/start`,
+    );
+  }
+
+  /**
+   * Finishes a provider sign-in on the page the server sent the browser back
+   * to. The session is already in httpOnly cookies this code cannot see; what
+   * it can do is load the user, which proves the cookies work, and only then
+   * call the app signed in.
+   */
+  completeOidcLogin(): Observable<UserI> {
+    return this.completeLogin(this.takeOidcReturnUrl());
+  }
+
+  private takeOidcReturnUrl(): string | undefined {
+    const returnUrl = inAppPath(sessionStorage.getItem(OIDC_RETURN_URL_KEY));
+    sessionStorage.removeItem(OIDC_RETURN_URL_KEY);
+    return returnUrl ?? undefined;
+  }
+
+  private completeLogin(returnTo?: string): Observable<UserI> {
     this.#loading.set(false);
     localStorage.setItem(this.IS_AUTHENTICATED_KEY, 'true');
     this.isAuthenticated.set(true);
@@ -251,7 +325,9 @@ export class AuthService {
     // /messages regardless meant every deep link was silently discarded at the
     // login screen.
     const returnUrl =
-      this.route.snapshot.queryParamMap.get('returnUrl') ?? '/messages';
+      returnTo ??
+      this.route.snapshot.queryParamMap.get('returnUrl') ??
+      '/messages';
 
     // loadCurrentUser() already connects the socket and announces presence
     return this.loadCurrentUser().pipe(

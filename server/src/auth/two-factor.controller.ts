@@ -32,6 +32,7 @@ import config from '../config/config';
 import { User } from '../user/models/user.model';
 import sendEmail from '../utils/mailer';
 import { getTwoFactorCodeEmailHTML } from '../templates/two-factor-code-email';
+import { PASSWORD_NOT_SET_MESSAGE } from './services/oidc.service';
 import { logger } from '../utils/logger';
 
 /**
@@ -41,17 +42,25 @@ import { logger } from '../utils/logger';
  * enrolling *their* authenticator on the account — which locks the real owner
  * out while looking, to every subsequent check, exactly like a properly secured
  * account. Anything that alters the factors must cost the password.
+ *
+ * Also the re-authentication for connecting and disconnecting Google or
+ * GitHub, for the same reason.
  */
-const assertPassword = async (
+export const assertPassword = async (
   userId: string,
   password: unknown,
 ): Promise<void> => {
+  // req.user comes from a projection that excludes the hash.
+  const user = await User.findById(userId).select('+password');
+
+  // Before the "required" check: an account created through a provider has
+  // no password to supply, and telling it one is required is no help.
+  if (user && !user.password) {
+    throw createCustomError(PASSWORD_NOT_SET_MESSAGE, 400);
+  }
   if (typeof password !== 'string' || !password) {
     throw createCustomError('Your password is required', 400);
   }
-
-  // req.user comes from a projection that excludes the hash.
-  const user = await User.findById(userId).select('+password');
   if (!user || !(await user.comparePassword(password))) {
     throw createCustomError('That password is not correct', 401);
   }

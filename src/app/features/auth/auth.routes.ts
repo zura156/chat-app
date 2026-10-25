@@ -54,4 +54,13 @@ export const authRoutes: Routes = [
         (m) => m.ConfirmEmailChangeComponent,
       ),
   },
+  {
+    // Must match where oidcCallback redirects on the server. No guard: see the
+    // component for why the unauthenticated one would bounce a fresh session.
+    path: 'oidc/callback',
+    loadComponent: () =>
+      import('./components/oidc-callback/oidc-callback.component').then(
+        (m) => m.OidcCallbackComponent,
+      ),
+  },
 ];

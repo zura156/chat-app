@@ -1,12 +1,18 @@
 import { provideZonelessChangeDetection, signal } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { provideRouter } from '@angular/router';
-import { HttpErrorResponse } from '@angular/common/http';
+import {
+  HttpErrorResponse,
+  provideHttpClient,
+  withInterceptors,
+} from '@angular/common/http';
+import { provideHttpClientTesting } from '@angular/common/http/testing';
 import { of, throwError } from 'rxjs';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { RegisterComponent } from './register.component';
 import { AuthService } from '../../services/auth.service';
 import { ThemeService } from '../../../../shared/services/theme.service';
+import { answerOidcProviders } from '../../testing/answer-oidc-providers';
 
 /*
  * Why a rendering test rather than one that reads `form.errors`.
@@ -33,6 +39,9 @@ const build = async (): Promise<ComponentFixture<RegisterComponent>> => {
       // A successful registration navigates here; without the route the
       // redirect rejects and Vitest reports it as an unhandled error.
       provideRouter([{ path: 'auth/login', children: [] }]),
+      // The "Sign up with…" buttons ask the server which providers exist.
+      provideHttpClient(withInterceptors([answerOidcProviders([])])),
+      provideHttpClientTesting(),
       { provide: AuthService, useValue: authService },
       { provide: ThemeService, useValue: { isDarkMode: signal(false) } },
     ],

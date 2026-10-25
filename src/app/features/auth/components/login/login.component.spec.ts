@@ -1,12 +1,16 @@
 import { provideZonelessChangeDetection, signal } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
-import { provideRouter } from '@angular/router';
+import { provideHttpClient, withInterceptors } from '@angular/common/http';
+import { provideHttpClientTesting } from '@angular/common/http/testing';
+import { Router, provideRouter } from '@angular/router';
+import { RouterTestingHarness } from '@angular/router/testing';
 import { of, throwError } from 'rxjs';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { LoginComponent } from './login.component';
 import { AuthService } from '../../services/auth.service';
 import { ThemeService } from '../../../../shared/services/theme.service';
 import { TwoFactorMethod } from '../../interfaces/two-factor.interface';
+import { answerOidcProviders } from '../../testing/answer-oidc-providers';
 
 /*
  * The second-factor step of signing in.
@@ -48,6 +52,14 @@ const authService = {
     twoFactorRequired.set(false);
     twoFactorMethods.set([]);
   }),
+  resumeTwoFactor: vi.fn(
+    (methods: TwoFactorMethod[], preferred?: TwoFactorMethod) => {
+      twoFactorMethods.set(methods);
+      twoFactorMethod.set(preferred ?? methods[0]);
+      twoFactorRequired.set(true);
+    },
+  ),
+  startOidc: vi.fn(),
 };
 
 const build = async (): Promise<ComponentFixture<LoginComponent>> => {
@@ -57,6 +69,9 @@ const build = async (): Promise<ComponentFixture<LoginComponent>> => {
     providers: [
       provideZonelessChangeDetection(),
       provideRouter([]),
+      // The provider buttons ask the server which providers exist.
+      provideHttpClient(withInterceptors([answerOidcProviders([])])),
+      provideHttpClientTesting(),
       { provide: AuthService, useValue: authService },
       { provide: ThemeService, useValue: { isDarkMode: signal(false) } },
     ],
@@ -418,5 +433,87 @@ describe('LoginComponent — second factor', () => {
         password: '   ',
       });
     });
+  });
+});
+
+/*
+ * Coming back from Google or GitHub without a session. The outcome arrives as
+ * query parameters, because the sign-in was a redirect: an `error` code, or the
+ * second-factor step the server opened. Driven through the real router so the
+ * parameters reach the component the way a browser delivers them.
+ */
+describe('LoginComponent — back from a provider', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    twoFactorRequired.set(false);
+    twoFactorMethods.set([]);
+    twoFactorMethod.set('totp');
+  });
+
+  const visit = async (url: string) => {
+    TestBed.resetTestingModule();
+    TestBed.configureTestingModule({
+      providers: [
+        provideZonelessChangeDetection(),
+        provideRouter([{ path: 'auth/login', component: LoginComponent }]),
+        provideHttpClient(withInterceptors([answerOidcProviders([])])),
+        provideHttpClientTesting(),
+        { provide: AuthService, useValue: authService },
+        { provide: ThemeService, useValue: { isDarkMode: signal(false) } },
+      ],
+    });
+    const harness = await RouterTestingHarness.create(url);
+    await harness.fixture.whenStable();
+    harness.detectChanges();
+    return harness;
+  };
+
+  const text = (harness: RouterTestingHarness): string =>
+    harness.routeNativeElement?.textContent ?? '';
+
+  it('says why it came back, then drops the code but keeps returnUrl', async () => {
+    const harness = await visit(
+      '/auth/login?error=oidc_cancelled&returnUrl=%2Fmessages%2Fabc',
+    );
+
+    expect(text(harness)).toContain('Sign-in was cancelled.');
+    // A reload must not replay the error; the deep link must survive.
+    expect(TestBed.inject(Router).url).toBe(
+      '/auth/login?returnUrl=%2Fmessages%2Fabc',
+    );
+  });
+
+  it('falls back to the generic failure for a code it does not know', async () => {
+    const harness = await visit('/auth/login?error=something_new');
+    expect(text(harness)).toContain(
+      'We could not sign you in with that provider.',
+    );
+  });
+
+  it('turns a rate limit into a wait the user can act on', async () => {
+    const harness = await visit(
+      '/auth/login?error=rate_limited&retry_after=125',
+    );
+    expect(text(harness)).toContain('Try again in 3 minutes.');
+  });
+
+  it('resumes the second factor the server opened, without re-sending a code', async () => {
+    const harness = await visit(
+      '/auth/login?two_factor=1&methods=email&default=email',
+    );
+
+    expect(authService.resumeTwoFactor).toHaveBeenCalledWith(
+      ['email'],
+      'email',
+    );
+    // Email is the only factor, so the server already mailed the code.
+    expect(text(harness)).toContain('Enter the 6-digit code we emailed you');
+    expect(TestBed.inject(Router).url).toBe('/auth/login');
+  });
+
+  it('does not touch the URL of an ordinary visit', async () => {
+    await visit('/auth/login?returnUrl=%2Fsettings');
+    expect(TestBed.inject(Router).url).toBe('/auth/login?returnUrl=%2Fsettings');
+    expect(authService.resumeTwoFactor).not.toHaveBeenCalled();
   });
 });

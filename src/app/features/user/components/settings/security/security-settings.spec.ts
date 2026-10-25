@@ -1,5 +1,7 @@
 import { provideZonelessChangeDetection, signal } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { provideHttpClient, withInterceptors } from '@angular/common/http';
+import { provideHttpClientTesting } from '@angular/common/http/testing';
 import { provideRouter } from '@angular/router';
 import { of, throwError } from 'rxjs';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -10,6 +12,8 @@ import {
   TwoFactorStatusI,
 } from '../../../services/security-settings.service';
 import { AuthService } from '../../../../auth/services/auth.service';
+import { UserI } from '../../../interfaces/user.interface';
+import { answerOidcProviders } from '../../../../auth/testing/answer-oidc-providers';
 
 /*
  * The enrolment wizard, now that an account can hold two factors at once.
@@ -81,22 +85,33 @@ const security = {
     of({ sent_to: 'someone@example.test', expires_in_seconds: 600 }),
   ),
   disableTwoFactor: vi.fn(() => of(removed())),
+  linkOidc: vi.fn(() => of({ url: 'https://github.com/login/oauth/authorize' })),
+  unlinkOidc: vi.fn(() => of({ message: 'GitHub was disconnected.' })),
   describeDevice: () => 'Browser on Linux',
   isMobile: () => false,
 };
 
 const authService = {
-  user: signal({ email: 'someone@example.test' }),
+  user: signal<Partial<UserI>>({ email: 'someone@example.test' }),
   handleAuthFailure: vi.fn(),
+  forgotPassword: vi.fn(() => of({ message: 'sent' })),
+  refreshCurrentUser: vi.fn(() => of({})),
 };
 
-const build = async (): Promise<ComponentFixture<SecuritySettings>> => {
+const build = async (
+  offeredProviders: string[] = [],
+): Promise<ComponentFixture<SecuritySettings>> => {
   TestBed.resetTestingModule();
   TestBed.configureTestingModule({
     imports: [SecuritySettings],
     providers: [
       provideZonelessChangeDetection(),
       provideRouter([]),
+      // Connected accounts asks the server which providers exist.
+      provideHttpClient(
+        withInterceptors([answerOidcProviders(offeredProviders)]),
+      ),
+      provideHttpClientTesting(),
       { provide: SecuritySettingsService, useValue: security },
       { provide: AuthService, useValue: authService },
     ],
@@ -429,5 +444,92 @@ describe('SecuritySettings — two factors', () => {
       // be corrected too, or the stripped character stays on screen.
       expect(input.value).toBe('123456');
     });
+  });
+});
+
+/*
+ * Accounts created through Google or GitHub, and the providers connected to an
+ * account. A password-less account must be pointed at the emailed link rather
+ * than asked for a password it never chose, and a connection must stay
+ * removable after the server stops offering its provider.
+ */
+describe('SecuritySettings — sign-in methods', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    twoFactor.set(status());
+    authService.user.set({ email: 'someone@example.test' });
+  });
+
+  /** Builds the screen with the server offering these providers. */
+  const buildWith = async (offered: string[]) => {
+    const fixture = await build(offered);
+    fixture.detectChanges();
+    return fixture;
+  };
+
+  const buttonLabelled = (
+    fixture: ComponentFixture<SecuritySettings>,
+    label: string,
+  ): HTMLButtonElement | undefined =>
+    (
+      Array.from(
+        fixture.nativeElement.querySelectorAll('button'),
+      ) as HTMLButtonElement[]
+    ).find((button) => button.textContent?.trim() === label);
+
+  it('offers a password-less account the emailed link, not a password form', async () => {
+    authService.user.set({ email: 'someone@example.test', has_password: false });
+    const fixture = await buildWith([]);
+
+    expect(buttonLabelled(fixture, 'Change')).toBeUndefined();
+    buttonLabelled(fixture, 'Email me a link')!.click();
+
+    expect(authService.forgotPassword).toHaveBeenCalledWith(
+      'someone@example.test',
+    );
+    // Every factor change costs the password, so enrolment is not offered.
+    expect(buttonLabelled(fixture, 'Set up')).toBeUndefined();
+  });
+
+  it('shows each offered provider as connected or not', async () => {
+    authService.user.set({ email: 'someone@example.test', providers: ['github'] });
+    const fixture = await buildWith(['google', 'github']);
+
+    const text = fixture.nativeElement.textContent as string;
+    expect(text).toContain('Connected accounts');
+    expect(buttonLabelled(fixture, 'Connect')).toBeDefined();
+    expect(buttonLabelled(fixture, 'Disconnect')).toBeDefined();
+  });
+
+  it('keeps a connection removable after its provider is switched off', async () => {
+    authService.user.set({ email: 'someone@example.test', providers: ['google'] });
+    const fixture = await buildWith([]);
+
+    expect(buttonLabelled(fixture, 'Disconnect')).toBeDefined();
+    expect(buttonLabelled(fixture, 'Connect')).toBeUndefined();
+  });
+
+  it('disconnects with the password exactly as typed', async () => {
+    authService.user.set({ email: 'someone@example.test', providers: ['github'] });
+    const fixture = await buildWith(['github']);
+
+    buttonLabelled(fixture, 'Disconnect')!.click();
+    fixture.detectChanges();
+
+    fixture.componentInstance.identityPassword.set(' pass phrase ');
+    const form = fixture.nativeElement.querySelector(
+      'section[aria-labelledby="connected-accounts-heading"] form',
+    ) as HTMLFormElement;
+    form.dispatchEvent(new Event('submit', { cancelable: true }));
+
+    expect(security.unlinkOidc).toHaveBeenCalledWith('github', ' pass phrase ');
+    expect(authService.refreshCurrentUser).toHaveBeenCalled();
+  });
+
+  it('cannot start a connection without a password to confirm it', async () => {
+    authService.user.set({ email: 'someone@example.test', has_password: false });
+    const fixture = await buildWith(['google']);
+
+    expect(buttonLabelled(fixture, 'Connect')!.disabled).toBe(true);
   });
 });

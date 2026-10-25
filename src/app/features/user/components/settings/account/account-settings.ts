@@ -65,6 +65,13 @@ export class AccountSettings {
 
   readonly pendingEmail = computed(() => this.user()?.pending_email ?? null);
 
+  /**
+   * False for an account created through Google or GitHub with no password
+   * yet. Both actions on this screen are confirmed with the password, so they
+   * point to Security instead of asking for one that does not exist.
+   */
+  readonly hasPassword = computed(() => this.user()?.has_password !== false);
+
   // ── Email ───────────────────────────────────────────────────────────────────
 
   readonly changingEmail = signal(false);

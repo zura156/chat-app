@@ -20,6 +20,9 @@ import {
   cancelEmailChange,
   oidcStart,
   oidcCallback,
+  oidcLinkStart,
+  unlinkOidcIdentity,
+  listOidcProviders,
 } from './auth.controller';
 import {
   beginEmailTwoFactorSetup,
@@ -47,7 +50,7 @@ import {
   twoFactorEmailSendLimiter,
   twoFactorSetupLimiter,
   oidcStartLimiter,
-  oidcCallbackLimiter
+  oidcCallbackLimiter,
 } from './middlewares/rate-limiter';
 import { issueCsrfToken } from './middlewares/csrf.middleware';
 import { validateRequest } from './middlewares/validate-request.middleware';
@@ -169,8 +172,38 @@ router.post(
   loginUser,
 );
 
-router.post('/oidc/start', oidcStartLimiter, oidcStart);
-router.post('/oidc/callback', oidcCallbackLimiter, oidcCallback);
+/*
+ * "Continue with Google / GitHub". Both legs are GETs because both are
+ * top-level browser navigations: the start redirects to the provider and the
+ * provider redirects back. They were POSTs, which no provider sends and which a
+ * plain link cannot make — `csrfProtection` wants a header only an XHR can set.
+ * The `state` in the `oidcTx` cookie is what stops a forged callback.
+ */
+router.get('/oidc/providers', listOidcProviders);
+router.get('/oidc/:provider/start', oidcStartLimiter, oidcStart);
+router.get('/oidc/:provider/callback', oidcCallbackLimiter, oidcCallback);
+
+/*
+ * Connecting and disconnecting a provider on the signed-in account. Both verify
+ * the current password, so they share change-password's budget for the reason
+ * change-email does: one guessing surface, one counter.
+ */
+router.post(
+  '/oidc/:provider/link',
+  authenticateToken,
+  body('password').isString().notEmpty().withMessage('Password required'),
+  validateRequest,
+  changePasswordLimiter,
+  oidcLinkStart,
+);
+router.delete(
+  '/identities/:provider',
+  authenticateToken,
+  body('password').isString().notEmpty().withMessage('Password required'),
+  validateRequest,
+  changePasswordLimiter,
+  unlinkOidcIdentity,
+);
 
 // Second step of a two-factor sign-in. Rate limited like the first: it is a
 // six-digit secret and brute force is the obvious attack.

@@ -29,7 +29,7 @@
 | Unique index on `Conversation.participants` | Replaced by scalar `dm_key` + partial unique index (§8.1) |
 | Message statuses SENDING, SENT, READ, FAILED | Server enum is `failed`, `sent`, `delivered`, `read`; `sending` exists only client-side for optimistic bubbles |
 | `general` limiter 100 / 5 min | 1000 signed-in / 300 anonymous per 5 min; presign 120 / 30 per min (§9.5) |
-| Auth = JWT + CSRF | Full stack: rotating refresh tokens with session ids and reuse detection, TOTP + emailed-code 2FA, recovery codes, lockout, email-verification gate, HIBP check, revocation that closes live sockets, and (new) OIDC |
+| Auth = JWT + CSRF | Full stack: rotating refresh tokens with session ids and reuse detection, TOTP + emailed-code 2FA, recovery codes, lockout, email-verification gate, HIBP check, revocation that closes live sockets, and Google/GitHub sign-in with connected accounts |
 | WS events `upload-ready`, `upload-infected`, a handful more | Edit/delete, notification, `upload-failed`, `rate-limited`, plus a per-socket per-type rate limit and revocation close codes (§7) |
 | "Signed GET not integrated in Angular" | Integrated: `SignedMediaService` re-signs on playback errors |
 | "Avatar / group avatar upload UI not wired" | Wired (profile settings, chatbox settings). Cover photo is the only one still missing in the client |
@@ -48,8 +48,8 @@
 - **Server** (`server/`, separate npm project): Express 5, TypeScript 6, Mongoose 9, `redis` 5,
   BullMQ 5, `ws`, `@aws-sdk/client-s3` + presigner, `sharp`, `fluent-ffmpeg` + `ffmpeg-static`,
   `clamscan`, `music-metadata`, `nodemailer`, `winston`, `helmet`, `hpp`, `express-rate-limit` +
-  `rate-limit-redis`, `express-validator`, `@exortek/express-mongo-sanitize`, `express-openid-connect`
-  (brings in `openid-client` 6, which the OIDC code imports directly).
+  `rate-limit-redis`, `express-validator`, `@exortek/express-mongo-sanitize`, `openid-client` 6
+  (Google sign-in, and the token exchange for GitHub's plain OAuth 2.0).
 - **Tests**: Vitest on both sides.
 - **Infra**: Coolify, Cloudflare Tunnel + Traefik, SeaweedFS (S3), ClamAV, Redis, MongoDB (Atlas).
 
@@ -390,7 +390,7 @@ profile fetch.
 | `refreshToken` | JWT `typ:'refresh'`, `JWT_REFRESH_SECRET`, `JWT_REFRESH_EXPIRES_IN` (7 d) | httpOnly; **`path=/auth/refresh`** (invisible to every other endpoint) |
 | `csrfToken` | random 32-byte hex | **not** httpOnly; `domain=COOKIE_DOMAIN`; 24 h (deliberately outlives the access token) |
 | `twoFactorChallenge` | JWT `typ:'two-factor-challenge'` (token valid 5 min), cookie 10 min | httpOnly |
-| `oidcTx` | `{state, nonce, PKCE verifier}` | httpOnly, `path=/auth/oidc`, 10 min |
+| `oidcTx` | `{provider, state, verifier, nonce?, intent, userId?}` | httpOnly, **`SameSite=Lax`**, `path=/auth/oidc`, 10 min; unsigned, so never trusted to pick an account |
 
 All httpOnly cookies are `secure` + `SameSite=None` in production and `lax` in dev. Every token carries
 `typ` and verification is **type-scoped** (a 2FA challenge can't be used as an access token, and
@@ -442,26 +442,39 @@ untyped legacy tokens are rejected). `sid` is a per-login session id that surviv
   returns `403 {code:'EMAIL_NOT_VERIFIED'}` on `/conversations`, `/messages`, `/notifications`, `/upload`.
 - **Logout** is deliberately unauthenticated (must work with an expired access token) but CSRF-protected.
 
-### 9.4 OIDC sign-in (committed 2026-10-20, `47b2efd`; backend only)
+### 9.4 Google / GitHub sign-in (`auth/services/oidc.service.ts`)
 
-`POST /auth/oidc/start` sets the `oidcTx` cookie and **redirects** to the IdP (authorization-code +
-PKCE S256 + state + nonce, scope `openid email profile`); `POST /auth/oidc/callback` exchanges the code,
-then `resolveOidcUser`:
-1. an existing user whose `identities` contains `{provider: OIDC_ISSUER, sub}` → sign in;
-2. otherwise requires `email_verified === true`; a local account with that email is **linked** only if
-   its own email is verified (else redirect `?error=link_required`);
-3. otherwise creates a verified, password-less user (username derived from the email local-part, made
-   unique; `password` is only `required` when there are no identities).
-Then it honours the user's 2FA (redirect `/login?two_factor=1&methods=…`) or issues a normal session and
-redirects to `APP_URL/`. Errors are redirects to `APP_URL/login?error=<code>` (`oidc_expired`,
-`oidc_cancelled`, `email_unverified`, `link_required`, `oidc_failed`, `rate_limited`).
-`User.identities[{provider,sub}]` has a unique partial index. New env vars: `OIDC_ISSUER`,
-`OIDC_CLIENT_ID`, `OIDC_CLIENT_SECRET`, `OIDC_REDIRECT_URI`, `APP_URL`.
-Caveats: the **Angular client has no OIDC UI yet** (no login button, no handling of those `?error=`
-codes); `auth.controller.ts` imports `openid-client` but `server/package.json` only declares
-`express-openid-connect` (v6 of `openid-client` arrives transitively) — add `openid-client` as a direct
-dependency; the `/start` and `/callback` routes are POST even though both are browser redirect legs;
-`APP_URL` and `OIDC_*` are not in the README env block.
+Provider registry keyed `google` | `github`. A provider is enabled only when `*_CLIENT_ID`,
+`*_CLIENT_SECRET` and `*_REDIRECT_URI` are all set; `GET /auth/oidc/providers` lists the enabled ones
+and the client renders buttons only for those. Google is OpenID Connect (discovery, ID token, nonce,
+`prompt=select_account`); GitHub is plain OAuth 2.0 — hand-written endpoints, no ID token, profile from
+`GET /user` (`sub` = numeric `id`, which survives a rename) and the address from `GET /user/emails`
+(scope `user:email`) via `pickGithubEmail`. Both use PKCE S256.
+
+- `GET /auth/oidc/:provider/start` → sets `oidcTx`, 302 to the provider. `GET …/callback` → checks the
+  tx exists and names the same provider (mix-up defence), exchanges the code against a URL rebuilt on
+  the *configured* redirect URI (`callbackUrl`; openid-client re-sends it query-stripped as
+  `redirect_uri`), then `resolveOidcUser`:
+  1. the account holding `{provider: issuer, sub}` → sign in;
+  2. else requires a verified provider address; a local account with it is **auto-linked** only if its
+     own address is verified (`link_required` otherwise; `provider_in_use` if it already holds a
+     different identity there), and its owner gets the `identity-change-email` alert;
+  3. else creates a verified, password-less account (names fall back to the GitHub login, then the
+     address's local part; a lost create race resolves to the winner's account).
+- Then 2FA is honoured (`/auth/login?two_factor=1&methods=…&default=…`, the SPA resumes the code step)
+  or a normal session is issued and the browser goes to `CLIENT_URL/auth/oidc/callback`, an SPA page
+  that loads the user before calling the app signed in. Errors: `CLIENT_URL/auth/login?error=<code>`
+  (`oidc_expired`, `oidc_cancelled`, `oidc_failed`, `oidc_unavailable`, `email_unverified`,
+  `link_required`, `provider_in_use`, `rate_limited`).
+- **Connected accounts** (Settings → Security): `POST /auth/oidc/:provider/link` (password, CSRF) returns
+  the provider URL; the callback attaches the identity to the **live session's** user (and requires the
+  tx's `userId` to agree — the cookie alone never picks the account). `DELETE /auth/identities/:provider`
+  (password). Both share `changePasswordLimiter` and send the alert email. At most one identity per
+  provider per account; the `identities_unique` index settles two accounts racing for one identity.
+- **Password-less accounts**: `assertPassword`, change-password, change-email and delete-account answer
+  400 "…Set one from Settings → Security first." instead of "wrong password"; the screen sends the
+  forgot-password link, whose mail reads "Set a password" for such accounts. `/user/profile` exposes
+  `has_password` and `providers` (names only — never the hash or `sub`).
 
 ### 9.5 Rate limiting (`auth/middlewares/rate-limiter.ts`)
 
@@ -486,7 +499,7 @@ bumps a round counter, `resetRateLimit` on success; **fails open** when Redis is
 | `twoFactorCodeLimiter` | 5 / 15 min | 15 m, 1 h | user / challenge cookie / IP |
 | `twoFactorEmailSendLimiter` | 10 / 1 h | 15 m, 1 h | user / challenge / IP |
 | `twoFactorSetupLimiter` | 10 / 1 h | 15 m | user |
-| `oidcStartLimiter` / `oidcCallbackLimiter` | 20 / 15 min · 10 / 15 min | 5–15 m · 5 m–1 h | IP; **redirect** to `/login?error=rate_limited` instead of JSON |
+| `oidcStartLimiter` / `oidcCallbackLimiter` | 20 / 15 min · 10 / 15 min | 5–15 m · 5 m–1 h | IP; **redirect** to `/auth/login?error=rate_limited` instead of JSON |
 
 Rule of thumb from the code: limiters that ration *volume* sit **after** validation; limiters that
 ration *guessing* sit **first**. Sending a code and guessing a code use different limiters. A 429 body is
@@ -737,7 +750,7 @@ Authoritative source is `server/src/config/config.ts` (plus `utils/mailer.ts`, `
 | Secrets (throw at boot in production) | `COOKIE_SECRET`, `SESSION_SECRET`, `JWT_SECRET`, `JWT_REFRESH_SECRET`, `COOKIE_DOMAIN` |
 | Tokens | `JWT_EXPIRES_IN` (1h), `JWT_REFRESH_EXPIRES_IN` (7d) |
 | Auth behaviour | `REQUIRE_EMAIL_VERIFICATION` (false), `CHECK_BREACHED_PASSWORDS` (true), `BCRYPT_ROUNDS` (10; 4–15, ≥ 10 in prod), `TWO_FACTOR_ISSUER` (chat-app) |
-| OIDC (new) | `OIDC_ISSUER`, `OIDC_CLIENT_ID`, `OIDC_CLIENT_SECRET`, `OIDC_REDIRECT_URI`, `APP_URL` |
+| Google / GitHub sign-in | `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `GOOGLE_REDIRECT_URI`, `GITHUB_CLIENT_ID`, `GITHUB_CLIENT_SECRET`, `GITHUB_REDIRECT_URI` (redirects into the existing `CLIENT_URL`) |
 | Storage | `S3_ENDPOINT`, `S3_APP_ACCESS`, `S3_APP_SECRET`, `S3_QUARANTINE_ACCESS`, `S3_QUARANTINE_SECRET`, `S3_BUCKET_PUBLIC`, `S3_BUCKET_PRIVATE`, `S3_BUCKET_QUARANTINE`, `S3_BUCKET_TEMP` (**`S3_BUCKET_HLS` is gone**) |
 | Scanning | `CLAMAV_HOST` (localhost), `CLAMAV_PORT` (3310) |
 | Worker | `WORKER_CONCURRENCY` (4) |
@@ -784,15 +797,10 @@ Ordered roughly by how much they matter. "Verified" = confirmed in code this pas
    bucket. A signature check (e.g. `file-type`) belongs in the worker before the handler runs.
 2. **Check SeaweedFS `anonymous` permissions** (§12). If it still has global `Read`, the private bucket's
    signed URLs are decorative. Unverifiable from the repo.
-3. **OIDC is unexercised end to end.** Verified: no specs, no client UI, `openid-client` is not a direct
-   dependency, and both legs are `POST` routes (`/auth/oidc/start`, `/auth/oidc/callback`). An IdP sends
-   the browser back with a `GET` to `OIDC_REDIRECT_URI`, and a `POST` that answers `302` cannot navigate
-   a page when called via XHR — so unless `OIDC_REDIRECT_URI` points at an SPA route that re-posts the
-   query string, the flow will not complete. Decide the shape (likely `GET` for both, or an SPA
-   intermediary), add `openid-client` to `server/package.json`, add specs, add the button and error
-   handling to `LoginComponent`, document the env vars. Also decide whether an OIDC-created account
-   should be able to set a password (it currently has none, so *change password*/*delete account*, which
-   both ask for the password, have nothing to verify against).
+3. **Google/GitHub sign-in is covered by specs but not yet run against the real providers.**
+   `oidc.service.spec.ts` / `oidc.service.int.spec.ts` and the login, buttons, callback and security
+   specs cover everything short of the live round trip; that needs OAuth clients registered in both
+   consoles (README → "Setting up Google and GitHub sign-in").
 4. `account_tokens` has no TTL index on `expires_at` (verified) — expired tokens are rejected on use but
    never reaped.
 5. Uploads: a `pending` `Upload` record is reaped after 24 h by its TTL index, but its **temp object is
@@ -837,10 +845,10 @@ Ordered roughly by how much they matter. "Verified" = confirmed in code this pas
 - Project tree lists `features/calls/` (does not exist).
 - Feature list and env block mention reCAPTCHA (`RECAPTCHA_SECRET_KEY`) — no code reads it.
 - "Mutes are permanent — `muted_until` is declared on the model" — the field was removed.
-- Upload contexts list omits `cover-photo`; env block omits `OIDC_*`, `APP_URL`, `LOG_LEVEL`.
+- Upload contexts list omits `cover-photo`; env block omits `LOG_LEVEL`.
 - WebSocket table lists `authenticate` as a client→server type; it is ignored (auth happens at the
   upgrade) and `message` is server→client only.
-- No mention of OIDC, `dm_key`, or the removal of HLS.
+- No mention of `dm_key`, or the removal of HLS.
 
 ---
 

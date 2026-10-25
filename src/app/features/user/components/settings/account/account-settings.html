@@ -44,12 +44,23 @@
             variant="outline"
             size="sm"
             class="rounded-full cursor-pointer shrink-0"
+            [disabled]="!hasPassword()"
             (click)="beginEmailChange()"
           >
             Change
           </button>
         }
       </div>
+
+      <!--
+        The change is confirmed with the password (see below), which an account
+        created through Google or GitHub does not have until it sets one.
+      -->
+      @if (!hasPassword()) {
+        <p class="text-xs text-muted-foreground">
+          To change your email, first set a password under Settings → Security.
+        </p>
+      }
 
       <!--
         Verification is a separate concern from changing the address: an
@@ -192,7 +203,13 @@
         <h3 class="text-sm font-medium text-destructive">Danger zone</h3>
         <p class="text-xs text-muted-foreground">Irreversible actions</p>
       </div>
-      @if (!confirmingDelete()) {
+      @if (!hasPassword()) {
+        <!-- Deletion is confirmed with the password; see the email note above. -->
+        <p class="text-xs text-muted-foreground">
+          To delete your account, first set a password under Settings →
+          Security.
+        </p>
+      } @else if (!confirmingDelete()) {
         <button
           hlmBtn
           variant="outline"

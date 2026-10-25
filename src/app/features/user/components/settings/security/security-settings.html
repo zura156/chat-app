@@ -13,7 +13,44 @@
   <section class="space-y-3">
     <h3 class="text-sm font-medium">Password</h3>
 
-    @if (!changingPassword()) {
+    @if (!hasPassword()) {
+    <!--
+        An account created through Google or GitHub. Its first password comes
+        through the emailed reset link, not a form here: see
+        sendSetPasswordLink for why.
+      -->
+    <div
+      class="flex items-start justify-between gap-x-4 px-4 py-3 rounded-xl border border-border"
+    >
+      <div class="flex items-start gap-x-3 min-w-0">
+        <ng-icon
+          hlm
+          size="sm"
+          name="lucideKeyRound"
+          class="mt-0.5 shrink-0 text-muted-foreground"
+        />
+        <div class="min-w-0">
+          <p class="text-sm">Set a password</p>
+          <p class="text-xs text-muted-foreground">
+            You sign in with Google or GitHub. A password is needed for
+            two-factor authentication, changing your email and deleting your
+            account. We'll email you a link; using it signs you out everywhere.
+          </p>
+        </div>
+      </div>
+
+      <button
+        hlmBtn
+        variant="outline"
+        size="sm"
+        class="rounded-full cursor-pointer text-xs shrink-0"
+        [disabled]="busy()"
+        (click)="sendSetPasswordLink()"
+      >
+        Email me a link
+      </button>
+    </div>
+    } @else if (!changingPassword()) {
     <div
       class="flex items-start justify-between gap-x-4 px-4 py-3 rounded-xl border border-border"
     >
@@ -160,7 +197,16 @@
   <section class="space-y-3">
     <h3 class="text-sm font-medium">Two-factor authentication</h3>
 
-    @if (setupStage() === "idle" && !disarming()) {
+    @if (!hasPassword()) {
+    <!--
+        Every change to a factor costs the password (assertPassword on the
+        server), so an account without one cannot enrol — say so here rather
+        than let the wizard ask for something that does not exist.
+      -->
+    <p class="text-xs text-muted-foreground">
+      Set a password above first — adding or removing a factor asks for it.
+    </p>
+    } @else if (setupStage() === "idle" && !disarming()) {
     <!--
         One row per factor. Both can be on at once; at sign-in the user picks
         which to answer, so neither is merely a fallback for the other.
@@ -580,6 +626,121 @@
   </section>
 
   <hlm-separator decorative />
+
+  <!-- ── CONNECTED ACCOUNTS ─────────────────────────────────────────── -->
+  @if (providerRows().length) {
+  <section class="space-y-3" aria-labelledby="connected-accounts-heading">
+    <h3 id="connected-accounts-heading" class="text-sm font-medium">
+      Connected accounts
+    </h3>
+    <p class="text-xs text-muted-foreground">
+      Sign in with these instead of your password. Connecting or disconnecting
+      one asks for your password, and we email you either way.
+    </p>
+
+    <div class="rounded-xl border border-border divide-y divide-border">
+      @for (provider of providerRows(); track provider.name) {
+      <div class="px-4 py-3 space-y-3">
+        <div class="flex items-start justify-between gap-x-4">
+          <div class="flex items-start gap-x-3 min-w-0">
+            <ng-icon
+              hlm
+              size="sm"
+              [name]="provider.icon"
+              class="mt-0.5 shrink-0"
+              [class.text-muted-foreground]="!provider.connected"
+            />
+            <div class="min-w-0">
+              <p class="text-sm">{{ provider.label }}</p>
+              <p class="text-xs text-muted-foreground">
+                {{ provider.connected ? "Connected" : "Not connected" }}
+              </p>
+            </div>
+          </div>
+
+          <button
+            hlmBtn
+            [variant]="provider.connected ? 'outline' : 'default'"
+            size="sm"
+            class="rounded-full cursor-pointer text-xs shrink-0"
+            [disabled]="busy() || !hasPassword() || identityAction() !== null"
+            (click)="
+              beginIdentityAction(
+                provider.name,
+                provider.connected ? 'disconnect' : 'connect'
+              )
+            "
+          >
+            {{ provider.connected ? "Disconnect" : "Connect" }}
+          </button>
+        </div>
+
+        @if (identityAction()?.provider === provider.name) {
+        <!-- `(submit)` with preventDefault: see the password form above. -->
+        <form
+          class="flex flex-col gap-y-3"
+          (submit)="$event.preventDefault(); confirmIdentityAction()"
+        >
+          <input
+            type="text"
+            autocomplete="username"
+            class="hidden"
+            [value]="currentUser()?.email ?? ''"
+            readonly
+            tabindex="-1"
+            aria-hidden="true"
+          />
+          <label class="flex flex-col gap-y-1">
+            <span class="text-xs text-muted-foreground">
+              Enter your password to
+              {{ identityAction()?.kind === "connect" ? "connect" : "disconnect" }}
+              {{ provider.label }}
+            </span>
+            <input
+              type="password"
+              autocomplete="current-password"
+              class="w-full text-sm bg-background border border-border rounded-lg px-3 py-2 focus:outline-none focus:ring-1 focus:ring-ring"
+              [value]="identityPassword()"
+              (input)="identityPassword.set($any($event.target).value)"
+            />
+          </label>
+          <div class="flex justify-end gap-x-2">
+            <button
+              hlmBtn
+              type="button"
+              variant="ghost"
+              size="sm"
+              class="rounded-full cursor-pointer text-xs"
+              [disabled]="busy()"
+              (click)="cancelIdentityAction()"
+            >
+              Cancel
+            </button>
+            <button
+              hlmBtn
+              type="submit"
+              size="sm"
+              class="rounded-full cursor-pointer text-xs"
+              [disabled]="busy()"
+            >
+              Continue
+            </button>
+          </div>
+        </form>
+        }
+      </div>
+      }
+    </div>
+
+    @if (!hasPassword()) {
+    <p class="text-xs text-muted-foreground">
+      Set a password above to connect or disconnect accounts.
+    </p>
+    }
+  </section>
+
+  <hlm-separator decorative />
+  }
 
   <!-- ── SESSIONS ───────────────────────────────────────────────────── -->
   <section class="space-y-3">

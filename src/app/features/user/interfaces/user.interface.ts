@@ -7,6 +7,13 @@ export interface UserI {
   email: string;
   /** Present while an address change is awaiting confirmation. Self-only. */
   pending_email?: string;
+  /**
+   * False for an account created through Google or GitHub that has not set a
+   * password yet — the password-gated actions have nothing to ask for. Self-only.
+   */
+  has_password?: boolean;
+  /** Providers that can sign in to this account. Self-only. */
+  providers?: ('google' | 'github')[];
   password: string;
   is_email_verified: boolean;
   login_attempts: number;
