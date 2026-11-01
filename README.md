@@ -3,6 +3,8 @@
 A real-time chat application with direct and group messaging, media attachments,
 and background media processing. Angular 22 frontend, Express 5 backend.
 
+![Chat view in dark mode](docs/screenshots/chat-dark.webp)
+
 ## Overview
 
 Users exchange text, images, video, audio and files in one-to-one or group
@@ -29,6 +31,21 @@ variants the client actually renders.
 - Blocking and per-field privacy visibility (last seen, profile picture, bio,
   online status)
 - Mobile shell via Capacitor
+
+## Screenshots
+
+| | |
+| --- | --- |
+| ![Chat view in light mode](docs/screenshots/chat-light.webp) | ![Chat view in dark mode](docs/screenshots/chat-dark.webp) |
+| ![Security settings](docs/screenshots/settings-security-dark.webp) | ![Sign-in page](docs/screenshots/login-dark.webp) |
+
+On a phone:
+
+<p>
+  <img src="docs/screenshots/mobile-chat.webp" alt="Chat view on mobile" width="180">
+  &nbsp;
+  <img src="docs/screenshots/mobile-register.webp" alt="Registration on mobile" width="180">
+</p>
 
 ## Tech Stack
 
