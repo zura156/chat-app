@@ -489,23 +489,31 @@ export class ChatboxComponent implements OnInit {
           // it — an unparseable value simply means "no pre-selected user".
           const selectedUser = readSelectedUser();
 
-          if (selectedUser) {
-            if (selectedUser._id !== id) {
-              sessionStorage.removeItem('selectedUser');
-              toast.error('That conversation could not be opened.');
-              return EMPTY;
-            }
+          /*
+           * A selection for someone else is left over from a "new chat" that
+           * was opened and never sent — the route is what the user asked for,
+           * so the leftover is dropped and the conversation loads as normal.
+           *
+           * This used to toast and return EMPTY, which skipped
+           * `getConversationById` entirely: the header kept the previous
+           * conversation and its skeleton never cleared, while the messages
+           * (already keyed on the new id) loaded underneath it. No toast now
+           * either — nothing failed from the user's point of view.
+           */
+          if (selectedUser && selectedUser._id !== id) {
+            this.conversationService.clearSelectedUser();
+          }
+
+          if (selectedUser && selectedUser._id === id) {
             this.conversationService.selectUserForConversation(selectedUser);
-            if (id === selectedUser._id) {
-              this.conversationService.createMockConversation();
-              return of(this.conversation()).pipe(
-                tap(() => {
-                  this.isConversationLoading.set(false);
-                  this.canMessage.set(true);
-                }),
-                switchMap(() => this.handleEventMessages()),
-              );
-            }
+            this.conversationService.createMockConversation();
+            return of(this.conversation()).pipe(
+              tap(() => {
+                this.isConversationLoading.set(false);
+                this.canMessage.set(true);
+              }),
+              switchMap(() => this.handleEventMessages()),
+            );
           }
 
           return this.conversationService.getConversationById(id).pipe(

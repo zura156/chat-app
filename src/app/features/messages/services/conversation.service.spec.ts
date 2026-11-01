@@ -10,6 +10,7 @@ import { ConversationService } from './conversation.service';
 import { UserStateService } from '../../user/services/user-state.service';
 import { AuthService } from '../../auth/services/auth.service';
 import { ConversationI } from '../interfaces/conversation.interface';
+import { ParticipantI } from '../interfaces/participant.interface';
 import {
   MessageI,
   MessageStatus,
@@ -308,5 +309,65 @@ describe('ConversationService — the conversation list', () => {
       expect(service.activeConversation()).toBeNull();
       expect(service.selectedConversationId()).toBeNull();
     });
+  });
+});
+
+/*
+ * The user a not-yet-created conversation is being started with lives in two
+ * places: sessionStorage, so it survives a reload, and a signal the messages
+ * resource reads. A selection left behind by an abandoned "new chat" made the
+ * chatbox refuse to open the next real conversation, so clearing it has to take
+ * both copies with it.
+ *
+ * The real UserStateService here, not the stub above — the point is that the
+ * signal and the stored copy end up agreeing.
+ */
+describe('ConversationService — the pending new-chat user', () => {
+  let service: ConversationService;
+  let userState: UserStateService;
+  let http: HttpTestingController;
+
+  const user = { _id: 'u1', username: 'ada' } as ParticipantI;
+
+  beforeEach(() => {
+    TestBed.configureTestingModule({
+      providers: [
+        provideZonelessChangeDetection(),
+        provideHttpClient(),
+        provideHttpClientTesting(),
+        ConversationService,
+        { provide: AuthService, useValue: { isAuthenticated: signal(true) } },
+      ],
+    });
+
+    service = TestBed.inject(ConversationService);
+    userState = TestBed.inject(UserStateService);
+    http = TestBed.inject(HttpTestingController);
+  });
+
+  afterEach(() => {
+    http.verify();
+    sessionStorage.clear();
+  });
+
+  it('clears both the stored copy and the signal', () => {
+    service.selectUserForConversation(user);
+
+    service.clearSelectedUser();
+
+    expect(sessionStorage.getItem('selectedUser')).toBeNull();
+    expect(userState.selectedUser()).toBeNull();
+  });
+
+  it('is cleared once the first message has created the conversation', () => {
+    service.selectUserForConversation(user);
+
+    service.createConversation(['me', user._id]).subscribe();
+    http
+      .expectOne(`${environment.apiUrl}/conversations`)
+      .flush(conversation('c1', { is_group: false }));
+
+    expect(sessionStorage.getItem('selectedUser')).toBeNull();
+    expect(userState.selectedUser()).toBeNull();
   });
 });

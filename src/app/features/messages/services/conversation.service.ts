@@ -124,6 +124,19 @@ export class ConversationService {
     this.userStateService.setSelectedUser(user);
   }
 
+  /**
+   * Forgets the user a not-yet-created conversation was being started with.
+   *
+   * Both copies, always. `selectUserForConversation` writes sessionStorage and
+   * the signal together, but they used to be cleared separately — the chatbox
+   * reads storage while the messages resource reads the signal, so clearing one
+   * left the two disagreeing about whether a new chat was still pending.
+   */
+  clearSelectedUser(): void {
+    sessionStorage.removeItem('selectedUser');
+    this.userStateService.setSelectedUser(null);
+  }
+
   updateConversationState(conversation: ConversationI): void {
     if (!conversation || !conversation._id) {
       toast.error('Invalid conversation data received.');
@@ -257,8 +270,7 @@ export class ConversationService {
       })
       .pipe(
         tap((newConversation) => {
-          this.userStateService.setSelectedUser(null);
-          sessionStorage.removeItem('selectedUser');
+          this.clearSelectedUser();
           this.#activeConversation.set(newConversation);
           // must return a NEW object — mutating and returning the same
           // reference means the signal never notifies its consumers

@@ -1,6 +1,5 @@
 @let conversation = this.conversation();
 @let currentUser = this.currentUser();
-
 <main
   appPan
   (panStart)="onPanStart($event)"
@@ -11,11 +10,7 @@
 >
   <section
     class="absolute transition-all md:translate-0 md:opacity-100 h-full flex flex-col py-2"
-    [class]="
-      isSettingsOpen()
-        ? '-translate-x-full md:translate-0 w-full md:w-1/2'
-        : 'w-full'
-    "
+    [class]="isSettingsOpen() ? '-translate-x-full md:translate-0 w-full md:w-1/2' : 'w-full'"
   >
     <hlm-separator decorative />
 
@@ -32,29 +27,18 @@
         </div>
       } @else {
         <div class="flex items-center gap-x-3">
-          <hlm-avatar
-            variant="large"
-            class="border-2 border-border size-10 shrink-0"
-          >
+          <hlm-avatar variant="large" class="border-2 border-border size-10 shrink-0">
             <img
               [src]="
                 groupImageUrl() ??
-                (conversation?.is_group
-                  ? '/icons/group.svg'
-                  : '/icons/avatar.svg')
+                (conversation?.is_group ? '/icons/group.svg' : '/icons/avatar.svg')
               "
               alt="pfp"
               class="object-cover"
               hlmAvatarImage
             />
             <span hlmAvatarFallback>
-              <img
-                [src]="
-                  conversation?.is_group
-                    ? '/icons/group.svg'
-                    : '/icons/avatar.svg'
-                "
-              />
+              <img [src]="conversation?.is_group ? '/icons/group.svg' : '/icons/avatar.svg'" />
             </span>
           </hlm-avatar>
           <div class="flex flex-col justify-center">
@@ -64,16 +48,9 @@
                   {{ conversation.group_name }}
                 } @else {
                   @let others = this.otherParticipants();
-                  @for (
-                    participant of others;
-                    let last = $last;
-                    track participant._id
-                  ) {
+                  @for (participant of others; let last = $last; track participant._id) {
                     <span>{{
-                      participant.first_name +
-                        " " +
-                        participant.last_name +
-                        (last ? "" : ", ")
+                      participant.first_name + " " + participant.last_name + (last ? "" : ", ")
                     }}</span>
                   }
                 }
@@ -154,21 +131,12 @@
                   hlmAvatarImage
                 />
                 <span class="bg-black text-white" hlmAvatarFallback>
-                  <img
-                    src="/icons/avatar.svg"
-                    hlmAvatarImage
-                    alt="Avatar Fallback"
-                  />
+                  <img src="/icons/avatar.svg" hlmAvatarImage alt="Avatar Fallback" />
                 </span>
               </hlm-avatar>
-              <hlm-card
-                class="flex py-2 items-center h-full border-border"
-                hlmCard
-              >
+              <hlm-card class="flex py-2 items-center h-full border-border" hlmCard>
                 <div class="py-1 px-3 max-w-xs md:max-w-sm lg:max-w-md">
-                  <div class="typing-indicator">
-                    <span></span><span></span><span></span>
-                  </div>
+                  <div class="typing-indicator"><span></span><span></span><span></span></div>
                 </div>
               </hlm-card>
             </div>
@@ -176,10 +144,7 @@
         }
 
         @if (messages().length > 0 && currentUser) {
-          @for (
-            group of groupedMessages();
-            track trackGroupedMessage($index, group)
-          ) {
+          @for (group of groupedMessages(); track trackGroupedMessage($index, group)) {
             <ng-container>
               <div class="flex-1 mt-2 h-fit">
                 <div class="flex items-center gap-x-3 my-4">
@@ -192,16 +157,11 @@
                   <div class="flex-1 h-px bg-border"></div>
                 </div>
                 <div class="flex flex-col-reverse">
-                  @for (
-                    message of group.messages;
-                    track trackMessage(i, message);
-                    let i = $index
-                  ) {
+                  @for (message of group.messages; track trackMessage(i, message); let i = $index) {
                     @if (message) {
                       <message-card
                         [class]="
-                          message.sender._id ===
-                          group?.messages?.[i > 0 ? i + 1 : 1]?.sender?._id
+                          message.sender._id === group?.messages[i > 0 ? i + 1 : 1]?.sender?._id
                             ? ''
                             : 'mt-2'
                         "
@@ -211,9 +171,7 @@
                         [readReceipts]="conversation?.read_receipts ?? []"
                         [currentUser]="currentUser"
                         [isGroup]="conversation?.is_group"
-                        [isLastMessage]="
-                          message?._id === this.messages()[0]._id
-                        "
+                        [isLastMessage]="message?._id === this.messages()[0]._id"
                         [imageUrl]="message.sender.pfp_variants?.thumb ?? ''"
                       ></message-card>
                     }
@@ -227,12 +185,7 @@
             <div
               class="h-full flex flex-col items-center justify-center gap-y-2 text-muted-foreground py-12"
             >
-              <ng-icon
-                hlm
-                name="lucideMessageCircle"
-                class="opacity-20"
-                size="xl"
-              />
+              <ng-icon hlm name="lucideMessageCircle" class="opacity-20" size="xl" />
               <p class="text-sm">No messages yet. Start the conversation!</p>
             </div>
           }
@@ -292,31 +245,16 @@
             @for (attachment of pendingAttachments(); track attachment.tempId) {
               <div
                 hlmAttachment
-                [state]="
-                  attachment.uploading
-                    ? 'uploading'
-                    : attachment.error
-                      ? 'error'
-                      : 'done'
-                "
+                [state]="attachment.uploading ? 'uploading' : attachment.error ? 'error' : 'done'"
                 class="relative shrink-0 max-w-52 rounded-xl overflow-hidden bg-muted border border-border group"
               >
-                @if (
-                  attachment.previewUrl && attachment.context === "dm-video"
-                ) {
+                @if (attachment.previewUrl && attachment.context === "dm-video") {
                   <div hlmAttachmentMedia class="relative">
                     @if (attachment.uploading) {
                       <hlm-spinner />
                     } @else if (attachment.error) {
-                      <div
-                        class="size-full flex items-center justify-center bg-destructive/10"
-                      >
-                        <ng-icon
-                          hlm
-                          name="lucideAlertCircle"
-                          size="sm"
-                          class="text-destructive"
-                        />
+                      <div class="size-full flex items-center justify-center bg-destructive/10">
+                        <ng-icon hlm name="lucideAlertCircle" size="sm" class="text-destructive" />
                       </div>
                     } @else {
                       <video
@@ -329,12 +267,7 @@
                       <div
                         class="absolute inset-0 flex items-center justify-center bg-black/20 pointer-events-none"
                       >
-                        <ng-icon
-                          hlm
-                          name="lucideCirclePlay"
-                          size="sm"
-                          class="text-white"
-                        />
+                        <ng-icon hlm name="lucideCirclePlay" size="sm" class="text-white" />
                       </div>
                     }
                   </div>
@@ -348,12 +281,7 @@
                   </div>
                 } @else if (attachment.error) {
                   <div hlmAttachmentMedia>
-                    <ng-icon
-                      hlm
-                      name="lucideAlertCircle"
-                      size="sm"
-                      class="text-destructive"
-                    />
+                    <ng-icon hlm name="lucideAlertCircle" size="sm" class="text-destructive" />
                   </div>
                 } @else {
                   <div hlmAttachmentMedia>
@@ -441,9 +369,7 @@
               aria-label="Record a voice message"
               [disabled]="micUnavailable()"
               [title]="
-                micUnavailable()
-                  ? 'Your microphone is unavailable'
-                  : 'Record a voice message'
+                micUnavailable() ? 'Your microphone is unavailable' : 'Record a voice message'
               "
               (click)="startRecording()"
             >
@@ -468,7 +394,11 @@
             hlmBtn
             variant="outline"
             aria-label="Send message"
-            [disabled]="!canMessage() || !hasSendableContent() || pendingAttachments().some(a => a.uploading)"
+            [disabled]="
+              !canMessage() ||
+              !hasSendableContent() ||
+              pendingAttachments().some((a) => a.uploading)
+            "
             (click)="sendMessage()"
             class="rounded-full px-4 shrink-0 flex items-center justify-center cursor-pointer disabled:opacity-40 transition-colors"
           >
