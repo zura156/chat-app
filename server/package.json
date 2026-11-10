@@ -6,6 +6,9 @@
   "author": "",
   "type": "commonjs",
   "main": "dist/src/index.js",
+  "engines": {
+    "node": ">=24.7"
+  },
   "scripts": {
     "backfill:notifications": "ts-node src/scripts/backfill-notification-watermarks.ts",
     "backfill:verified": "ts-node src/scripts/backfill-verified-emails.ts",
