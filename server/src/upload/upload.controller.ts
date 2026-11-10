@@ -174,6 +174,9 @@ export const presign = async (req: AuthRequest, res: Response) => {
     Key: fileKey,
     ContentType: mimeType,
     ContentLength: fileSize, // enforces exact size — rejects if different
+    ...(context === 'dm-file' && {
+      ContentDisposition: `attachment; filename="download"`,
+    }),
   });
 
   const presignedUrl = await getSignedUrl(s3, command, {
