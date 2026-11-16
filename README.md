@@ -184,6 +184,11 @@ chat-app/
 
 ## API Endpoints
 
+This section is the overview. The full reference — request and response
+bodies, the cookie and CSRF envelope, every rate limit, the upload pipeline and
+every WebSocket payload — is in [`docs/API.md`](docs/API.md), written for
+building a client against this server in any framework.
+
 CSRF protection and the general rate limiter are applied to **every** router,
 `/auth` included. `/auth` mixes public and authenticated routes — sign-in,
 recovery and the endpoints redeemed from an email link are public; enrolment,
@@ -246,7 +251,7 @@ Sessions and credentials — authenticated:
 | Method | Path | Description |
 |---|---|---|
 | GET | `/auth/sessions` | List active sessions |
-| DELETE | `/auth/sessions` | Revoke every other session |
+| DELETE | `/auth/sessions` | Revoke every session, this one included — clears its cookies |
 | DELETE | `/auth/sessions/:id` | Revoke one session |
 | POST | `/auth/change-password` | Rotate a password you still know (rate limited) |
 | POST | `/auth/change-email` | Request an email change; confirmed from the new inbox (rate limited) |
@@ -363,22 +368,29 @@ non-JSON error page, and the endpoints that answer `{ error }`.
 
 ## WebSocket
 
-The client connects to `wsUrl` and authenticates over the socket itself. The
-identity proven at the upgrade handshake is re-stamped onto every inbound
-message, so a client cannot name someone else by supplying an id.
+The client connects to `wsUrl` and is authenticated at the upgrade handshake by
+its `accessToken` cookie; the `Origin` must equal `CLIENT_URL`. There is no
+authentication message — an `authenticate` frame is ignored. The identity proven
+at the handshake is re-stamped onto every inbound message, so a client cannot
+name someone else by supplying an id.
+
+Only `typing`, `message-status` and `user-status` are accepted from the client;
+anything else is dropped. Messages are sent over REST
+(`POST /messages/:id/send`) and arrive back over the socket. The server does not
+mark a user online when the socket opens — the client announces it with a
+`user-status` frame.
 
 | Type | Direction | Purpose |
 |---|---|---|
-| `authenticate` | client → server | Authenticate the connection |
-| `message` | both | New message |
+| `message` | server → client | New message, including the sender's own echo (carrying its `tempId`) |
 | `message-edited` | server → client | A message's text changed |
 | `message-deleted` | server → client | A message became a tombstone |
 | `message-status` | both | Read receipt |
 | `typing` | both | Typing indicator (membership-checked) |
 | `user-status` | both | Presence |
-| `conversation-update` | server → client | Name, picture or membership changed |
-| `conversation-join` | server → client | You were added to a conversation |
-| `conversation-leave` | server → client | You were removed, or it was deleted |
+| `conversation-update` | server → client | Name or group picture changed |
+| `conversation-join` | server → client | A conversation was created, or gained members |
+| `conversation-leave` | server → client | Members were removed or left, or it was deleted |
 | `upload-ready` | server → client | The worker finished an attachment |
 | `upload-failed` | server → client | Processing failed permanently |
 | `upload-infected` | server → client | ClamAV rejected the file |
@@ -388,8 +400,10 @@ message, so a client cannot name someone else by supplying an id.
 Keep-alive is the protocol's own ping/pong frames, not a JSON message — the
 server pings and drops a client that does not answer.
 
-Sockets are closed with code **4002** when the session behind them is revoked —
-by `sid` for one named session, or by issue time for a bulk revocation.
+Sockets are closed with code **4001** when the access token that opened them
+expires (refresh, then reconnect), and with **4002** when the session behind
+them is revoked — by `sid` for one named session, or by issue time for a bulk
+revocation.
 
 Delivery is over Redis pub/sub (`ws:broadcast`, `ws:notification`, `ws:revoke`)
 so it works across API instances. Anything pushing to users must go through the

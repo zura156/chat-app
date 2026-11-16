@@ -114,7 +114,10 @@ export default {
   jwtRefreshTokenExpiresIn: process.env.JWT_REFRESH_EXPIRES_IN ?? '7d',
   clientUrl: process.env.CLIENT_URL ?? 'http://localhost:4200',
   nodeEnv: process.env.NODE_ENV || 'development',
-  trustedProxies: process.env.TRUSTED_PROXIES?.split(',') || [],
+  trustedProxies: (process.env.TRUSTED_PROXIES ?? '')
+    .split(',')
+    .map((s) => s.trim())
+    .filter(Boolean),
   workerConcurrency: parseInt(process.env.WORKER_CONCURRENCY || '4', 10),
   redisHost: process.env.REDIS_HOST || 'localhost',
   redisPort: parseInt(process.env.REDIS_PORT || '6379', 10),
