@@ -269,6 +269,37 @@ export const confirm = async (req: AuthRequest, res: Response) => {
   return res.json({ ok: true });
 };
 
+/*
+ * GET /upload/:uploadId/status
+ *
+ * Where an upload is in processing, for its owner only. Sentinel's upload
+ * canary (Z, ADR 0031) reads it to learn whether ClamAV passed its clean file
+ * and caught its EICAR one: the canary never attaches them to a message, so the
+ * websocket events and /signed-url (which needs a message) can't tell it.
+ *
+ * Someone else's upload answers exactly as a missing one. Its status is
+ * information about them — that a file of theirs was flagged as malware.
+ */
+export const getUploadStatus = async (req: AuthRequest, res: Response) => {
+  const { uploadId } = req.params;
+  const userId = req.user?._id;
+
+  if (!userId) return fail(res, 401, 'Unauthorized');
+
+  if (typeof uploadId !== 'string' || !isUUID(uploadId)) {
+    return fail(res, 400, 'A valid uploadId is required');
+  }
+
+  const upload = await Upload.findOne(
+    { _id: uploadId, userId },
+    { status: 1 },
+  ).lean();
+
+  if (!upload) return fail(res, 404, 'Upload not found');
+
+  return res.json({ status: upload.status });
+};
+
 // GET /upload/signed-url/:uploadId
 export const getSignedDownloadUrl = async (req: AuthRequest, res: Response) => {
   const { uploadId } = req.params;

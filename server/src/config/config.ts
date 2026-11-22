@@ -135,6 +135,19 @@ export default {
   clamavPort: parseInt(process.env.CLAMAV_PORT || '3310', 10),
 
   /*
+   * The account sentinel's upload canary signs in as (Z, ADR 0031). The worker
+   * deletes that user's finished uploads once they are an hour old, so this is
+   * the canary's own id and nobody else's. The value ends up in a delete's
+   * filter, so anything but a 24-hex ObjectId (unset, a typo, an email) turns
+   * the sweep off; Mongoose's `isValid` would also accept any 12-character
+   * string.
+   */
+  canaryUserId: (() => {
+    const raw = (process.env.CANARY_USER_ID ?? '').trim();
+    return /^[0-9a-f]{24}$/i.test(raw) ? raw.toLowerCase() : '';
+  })(),
+
+  /*
    * "Continue with Google / GitHub". A provider is offered only when all three
    * of its values are set, so a half-configured one is absent rather than a
    * button that always fails.

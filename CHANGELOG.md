@@ -18,6 +18,34 @@ same, including the mail path.
 
 ---
 
+## Added — an upload status endpoint and the canary sweep
+
+An outside monitor (sentinel, Z ADR 0031) now tests the upload path the way a
+user takes it: as its own account, every ten minutes, a clean `dm-file` and the
+EICAR test string through presign, PUT, confirm and ClamAV. Two things it
+needed did not exist.
+
+- **`GET /upload/:uploadId/status`** answers `{ status }` for the caller's own
+  upload. The canary never attaches its files to a message, so neither the
+  websocket events nor `/upload/signed-url` could tell it what ClamAV decided.
+  Anyone else's upload answers 404, exactly like a missing one: whether a
+  stranger's file was flagged as malware is not theirs to learn.
+- **The worker sweeps the canary's files every hour** (`CANARY_USER_ID`; unset
+  means off). Without it a clean ready `dm-file` is exempt from the TTL reaper
+  and an infected one leaves its quarantine copy forever: about 288 uploads a
+  day. Finished uploads only, older than an hour; quarantine copies are deleted
+  first, with the credentials that wrote them, and an infected record whose
+  copy couldn't be deleted stays for the next sweep, since it is the only way
+  to find that copy again.
+
+Covered by `tests/upload/upload.controller.int.spec.ts`,
+`tests/upload/canary-sweep.service.int.spec.ts` (S3 stubbed) and
+`tests/config/canary-user-id.spec.ts`. Not yet run against SeaweedFS.
+SeaweedFS 4.13's source gates object deletes on `Write`, which
+`quarantine-writer` has; a bucket policy on the server would still override it.
+
+---
+
 ## Fixed — refusals that named nothing
 
 A user could be told only that something was wrong, never what. The reasons

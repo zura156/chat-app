@@ -218,6 +218,12 @@ for it (§10).
 - `upload/upload-cleanup.service.ts` `purgeUploads` / `purgeConversationUploads` delete the stored
   objects and records; used when a conversation is deleted, an account is deleted, and when a
   single-slot picture is superseded.
+- Upload canary: an outside monitor (sentinel, Z ADR 0031) uploads a clean `dm-file` and the EICAR
+  test string as its own account every 10 min and reads each outcome from
+  `GET /upload/:uploadId/status` (owner only; anyone else's upload is a 404). The worker sweeps that
+  account (`CANARY_USER_ID`) hourly in `upload/canary-sweep.service.ts`: finished uploads older than
+  1 h, quarantine copies first with the `quarantine-writer` credentials, then `purgeUploads` by id. An
+  infected record whose copy couldn't be deleted is kept for the next sweep. Unset means no sweep.
 - Magic-byte (file signature) validation is **still not implemented**: the MIME type is trusted from the
   client at presign time. Mitigated for media by re-encoding and for `dm-file` by ClamAV, but not removed.
 
@@ -753,7 +759,7 @@ Authoritative source is `server/src/config/config.ts` (plus `utils/mailer.ts`, `
 | Google / GitHub sign-in | `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `GOOGLE_REDIRECT_URI`, `GITHUB_CLIENT_ID`, `GITHUB_CLIENT_SECRET`, `GITHUB_REDIRECT_URI` (redirects into the existing `CLIENT_URL`) |
 | Storage | `S3_ENDPOINT`, `S3_APP_ACCESS`, `S3_APP_SECRET`, `S3_QUARANTINE_ACCESS`, `S3_QUARANTINE_SECRET`, `S3_BUCKET_PUBLIC`, `S3_BUCKET_PRIVATE`, `S3_BUCKET_QUARANTINE`, `S3_BUCKET_TEMP` (**`S3_BUCKET_HLS` is gone**) |
 | Scanning | `CLAMAV_HOST` (localhost), `CLAMAV_PORT` (3310) |
-| Worker | `WORKER_CONCURRENCY` (4) |
+| Worker | `WORKER_CONCURRENCY` (4), `CANARY_USER_ID` (unset: no canary sweep, §5.6) |
 | Mail | `SMTP_HOST`, `SMTP_PORT` (587), `SMTP_SECURE`, `SMTP_USER`, `SMTP_PASS` |
 | Logging | `LOG_LEVEL`, `LOG_DIR` (`<cwd>/logs`), `LOG_SILENT` |
 | Tests | `MONGO_TEST_URI`, `REDIS_TEST_URL`, `REQUIRE_INTEGRATION` |

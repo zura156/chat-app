@@ -3,12 +3,19 @@ import { s3App, s3Quarantine } from '../config/s3';
 import { Upload } from '../upload/upload.model';
 import config from '../config/config';
 
+/**
+ * Where an infected upload's copy lives in the quarantine bucket. Shared with
+ * the canary sweep, which deletes these and must find them by the same key.
+ */
+export const quarantineKeyFor = (fileKey: string, uploadId: string): string =>
+  `quarantine/${uploadId}/${fileKey.split('/').pop()}`;
+
 export const moveToQuarantine = async (
   fileKey: string,
   uploadId: string,
   viruses: string[],
 ): Promise<void> => {
-  const quarantineKey = `quarantine/${uploadId}/${fileKey.split('/').pop()}`;
+  const quarantineKey = quarantineKeyFor(fileKey, uploadId);
 
   // copy to quarantine bucket using quarantine-writer key
   await s3Quarantine.send(

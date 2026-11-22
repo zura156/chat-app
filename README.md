@@ -336,6 +336,7 @@ renders as a tombstone.
 | POST | `/upload/presign` | Get a presigned URL for a direct upload |
 | POST | `/upload/confirm` | Confirm an upload and enqueue processing |
 | GET | `/upload/signed-url/:uploadId` | Get a signed read URL for an upload |
+| GET | `/upload/:uploadId/status` | Processing status of your own upload: `{ status }`, one of `pending`, `processing`, `ready`, `infected`, `failed`. Anyone else's upload is a 404, like a missing one |
 
 Upload contexts: `dm-image`, `dm-video`, `dm-audio`, `dm-file`, `avatar`,
 `group-avatar`. Conversation attachments land in the private bucket; avatars are
@@ -504,6 +505,13 @@ S3_BUCKET_TEMP=uploads-temp
 # Virus scanning
 CLAMAV_HOST=127.0.0.1
 CLAMAV_PORT=3310
+
+# Upload canary (worker). The user id of the account an outside monitor uploads
+# a clean file and the EICAR test string as, every ten minutes. Every hour the
+# worker deletes that account's finished uploads older than an hour, quarantine
+# copies included. Set it to that account's id only. Unset, or anything but a
+# 24-hex ObjectId, turns the sweep off; the worker's start line says which.
+CANARY_USER_ID=
 
 # Mail
 SMTP_HOST=your-host

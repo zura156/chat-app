@@ -18,6 +18,10 @@ import {
   notifyAttachmentOutcome,
 } from './utils/attachment-status';
 import config from './config/config';
+import {
+  CANARY_SWEEP_EVERY_MS,
+  sweepCanaryUploads,
+} from './upload/canary-sweep.service';
 
 // Keep low: ffmpeg is CPU-heavy. Scale horizontally via Coolify replicas instead.
 
@@ -88,9 +92,12 @@ async function startWorker() {
     });
     events.on('stalled', ({ jobId }) => logger.warn('Job stalled', { jobId }));
 
+    const sweep = startCanarySweep();
+
     // Graceful shutdown — Coolify sends SIGTERM on redeploy
     async function shutdown() {
       logger.info('Shutting down worker...');
+      if (sweep) clearInterval(sweep);
       await Promise.allSettled([worker.close(), events.close()]);
       process.exit(0);
     }
@@ -103,6 +110,37 @@ async function startWorker() {
     logger.error('Worker failed to start', error);
     process.exit(1);
   }
+}
+
+/**
+ * Sweeps the upload canary's finished uploads every hour, once at start so a
+ * redeploy doesn't put it off (`upload/canary-sweep.service.ts`). A timer in
+ * this process rather than a BullMQ repeatable job: a job would sit in the
+ * `media-processing` queue that sentinel's worker check reads for stuck jobs.
+ *
+ * Off unless CANARY_USER_ID holds an ObjectId; the start line says which.
+ */
+function startCanarySweep(): NodeJS.Timeout | undefined {
+  const userId = config.canaryUserId;
+  if (!userId) {
+    logger.info('Canary sweep off (CANARY_USER_ID unset or not an ObjectId)');
+    return undefined;
+  }
+
+  const run = async () => {
+    try {
+      const removed = await sweepCanaryUploads(userId);
+      if (removed > 0) logger.info('Canary sweep removed uploads', { removed });
+    } catch (error) {
+      // Nothing awaits a timer callback: a throw here would be an unhandled
+      // rejection (see the handlers at the bottom of this file).
+      logger.error('Canary sweep failed', error);
+    }
+  };
+
+  logger.info('Canary sweep on', { everyMinutes: CANARY_SWEEP_EVERY_MS / 60_000 });
+  void run();
+  return setInterval(run, CANARY_SWEEP_EVERY_MS);
 }
 
 /**
