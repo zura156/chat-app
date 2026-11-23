@@ -18,6 +18,21 @@ same, including the mail path.
 
 ---
 
+## Fixed — DM file uploads refused by storage
+
+- **Every DM file upload failed at the PUT since `1995e39`.** Presign gave
+  `dm-file` a `Content-Disposition`, and the SDK signs it
+  (`X-Amz-SignedHeaders=content-disposition;content-length;host`). The client
+  PUTs with `Content-Type` alone, so storage answered `SignatureDoesNotMatch`
+  (403) and the file never reached the scan. Found by the upload canary against
+  SeaweedFS 4.13, production's version; the same PUT with the header got 200,
+  and avatars (nothing extra signed) were unaffected. The block is removed;
+  a download header belongs on the final object (SECURITY-FIXES 2.3c).
+  `tests/upload/upload.controller.int.spec.ts` now fails if a presign in any
+  context signs a header the client doesn't send.
+
+---
+
 ## Added — an upload status endpoint and the canary sweep
 
 An outside monitor (sentinel, Z ADR 0031) now tests the upload path the way a

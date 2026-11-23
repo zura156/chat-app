@@ -4,6 +4,8 @@ import { Types } from 'mongoose';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import { describeIntegration, resetDatabase } from '../env';
 import { Upload, type UploadStatus } from '../../upload/upload.model';
+import { Conversation } from '../../messenger/models/conversation.model';
+import { CONTEXT_CONFIG } from '../../config/upload.config';
 import type { AuthRequest } from '../../auth/middlewares/auth.middleware';
 
 /*
@@ -21,16 +23,30 @@ import type { AuthRequest } from '../../auth/middlewares/auth.middleware';
  * does not exist.
  */
 
-// The queue connects to Redis at import and the S3 client is configured from
-// whatever server/.env holds; neither is part of this.
+// The queue connects to Redis at import, and server/.env's storage settings are
+// a live endpoint and live keys. Presigning is local (nothing is sent), so
+// throwaway values stand in for them.
 vi.mock('../../config/queue', () => ({ uploadQueue: { add: vi.fn() } }));
-vi.mock('../../config/s3', () => ({
-  s3App: { send: vi.fn() },
-  s3Quarantine: { send: vi.fn() },
-}));
+vi.mock('../../config/config', async (importOriginal) => {
+  const actual = await importOriginal<{ default: Record<string, unknown> }>();
+  return {
+    default: {
+      ...actual.default,
+      s3Url: 'https://s3.test',
+      s3AccessKey: 'test-access',
+      s3SecretKey: 'test-secret',
+      s3QuarantineAccessKey: 'test-access',
+      s3QuarantineSecretKey: 'test-secret',
+      s3PublicBucket: 'media-public',
+      s3PrivateBucket: 'media-private',
+      s3QuarantineBucket: 'media-quarantine',
+      s3TempBucket: 'uploads-temp',
+    },
+  };
+});
 
 // Static, after the mocks: vitest hoists `vi.mock` above the imports.
-import { getUploadStatus } from '../../upload/upload.controller';
+import { getUploadStatus, presign } from '../../upload/upload.controller';
 
 interface MockResponse {
   statusCode?: number;
@@ -124,5 +140,54 @@ describeIntegration('getUploadStatus', () => {
   it('refuses a request with no user', async () => {
     const id = await makeUpload('ready');
     expect((await ask(id)).statusCode).toBe(401);
+  });
+});
+
+/*
+ * POST /upload/presign — what the signature covers.
+ *
+ * Whoever PUTs to a presigned URL must send every header it signed, byte for
+ * byte. `1995e39` gave dm-file presigns a Content-Disposition, and the SDK
+ * signs it (`X-Amz-SignedHeaders=content-disposition;content-length;host`).
+ * The app's client PUTs with Content-Type alone, so SeaweedFS answered every DM
+ * file upload with SignatureDoesNotMatch (found by Z's upload canary against
+ * SeaweedFS 4.13 on 22 Nov). The browser sends Host and Content-Length itself
+ * and the client sets Content-Type: a signature may cover nothing else.
+ */
+const CLIENT_SENDS = ['content-length', 'content-type', 'host'];
+
+describeIntegration('presign', () => {
+  const owner = new Types.ObjectId();
+
+  beforeEach(resetDatabase);
+  afterEach(resetDatabase);
+
+  it('signs only headers the client sends, in every context', async () => {
+    const group = await Conversation.create({
+      participants: [owner, new Types.ObjectId()],
+      is_group: true,
+      group_name: 'Signed headers',
+      created_by: owner,
+    });
+
+    for (const [context, { allowedMimes }] of Object.entries(CONTEXT_CONFIG)) {
+      const req = {
+        body: {
+          context,
+          mimeType: allowedMimes[0],
+          fileSize: 1,
+          ...(context === 'group-avatar' ? { resourceId: String(group._id) } : {}),
+        },
+        user: { _id: owner },
+      } as unknown as AuthRequest;
+      const res = mockResponse();
+      await presign(req, res);
+
+      expect(res.statusCode, `${context}: ${JSON.stringify(res.body)}`).toBeUndefined();
+      const signed = new URL(res.body.presignedUrl).searchParams
+        .get('X-Amz-SignedHeaders')!
+        .split(';');
+      expect(signed.filter((h) => !CLIENT_SENDS.includes(h)), context).toEqual([]);
+    }
   });
 });

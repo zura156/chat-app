@@ -169,14 +169,17 @@ export const presign = async (req: AuthRequest, res: Response) => {
   const fileKey = `${context}/${userId}/${uploadId}/original.${extensionFor(mimeType)}`;
 
   // 5. Generate presigned PUT URL
+  //
+  // Only headers the client's PUT sends may be signed. A Content-Disposition
+  // here (1995e39) was signed too, and the client never sends one, so storage
+  // refused every DM file upload with SignatureDoesNotMatch. A download header
+  // belongs on the final object the worker writes (docs/SECURITY-FIXES.md 2.3c),
+  // not on the temp upload. tests/upload/upload.controller.int.spec.ts pins it.
   const command = new PutObjectCommand({
     Bucket: config.bucket,
     Key: fileKey,
     ContentType: mimeType,
     ContentLength: fileSize, // enforces exact size — rejects if different
-    ...(context === 'dm-file' && {
-      ContentDisposition: `attachment; filename="download"`,
-    }),
   });
 
   const presignedUrl = await getSignedUrl(s3, command, {
