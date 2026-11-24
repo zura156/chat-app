@@ -26,6 +26,13 @@ export const routes: Routes = [
       import('./features/auth/auth.routes').then((m) => m.authRoutes),
   },
   {
+    // Public on purpose: a privacy policy that needs a session to read is not
+    // published. No guard here or inside — see LegalLayout.
+    path: 'legal',
+    loadChildren: () =>
+      import('./features/legal/legal.routes').then((m) => m.legalRoutes),
+  },
+  {
     path: 'settings', // preference & user profile settings (e.g. display name, pfp, theme preferences, etc.)
     loadChildren: () =>
       import('./features/user/components/settings/settings.routes').then(

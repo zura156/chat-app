@@ -93,52 +93,32 @@
     }
   </section>
 
-  @if (hasAppInfo()) {
-    <hlm-separator decorative />
+  <hlm-separator decorative />
 
-    <!-- App info -->
-    <section class="space-y-3">
-      <h3 class="text-sm font-medium">App info</h3>
-      <div class="space-y-1 text-sm">
-        @if (appVersion) {
-          <div class="flex justify-between px-4 py-2.5 rounded-xl">
-            <span class="text-muted-foreground">Version</span>
-            <span class="tabular-nums font-medium">{{ appVersion }}</span>
-          </div>
-        }
-        @if (termsUrl) {
-          <a
-            class="flex justify-between items-center px-4 py-2.5 rounded-xl hover:bg-muted/40 transition-colors"
-            [href]="termsUrl"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <span class="text-muted-foreground">Terms of service</span>
-            <ng-icon
-              hlm
-              name="lucideExternalLink"
-              size="xs"
-              class="text-muted-foreground"
-            />
-          </a>
-        }
-        @if (privacyUrl) {
-          <a
-            class="flex justify-between items-center px-4 py-2.5 rounded-xl hover:bg-muted/40 transition-colors"
-            [href]="privacyUrl"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <span class="text-muted-foreground">Privacy policy</span>
-            <ng-icon
-              hlm
-              name="lucideExternalLink"
-              size="xs"
-              class="text-muted-foreground"
-            />
-          </a>
-        }
-      </div>
-    </section>
-  }
+  <!-- App info -->
+  <section class="space-y-3">
+    <h3 class="text-sm font-medium">App info</h3>
+    <div class="space-y-1 text-sm">
+      @if (appVersion) {
+        <div class="flex justify-between px-4 py-2.5 rounded-xl">
+          <span class="text-muted-foreground">Version</span>
+          <span class="tabular-nums font-medium">{{ appVersion }}</span>
+        </div>
+      }
+      @for (link of legalLinks; track link.path) {
+        <a
+          class="flex justify-between items-center px-4 py-2.5 rounded-xl hover:bg-muted/40 transition-colors"
+          [routerLink]="link.path"
+        >
+          <span class="text-muted-foreground">{{ link.label }}</span>
+          <ng-icon
+            hlm
+            name="lucideChevronRight"
+            size="xs"
+            class="text-muted-foreground"
+          />
+        </a>
+      }
+    </div>
+  </section>
 </main>

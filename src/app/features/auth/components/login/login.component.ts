@@ -36,6 +36,7 @@ import { HlmAlertImports } from '@spartan-ng/helm/alert';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { ThemeService } from '../../../../shared/services/theme.service';
 import { OidcButtonsComponent } from '../oidc-buttons/oidc-buttons.component';
+import { LegalNoticeComponent } from '../legal-notice/legal-notice';
 import { TwoFactorMethod } from '../../interfaces/two-factor.interface';
 
 /** How the fields are named in a sentence, rather than as control keys. */
@@ -94,6 +95,7 @@ const rateLimitedMessage = (retryAfter: string | null): string => {
     NgIcon,
     HlmAlertImports,
     OidcButtonsComponent,
+    LegalNoticeComponent,
   ],
   providers: [
     provideIcons({

@@ -47,7 +47,13 @@ export const appConfig: ApplicationConfig = {
   providers: [
     provideRouter(
       routes,
-      withInMemoryScrolling({ scrollPositionRestoration: 'enabled' }),
+      // anchorScrolling: the legal pages' tables of contents link to
+      // `#fragment`s. A bare href="#x" resolves against <base href="/"> and
+      // navigates to the root instead, so they go through the router.
+      withInMemoryScrolling({
+        scrollPositionRestoration: 'enabled',
+        anchorScrolling: 'enabled',
+      }),
       withViewTransitions({
         onViewTransitionCreated: ({ transition, from, to }) => {
           const html = inject(DOCUMENT).documentElement;

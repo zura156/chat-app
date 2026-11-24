@@ -1,11 +1,12 @@
 import { Component, computed, inject, signal } from '@angular/core';
+import { RouterLink } from '@angular/router';
 import { NgIcon, provideIcons } from '@ng-icons/core';
 import { HlmSeparatorImports } from '@spartan-ng/helm/separator';
 import { HlmButtonImports } from '@spartan-ng/helm/button';
 import {
   lucideChevronDown,
+  lucideChevronRight,
   lucideCopy,
-  lucideExternalLink,
   lucideMail,
 } from '@ng-icons/lucide';
 import { HlmIconImports } from '@spartan-ng/helm/icon';
@@ -33,12 +34,18 @@ interface Faq {
  * attached instead of "it doesn't work".
  */
 @Component({
-  imports: [NgIcon, HlmIconImports, HlmSeparatorImports, HlmButtonImports],
+  imports: [
+    RouterLink,
+    NgIcon,
+    HlmIconImports,
+    HlmSeparatorImports,
+    HlmButtonImports,
+  ],
   providers: [
     provideIcons({
       lucideChevronDown,
+      lucideChevronRight,
       lucideMail,
-      lucideExternalLink,
       lucideCopy,
     }),
   ],
@@ -48,13 +55,14 @@ export class HelpSupportSettings {
   private readonly webSocket = inject(WebSocketService);
 
   readonly supportEmail = environment.supportEmail;
-  readonly termsUrl = environment.termsUrl;
-  readonly privacyUrl = environment.privacyUrl;
   readonly appVersion = environment.appVersion;
 
-  readonly hasAppInfo = computed(
-    () => !!this.appVersion || !!this.termsUrl || !!this.privacyUrl,
-  );
+  /** In-app pages, always present — unlike the configurable rows above. */
+  readonly legalLinks = [
+    { path: '/legal/terms', label: 'Terms of use' },
+    { path: '/legal/privacy', label: 'Privacy policy' },
+    { path: '/legal/cookies', label: 'Cookies & storage' },
+  ] as const;
 
   faqs = signal<Faq[]>([
     {
@@ -74,7 +82,10 @@ export class HelpSupportSettings {
     },
     {
       q: 'Can I recover deleted messages?',
-      a: 'No. Deleting a message clears its text and attachments immediately and permanently. An empty placeholder stays in the thread so the conversation still reads in order.',
+      // Not "permanently": the message row is emptied, but deleteMessage does
+      // not yet remove the stored files — see the Privacy Policy's retention
+      // section, which says so. Change both when that purge exists.
+      a: 'No. Deleting a message clears its text and removes its attachments from the conversation straight away, and it cannot be undone. An empty placeholder stays in the thread so the conversation still reads in order.',
       open: signal(false),
     },
     {

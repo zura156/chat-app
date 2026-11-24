@@ -7,8 +7,6 @@ export const environment = {
 
   // See the production file: blank means the row is not rendered at all,
   // rather than shown with a placeholder nobody monitors.
-  supportEmail: '',
-  termsUrl: '',
-  privacyUrl: '',
-  appVersion: '',
+  supportEmail: 'zuragagnidze69@gmail.com',
+  appVersion: '0.0.0',
 };

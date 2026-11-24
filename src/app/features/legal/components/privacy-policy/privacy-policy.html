@@ -1,0 +1,402 @@
+<article>
+  <h1>Privacy Policy</h1>
+  <p class="meta">
+    Last updated
+    <time [attr.datetime]="legal.lastUpdated">{{
+      legal.lastUpdated | date: "longDate"
+    }}</time>
+  </p>
+  <p class="lede">
+    This policy explains what {{ legal.serviceName }} collects when you use it,
+    why, who can see it, and how to get it changed or deleted.
+  </p>
+
+  <section class="summary" aria-labelledby="summary-heading">
+    <h2 id="summary-heading">The short version</h2>
+    <ul>
+      <li>
+        We collect what a messaging service needs to work: your account
+        details, the messages and files you send, and security records such as
+        the devices you are signed in on.
+      </li>
+      <li>
+        Messages are encrypted in transit but <strong>not end-to-end
+        encrypted</strong>. They are stored on our servers in a form we could
+        read.
+      </li>
+      <li>
+        We do not sell your data, show ads, or use analytics or advertising
+        trackers.
+      </li>
+      <li>
+        You can download your data and delete your account at any time from
+        Settings.
+      </li>
+    </ul>
+  </section>
+
+  <nav class="toc" aria-label="On this page">
+    <ol>
+      @for (section of sections; track section.id) {
+        <li>
+          <a [routerLink]="[]" [fragment]="section.id">{{ section.title }}</a>
+        </li>
+      }
+    </ol>
+  </nav>
+
+  <!-- ── 1 ─────────────────────────────────────────────────────────────── -->
+  <h2 id="who-we-are">1. Who we are</h2>
+  <p>
+    {{ legal.serviceName }} (“the Service”, “we”, “us”) is operated by
+    <app-legal-fact fact="operatorName" />,
+    <app-legal-fact fact="operatorAddress" />. We are responsible for
+    deciding how your personal data is used — the “controller”, in the
+    language of data-protection law.
+  </p>
+  <p>
+    You can reach us about anything in this policy at
+    <app-legal-fact fact="contactEmail" />.
+  </p>
+
+  <!-- ── 2 ─────────────────────────────────────────────────────────────── -->
+  <h2 id="what-we-collect">2. What we collect</h2>
+
+  <h3>Information you give us</h3>
+  <ul>
+    <li>
+      <strong>Account details:</strong> first and last name, username, email
+      address and password. We store the password only as a one-way hash, never
+      the password itself.
+    </li>
+    <li>
+      <strong>Profile details you choose to add:</strong> a bio, a profile
+      picture and a cover photo.
+    </li>
+    <li>
+      <strong>What you send:</strong> the text of your messages and their
+      edits, and the images, videos, voice messages and files you attach,
+      including each file's name, type and size. Group names and group pictures
+      you set.
+    </li>
+    <li>
+      <strong>Settings:</strong> your privacy choices, the people you block,
+      the conversations you mute, and two-factor authentication settings.
+    </li>
+  </ul>
+
+  <h3>If you sign in with Google or GitHub</h3>
+  <p>
+    We receive your account identifier at that provider, your verified email
+    address and your name (and, from GitHub, your GitHub username). We use them
+    to create or sign in to your account. We do not receive your password for
+    that provider, and we do not post anything on your behalf.
+  </p>
+
+  <h3>Information created as you use the Service</h3>
+  <ul>
+    <li>
+      <strong>Conversation records:</strong> which conversations you are in,
+      who else is in them, when each message was sent, and whether it was
+      delivered and read.
+    </li>
+    <li>
+      <strong>Presence:</strong> whether you are online, and when you were last
+      seen.
+    </li>
+    <li>
+      <strong>Security records:</strong> for each device you are signed in on,
+      the IP address and browser or device description (user agent) it signed
+      in from, and when it was created and last used. We also keep your last
+      sign-in time and a count of recent failed sign-in attempts.
+    </li>
+    <li>
+      <strong>Server logs:</strong> records of errors, which may include an
+      account identifier, and short-lived rate-limit counters keyed by IP
+      address or account.
+    </li>
+  </ul>
+
+  <h3>On your device</h3>
+  <p>
+    A few cookies keep you signed in and protect your account, and your browser
+    remembers display preferences such as your theme. All of them are needed
+    for the Service to work; none track you. The
+    <a routerLink="/legal/cookies">Cookies &amp; Storage</a> page lists each
+    one.
+  </p>
+
+  <!-- ── 3 ─────────────────────────────────────────────────────────────── -->
+  <h2 id="how-we-use-it">3. How we use it, and why</h2>
+  <p>
+    Data-protection law asks us to name the legal basis for each use. Ours are
+    below.
+  </p>
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th scope="col">What we do</th>
+          <th scope="col">Why we are allowed to</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>Run your account; deliver, store and display your messages and
+            files; show your profile to other users</td>
+          <td>It is necessary to provide the Service you signed up for
+            (performance of a contract)</td>
+        </tr>
+        <tr>
+          <td>Resize and convert the images, video and audio you upload, and
+            scan the documents you attach for malware</td>
+          <td>Performance of a contract, and our legitimate interest in keeping
+            malware off the Service</td>
+        </tr>
+        <tr>
+          <td>Send you account emails — address verification, password resets,
+            sign-in codes, and security alerts such as a password change, a
+            locked account, or a sign-in provider being connected</td>
+          <td>Performance of a contract, and our legitimate interest in keeping
+            your account secure</td>
+        </tr>
+        <tr>
+          <td>Record sessions, rate-limit requests, lock an account after
+            repeated failed sign-ins, and keep error logs</td>
+          <td>Our legitimate interest in protecting the Service and your
+            account from abuse</td>
+        </tr>
+        <tr>
+          <td>Check new passwords against known data breaches</td>
+          <td>Our legitimate interest in stopping accounts being taken over
+            with leaked passwords</td>
+        </tr>
+        <tr>
+          <td>Respond to legal requests and enforce our
+            <a routerLink="/legal/terms">Terms of Use</a></td>
+          <td>Legal obligations, and our legitimate interest in protecting
+            users and the Service</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+  <p>
+    We do not send marketing email, sell or rent personal data, show
+    advertising, build advertising profiles, or make decisions about you by
+    automated means that have legal or similarly significant effects.
+  </p>
+
+  <!-- ── 4 ─────────────────────────────────────────────────────────────── -->
+  <h2 id="who-can-see-it">4. Who can see it</h2>
+
+  <h3>Other users</h3>
+  <ul>
+    <li>
+      <strong>Your profile.</strong> Any signed-in user can find you in the
+      user list and in search, and see your name, username, cover photo and the
+      date you joined. Your bio, profile picture, online status and last-seen
+      time follow your privacy settings: everyone, only people you share a
+      conversation with, or nobody. One exception today: unless your online
+      status is set to nobody, people you share a conversation with are also
+      sent your last-seen time each time you go online or offline, even if
+      last seen is hidden. Your email address is never shown to other users.
+    </li>
+    <li>
+      <strong>Your messages.</strong> Everyone in a conversation — including
+      people added to a group later — can see the messages and files sent to
+      it, when they were sent, and whether they have been read. Group members
+      can see who else is in the group.
+    </li>
+    <li>
+      <strong>Contact.</strong> Any user can start a conversation with you or
+      add you to a group unless one of you has blocked the other. Blocking hides
+      each of you from the other's search and profile view, and stops either of
+      you messaging the other directly or adding the other to a group.
+    </li>
+  </ul>
+
+  <h3>Service providers</h3>
+  <p>
+    We use a small number of companies to run the Service. They process data
+    only on our instructions and only to provide their service to us:
+  </p>
+  <ul>
+    <li>hosting and database providers, which store account and message data;</li>
+    <li>
+      a network provider, which carries traffic between you and our servers and
+      protects them from attacks;
+    </li>
+    <li>an email delivery provider, which sends our account emails.</li>
+  </ul>
+
+  <h3>Other organisations</h3>
+  <ul>
+    <li>
+      <strong>Google and GitHub</strong> learn that you used their sign-in for
+      the Service, if you choose to. Their own privacy policies cover what they
+      do with that.
+    </li>
+    <li>
+      <strong>Have I Been Pwned.</strong> When you set a password, our server
+      sends the first five characters of a hash of it to
+      <code>api.pwnedpasswords.com</code> to check whether it has appeared in a
+      known breach. Neither the password, nor your email address, nor your IP
+      address is sent.
+    </li>
+    <li>
+      <strong>Authorities and others where the law requires it.</strong> We
+      disclose data if we are legally required to, or where it is necessary to
+      protect someone's safety, to prevent fraud or abuse, or to enforce our
+      Terms.
+    </li>
+    <li>
+      <strong>A successor.</strong> If the Service is transferred to someone
+      else, your data would go with it, under this policy, and we would tell
+      you first.
+    </li>
+  </ul>
+
+  <!-- ── 5 ─────────────────────────────────────────────────────────────── -->
+  <h2 id="security">5. Security and encryption</h2>
+  <p>
+    Traffic between your device and our servers is encrypted with TLS.
+    Messages and files are <strong>not end-to-end encrypted</strong>: they are
+    stored on our servers in a form the operator of the Service could read.
+    Please keep that in mind before sending anything highly sensitive.
+  </p>
+  <p>
+    Other safeguards: passwords are hashed; documents you attach are scanned
+    for malware, and images, video and audio are re-encoded, before anyone
+    receives them; files sent in conversations are kept in private storage and
+    shown only through signed links that expire after a few hours; and
+    you can turn on two-factor authentication and see and sign out the devices
+    on your account in Settings → Security.
+  </p>
+  <p>
+    No system is perfectly secure. If a breach puts your data at risk, we will
+    tell you and the relevant authorities as the law requires.
+  </p>
+
+  <!-- ── 6 ─────────────────────────────────────────────────────────────── -->
+  <h2 id="retention">6. How long we keep it</h2>
+  <ul>
+    <li>
+      <strong>Your account, profile and messages</strong> are kept until you
+      delete them or delete your account.
+    </li>
+    <li>
+      <strong>A deleted message</strong> loses its text and attachments
+      immediately. An empty placeholder showing who sent it and when stays in
+      the conversation so the thread still reads in order. The stored copies of
+      files that were attached to it are currently kept until your account is
+      deleted.
+    </li>
+    <li>
+      <strong>Device sessions</strong>, with their IP address and device
+      description, end when you sign out or revoke them, and otherwise expire
+      seven days after they were last used.
+    </li>
+    <li>
+      <strong>One-time sign-in codes</strong> expire after ten minutes. Links
+      in account emails expire after a short time or once used.
+    </li>
+    <li>
+      <strong>Files that fail the malware scan</strong> are never delivered and
+      are moved to isolated storage instead.
+    </li>
+    <li>
+      <strong>Server logs</strong> are kept only as long as needed to diagnose
+      problems.
+    </li>
+  </ul>
+
+  <h3>When you delete your account</h3>
+  <p>
+    Your profile, uploaded files, sessions, two-factor settings,
+    notifications and mutes are deleted, and you are removed from other
+    people's block lists. In conversations that still have at least two
+    members, the messages you sent are emptied the same way a deleted message
+    is. A conversation left with fewer than two members — every one-to-one
+    conversation, for example — is deleted entirely, <strong>including the
+    other person's messages in it</strong>. Groups you created pass to another
+    member.
+  </p>
+  <p>
+    We may keep information for longer where the law requires it, or where it
+    is needed to deal with a legal claim or a serious violation of our Terms.
+  </p>
+
+  <!-- ── 7 ─────────────────────────────────────────────────────────────── -->
+  <h2 id="your-rights">7. Your choices and rights</h2>
+  <p>You can do most things yourself, in Settings:</p>
+  <ul>
+    <li><strong>Profile</strong> — change your name, username, bio and pictures.</li>
+    <li>
+      <strong>Privacy</strong> — choose who sees your bio, profile picture,
+      online status and last-seen time, and manage who you have blocked.
+    </li>
+    <li>
+      <strong>Security</strong> — see and sign out your devices, and turn on
+      two-factor authentication.
+    </li>
+    <li>
+      <strong>Data &amp; Storage</strong> — download a copy of your data.
+    </li>
+    <li><strong>Account</strong> — change your email address, or delete your account.</li>
+  </ul>
+  <p>
+    Depending on where you live — including in the European Union, the United
+    Kingdom and many other countries — you also have the right to:
+  </p>
+  <ul>
+    <li>get a copy of the personal data we hold about you;</li>
+    <li>have inaccurate data corrected;</li>
+    <li>have your data deleted;</li>
+    <li>restrict or object to how we use it, including where we rely on our
+      legitimate interests;</li>
+    <li>receive the data you gave us in a portable format;</li>
+    <li>
+      complain to the data-protection authority where you live or work. We
+      would appreciate the chance to put things right first.
+    </li>
+  </ul>
+  <p>
+    To exercise any of these, email <app-legal-fact fact="contactEmail" /> from
+    the address on your account. We will reply within one month, and we may
+    need to confirm it is really you before acting. These requests are free.
+  </p>
+
+  <!-- ── 8 ─────────────────────────────────────────────────────────────── -->
+  <h2 id="transfers">8. Where it is stored</h2>
+  <p>
+    Your data is stored in <app-legal-fact fact="dataLocation" />. Some of our
+    service providers operate in other countries, so your data may be
+    processed outside the country you live in. Where the law requires it, we
+    put appropriate safeguards in place for those transfers.
+  </p>
+
+  <!-- ── 9 ─────────────────────────────────────────────────────────────── -->
+  <h2 id="children">9. Children</h2>
+  <p>
+    The Service is not for anyone under {{ legal.minimumAge }}. We do not
+    knowingly collect data from them. If you believe someone under
+    {{ legal.minimumAge }} has an account, tell us at
+    <app-legal-fact fact="contactEmail" /> and we will delete it.
+  </p>
+
+  <!-- ── 10 ────────────────────────────────────────────────────────────── -->
+  <h2 id="changes">10. Changes to this policy</h2>
+  <p>
+    When we change this policy, we update the date at the top. If a change
+    materially affects how we use your data, we will tell you in the app or by
+    email before it takes effect.
+  </p>
+
+  <!-- ── 11 ────────────────────────────────────────────────────────────── -->
+  <h2 id="contact">11. Contact</h2>
+  <p>
+    <app-legal-fact fact="operatorName" /><br />
+    <app-legal-fact fact="operatorAddress" /><br />
+    <app-legal-fact fact="contactEmail" />
+  </p>
+</article>

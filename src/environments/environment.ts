@@ -14,9 +14,11 @@ export const environment = {
    * the first one is the kind that gets mailed into a void by real users.
    * Fill these in and they appear; leave them blank and nothing claims to
    * exist that doesn't.
+   *
+   * The terms and privacy policy are pages in the app now (/legal), so they
+   * no longer have URLs here. `supportEmail` doubles as the contact address
+   * those pages print, unless features/legal/legal.config.ts overrides it.
    */
-  supportEmail: '',
-  termsUrl: '',
-  privacyUrl: '',
-  appVersion: '',
+  supportEmail: 'zuragagnidze69@gmail.com',
+  appVersion: '0.0.0',
 };

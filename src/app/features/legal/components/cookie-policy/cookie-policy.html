@@ -1,0 +1,57 @@
+<article>
+  <h1>Cookies &amp; Storage</h1>
+  <p class="meta">
+    Last updated
+    <time [attr.datetime]="legal.lastUpdated">{{
+      legal.lastUpdated | date: "longDate"
+    }}</time>
+  </p>
+  <p class="lede">
+    {{ legal.serviceName }} stores a small amount of information in your
+    browser. All of it is needed to keep you signed in and secure, or remembers
+    a choice you made. We use no analytics, advertising or tracking cookies,
+    and nothing from other websites — so there is nothing to opt in to.
+  </p>
+
+  @for (group of groups; track group.id) {
+    <h2 [id]="group.id">{{ group.title }}</h2>
+    <p>{{ group.intro }}</p>
+    <div class="table-wrap">
+      <table>
+        <caption class="sr-only">{{ group.title }}</caption>
+        <thead>
+          <tr>
+            <th scope="col">Name</th>
+            <th scope="col">What it is for</th>
+            <th scope="col">How long</th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (item of group.items; track item.name) {
+            <tr>
+              <td><code>{{ item.name }}</code></td>
+              <td>{{ item.purpose }}</td>
+              <td>{{ item.lifetime }}</td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+    @if (group.note) {
+      <p>{{ group.note }}</p>
+    }
+  }
+
+  <h2 id="control">Your control</h2>
+  <p>
+    You can clear or block all of this in your browser's settings. Blocking
+    cookies will sign you out and stop you signing back in; clearing storage
+    resets your display preferences.
+  </p>
+  <p>
+    If we ever add anything that is not strictly necessary, we will ask for
+    your consent first and list it here. For everything else about your data,
+    see the <a routerLink="/legal/privacy">Privacy Policy</a>, or contact
+    <app-legal-fact fact="contactEmail" />.
+  </p>
+</article>
