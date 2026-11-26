@@ -9,6 +9,7 @@ import {
   discardTempObject,
   processUpload,
 } from './processors/upload.processor';
+import { isFinalAttempt } from './processors/final-attempt';
 import { logger } from './utils/logger';
 import { connectDB } from './config/db';
 import { connectRedis } from './config/redis';
@@ -148,9 +149,7 @@ function startCanarySweep(): NodeJS.Timeout | undefined {
  * the attachment is not coming, and removes the original nothing will retry.
  *
  * Extracted from the `failed` listener so its awaits have somewhere to be
- * caught. `attemptsMade` is the count *including* the attempt that just failed
- * — verified against bullmq 5.x — so the final attempt of three compares equal
- * to `attempts` and nothing before it does.
+ * caught. Which failures are final is `isFinalAttempt`'s call.
  */
 async function handleFailedJob(
   job: Job<JobPayload> | undefined,
@@ -169,11 +168,9 @@ async function handleFailedJob(
     status: (err as any).$metadata?.httpStatusCode,
   };
 
-  // update the database — only once the job has exhausted its retries,
+  // update the database — only once nothing will run the job again,
   // otherwise a transient failure marks a still-pending upload as failed
-  const isFinalAttempt = !job || job.attemptsMade >= (job.opts?.attempts ?? 1);
-
-  if (uploadId && isFinalAttempt) {
+  if (uploadId && isFinalAttempt(job, err)) {
     await Upload.findByIdAndUpdate(uploadId, { status: 'failed' }).exec();
     await markAttachmentStatus(uploadId, 'failed');
 

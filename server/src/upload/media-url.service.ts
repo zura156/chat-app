@@ -3,6 +3,7 @@ import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { s3App } from '../config/s3';
 import config from '../config/config';
 import { logger } from '../utils/logger';
+import { downloadOverrides } from './file-types';
 
 /**
  * Private-bucket objects (everything sent inside a conversation) are not
@@ -36,7 +37,11 @@ export const signPrivateUrl = async (url: string): Promise<string> => {
   try {
     return await getSignedUrl(
       s3App,
-      new GetObjectCommand({ Bucket: config.s3PrivateBucket, Key: key }),
+      new GetObjectCommand({
+        Bucket: config.s3PrivateBucket,
+        Key: key,
+        ...downloadOverrides(key),
+      }),
       {
         expiresIn: SIGNED_URL_TTL_SECONDS,
         signingDate: currentSigningDate(),

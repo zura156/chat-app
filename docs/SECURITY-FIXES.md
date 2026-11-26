@@ -115,8 +115,11 @@ and copy whatever is at the original key *by then*.
 **a) Fail closed on an inconclusive scan** —
 [`clamav.ts`](../server/src/utils/clamav.ts) (`isInfected: isInfected ?? false`)
 
-- [ ] `true` → infected, `false` → clean, anything else (`null`) → throw ("scan inconclusive"),
-      so BullMQ retries.
+- [x] `true` → infected, `false` → clean, anything else (`null`) → throw ("scan inconclusive"),
+      so BullMQ retries. *(26 Nov, uncommitted: the error reads "ClamAV gave no verdict
+      (reply …)". In compose, clamscan 2.4.0 resolved `isInfected: null` against a stand-in
+      clamd that closed without a reply and one that replied `COMMAND READ TIMED OUT`; against
+      the first, a clean `.txt` failed after 3 attempts in 15.3 s.)*
 
 **b) Magic-byte check** — new `server/src/utils/file-signature.ts`, e.g.
 `matchesDeclaredType(mimeType, firstBytes): boolean`, as a lookup table (no new dependency):
@@ -130,37 +133,71 @@ and copy whatever is at the original key *by then*.
 | `application/x-rar-compressed` | `52 61 72 21 1A 07` |
 | `text/plain`, `text/csv` | no `0x00` bytes, and valid UTF-8 (`new TextDecoder('utf-8', { fatal: true })`, decoded with `{ stream: true }` so a sample cut mid-character passes) |
 
-- [ ] Run it in `processUpload`
-      ([`upload.processor.ts`](../server/src/processors/upload.processor.ts)) after a clean scan,
-      on `GetObjectCommand({ ..., Range: 'bytes=0-4095' })` of the frozen key.
-- [ ] On mismatch throw BullMQ's `UnrecoverableError` (a retry cannot change the bytes).
-- [ ] **Fix `handleFailedJob`** in [`worker.ts`](../server/src/worker.ts): `isFinalAttempt` must
+- [x] Run it after a clean scan, on `GetObjectCommand({ ..., Range: 'bytes=0-4095' })` of the
+      job's `fileKey` (the frozen key once 2.2 sets it). *Built in
+      [`file.handler.ts`](../server/src/processors/handlers/file.handler.ts), not
+      `processUpload`: the handler is dm-file's alone, and one `Upload` read serves this check
+      and 2.3c's headers.*
+- [x] On mismatch throw BullMQ's `UnrecoverableError` (a retry cannot change the bytes).
+      *(Compose, 26 Nov: a ZIP declared `application/pdf` ended `failed` in 0.26 s,
+      `attemptsMade` 1, "File content does not match application/pdf".)*
+- [x] **Fix `handleFailedJob`** in [`worker.ts`](../server/src/worker.ts): `isFinalAttempt` must
       also be true when `err instanceof UnrecoverableError` — otherwise the upload stays
-      "processing" forever.
-- [ ] Spec `server/src/tests/utils/file-signature.spec.ts`: a pass and a fail per row, plus HTML
+      "processing" forever. *(Now `processors/final-attempt.ts`, with its own spec.)*
+- [x] Spec `server/src/tests/utils/file-signature.spec.ts`: a pass and a fail per row, plus HTML
       declared as `text/plain` (passes — 2.3c is what makes it harmless), ZIP declared as PDF
       (fails), empty buffer (fails), UTF-8 cut mid-character (passes).
+- Behaviour change to know: `.txt` and `.csv` must now be UTF-8. A Windows-1252 CSV (an older
+  Excel export, "René") or a UTF-16 text file fails as "File content does not match text/csv".
+  So does an empty ZIP (`PK 05 06`, no entries).
 
 **c) Server-set headers on the stored file** —
 [`file.handler.ts`](../server/src/processors/handlers/file.handler.ts) (`CopyObjectCommand`)
 
-- [ ] `MetadataDirective: 'REPLACE'` (already used in `utils/quarantine.ts`, so SeaweedFS supports
-      it).
-- [ ] `ContentType`: the declared type, plus `; charset=utf-8` for `text/plain` / `text/csv`.
-- [ ] `ContentDisposition: 'attachment; filename="file.<ext>"'` — generic name, never
+- [x] ~~`MetadataDirective: 'REPLACE'`~~ **A streamed `GetObject` then `PutObject` instead.**
+      Measured on SeaweedFS 4.13 (26 Nov, compose): a REPLACE copy keeps `x-amz-meta-*` (which is
+      all `utils/quarantine.ts` sets) but keeps the source's Content-Type and sets no
+      Content-Disposition, same bucket or across; a PUT sets both. The PUT takes
+      `ContentLength` from the GET and streams: a 90 MiB file came back byte for byte (size and
+      sha256), the worker peaking 36 MiB over idle.
+- [x] `ContentType`: the declared type, plus `; charset=utf-8` for `text/plain` / `text/csv`.
+- [x] `ContentDisposition: 'attachment; filename="file.<ext>"'` — generic name, never
       user input in a header.
-- [ ] Take the type from the `Upload` document (`Upload.findById(payload.uploadId)`), not
+- [x] Take the type from the `Upload` document (`Upload.findById(payload.uploadId)`), not
       `payload.mimeType`; re-check it is in `CONTEXT_CONFIG['dm-file'].allowedMimes`, else
       `UnrecoverableError` (part of L21).
+- Compose, 26 Nov, through the real worker and a signed GET: HTML declared `text/plain` and PUT
+  as `text/html` came back `text/plain; charset=utf-8`, `attachment; filename="file.txt"` (before
+  this change: `text/html`, no disposition). A PDF came back `application/pdf` with its
+  disposition. The canary's first run stayed ok.
+- [x] **Files stored before this change**, which kept the type their client sent: both signers
+      (`signPrivateUrl` and `GET /upload/signed-url/:id`) now sign a dm-file's GET with
+      `ResponseContentType` and `ResponseContentDisposition`, from
+      [`upload/file-types.ts`](../server/src/upload/file-types.ts). The type comes from the key's
+      extension: today's (`original.txt`), or the one keys carried before 5 Aug 2026, the mime
+      subtype's last dot segment, since the worker kept `path.extname` of presign's key
+      (`original.plain`, and `original.document` for a .docx). Anything else is served as
+      `application/octet-stream`, `attachment; filename="file"`. Images, video and voice are left
+      inline. *(Compose, 26 Nov: objects stored as `text/html` under `original.txt` and
+      `original.plain` came back through both signers as `text/plain; charset=utf-8` with
+      `attachment`; the other old forms are unit-tested only. A URL with the parameters dropped
+      or swapped got 403: they are inside the signature. Which old keys production holds is
+      unread.)*
+- Every dm-file now downloads as `file.<ext>`. The client's `<a download="originalName">` can't
+  rename it: the storage host is another origin, where browsers ignore `download`. The original
+  name could go in the signed disposition as `filename*=UTF-8''<percent-encoded>`, which can't
+  break out of the header; not built.
 - [ ] Verify: upload a `.txt` in a DM, take its signed URL from the network tab,
-      `curl -sI '<signed url>'` → `content-type: text/plain; charset=utf-8` and
-      `content-disposition: attachment`.
+      `curl -s -o /dev/null -D - '<signed url>'` → `content-type: text/plain; charset=utf-8`
+      and `content-disposition: attachment`. A GET, not `curl -I`: the URL is signed for GET,
+      and the storage host answered a HEAD with 405.
 
 ### 2.4 Presign: bind the content type (H1)
 
 Where: `presign` in [`upload.controller.ts`](../server/src/upload/upload.controller.ts).
 
-- [ ] Remove the `ContentDisposition` block (2.3c now sets it on the final object).
+- [x] Remove the `ContentDisposition` block (2.3c now sets it on the final object). *(Done in
+      `24c3fc3`, as 2.0's fix.)*
 - [ ] Pass `signableHeaders: new Set(['content-type'])` to `getSignedUrl` (verified:
       `SignedHeaders` becomes `content-length;content-type;host`). The client already sends
       `Content-Type: file.type`, the same value it presigned with — no client change.

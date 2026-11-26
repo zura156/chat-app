@@ -17,6 +17,7 @@ import { Message } from '../messenger/models/message.model';
 import { Conversation } from '../messenger/models/conversation.model';
 import { Types } from 'mongoose';
 import { isUUID } from 'validator';
+import { downloadOverrides, extensionOf } from './file-types';
 
 /** Contexts whose objects live in the private bucket and need signed reads. */
 const PRIVATE_CONTEXTS = ['dm-image', 'dm-video', 'dm-file', 'dm-audio'];
@@ -27,46 +28,8 @@ const fail = (res: Response, status: number, message: string) =>
 /** How long an unconfirmed upload record is kept before the TTL index reaps it. */
 const PENDING_UPLOAD_TTL_MS = 24 * 60 * 60 * 1000;
 
-/**
- * File extension for a stored object. Deriving it from the mime subtype gave
- * keys like `original.vnd.openxmlformats-officedocument.wordprocessingml.document`
- * for anything but plain image and video types.
- */
-const EXTENSIONS: Record<string, string> = {
-  'image/jpeg': 'jpg',
-  'image/png': 'png',
-  'image/webp': 'webp',
-  'image/gif': 'gif',
-  'image/heic': 'heic',
-  'image/heif': 'heif',
-  'video/mp4': 'mp4',
-  'video/quicktime': 'mov',
-  'video/webm': 'webm',
-  'video/x-msvideo': 'avi',
-  'video/x-matroska': 'mkv',
-  'audio/webm': 'weba',
-  'audio/ogg': 'ogg',
-  'audio/mp4': 'm4a',
-  'audio/mpeg': 'mp3',
-  'audio/wav': 'wav',
-  'application/pdf': 'pdf',
-  'application/msword': 'doc',
-  'application/vnd.openxmlformats-officedocument.wordprocessingml.document':
-    'docx',
-  'application/vnd.ms-excel': 'xls',
-  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': 'xlsx',
-  'application/vnd.ms-powerpoint': 'ppt',
-  'application/vnd.openxmlformats-officedocument.presentationml.presentation':
-    'pptx',
-  'text/plain': 'txt',
-  'text/csv': 'csv',
-  'application/zip': 'zip',
-  'application/x-7z-compressed': '7z',
-  'application/x-rar-compressed': 'rar',
-};
-
 const extensionFor = (mimeType: string): string =>
-  EXTENSIONS[mimeType] ?? 'bin';
+  extensionOf(mimeType) ?? 'bin';
 
 /**
  * A mime type as a person would name it — `.docx` rather than
@@ -74,7 +37,7 @@ const extensionFor = (mimeType: string): string =>
  * which is what a refusal message would otherwise have to quote.
  */
 const describeType = (mimeType: string): string => {
-  const extension = EXTENSIONS[mimeType];
+  const extension = extensionOf(mimeType);
   if (extension) return `.${extension}`;
   return mimeType ? mimeType.split('/')[1] || mimeType : 'unknown';
 };
@@ -362,6 +325,7 @@ export const getSignedDownloadUrl = async (req: AuthRequest, res: Response) => {
     const command = new GetObjectCommand({
       Bucket: appConfig.s3PrivateBucket,
       Key: key,
+      ...downloadOverrides(key),
     });
 
     signedVariants[name] = await getSignedUrl(s3App, command, {

@@ -34,8 +34,35 @@ export interface ScanResult {
   viruses: string[];
 }
 
+// What clamscan's scanStream really resolves with. @types/clamscan says
+// `isInfected: boolean`, but clamscan 2.4 resolves `null` whenever clamd's
+// reply is neither "OK", "FOUND" nor "ERROR": "COMMAND READ TIMED OUT", or an
+// empty reply from a clamd that went away after the last byte was sent.
+interface RawScanResult {
+  isInfected: boolean | null | undefined;
+  viruses?: string[];
+  resultString?: string;
+}
+
+/**
+ * Scans a stream through clamd. Only an explicit verdict counts: anything else
+ * throws, so BullMQ retries the job and its last failure marks the upload
+ * failed. This used to read a missing verdict as clean (`isInfected ?? false`),
+ * which stored the file as scanned when it never was (SECURITY-FIXES.md 2.3a).
+ */
 export const scanStream = async (stream: Readable): Promise<ScanResult> => {
   const clam = await getClamAV();
-  const { isInfected, viruses } = await clam.scanStream(stream);
-  return { isInfected: isInfected ?? false, viruses: viruses ?? [] };
+  const result = (await clam.scanStream(stream)) as RawScanResult;
+
+  if (result.isInfected === true) {
+    return { isInfected: true, viruses: result.viruses ?? [] };
+  }
+  if (result.isInfected === false) {
+    return { isInfected: false, viruses: [] };
+  }
+
+  // clamd's own reply, which names no user data ("stream: ..."), cut short so
+  // a runaway one can't flood the job's failedReason.
+  const reply = JSON.stringify((result.resultString ?? '').slice(0, 120));
+  throw new Error(`ClamAV gave no verdict (reply ${reply})`);
 };
