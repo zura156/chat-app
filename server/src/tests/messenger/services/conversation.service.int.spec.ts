@@ -353,4 +353,23 @@ describeIntegration('ConversationService — membership', () => {
 
     expect(await Conversation.findById(id)).toBeNull();
   });
+
+  it('refuses a group picture from another host, and stores nothing', async () => {
+    // The old check passed anything starting with `/`, and a browser loads
+    // `//evil.example/x.png` from evil.example (SECURITY-FIXES.md 2.5).
+    await expect(
+      service.createConversation(
+        [member._id.toString(), bystander._id.toString()],
+        true,
+        admin._id.toString(),
+        'Test group',
+        '//evil.example/x.png',
+      ),
+    ).rejects.toMatchObject({
+      statusCode: 400,
+      message: 'Invalid group picture',
+    });
+
+    expect(await Conversation.countDocuments()).toBe(0);
+  });
 });

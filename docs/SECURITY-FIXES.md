@@ -251,18 +251,45 @@ Where: `presign` in [`upload.controller.ts`](../server/src/upload/upload.control
 
 ### 2.5 `isOwnMediaUrl` accepts foreign URLs (L6)
 
-Where: [`conversation.service.ts`](../server/src/messenger/services/conversation.service.ts)
-(`isOwnMediaUrl`). `startsWith('/')` also matches `//evil.example/x.png`; the `s3Url` branch
-accepts any bucket, including temp.
+Where: [`own-media-url.ts`](../server/src/upload/own-media-url.ts), moved out of
+`conversation.service.ts` so a pure spec can test it. Its one caller is `createConversation`'s
+`group_picture`. `startsWith('/')` also matched `//evil.example/x.png`; the `s3Url` branch
+accepted any bucket, including temp.
 
-- [ ] Parse with `new URL()` inside try/catch.
-- [ ] Require `url.origin === new URL(appConfig.s3Url).origin`.
-- [ ] Require the path to start with `/<public bucket>/`.
-- [ ] Reject a query string or fragment; drop the relative-path branch (the client only sends
-      uploaded S3 URLs).
-- [ ] Spec — rejected: `//evil.example/a.png`, `/\evil.example/a.png`,
-      `https://s3.zura156.xyz.evil.example/...`, a temp-bucket URL, `javascript:alert(1)`, a
-      non-string. Accepted: a real public-bucket group-avatar URL.
+- [x] Parse with `new URL()` inside try/catch. *(The endpoint is parsed there too. An unset
+      `S3_ENDPOINT` or `S3_BUCKET_PUBLIC` accepts nothing, rather than a prefix of `/` or `//`.)*
+- [x] Require `url.origin === new URL(appConfig.s3Url).origin`. *(Implied by the prefix once the
+      string is canonical: a mutant without it fails no row. Kept as the plain statement of
+      intent.)*
+- [x] Require the path to start with `/<public bucket>/`. *(As the string the image handler
+      builds, `${s3Url}/${bucket}/`, with a key after it.)*
+- [x] Reject a query string or fragment, checked on the raw string, since a bare `?` or `#`
+      parses to an empty `search` or `hash`; drop the relative-path branch.
+- [x] (added) The parsed URL must serialize back to the same string, so nothing is stored that a
+      browser reads differently: `..` segments, backslashes, tabs and newlines, an upper-case host.
+- [x] (added) No `%` at all. `..%2f` and `%2e%2e%2f` are one segment to the parser, so they
+      survive the round trip; whether SeaweedFS decodes them into a separator is unknown [A], and
+      the image handler's keys never contain a `%`.
+- [x] Spec — [`own-media-url.spec.ts`](../server/src/tests/upload/own-media-url.spec.ts), 37
+      rows. Rejected: every row listed here before, plus another port, `http:`, user info, the
+      private bucket, `media-public-x`, the bucket root, the parser's rewrites, encoded slashes and
+      backslashes, `data:` and five non-strings. Accepted: the thumb, medium and large URLs, built as the image handler builds
+      them. Plus one row in `conversation.service.int.spec.ts`: create answers 400 "Invalid group
+      picture" and stores nothing.
+
+**Found while building it:** no client sends `group_picture`. Create's payload is `participants`,
+`is_group` and `group_name`. The client's `updateConversation` could send one, but no caller
+passes it, and the server's update takes only `group_name`. The picture is written by the worker
+(`onGroupAvatarComplete`), from the URL it built itself. So "the client only sends uploaded S3
+URLs" was wrong: it sends none, and the check guards a field only a hand-made request sets.
+Taking `group_picture` out of create would close it outright; kept on your call (27 Nov), with the check above as the guard.
+
+**Verified (27 Nov):** the server suite 530 of 530 with Mongo and Redis up; `tsc` clean.
+Mutants, each run against both specs and then restored: the old `startsWith('/')` branch fails 5
+rows, the int row included; without the round trip, 2 (`..` and the newline); without the
+`?`/`#`/`%` test, 7; without `%` alone, 3; without the unset-config guard, 1; without the
+key-length test, 1 (the bucket root); without the origin check, none. No compose run: nothing here
+touches storage or the worker.
 
 ### 2.6 Tighten the app CSP (L1)
 

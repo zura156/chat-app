@@ -21,8 +21,8 @@ import { MessageTypeEnum } from '../interfaces/message.interface';
 import { MessageService } from './message.service';
 import { buildDmKey } from '../models/conversation.model';
 import { invalidateParticipantsCache } from '../../utils/conversation-cache';
-import appConfig from '../../config/config';
 import { purgeConversationUploads } from '../../upload/upload-cleanup.service';
+import { isOwnMediaUrl } from '../../upload/own-media-url';
 import {
   clearNotificationForMute,
   dropNotificationsForConversation,
@@ -45,15 +45,6 @@ const MAX_PARTICIPANTS = 100;
  * pull their entire history in a single request.
  */
 const SEARCH_RESULT_LIMIT = 50;
-
-/**
- * Whether a URL points at media this server stored. Client-supplied image URLs
- * are otherwise a way to render arbitrary remote content — and to have every
- * viewer's browser make a request to a host of the sender's choosing.
- */
-const isOwnMediaUrl = (value: unknown): value is string =>
-  typeof value === 'string' &&
-  (value.startsWith(`${appConfig.s3Url}/`) || value.startsWith('/'));
 
 /**
  * Who may reshape a group.

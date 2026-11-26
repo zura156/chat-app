@@ -151,6 +151,12 @@ export const presign = async (req: AuthRequest, res: Response) => {
 
   const presignedUrl = await getSignedUrl(s3, command, {
     expiresIn: config.expiresIn,
+    // The presigner leaves Content-Type out of the signature by default, so a
+    // client could presign text/plain and PUT text/html: the temp object would
+    // carry whatever type the PUT chose (SECURITY-FIXES.md 2.4, H1). Signed,
+    // storage refuses any other value. The client PUTs the same `file.type` it
+    // presigned with, and Z's upload canary `text/plain` for `text/plain`.
+    signableHeaders: new Set(['content-type']),
   });
 
   // 6. Create pending upload record

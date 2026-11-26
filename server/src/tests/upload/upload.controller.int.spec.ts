@@ -153,6 +153,10 @@ describeIntegration('getUploadStatus', () => {
  * file upload with SignatureDoesNotMatch (found by Z's upload canary against
  * SeaweedFS 4.13 on 22 Nov). The browser sends Host and Content-Length itself
  * and the client sets Content-Type: a signature may cover nothing else.
+ *
+ * And it must cover Content-Type (SECURITY-FIXES.md 2.4): the presigner leaves
+ * it out by default, so the type declared at presign bound nothing, and a PUT
+ * could store the object under any type it liked.
  */
 const CLIENT_SENDS = ['content-length', 'content-type', 'host'];
 
@@ -188,6 +192,7 @@ describeIntegration('presign', () => {
         .get('X-Amz-SignedHeaders')!
         .split(';');
       expect(signed.filter((h) => !CLIENT_SENDS.includes(h)), context).toEqual([]);
+      expect(signed, context).toContain('content-type');
     }
   });
 });
