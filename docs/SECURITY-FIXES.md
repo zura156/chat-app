@@ -55,7 +55,7 @@ Router forwards nothing on 80/443 (verified with tcpdump), so the tunnel is the 
 
 ---
 
-## Step 2 — make uploads inert ← current
+## Step 2 — make uploads inert (done 27 Nov)
 
 **Why:** `dm-file` is the only upload context stored byte-for-byte (images go through `sharp`,
 audio/video through `ffmpeg`, all with server-chosen types). Files are served from
@@ -128,12 +128,12 @@ Where: `confirm` in [`upload.controller.ts`](../server/src/upload/upload.control
 - [ ] *(optional)* 1-day TTL on the temp bucket in SeaweedFS, for junk re-PUT to the old key.
       *(Still your call. Measured: the presigned URL still PUTs after confirm, so a re-PUT leaves
       a stray object at the old key, which nothing names or reads.)*
-- [ ] Production: the app identity copying and deleting inside the temp bucket. SYSTEM_CONTEXT.md
+- [x] Production: the app identity copying and deleting inside the temp bucket. SYSTEM_CONTEXT.md
       gives it the same actions as compose's (Read, ReadAcp, Write, List); a bucket policy on
       production that compose lacks is unchecked. If it refuses the copy, every DM file's confirm
       answers 500 from the push on. Right after deploy: read `upload_canary` on sentinel's
       `/status` (it runs this path every 10 min but is still at digest level, so it won't page),
-      send a PDF in a DM and open it, and check the API log has no "Failed to freeze".
+      send a PDF in a DM and open it, and check the API log has no "Failed to freeze". *(27 Nov, after the push: your report, "everything is good"; Z's upload canary's first run on the new code, 21:08 UTC, read "clean file ready, EICAR quarantined, 4 s after confirm".)*
 
 Freezing in the API, not the worker, matters: a worker-side freeze would run again on each retry
 and copy whatever is at the original key *by then*.
@@ -238,11 +238,11 @@ confirm, then PUT B through the same presigned URL; then the worker started.
       as `filename*=UTF-8''Q3%20report%20%28final%29.txt`, a Georgian name intact, and
       `a"; filename="x.html` as `a%3B%20filename%3Dx.docx`. Not run in a browser: that it
       prefers `filename*` (RFC 6266 §4.3) is unverified here.)*
-- [ ] Verify: upload a `.txt` in a DM, take its signed URL from the network tab,
+- [x] Verify: upload a `.txt` in a DM, take its signed URL from the network tab,
       `curl -s -o /dev/null -D - '<signed url>'` → `content-type: text/plain; charset=utf-8`
       and `content-disposition: attachment; filename="file.txt"; filename*=UTF-8''<its name>`.
       A GET, not `curl -I`: the URL is signed for GET, and the storage host answered a HEAD with
-      405. Then click it in the app: the browser should save it under its own name.
+      405. Then click it in the app: the browser should save it under its own name. *(27 Nov, after the push: your report, "everything is good"; Z's upload canary's first run on the new code, 21:08 UTC, read "clean file ready, EICAR quarantined, 4 s after confirm".)*
 
 **Holds only behind a signature.** The compose results above, files stored before 2.3c coming
 back as their real type and a URL with the overrides dropped getting 403, were measured with no
@@ -331,7 +331,7 @@ Where: [`security-headers.conf`](../security-headers.conf).
       client loads media from another host). *(In `15092ab`. The server stores no third-party
       image: no OIDC `picture`, no link previews. Old `pfp_url` values on another host in
       production's data are possible and unchecked [A]; such a picture would stop loading.)*
-- [ ] Verify: open a conversation with images, video and voice messages — no CSP errors in the
+- [x] Verify: open a conversation with images, video and voice messages — no CSP errors in the
       console. *(Locally, 27 Nov: `nginx:alpine` with this repo's `nginx.conf` and this file;
       `nginx -t` ok, and the policy is on `/`, on a static asset and on the SPA fallback. In
       Chromium 158:*
@@ -343,7 +343,7 @@ Where: [`security-headers.conf`](../security-headers.conf).
   | `https://example.org` audio and video, as `media-src` | blocked |
   | the storage host | not blocked (the probe's key doesn't exist, so it errored) |
 
-  *The real conversation is after deploy.)*
+  *The real conversation, after the push on 27 Nov: your report, "everything is good".)*
 
 ### 2.7 Buckets are not anonymously readable (no code)
 
@@ -406,9 +406,9 @@ forwarded link. A user could also upload a file, never confirm it, and link it f
 
 ### When Step 2 is done, hand over
 
-- [ ] `curl -sI` output from 2.1 and 2.3c
+- [x] `curl -sI` output from 2.1 and 2.3c *(27 Nov)*
 - [x] The 403s from 2.4 and 2.7 *(both in their sections)*
-- [ ] Pushed commits (for diff review and running the specs)
+- [x] Pushed commits (for diff review and running the specs) *(27 Nov, through `ec2e31d`)*
 
 ---
 
