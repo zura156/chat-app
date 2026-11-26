@@ -347,7 +347,7 @@ Where: [`security-headers.conf`](../security-headers.conf).
 
 ### 2.7 Buckets are not anonymously readable (no code)
 
-- [ ] From the laptop, each must print **403**:
+- [x] From the laptop, each must print **403**:
   ```bash
   for b in <temp-bucket> <private-bucket> <quarantine-bucket>; do printf '%s: ' "$b"; curl -s -o /dev/null -w '%{http_code}\n' "https://s3.zura156.xyz/$b/"; done
   ```
@@ -379,11 +379,12 @@ The key is in every signed URL's path: in the recipient's browser history, in lo
 forwarded link. A user could also upload a file, never confirm it, and link it from
 `s3.zura156.xyz` indefinitely, unscanned.
 
-- [ ] Decide it (you; read-only). Open a DM attachment in the app, copy its signed URL from the
+- [x] Decide it (you; read-only). Open a DM attachment in the app, copy its signed URL from the
       network tab, cut everything from `?`, and fetch it:
       `curl -s -o /dev/null -w '%{http_code}\n' '<url without the query>'`.
-      **200 = exposed**, 403 = not.
-- [ ] Fix, if 200: in production's SeaweedFS `s3.json`, give `anonymous` only
+      **200 = exposed**, 403 = not. *(27 Nov: **200** for two `dm-image` objects in
+      `media-private`, unsigned. Exposed.)*
+- [x] Fix, if 200: in production's SeaweedFS `s3.json`, give `anonymous` only
       `["Read:<public-bucket>"]`, then restart the S3 gateway. Nothing in the app reads the other
       buckets unsigned:
       - attachments are signed on the way out (`media-url.service.ts`: "not readable without a
@@ -392,14 +393,21 @@ forwarded link. A user could also upload a file, never confirm it, and link it f
       - uploads go through a presigned PUT;
       - the worker uses its own keys.
       Public avatars and group pictures keep loading.
-- [ ] Verify the fix: the unsigned URL from the first box → **403**; a missing key in
-      `<private-bucket>` → **403**, not 404; an avatar still loads in the app.
+      *(Done 27 Nov. Production's file is `base-config.json` in the SeaweedFS service's Coolify
+      folder; the master's start command turns it into `/config.json` (`weed server -s3`), and
+      nothing in the filer overrides it. Edited on disk with a backup beside it. If Coolify holds
+      the file's content in the compose, a redeploy brings `Read` back: make the same change in
+      Coolify's Storages too.)*
+- [x] Verify the fix: the unsigned URL from the first box → **403**; a missing key in
+      `<private-bucket>` → **403**, not 404; an avatar still loads in the app. *(27 Nov: both
+      stripped DM image URLs 403; profile pictures 200. A missing key answers 403
+      `AccessDenied` in the temp, private and quarantine buckets, and 404 only in the public
+      one, as compose's `Read:media-public` did.)*
 
 ### When Step 2 is done, hand over
 
 - [ ] `curl -sI` output from 2.1 and 2.3c
-- [ ] The 403s from 2.4 and 2.7 *(2.4's are in its section, from compose; 2.7's wait on its
-      first box)*
+- [x] The 403s from 2.4 and 2.7 *(both in their sections)*
 - [ ] Pushed commits (for diff review and running the specs)
 
 ---
