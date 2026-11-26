@@ -27,8 +27,15 @@ const privatePrefix = (): string =>
 const currentSigningDate = (): Date =>
   new Date(Math.floor(Date.now() / SIGNING_WINDOW_MS) * SIGNING_WINDOW_MS);
 
-/** Signs a stored URL if it points at the private bucket; passes others through. */
-export const signPrivateUrl = async (url: string): Promise<string> => {
+/**
+ * Signs a stored URL if it points at the private bucket; passes others through.
+ * `originalName`, the sender's name for an attachment, names a dm-file's
+ * download (upload/file-types.ts).
+ */
+export const signPrivateUrl = async (
+  url: string,
+  originalName?: string,
+): Promise<string> => {
   const prefix = privatePrefix();
   if (typeof url !== 'string' || !url.startsWith(prefix)) return url;
 
@@ -40,7 +47,7 @@ export const signPrivateUrl = async (url: string): Promise<string> => {
       new GetObjectCommand({
         Bucket: config.s3PrivateBucket,
         Key: key,
-        ...downloadOverrides(key),
+        ...downloadOverrides(key, originalName),
       }),
       {
         expiresIn: SIGNED_URL_TTL_SECONDS,
@@ -55,20 +62,26 @@ export const signPrivateUrl = async (url: string): Promise<string> => {
 
 export const signVariants = async (
   variants: Record<string, unknown> | null | undefined,
+  originalName?: string,
 ): Promise<Record<string, unknown> | null> => {
   if (!variants || typeof variants !== 'object') return null;
 
   const entries = await Promise.all(
     Object.entries(variants).map(async ([name, value]) => [
       name,
-      typeof value === 'string' ? await signPrivateUrl(value) : value,
+      typeof value === 'string'
+        ? await signPrivateUrl(value, originalName)
+        : value,
     ]),
   );
 
   return Object.fromEntries(entries);
 };
 
-type AttachmentLike = { variants?: Record<string, unknown> | null };
+type AttachmentLike = {
+  variants?: Record<string, unknown> | null;
+  originalName?: unknown;
+};
 
 export const signAttachments = async <T extends AttachmentLike>(
   attachments: T[] | undefined,
@@ -78,7 +91,12 @@ export const signAttachments = async <T extends AttachmentLike>(
   return Promise.all(
     attachments.map(async (attachment) => ({
       ...attachment,
-      variants: await signVariants(attachment.variants),
+      variants: await signVariants(
+        attachment.variants,
+        typeof attachment.originalName === 'string'
+          ? attachment.originalName
+          : undefined,
+      ),
     })),
   );
 };

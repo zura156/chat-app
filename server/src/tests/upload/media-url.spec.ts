@@ -21,7 +21,10 @@ vi.mock('../../config/config', async (importOriginal) => {
   };
 });
 
-import { signPrivateUrl } from '../../upload/media-url.service';
+import {
+  signAttachments,
+  signPrivateUrl,
+} from '../../upload/media-url.service';
 
 const sign = async (key: string) =>
   new URL(await signPrivateUrl(`http://s3.test/media-private/${key}`));
@@ -45,6 +48,20 @@ describe('signPrivateUrl', () => {
     expect(url.searchParams.get('X-Amz-Signature')).toBeTruthy();
     expect(url.searchParams.has('response-content-type')).toBe(false);
     expect(url.searchParams.has('response-content-disposition')).toBe(false);
+  });
+
+  it("names a message's file by its sender's name, with the server's extension", async () => {
+    const [attachment] = await signAttachments([
+      {
+        originalName: 'Q3 report.js',
+        variants: { original: 'http://s3.test/media-private/dm-file/u/id/original.txt' },
+      },
+    ]);
+    const url = new URL(attachment.variants!.original as string);
+
+    expect(url.searchParams.get('response-content-disposition')).toBe(
+      "attachment; filename=\"file.txt\"; filename*=UTF-8''Q3%20report.txt",
+    );
   });
 
   it('still gives everyone the same URL within the hour', async () => {

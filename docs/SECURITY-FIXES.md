@@ -183,14 +183,25 @@ and copy whatever is at the original key *by then*.
       `attachment`; the other old forms are unit-tested only. A URL with the parameters dropped
       or swapped got 403: they are inside the signature. Which old keys production holds is
       unread.)*
-- Every dm-file now downloads as `file.<ext>`. The client's `<a download="originalName">` can't
-  rename it: the storage host is another origin, where browsers ignore `download`. The original
-  name could go in the signed disposition as `filename*=UTF-8''<percent-encoded>`, which can't
-  break out of the header; not built.
+- [x] **Download names.** The client's `<a download="originalName">` can't name a download: the
+      storage host is another origin, where browsers ignore `download`. So the signers add the
+      sender's name (the message attachment's `originalName`) as `filename*=UTF-8''…`, RFC 5987
+      percent-encoding, which can't break out of the header; `filename` stays `file.<ext>`.
+      `downloadName` in [`upload/file-types.ts`](../server/src/upload/file-types.ts) keeps the
+      sender's stem but always the server's extension, since the extension is what a desktop
+      opens a file with ("invoice.js" holding text arrives as "invoice.txt"); it keeps a path's
+      last part, drops control and invisible format characters (a right-to-left override) and
+      the characters Windows refuses, and stops at 100 characters. A file of unknown type gets
+      no name. Uploads being processed are signed before any message names them, so they get
+      `file.<ext>`. *(Compose, 26 Nov, through both signers: "Q3 report (final).js" came back
+      as `filename*=UTF-8''Q3%20report%20%28final%29.txt`, a Georgian name intact, and
+      `a"; filename="x.html` as `a%3B%20filename%3Dx.docx`. Not run in a browser: that it
+      prefers `filename*` (RFC 6266 §4.3) is unverified here.)*
 - [ ] Verify: upload a `.txt` in a DM, take its signed URL from the network tab,
       `curl -s -o /dev/null -D - '<signed url>'` → `content-type: text/plain; charset=utf-8`
-      and `content-disposition: attachment`. A GET, not `curl -I`: the URL is signed for GET,
-      and the storage host answered a HEAD with 405.
+      and `content-disposition: attachment; filename="file.txt"; filename*=UTF-8''<its name>`.
+      A GET, not `curl -I`: the URL is signed for GET, and the storage host answered a HEAD with
+      405. Then click it in the app: the browser should save it under its own name.
 
 ### 2.4 Presign: bind the content type (H1)
 

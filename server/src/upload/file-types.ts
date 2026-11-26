@@ -50,13 +50,57 @@ export const extensionOf = (mimeType: string): string | undefined =>
 export const contentTypeFor = (mimeType: string): string =>
   mimeType.startsWith('text/') ? `${mimeType}; charset=utf-8` : mimeType;
 
-/** Always a generic name: nothing the user wrote goes into a header. */
-export const attachmentFor = (mimeType: string | undefined): string => {
+/**
+ * A download disposition. `filename` is always generic, so nothing the user
+ * wrote is ever quoted into a header. With the sender's name for the file,
+ * `filename*` adds it, percent-encoded (RFC 5987), which can't break out of
+ * the header whatever it holds. Browsers prefer `filename*` (RFC 6266).
+ */
+export const attachmentFor = (
+  mimeType: string | undefined,
+  originalName?: string,
+): string => {
   const extension = mimeType && extensionOf(mimeType);
-  return extension
-    ? `attachment; filename="file.${extension}"`
-    : 'attachment; filename="file"';
+  if (!extension) return 'attachment; filename="file"';
+
+  const generic = `attachment; filename="file.${extension}"`;
+  const name = originalName && downloadName(originalName, extension);
+  return name ? `${generic}; filename*=UTF-8''${encodeRfc5987(name)}` : generic;
 };
+
+// Control and invisible format characters (a right-to-left override makes
+// "invoice\u202Efdp.exe" read as "invoiceexe.pdf") and the characters
+// Windows refuses in a file name.
+const UNSAFE_IN_NAME = /[\p{Cc}\p{Cf}:*?"<>|]/gu;
+const MAX_NAME_CHARACTERS = 100;
+
+/**
+ * The sender's name for the file, with the server's extension in place of
+ * theirs: the extension is what a desktop opens a file with, so "invoice.js"
+ * holding text has to arrive as "invoice.txt", not as a script Windows runs.
+ * Undefined when nothing usable is left.
+ */
+export const downloadName = (
+  originalName: string,
+  extension: string,
+): string | undefined => {
+  // A name with a path in it (C:\Users\me\cv.docx) means its last part.
+  const base = originalName.split(/[\\/]/).pop() ?? '';
+  const cleaned = base
+    .replace(/\s+/g, ' ') // before the controls go, so a tab still parts words
+    .replace(UNSAFE_IN_NAME, '')
+    .replace(/ {2,}/g, ' ');
+  const stem = path.parse(cleaned).name.replace(/^[\s.]+|[\s.]+$/g, '');
+  const short = Array.from(stem).slice(0, MAX_NAME_CHARACTERS).join('').trim();
+  return short ? `${short}.${extension}` : undefined;
+};
+
+// encodeURIComponent leaves ' ( ) * as they are; RFC 5987 doesn't allow them.
+const encodeRfc5987 = (value: string): string =>
+  encodeURIComponent(value).replace(
+    /['()*]/g,
+    (c) => `%${c.charCodeAt(0).toString(16).toUpperCase()}`,
+  );
 
 // dm-file types by the extension in their stored key: today's, and the one
 // keys carried before 5 Aug 2026. Presign then used the mime subtype, and the
@@ -75,10 +119,12 @@ const DM_FILE_BY_EXTENSION = new Map<string, string>(
  * stored headers say: files stored before 2.3c kept the Content-Type their
  * client's PUT sent. The overrides are part of the signature, so a client
  * can't drop them. Other contexts are re-encoded by the worker, which sets
- * their type, and an image or a video has to stay inline.
+ * their type, and an image or a video has to stay inline. `originalName` is
+ * the sender's name for the file, from the message (attachmentFor).
  */
 export const downloadOverrides = (
   key: string,
+  originalName?: string,
 ): Pick<
   GetObjectCommandInput,
   'ResponseContentType' | 'ResponseContentDisposition'
@@ -97,6 +143,6 @@ export const downloadOverrides = (
     ResponseContentType: mimeType
       ? contentTypeFor(mimeType)
       : 'application/octet-stream',
-    ResponseContentDisposition: attachmentFor(mimeType),
+    ResponseContentDisposition: attachmentFor(mimeType, originalName),
   };
 };

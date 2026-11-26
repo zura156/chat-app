@@ -297,7 +297,7 @@ export const getSignedDownloadUrl = async (req: AuthRequest, res: Response) => {
   // security: verify requesting user is participant in the conversation
   const message = await Message.findOne(
     { 'attachments.uploadId': uploadId },
-    { conversation: 1 },
+    { conversation: 1, 'attachments.uploadId': 1, 'attachments.originalName': 1 },
   ).populate('conversation', 'participants');
 
   if (!message) return fail(res, 404, 'Message not found');
@@ -308,6 +308,11 @@ export const getSignedDownloadUrl = async (req: AuthRequest, res: Response) => {
     .includes(userId.toString());
 
   if (!isParticipant) return fail(res, 403, 'Access denied');
+
+  // The sender's name for the file names its download (upload/file-types.ts).
+  const originalName = message.attachments?.find(
+    (attachment) => attachment.uploadId === uploadId,
+  )?.originalName;
 
   // generate signed URLs for all variants
   const signedVariants: Record<string, string> = {};
@@ -325,7 +330,7 @@ export const getSignedDownloadUrl = async (req: AuthRequest, res: Response) => {
     const command = new GetObjectCommand({
       Bucket: appConfig.s3PrivateBucket,
       Key: key,
-      ...downloadOverrides(key),
+      ...downloadOverrides(key, originalName),
     });
 
     signedVariants[name] = await getSignedUrl(s3App, command, {

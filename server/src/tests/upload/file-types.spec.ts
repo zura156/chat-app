@@ -3,6 +3,7 @@ import { CONTEXT_CONFIG } from '../../config/upload.config';
 import {
   attachmentFor,
   contentTypeFor,
+  downloadName,
   downloadOverrides,
   extensionOf,
 } from '../../upload/file-types';
@@ -102,8 +103,68 @@ describe('extensionOf', () => {
 });
 
 describe('attachmentFor', () => {
-  it('names the file by its type only', () => {
+  it('names the file by its type only, without the sender\'s name', () => {
     expect(attachmentFor('text/plain')).toBe('attachment; filename="file.txt"');
     expect(attachmentFor(undefined)).toBe('attachment; filename="file"');
   });
+
+  it('adds the sender\'s name as filename*, percent-encoded', () => {
+    expect(attachmentFor('application/pdf', 'Report 2026.pdf')).toBe(
+      'attachment; filename="file.pdf"; filename*=UTF-8\'\'Report%202026.pdf',
+    );
+  });
+
+  it('encodes what could end the header or the value', () => {
+    expect(attachmentFor('text/plain', 'a"; filename="x.html\r\nSet-Cookie: y')).toBe(
+      'attachment; filename="file.txt"; filename*=UTF-8\'\'a%3B%20filename%3Dx.txt',
+    );
+    expect(attachmentFor('text/plain', "it's (1) *new*.txt")).toBe(
+      "attachment; filename=\"file.txt\"; filename*=UTF-8''it%27s%20%281%29%20new.txt",
+    );
+  });
+
+  it('encodes a name in any script', () => {
+    expect(attachmentFor('text/csv', 'ანგარიში.csv')).toBe(
+      "attachment; filename=\"file.csv\"; filename*=UTF-8''" +
+        encodeURIComponent('ანგარიში') + '.csv',
+    );
+  });
+
+  it('leaves a file of unknown type unnamed', () => {
+    expect(attachmentFor(undefined, 'notes.txt')).toBe(
+      'attachment; filename="file"',
+    );
+  });
+});
+
+describe('downloadName', () => {
+  it.each([
+    ['Report 2026.pdf', 'pdf', 'Report 2026.pdf'],
+    ['invoice.js', 'txt', 'invoice.txt'],
+    ['archive.tar.gz', 'zip', 'archive.tar.zip'],
+    ['notes', 'txt', 'notes.txt'],
+    ['  lots   of\tspace .txt', 'txt', 'lots of space.txt'],
+    ['.hidden', 'txt', 'hidden.txt'],
+    ['../../etc/passwd', 'txt', 'passwd.txt'],
+    ['C:\\Users\\me\\cv.docx', 'docx', 'cv.docx'],
+    ['.txt', 'txt', 'txt.txt'],
+    ['a " b?.txt', 'txt', 'a b.txt'],
+    ['invoice\u202Efdp.exe', 'pdf', 'invoicefdp.pdf'],
+    ['zero\u200Bwidth.txt', 'txt', 'zerowidth.txt'],
+  ])('%j as .%s is %j', (name, extension, expected) => {
+    expect(downloadName(name, extension)).toBe(expected);
+  });
+
+  it('keeps at most 100 characters before the extension', () => {
+    expect(downloadName(`${'ა'.repeat(300)}.txt`, 'txt')).toBe(
+      `${'ა'.repeat(100)}.txt`,
+    );
+  });
+
+  it.each(['', '   ', '...', '\u202E', '/', 'docs/'])(
+    'gives nothing for %j, so the generic name stands',
+    (name) => {
+      expect(downloadName(name, 'txt')).toBeUndefined();
+    },
+  );
 });
