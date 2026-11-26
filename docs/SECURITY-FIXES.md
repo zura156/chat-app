@@ -66,8 +66,11 @@ Suggested order: **2.0 → 2.1 → 2.7**, then **2.3 + 2.4** (deploy together), 
 
 ### 2.0 Check production DM file uploads (possible regression from `1995e39`)
 
-- [ ] Send a PDF in a DM on production.
-- [ ] If it fails: remove the `ContentDisposition` block from presign now.
+- [x] Send a PDF in a DM on production. *(It failed in compose against SeaweedFS 4.13 with
+      `SignatureDoesNotMatch`, 22 Nov, Z's upload canary. On production a file you sent in a DM
+      uploaded on 24 Nov, on `24c3fc3`.)*
+- [x] If it fails: remove the `ContentDisposition` block from presign now. *(Done in `24c3fc3`,
+      deployed 23 Nov.)*
 
 `@aws-sdk/s3-request-presigner` 3.1088 **signs** `Content-Disposition` by default
 (`X-Amz-SignedHeaders=content-disposition;content-length;host`), so the PUT must send that exact
@@ -88,6 +91,10 @@ Protects files that are **already** stored, which no code change can.
 `<img>`, `<video>` and `<audio>` are unaffected (a response's CSP only applies when it is opened as
 a document). Trade-off: Chrome will not preview a PDF in a sandboxed tab — files download instead,
 which is what 2.3 does anyway.
+
+**Not set yet (27 Nov):** an unsigned GET on the public bucket came back with `content-type`,
+`server: cloudflare` and `cf-cache-status: DYNAMIC`, and neither header. Until 2.7 is fixed this
+rule is the only thing protecting a stored HTML file fetched without a signature.
 
 ### 2.2 Freeze `dm-file` bytes at confirm (L13)
 
@@ -237,17 +244,42 @@ confirm, then PUT B through the same presigned URL; then the worker started.
       A GET, not `curl -I`: the URL is signed for GET, and the storage host answered a HEAD with
       405. Then click it in the app: the browser should save it under its own name.
 
+**Holds only behind a signature.** The compose results above, files stored before 2.3c coming
+back as their real type and a URL with the overrides dropped getting 403, were measured with no
+anonymous identity. Production's storage most likely serves an object to an unsigned GET (2.7).
+The same URL without its query string would then return the stored type, `text/html` included,
+with no disposition. The overrides protect signed links only, until 2.7 is fixed and 2.1 is set.
+
 ### 2.4 Presign: bind the content type (H1)
 
 Where: `presign` in [`upload.controller.ts`](../server/src/upload/upload.controller.ts).
 
 - [x] Remove the `ContentDisposition` block (2.3c now sets it on the final object). *(Done in
       `24c3fc3`, as 2.0's fix.)*
-- [ ] Pass `signableHeaders: new Set(['content-type'])` to `getSignedUrl` (verified:
+- [x] Pass `signableHeaders: new Set(['content-type'])` to `getSignedUrl` (verified:
       `SignedHeaders` becomes `content-length;content-type;host`). The client already sends
       `Content-Type: file.type`, the same value it presigned with — no client change.
-- [ ] Verify: presign `text/plain`, PUT with `-H 'Content-Type: text/html'` → **403**;
-      with `text/plain` → success.
+      *(In `15092ab`. `upload.controller.int.spec.ts` now requires `content-type` in every
+      context's signature; that row fails without the option. Every client path presigns and PUTs
+      the same `file.type`. Voice recordings drop the codec before they become a File
+      (`chatbox.component.ts`, `recordingFile`). Cropped avatars take their data URL's type. The
+      server signs the exact whitelisted string. Chromium 158 and Firefox 161 sent an XHR PUT of a
+      File with its type unchanged, for `text/plain`, `application/pdf`, `audio/webm`,
+      `image/png` and `text/csv`. Safari isn't tested [A].)*
+- [x] Verify: presign `text/plain`, PUT with `-H 'Content-Type: text/html'` → **403**;
+      with `text/plain` → success. *(Compose, 27 Nov, SeaweedFS 4.13, the real presign at
+      `15092ab`.)*
+
+  | PUT | Result |
+  |---|---|
+  | as `text/html` | 403 `SignatureDoesNotMatch` |
+  | with no type | 403 |
+  | as `text/plain; charset=utf-8` | 403 |
+  | as `text/plain` | 200, stored as `text/plain` |
+  | avatar presigned as `image/png`, PUT as `image/svg+xml` | 403 |
+
+  *Z's upload canary's first run stayed ok: "clean file ready, EICAR quarantined, 3 s after
+  confirm".*
 
 ### 2.5 `isOwnMediaUrl` accepts foreign URLs (L6)
 
@@ -295,10 +327,23 @@ touches storage or the worker.
 
 Where: [`security-headers.conf`](../security-headers.conf).
 
-- [ ] In `img-src` and `media-src`, replace `https:` with `https://s3.zura156.xyz` (nothing in the
-      client loads media from another host).
+- [x] In `img-src` and `media-src`, replace `https:` with `https://s3.zura156.xyz` (nothing in the
+      client loads media from another host). *(In `15092ab`. The server stores no third-party
+      image: no OIDC `picture`, no link previews. Old `pfp_url` values on another host in
+      production's data are possible and unchecked [A]; such a picture would stop loading.)*
 - [ ] Verify: open a conversation with images, video and voice messages — no CSP errors in the
-      console.
+      console. *(Locally, 27 Nov: `nginx:alpine` with this repo's `nginx.conf` and this file;
+      `nginx -t` ok, and the policy is on `/`, on a static asset and on the SPA fallback. In
+      Chromium 158:*
+
+  | Source | Result |
+  |---|---|
+  | the app's own icon, a `data:` image, a `blob:` image | loaded |
+  | `https://example.com` as `img-src` | blocked |
+  | `https://example.org` audio and video, as `media-src` | blocked |
+  | the storage host | not blocked (the probe's key doesn't exist, so it errored) |
+
+  *The real conversation is after deploy.)*
 
 ### 2.7 Buckets are not anonymously readable (no code)
 
@@ -309,10 +354,52 @@ Where: [`security-headers.conf`](../security-headers.conf).
   `200` on temp means unscanned files are linkable; `200` on private means every DM attachment is
   public.
 
+  *(27 Nov: 403 on all four buckets, the public one included. But listing a bucket is the `List`
+  action, and reading an object is `Read`, so this check doesn't test what its title says.)*
+
+**Found on 27 Nov: production most likely serves objects to an unsigned GET by key.** An
+unsigned GET of a key that doesn't exist answers **404 `NoSuchKey`** in all four buckets. SeaweedFS
+4.13 in compose gives the same answers only when an `anonymous` identity holds `Read` on every
+bucket.
+
+| Anonymous identity | List a bucket | Existing object | Missing key |
+|---|---|---|---|
+| `Read` | 403 | 200 | 404 |
+| `Read:media-public`, in the private bucket | 403 | 403 | 403 |
+| `Read:media-public`, in the public bucket | 403 | 200 | 404 |
+| none (compose's default) | 403 | 403 | 403 |
+
+SYSTEM_CONTEXT.md records an `anonymous` identity on production whose earlier note "granted it Read
+globally". If that's what it holds:
+- Every DM attachment can be read by anyone who has its key, with no expiry.
+- Every quarantined file can be too.
+- So can every temp object, unconfirmed and unscanned uploads included.
+
+The key is in every signed URL's path: in the recipient's browser history, in logs, in a
+forwarded link. A user could also upload a file, never confirm it, and link it from
+`s3.zura156.xyz` indefinitely, unscanned.
+
+- [ ] Decide it (you; read-only). Open a DM attachment in the app, copy its signed URL from the
+      network tab, cut everything from `?`, and fetch it:
+      `curl -s -o /dev/null -w '%{http_code}\n' '<url without the query>'`.
+      **200 = exposed**, 403 = not.
+- [ ] Fix, if 200: in production's SeaweedFS `s3.json`, give `anonymous` only
+      `["Read:<public-bucket>"]`, then restart the S3 gateway. Nothing in the app reads the other
+      buckets unsigned:
+      - attachments are signed on the way out (`media-url.service.ts`: "not readable without a
+        signature"), and the client re-signs expired ones (`signed-media.service.ts`);
+      - the conversation card shows only the file name;
+      - uploads go through a presigned PUT;
+      - the worker uses its own keys.
+      Public avatars and group pictures keep loading.
+- [ ] Verify the fix: the unsigned URL from the first box → **403**; a missing key in
+      `<private-bucket>` → **403**, not 404; an avatar still loads in the app.
+
 ### When Step 2 is done, hand over
 
 - [ ] `curl -sI` output from 2.1 and 2.3c
-- [ ] The 403s from 2.4 and 2.7
+- [ ] The 403s from 2.4 and 2.7 *(2.4's are in its section, from compose; 2.7's wait on its
+      first box)*
 - [ ] Pushed commits (for diff review and running the specs)
 
 ---

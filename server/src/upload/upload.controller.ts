@@ -246,7 +246,10 @@ const NOT_UPLOADED: Refusal = {
   status: 400,
   message: 'File not found in storage. Upload it first.',
 };
-const STORAGE_FAILED: Refusal = { status: 500, message: 'Storage check failed.' };
+const STORAGE_FAILED: Refusal = {
+  status: 500,
+  message: 'Storage check failed.',
+};
 
 /**
  * A dm-file's bytes, frozen where no presigned URL reaches (SECURITY-FIXES.md
@@ -291,10 +294,16 @@ const freeze = async (
   // names; the frozen bytes are safe either way.
   try {
     await s3App.send(
-      new DeleteObjectCommand({ Bucket: appConfig.s3TempBucket, Key: original }),
+      new DeleteObjectCommand({
+        Bucket: appConfig.s3TempBucket,
+        Key: original,
+      }),
     );
   } catch (error) {
-    logger.error(`Failed to delete temp object ${original} after freezing it`, error);
+    logger.error(
+      `Failed to delete temp object ${original} after freezing it`,
+      error,
+    );
   }
   return undefined;
 };
@@ -379,7 +388,11 @@ export const getSignedDownloadUrl = async (req: AuthRequest, res: Response) => {
   // security: verify requesting user is participant in the conversation
   const message = await Message.findOne(
     { 'attachments.uploadId': uploadId },
-    { conversation: 1, 'attachments.uploadId': 1, 'attachments.originalName': 1 },
+    {
+      conversation: 1,
+      'attachments.uploadId': 1,
+      'attachments.originalName': 1,
+    },
   ).populate('conversation', 'participants');
 
   if (!message) return fail(res, 404, 'Message not found');
