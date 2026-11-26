@@ -97,18 +97,52 @@ between the ClamAV scan and the copy (and between retries).
 Where: `confirm` in [`upload.controller.ts`](../server/src/upload/upload.controller.ts)
 (the `HeadObjectCommand` block). For `dm-file` only:
 
-- [ ] `CopyObject` the temp key to `frozen/<uploadId>/original.<ext>` in the temp bucket (no
+- [x] `CopyObject` the temp key to `frozen/<uploadId>/original.<ext>` in the temp bucket (no
       presigned key can target it — every presigned key starts with a context name).
       `NoSuchKey`/404 → the existing "File not found in storage" 400. This replaces the 403
-      `HeadObject` workaround for this context.
-- [ ] Delete the original temp key.
-- [ ] Set `upload.fileKey` to the frozen key before `save()`, so the job payload and
-      `handleFailedJob`'s cleanup use it with no further changes.
-- [ ] Other contexts keep `HeadObject` (their bytes are never scanned and always re-encoded).
+      `HeadObject` workaround for this context. *(26 Nov, uncommitted: `freeze()`. The
+      `HeadObject` stays in front of the copy, 403 workaround included: SeaweedFS 4.13 answers a
+      copy from a missing key with 400 `InvalidArgument`, not 404, so only the HEAD can say "not
+      uploaded". Any other copy failure is the existing 500.)*
+- [x] Delete the original temp key. *(A failed delete is logged, not fatal: nothing names that
+      key any more.)*
+- [x] Set `upload.fileKey` to the frozen key before `save()`, so the job payload and
+      `handleFailedJob`'s cleanup use it with no further changes. *(Saved before the delete, so
+      the record never names an object that is gone. Read, not run, on the failure path:
+      `handleFailedJob`, `moveToQuarantine`, the canary sweep and `upload-cleanup` all take the
+      job's or the record's `fileKey`; the handlers build the stored key from context, user and
+      upload id plus its extension, so a stored file stays under `dm-file/…`.)*
+- [x] Other contexts keep `HeadObject` (their bytes are never scanned and always re-encoded).
+- [x] *(added)* Claim the upload in one write before the copy:
+      `findOneAndUpdate({ _id, userId, status: 'pending' }, { status: 'processing' })`, back to
+      `pending` on any refusal so the client can upload and confirm again. Two confirms at once
+      would otherwise both copy, the second perhaps bytes swapped in after the first, over the
+      frozen key the first job is scanning. It covers every context, not only `dm-file`.
 - [ ] *(optional)* 1-day TTL on the temp bucket in SeaweedFS, for junk re-PUT to the old key.
+      *(Still your call. Measured: the presigned URL still PUTs after confirm, so a re-PUT leaves
+      a stray object at the old key, which nothing names or reads.)*
+- [ ] Production: the app identity copying and deleting inside the temp bucket. SYSTEM_CONTEXT.md
+      gives it the same actions as compose's (Read, ReadAcp, Write, List); a bucket policy on
+      production that compose lacks is unchecked. If it refuses the copy, every DM file's confirm
+      answers 500 from the push on. Right after deploy: read `upload_canary` on sentinel's
+      `/status` (it runs this path every 10 min but is still at digest level, so it won't page),
+      send a PDF in a DM and open it, and check the API log has no "Failed to freeze".
 
 Freezing in the API, not the worker, matters: a worker-side freeze would run again on each retry
 and copy whatever is at the original key *by then*.
+
+Verified in compose (26 Nov, `tests/failure/sentinel-canary-real/run.sh first` with `KEEP=1`:
+SeaweedFS 4.13, ClamAV 1.4.6, the real API and worker). With the worker stopped: presign, PUT A,
+confirm, then PUT B through the same presigned URL; then the worker started.
+
+- **Before (`69e08fa`):** the stored file was **B**, the swapped bytes (1 MiB).
+- **After:** **A**, at 90 MiB (confirm 242 ms with the copy; the worker 5.3 s) and at 1 MiB
+  (confirm 38 ms). The frozen key was deleted after processing; B stayed at the old key.
+- **The canary:** ok, "clean file ready, EICAR quarantined, 3 s after confirm", both records on
+  `frozen/<id>/original.txt`.
+- **Spec** `server/src/tests/upload/upload.confirm.int.spec.ts` (real Mongo; storage a map that
+  answers as 4.13 did): 7 tests, two confirms at once among them (one copy, one job). The suite
+  is 492 of 492.
 
 ### 2.3 Worker: trust nothing from the upload
 

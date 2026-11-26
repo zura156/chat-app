@@ -1,5 +1,7 @@
 import { Response } from 'express';
 import {
+  CopyObjectCommand,
+  DeleteObjectCommand,
   PutObjectCommand,
   HeadObjectCommand,
   GetObjectCommand,
@@ -18,6 +20,8 @@ import { Conversation } from '../messenger/models/conversation.model';
 import { Types } from 'mongoose';
 import { isUUID } from 'validator';
 import { downloadOverrides, extensionOf } from './file-types';
+import { logger } from '../utils/logger';
+import path from 'path';
 
 /** Contexts whose objects live in the private bucket and need signed reads. */
 const PRIVATE_CONTEXTS = ['dm-image', 'dm-video', 'dm-file', 'dm-audio'];
@@ -179,39 +183,34 @@ export const confirm = async (req: AuthRequest, res: Response) => {
     return fail(res, 400, 'A valid uploadId is required');
   }
 
-  const upload = await Upload.findOne({ _id: uploadId, userId });
+  // Claimed in one write, so two confirms at once can't both go on. With the
+  // freeze below, a second one would copy again, perhaps bytes swapped in
+  // after the first, over the frozen key the first job is scanning.
+  const upload = await Upload.findOneAndUpdate(
+    { _id: uploadId, userId, status: 'pending' },
+    { $set: { status: 'processing' } },
+    { returnDocument: 'after' },
+  );
 
   if (!upload) {
-    return fail(res, 404, 'Upload not found');
+    return (await Upload.exists({ _id: uploadId, userId }))
+      ? fail(res, 400, 'Upload already confirmed')
+      : fail(res, 404, 'Upload not found');
   }
 
-  if (upload.status !== 'pending') {
-    return fail(res, 400, 'Upload already confirmed');
-  }
+  const refused =
+    upload.context === 'dm-file'
+      ? await freeze(upload)
+      : await checkStored(upload.fileKey);
 
-  try {
-    await s3App.send(
-      new HeadObjectCommand({
-        Bucket: appConfig.s3TempBucket,
-        Key: upload.fileKey,
-      }),
+  if (refused) {
+    // Back to pending, so the client can upload again and confirm.
+    await Upload.updateOne(
+      { _id: upload._id, status: 'processing' },
+      { $set: { status: 'pending' } },
     );
-  } catch (e: any) {
-    // 403 = file exists but metadata access denied (SeaweedFS IAM quirk) — allow
-    // 404 = file genuinely doesn't exist — reject
-    if (e?.$metadata?.httpStatusCode === 404) {
-      return fail(res, 400, 'File not found in storage. Upload it first.');
-    }
-    if (e?.$metadata?.httpStatusCode !== 403) {
-      // unexpected error
-      return fail(res, 500, 'Storage check failed.');
-    }
-    // 403 → file exists, continue
+    return fail(res, refused.status, refused.message);
   }
-
-  // Mark as processing
-  upload.status = 'processing';
-  await upload.save();
 
   // Enqueue worker job
   await uploadQueue.add(
@@ -233,6 +232,83 @@ export const confirm = async (req: AuthRequest, res: Response) => {
   );
 
   return res.json({ ok: true });
+};
+
+type Refusal = { status: number; message: string };
+
+const NOT_UPLOADED: Refusal = {
+  status: 400,
+  message: 'File not found in storage. Upload it first.',
+};
+const STORAGE_FAILED: Refusal = { status: 500, message: 'Storage check failed.' };
+
+/**
+ * A dm-file's bytes, frozen where no presigned URL reaches (SECURITY-FIXES.md
+ * 2.2). The presigned PUT stays valid for its whole lifetime after confirm, so
+ * the bytes at its key could be swapped between ClamAV's scan, the worker's
+ * byte check and the store, or between retries. Every presigned key starts
+ * with a context name, and no context is called `frozen`.
+ *
+ * The record names the frozen key before the original is deleted, so it never
+ * points at an object that is gone; the job, handleFailedJob and the sweeps
+ * all read it from there. Here, not in the worker: a freeze there would run
+ * again on each retry and copy whatever was at the original key by then.
+ */
+const freeze = async (
+  upload: InstanceType<typeof Upload>,
+): Promise<Refusal | undefined> => {
+  const original = upload.fileKey;
+  const frozen = `frozen/${upload._id}/original${path.extname(original)}`;
+
+  // Checked first: SeaweedFS 4.13 answers a copy from a missing key with
+  // 400 InvalidArgument, not 404, so the copy's error can't say "not uploaded".
+  const missing = await checkStored(original);
+  if (missing) return missing;
+
+  try {
+    await s3App.send(
+      new CopyObjectCommand({
+        CopySource: `${appConfig.s3TempBucket}/${original}`,
+        Bucket: appConfig.s3TempBucket,
+        Key: frozen,
+      }),
+    );
+  } catch (error) {
+    logger.error(`Failed to freeze temp object ${original}`, error);
+    return STORAGE_FAILED;
+  }
+
+  upload.fileKey = frozen;
+  await upload.save();
+
+  // A delete that fails leaves a stray object at a key the upload no longer
+  // names; the frozen bytes are safe either way.
+  try {
+    await s3App.send(
+      new DeleteObjectCommand({ Bucket: appConfig.s3TempBucket, Key: original }),
+    );
+  } catch (error) {
+    logger.error(`Failed to delete temp object ${original} after freezing it`, error);
+  }
+  return undefined;
+};
+
+/** Other contexts are never scanned and always re-encoded: their object only
+ * has to exist. */
+const checkStored = async (fileKey: string): Promise<Refusal | undefined> => {
+  try {
+    await s3App.send(
+      new HeadObjectCommand({ Bucket: appConfig.s3TempBucket, Key: fileKey }),
+    );
+    return undefined;
+  } catch (e: any) {
+    // 403 = file exists but metadata access denied (SeaweedFS IAM quirk) — allow
+    // 404 = file genuinely doesn't exist — reject
+    const status = e?.$metadata?.httpStatusCode;
+    if (status === 404) return NOT_UPLOADED;
+    if (status === 403) return undefined;
+    return STORAGE_FAILED;
+  }
 };
 
 /*
