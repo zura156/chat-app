@@ -82,17 +82,17 @@ header. The client PUT in
 
 Protects files that are **already** stored, which no code change can.
 
-- [ ] Cloudflare → **Rules → Transform Rules → Modify Response Header**, hostname equals
+- [x] Cloudflare → **Rules → Transform Rules → Modify Response Header**, hostname equals
       `s3.zura156.xyz`:
-  - [ ] Set `X-Content-Type-Options` = `nosniff`
-  - [ ] Set `Content-Security-Policy` = `default-src 'none'; sandbox`
-- [ ] Verify: `curl -sI "https://s3.zura156.xyz/<public-bucket>/<avatar key>"` shows both headers.
+  - [x] Set `X-Content-Type-Options` = `nosniff`
+  - [x] Set `Content-Security-Policy` = `default-src 'none'; sandbox`
+- [x] Verify: `curl -sI "https://s3.zura156.xyz/<public-bucket>/<avatar key>"` shows both headers. *(27 Nov: a Response Header Transform Rule, both Set static; on an avatar and on a missing key both headers came back.)*
 
 `<img>`, `<video>` and `<audio>` are unaffected (a response's CSP only applies when it is opened as
 a document). Trade-off: Chrome will not preview a PDF in a sandboxed tab — files download instead,
 which is what 2.3 does anyway.
 
-**Not set yet (27 Nov):** an unsigned GET on the public bucket came back with `content-type`,
+**Before the rule (27 Nov):** an unsigned GET on the public bucket came back with `content-type`,
 `server: cloudflare` and `cf-cache-status: DYNAMIC`, and neither header. Until 2.7 is fixed this
 rule is the only thing protecting a stored HTML file fetched without a signature.
 
