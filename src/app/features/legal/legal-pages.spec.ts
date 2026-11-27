@@ -74,6 +74,24 @@ describe.each([
   });
 });
 
+describe('analytics disclosure', () => {
+  /*
+   * Cloudflare injects its Web Analytics beacon at the edge, so nothing in this
+   * repo loads it and no build would notice the pages contradicting it. They
+   * once said "we use no analytics" while it ran. If the beacon is turned off,
+   * delete this block along with the disclosures it guards.
+   */
+  it.each([
+    ['Privacy Policy', PrivacyPolicy],
+    ['Cookies & Storage', CookiePolicy],
+  ] as const)('%s names Cloudflare Web Analytics', async (_, component) => {
+    const page = await render(component);
+
+    expect(page.textContent).toContain('Cloudflare Web Analytics');
+    expect(page.textContent).not.toMatch(/no analytics/i);
+  });
+});
+
 describe('cookie page', () => {
   it('lists every cookie the API sets', async () => {
     const page = await render(CookiePolicy);

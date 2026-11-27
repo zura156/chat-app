@@ -9,8 +9,9 @@
   <p class="lede">
     {{ legal.serviceName }} stores a small amount of information in your
     browser. All of it is needed to keep you signed in and secure, or remembers
-    a choice you made. We use no analytics, advertising or tracking cookies,
-    and nothing from other websites — so there is nothing to opt in to.
+    a choice you made. We use no advertising or tracking cookies. One script
+    from another company runs on our pages — Cloudflare Web Analytics, which
+    counts visits — and it stores nothing in your browser.
   </p>
 
   @for (group of groups; track group.id) {
@@ -42,15 +43,29 @@
     }
   }
 
+  <h2 id="other-scripts">Other scripts</h2>
+  <p>
+    <strong>Cloudflare Web Analytics</strong> loads from
+    <code>static.cloudflareinsights.com</code> and reports each page you open
+    — including moves between screens inside the app — with the page address,
+    the page you came from, your browser and device type, and how long the
+    page took to load. It sets no cookies and writes nothing to local or
+    session storage. We use it to see which parts of the Service are used and
+    which are slow. The
+    <a routerLink="/legal/privacy" fragment="what-we-collect">Privacy Policy</a>
+    has the details.
+  </p>
+
   <h2 id="control">Your control</h2>
   <p>
     You can clear or block all of this in your browser's settings. Blocking
     cookies will sign you out and stop you signing back in; clearing storage
-    resets your display preferences.
+    resets your display preferences. A content or tracker blocker can stop
+    the analytics script without affecting anything else.
   </p>
   <p>
-    If we ever add anything that is not strictly necessary, we will ask for
-    your consent first and list it here. For everything else about your data,
+    If we ever add cookies or storage that are not strictly necessary, we will
+    ask for your consent first and list them here. For everything else about your data,
     see the <a routerLink="/legal/privacy">Privacy Policy</a>, or contact
     <app-legal-fact fact="contactEmail" />.
   </p>

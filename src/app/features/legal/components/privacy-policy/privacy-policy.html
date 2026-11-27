@@ -25,8 +25,9 @@
         read.
       </li>
       <li>
-        We do not sell your data, show ads, or use analytics or advertising
-        trackers.
+        We do not sell your data, show ads, or use advertising trackers. We
+        count page visits and load times with Cloudflare Web Analytics, which
+        sets no cookies.
       </li>
       <li>
         You can download your data and delete your account at any time from
@@ -115,13 +116,23 @@
       account identifier, and short-lived rate-limit counters keyed by IP
       address or account.
     </li>
+    <li>
+      <strong>Usage statistics:</strong> a small script from Cloudflare Web
+      Analytics reports each page you open, including moves between screens
+      inside the app, with the page address, the page you came from, your
+      browser and device type, and how long the page took to load. Page
+      addresses can contain the ID of a conversation or of a profile you are
+      viewing, but never message content. The script sets no cookies and
+      stores nothing on your device.
+    </li>
   </ul>
 
   <h3>On your device</h3>
   <p>
     A few cookies keep you signed in and protect your account, and your browser
     remembers display preferences such as your theme. All of them are needed
-    for the Service to work; none track you. The
+    for the Service to work; none track you. The analytics script above stores
+    nothing in your browser. The
     <a routerLink="/legal/cookies">Cookies &amp; Storage</a> page lists each
     one.
   </p>
@@ -165,6 +176,12 @@
             repeated failed sign-ins, and keep error logs</td>
           <td>Our legitimate interest in protecting the Service and your
             account from abuse</td>
+        </tr>
+        <tr>
+          <td>Count page visits and measure load times, to see which parts of
+            the Service are used and which are slow</td>
+          <td>Our legitimate interest in understanding and improving the
+            Service</td>
         </tr>
         <tr>
           <td>Check new passwords against known data breaches</td>
@@ -223,8 +240,9 @@
   <ul>
     <li>hosting and database providers, which store account and message data;</li>
     <li>
-      a network provider, which carries traffic between you and our servers and
-      protects them from attacks;
+      Cloudflare, which carries traffic between you and our servers, protects
+      them from attacks, and provides the usage statistics described in
+      section 2;
     </li>
     <li>an email delivery provider, which sends our account emails.</li>
   </ul>

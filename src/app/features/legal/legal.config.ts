@@ -41,7 +41,7 @@ export const LEGAL = {
   minimumAge: 16,
 
   /** ISO date. Bump it whenever the substance of any legal page changes. */
-  lastUpdated: '2026-11-24',
+  lastUpdated: '2026-11-28',
 };
 
 /** The facts a reader cannot do without, named the way the banner says them. */

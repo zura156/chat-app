@@ -23,8 +23,16 @@ interface StorageGroup {
  * `res.cookie(...)` on the server and every `localStorage` / `sessionStorage`
  * key on the client. All of it is strictly necessary or remembers a choice the
  * user made, which is why there is no consent banner — the ePrivacy exemption
- * covers exactly this. Adding analytics, ads or a third-party embed ends that
+ * covers exactly this. Adding a cookie, ads or a third-party embed ends that
  * exemption: add a consent prompt *and* a row here in the same change.
+ *
+ * The one third-party script, Cloudflare Web Analytics, is injected at the
+ * edge (not in this repo; see `security-headers.conf` for its CSP entries) and
+ * is disclosed in "Other scripts" rather than in a table: it stores nothing on
+ * the device. It runs without a consent prompt by choice (28 Nov). Whether a
+ * cookieless beacon needs one in the EU is unsettled — revisit with a lawyer.
+ * If it is ever turned off, delete that section and the Privacy Policy's
+ * "Usage statistics" bullet, table row and provider mention with it.
  */
 @Component({
   imports: [RouterLink, DatePipe, LegalFactComponent],
